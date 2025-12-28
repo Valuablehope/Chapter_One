@@ -41,16 +41,11 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen relative overflow-hidden bg-white flex items-center justify-center p-4">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* Floating Orbs - Light Theme */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-400/30 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob"></div>
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-indigo-400/30 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-cyan-400/30 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
-
-        {/* Grid Pattern - Light */}
-        <div className="absolute inset-0 bg-grid-pattern-light opacity-5"></div>
+        {/* Subtle Background Pattern */}
+        <div className="absolute inset-0 bg-gray-50 opacity-50"></div>
       </div>
 
       {/* Main Content */}
@@ -59,13 +54,13 @@ export default function LoginScreen() {
         <div className="text-center mb-8 animate-slide-up">
           <div className="relative mx-auto w-24 h-24 mb-6 inline-block">
             {/* Outer Glow */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-cyan-500 opacity-60 blur-xl animate-pulse-slow"></div>
+            <div className="absolute inset-0 rounded-3xl bg-secondary-500 opacity-20 blur-xl animate-pulse-slow"></div>
             
             {/* Logo Container */}
-            <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-blue-100 flex items-center justify-center">
-              <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50"></div>
+            <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center">
+              <div className="absolute inset-2 rounded-2xl bg-secondary-50"></div>
               <svg
-                className="relative w-12 h-12 text-blue-600"
+                className="relative w-12 h-12 text-secondary-500"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -80,7 +75,7 @@ export default function LoginScreen() {
             </div>
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 mb-2 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-secondary-500 mb-2 tracking-tight">
             Chapter One POS
           </h1>
           <p className="text-lg text-gray-600 font-semibold">Sign in to your account</p>
@@ -109,7 +104,7 @@ export default function LoginScreen() {
               </label>
               <div className="relative group">
                 {/* Icon */}
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-secondary-500 transition-colors">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -130,7 +125,7 @@ export default function LoginScreen() {
                   disabled={isLoading}
                   className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${
                     focusedField === 'username'
-                      ? 'border-blue-500 bg-white shadow-lg shadow-blue-500/20'
+                      ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
                       : 'border-gray-200 hover:border-gray-300'
                   } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
                   placeholder="Enter your username"
@@ -148,7 +143,7 @@ export default function LoginScreen() {
               </label>
               <div className="relative group">
                 {/* Lock Icon */}
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-secondary-500 transition-colors">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -168,7 +163,7 @@ export default function LoginScreen() {
                   disabled={isLoading}
                   className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${
                     focusedField === 'password'
-                      ? 'border-blue-500 bg-white shadow-lg shadow-blue-500/20'
+                      ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
                       : 'border-gray-200 hover:border-gray-300'
                   } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
                   placeholder="Enter your password"
@@ -178,7 +173,7 @@ export default function LoginScreen() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors focus:outline-none"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-secondary-500 transition-colors focus:outline-none"
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -199,7 +194,7 @@ export default function LoginScreen() {
             <button
               type="submit"
               disabled={isLoading || !username || !password}
-              className="w-full relative group bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-500 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:via-indigo-600 disabled:hover:to-cyan-600 flex items-center justify-center space-x-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full relative group bg-secondary-500 hover:bg-secondary-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg shadow-secondary-500/25 hover:shadow-xl hover:shadow-secondary-500/40 hover:scale-[1.02] active:scale-[0.98]"
             >
               {isLoading ? (
                 <>
@@ -300,12 +295,6 @@ export default function LoginScreen() {
           animation: fadeIn 0.8s ease-out 0.4s both;
         }
         
-        .bg-grid-pattern-light {
-          background-image: 
-            linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
-          background-size: 50px 50px;
-        }
         
         @keyframes scaleIn {
           from {

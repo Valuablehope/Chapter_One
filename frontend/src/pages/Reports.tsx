@@ -155,29 +155,30 @@ export default function Reports() {
   const totalCost = purchaseSummary.reduce((sum, item) => sum + Number(item.total_cost || 0), 0);
   const totalPOs = purchaseSummary.reduce((sum, item) => sum + (item.po_count || 0), 0);
 
-  // Chart colors
-  const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+  // Chart colors - using secondary color variations and semantic colors
+  const CHART_COLORS = ['#3582e2', '#2a68b5', '#3582e2', '#f59e0b', '#ef4444', '#06b6d4'];
 
   return (
     <>
       {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <div className="flex items-center space-x-2 sm:space-x-3 mb-2">
-              <div className="p-2 sm:p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                <ChartBarIcon className="w-5 h-5 sm:w-7 sm:h-7" />
+            <div className="flex items-center space-x-2 mb-1">
+              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
+                <ChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold">Reports & Analytics</h1>
-                <p className="text-cyan-50 text-xs sm:text-sm mt-1">View sales, purchases, and inventory insights</p>
+                <h1 className="text-xl sm:text-2xl font-extrabold">Reports & Analytics</h1>
+                <p className="text-white/80 text-xs mt-0.5">View sales, purchases, and inventory insights</p>
               </div>
             </div>
           </div>
           <Button
             onClick={loadReport}
-            className="bg-white !text-cyan-700 hover:bg-cyan-50 font-semibold shadow-lg hover:shadow-xl transition-all"
-            leftIcon={<ArrowPathIcon className="w-5 h-5 !text-cyan-700" />}
+            size="sm"
+            className="bg-white !text-secondary-500 hover:bg-gray-50 font-semibold shadow-md hover:shadow-lg transition-all"
+            leftIcon={<ArrowPathIcon className="w-4 h-4 !text-secondary-500" />}
             isLoading={loading}
           >
             Refresh
@@ -185,42 +186,42 @@ export default function Reports() {
         </div>
       </div>
 
-      <Card padding="none" className="border-2 border-gray-100 shadow-lg">
+      <Card padding="none" className="border-2 border-gray-100 shadow-md">
 
         {/* Enhanced Tabs */}
         <div className="border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-          <nav className="flex -mb-px px-6">
+          <nav className="flex -mb-px px-3">
             <button
               onClick={() => setActiveTab('sales')}
-              className={`px-6 py-4 text-sm font-bold border-b-2 transition-all duration-200 flex items-center gap-2 ${
+              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
                 activeTab === 'sales'
-                  ? 'border-green-500 text-green-600 bg-gradient-to-b from-green-50 to-white'
+                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
               }`}
             >
-              <CurrencyDollarIcon className="w-5 h-5" />
+              <CurrencyDollarIcon className="w-4 h-4" />
               Sales Reports
             </button>
             <button
               onClick={() => setActiveTab('purchases')}
-              className={`px-6 py-4 text-sm font-bold border-b-2 transition-all duration-200 flex items-center gap-2 ${
+              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
                 activeTab === 'purchases'
-                  ? 'border-orange-500 text-orange-600 bg-gradient-to-b from-orange-50 to-white'
+                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
               }`}
             >
-              <ShoppingCartIcon className="w-5 h-5" />
+              <ShoppingCartIcon className="w-4 h-4" />
               Purchase Reports
             </button>
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`px-6 py-4 text-sm font-bold border-b-2 transition-all duration-200 flex items-center gap-2 ${
+              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
                 activeTab === 'inventory'
-                  ? 'border-emerald-500 text-emerald-600 bg-gradient-to-b from-emerald-50 to-white'
+                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
               }`}
             >
-              <CubeIcon className="w-5 h-5" />
+              <CubeIcon className="w-4 h-4" />
               Inventory Reports
             </button>
           </nav>
@@ -228,33 +229,33 @@ export default function Reports() {
 
         {/* Enhanced Filters */}
         {(activeTab === 'sales' || activeTab === 'purchases') && (
-          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b-2 border-gray-200 bg-white">
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="px-3 py-3 border-b-2 border-gray-200 bg-white">
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Start Date</label>
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CalendarIcon className="w-5 h-5" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <CalendarIcon className="w-4 h-4" />
                   </div>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
-                    className="w-64 pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all bg-white font-medium"
+                    className="w-56 pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">End Date</label>
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CalendarIcon className="w-5 h-5" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <CalendarIcon className="w-4 h-4" />
                   </div>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
-                    className="w-64 pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all bg-white font-medium"
+                    className="w-56 pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
                 </div>
               </div>
@@ -263,10 +264,10 @@ export default function Reports() {
         )}
 
         {/* Report Content */}
-        <div className="p-6">
+        <div className="p-4">
           {loading ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <CardSkeleton />
                 <CardSkeleton />
                 <CardSkeleton />
@@ -277,51 +278,51 @@ export default function Reports() {
             <>
               {/* Sales Reports */}
               {activeTab === 'sales' && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Enhanced Summary Cards */}
                   {salesReportType === 'summary' && salesSummary.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <Card className="border-2 border-green-200 bg-gradient-to-br from-white to-green-50 shadow-lg hover:shadow-xl transition-all" padding="none">
-                        <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                        <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-semibold text-gray-600 mb-2">Total Revenue</p>
-                              <p className="text-3xl font-extrabold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">Total Revenue</p>
+                              <p className="text-xl font-extrabold text-secondary-500">
                                 {formatCurrency(totalRevenue)}
                               </p>
                             </div>
-                            <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
-                              <CurrencyDollarIcon className="w-6 h-6 text-white" />
+                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
+                              <CurrencyDollarIcon className="w-5 h-5 text-white" />
                             </div>
                           </div>
                         </div>
                       </Card>
-                      <Card className="border-2 border-blue-200 bg-gradient-to-br from-white to-blue-50 shadow-lg hover:shadow-xl transition-all" padding="none">
-                        <div className="p-6">
+                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                        <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-semibold text-gray-600 mb-2">Total Transactions</p>
-                              <p className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">Total Transactions</p>
+                              <p className="text-xl font-extrabold text-secondary-500">
                                 {totalTransactions}
                               </p>
                             </div>
-                            <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-lg">
-                              <ShoppingCartIcon className="w-6 h-6 text-white" />
+                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
+                              <ShoppingCartIcon className="w-5 h-5 text-white" />
                             </div>
                           </div>
                         </div>
                       </Card>
-                      <Card className="border-2 border-cyan-200 bg-gradient-to-br from-white to-cyan-50 shadow-lg hover:shadow-xl transition-all" padding="none">
-                        <div className="p-6">
+                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                        <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-semibold text-gray-600 mb-2">Average per Transaction</p>
-                              <p className="text-3xl font-extrabold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">Average per Transaction</p>
+                              <p className="text-xl font-extrabold text-secondary-500">
                                 {totalTransactions > 0 ? formatCurrency(totalRevenue / totalTransactions) : formatCurrency(0)}
                               </p>
                             </div>
-                            <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl shadow-lg">
-                              <ChartBarIcon className="w-6 h-6 text-white" />
+                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
+                              <ChartBarIcon className="w-5 h-5 text-white" />
                             </div>
                           </div>
                         </div>
@@ -330,43 +331,43 @@ export default function Reports() {
                   )}
 
                   {/* Enhanced Report Type Selector */}
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setSalesReportType('summary')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         salesReportType === 'summary'
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-green-300 hover:bg-green-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       Summary
                     </button>
                     <button
                       onClick={() => setSalesReportType('products')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         salesReportType === 'products'
-                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       By Product
                     </button>
                     <button
                       onClick={() => setSalesReportType('customers')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         salesReportType === 'customers'
-                          ? 'bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-sky-300 hover:bg-sky-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       By Customer
                     </button>
                     <button
                       onClick={() => setSalesReportType('payment-methods')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         salesReportType === 'payment-methods'
-                          ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       Payment Methods
@@ -375,12 +376,12 @@ export default function Reports() {
 
                   {/* Sales Summary */}
                   {salesReportType === 'summary' && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {/* Chart */}
                       {salesSummary.length > 0 && (
                         <Card>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Trend</h3>
-                          <ResponsiveContainer width="100%" height={300}>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Revenue Trend</h3>
+                          <ResponsiveContainer width="100%" height={250}>
                             <LineChart data={salesSummary}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="date" tickFormatter={(value) => formatDate(value)} />
@@ -400,7 +401,7 @@ export default function Reports() {
                               <Line
                                 type="monotone"
                                 dataKey="total_tax"
-                                stroke="#10b981"
+                                stroke="#3582e2"
                                 strokeWidth={2}
                                 name="Tax"
                               />
@@ -410,23 +411,23 @@ export default function Reports() {
                       )}
 
                       {/* Enhanced Table */}
-                      <Card padding="none" className="border-2 border-gray-100 shadow-lg overflow-hidden">
+                      <Card padding="none" className="border-2 border-gray-100 shadow-md overflow-hidden">
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                               <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Date</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Transactions</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Revenue</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Tax</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Date</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Transactions</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Revenue</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Tax</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                               {salesSummary.length === 0 ? (
                                 <tr>
-                                  <td colSpan={4} className="px-6 py-12">
+                                  <td colSpan={4} className="px-4 py-8">
                                     <EmptyState
-                                      icon={<ChartBarIcon className="w-12 h-12" />}
+                                      icon={<ChartBarIcon className="w-10 h-10" />}
                                       title="No data available"
                                       description="No sales data found for the selected date range"
                                     />
@@ -436,20 +437,20 @@ export default function Reports() {
                                 salesSummary.map((item, idx) => (
                                   <tr
                                     key={idx}
-                                    className={`transition-all duration-150 hover:bg-green-50/50 ${
+                                    className={`transition-all duration-150 hover:bg-secondary-50/50 ${
                                       idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                                     }`}
                                   >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-bold text-gray-900">
                                       {formatDate(item.date)}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
                                       {item.transaction_count}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-bold text-secondary-500 text-right">
                                       {formatCurrency(item.total_revenue)}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                       {formatCurrency(item.total_tax)}
                                     </td>
                                   </tr>
@@ -464,12 +465,12 @@ export default function Reports() {
 
                   {/* Product Sales */}
                   {salesReportType === 'products' && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {/* Chart */}
                       {productSales.length > 0 && (
                         <Card>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Products by Revenue</h3>
-                          <ResponsiveContainer width="100%" height={300}>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Top Products by Revenue</h3>
+                          <ResponsiveContainer width="100%" height={250}>
                             <BarChart
                               data={productSales.slice(0, 10)}
                               layout="vertical"
@@ -491,16 +492,16 @@ export default function Reports() {
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                   Product
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Quantity Sold
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Revenue
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Sales Count
                                 </th>
                               </tr>
@@ -508,9 +509,9 @@ export default function Reports() {
                             <tbody className="bg-white divide-y divide-gray-200">
                               {productSales.length === 0 ? (
                                 <tr>
-                                  <td colSpan={4} className="px-6 py-12">
+                                  <td colSpan={4} className="px-4 py-8">
                                     <EmptyState
-                                      icon={<CubeIcon className="w-12 h-12" />}
+                                      icon={<CubeIcon className="w-10 h-10" />}
                                       title="No data available"
                                       description="No product sales data found for the selected date range"
                                     />
@@ -522,18 +523,18 @@ export default function Reports() {
                                     key={item.product_id}
                                     className={`transition-colors duration-150 ${
                                       idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    } hover:bg-primary-50`}
+                                    } hover:bg-secondary-50/50`}
                                   >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                       {item.product_name}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                       {item.total_quantity}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-secondary-500 text-right">
                                       {formatCurrency(item.total_revenue)}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                       {item.sale_count}
                                     </td>
                                   </tr>
@@ -553,16 +554,16 @@ export default function Reports() {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Customer
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Orders
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Total Spent
                               </th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Last Order
                               </th>
                             </tr>
@@ -570,9 +571,9 @@ export default function Reports() {
                           <tbody className="bg-white divide-y divide-gray-200">
                             {customerSales.length === 0 ? (
                               <tr>
-                                <td colSpan={4} className="px-6 py-12">
+                                <td colSpan={4} className="px-4 py-8">
                                   <EmptyState
-                                    icon={<ChartBarIcon className="w-12 h-12" />}
+                                    icon={<ChartBarIcon className="w-10 h-10" />}
                                     title="No data available"
                                     description="No customer sales data found for the selected date range"
                                   />
@@ -584,18 +585,18 @@ export default function Reports() {
                                   key={item.customer_id}
                                   className={`transition-colors duration-150 ${
                                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-primary-50`}
+                                  } hover:bg-secondary-50/50`}
                                 >
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.customer_name}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                     {item.total_orders}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-secondary-500 text-right">
                                     {formatCurrency(item.total_spent)}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
                                     {formatDate(item.last_order_date)}
                                   </td>
                                 </tr>
@@ -609,12 +610,12 @@ export default function Reports() {
 
                   {/* Payment Methods */}
                   {salesReportType === 'payment-methods' && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {/* Pie Chart */}
                       {paymentMethods.length > 0 && (
                         <Card>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
-                          <ResponsiveContainer width="100%" height={300}>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Methods Distribution</h3>
+                          <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
                               <Pie
                                 data={paymentMethods as any}
@@ -645,13 +646,13 @@ export default function Reports() {
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                   Payment Method
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Transactions
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Total Amount
                                 </th>
                               </tr>
@@ -659,9 +660,9 @@ export default function Reports() {
                             <tbody className="bg-white divide-y divide-gray-200">
                               {paymentMethods.length === 0 ? (
                                 <tr>
-                                  <td colSpan={3} className="px-6 py-12">
+                                  <td colSpan={3} className="px-4 py-8">
                                     <EmptyState
-                                      icon={<ChartBarIcon className="w-12 h-12" />}
+                                      icon={<ChartBarIcon className="w-10 h-10" />}
                                       title="No data available"
                                       description="No payment method data found for the selected date range"
                                     />
@@ -673,17 +674,17 @@ export default function Reports() {
                                     key={idx}
                                     className={`transition-colors duration-150 ${
                                       idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    } hover:bg-primary-50`}
+                                    } hover:bg-secondary-50/50`}
                                   >
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="px-3 py-2 whitespace-nowrap">
                                       <Badge variant="primary" size="sm" className="capitalize">
                                         {item.method}
                                       </Badge>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                       {item.transaction_count}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-secondary-500 text-right">
                                       {formatCurrency(item.total_amount)}
                                     </td>
                                   </tr>
@@ -700,36 +701,36 @@ export default function Reports() {
 
               {/* Purchase Reports */}
               {activeTab === 'purchases' && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Enhanced Summary Cards */}
                   {purchaseReportType === 'summary' && purchaseSummary.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Card className="border-2 border-orange-200 bg-gradient-to-br from-white to-orange-50 shadow-lg hover:shadow-xl transition-all" padding="none">
-                        <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                        <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-semibold text-gray-600 mb-2">Total Cost</p>
-                              <p className="text-3xl font-extrabold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">Total Cost</p>
+                              <p className="text-xl font-extrabold text-secondary-500">
                                 {formatCurrency(totalCost)}
                               </p>
                             </div>
-                            <div className="p-3 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl shadow-lg">
-                              <CurrencyDollarIcon className="w-6 h-6 text-white" />
+                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
+                              <CurrencyDollarIcon className="w-5 h-5 text-white" />
                             </div>
                           </div>
                         </div>
                       </Card>
-                      <Card className="border-2 border-amber-200 bg-gradient-to-br from-white to-amber-50 shadow-lg hover:shadow-xl transition-all" padding="none">
-                        <div className="p-6">
+                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                        <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-semibold text-gray-600 mb-2">Purchase Orders</p>
-                              <p className="text-3xl font-extrabold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                              <p className="text-xs font-semibold text-gray-600 mb-1">Purchase Orders</p>
+                              <p className="text-xl font-extrabold text-secondary-500">
                                 {totalPOs}
                               </p>
                             </div>
-                            <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
-                              <ShoppingCartIcon className="w-6 h-6 text-white" />
+                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
+                              <ShoppingCartIcon className="w-5 h-5 text-white" />
                             </div>
                           </div>
                         </div>
@@ -738,23 +739,23 @@ export default function Reports() {
                   )}
 
                   {/* Enhanced Report Type Selector */}
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setPurchaseReportType('summary')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         purchaseReportType === 'summary'
-                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       Summary
                     </button>
                     <button
                       onClick={() => setPurchaseReportType('suppliers')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         purchaseReportType === 'suppliers'
-                          ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       By Supplier
@@ -763,12 +764,12 @@ export default function Reports() {
 
                   {/* Purchase Summary */}
                   {purchaseReportType === 'summary' && (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {/* Chart */}
                       {purchaseSummary.length > 0 && (
                         <Card>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Purchase Cost Trend</h3>
-                          <ResponsiveContainer width="100%" height={300}>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Purchase Cost Trend</h3>
+                          <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={purchaseSummary}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="date" tickFormatter={(value) => formatDate(value)} />
@@ -790,13 +791,13 @@ export default function Reports() {
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                   Date
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Purchase Orders
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                   Total Cost
                                 </th>
                               </tr>
@@ -804,9 +805,9 @@ export default function Reports() {
                             <tbody className="bg-white divide-y divide-gray-200">
                               {purchaseSummary.length === 0 ? (
                                 <tr>
-                                  <td colSpan={3} className="px-6 py-12">
+                                  <td colSpan={3} className="px-4 py-8">
                                     <EmptyState
-                                      icon={<ShoppingCartIcon className="w-12 h-12" />}
+                                      icon={<ShoppingCartIcon className="w-10 h-10" />}
                                       title="No data available"
                                       description="No purchase data found for the selected date range"
                                     />
@@ -818,15 +819,15 @@ export default function Reports() {
                                     key={idx}
                                     className={`transition-colors duration-150 ${
                                       idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    } hover:bg-primary-50`}
+                                    } hover:bg-secondary-50/50`}
                                   >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
                                       {formatDate(item.date)}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                       {item.po_count}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-warning-600 text-right">
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-secondary-500 text-right">
                                       {formatCurrency(item.total_cost)}
                                     </td>
                                   </tr>
@@ -846,16 +847,16 @@ export default function Reports() {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Supplier
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Orders
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Total Cost
                               </th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Last Order
                               </th>
                             </tr>
@@ -863,9 +864,9 @@ export default function Reports() {
                           <tbody className="bg-white divide-y divide-gray-200">
                             {supplierPurchases.length === 0 ? (
                               <tr>
-                                <td colSpan={4} className="px-6 py-12">
+                                <td colSpan={4} className="px-4 py-8">
                                   <EmptyState
-                                    icon={<ShoppingCartIcon className="w-12 h-12" />}
+                                    icon={<ShoppingCartIcon className="w-10 h-10" />}
                                     title="No data available"
                                     description="No supplier purchase data found for the selected date range"
                                   />
@@ -877,18 +878,18 @@ export default function Reports() {
                                   key={item.supplier_id}
                                   className={`transition-colors duration-150 ${
                                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-primary-50`}
+                                  } hover:bg-secondary-50/50`}
                                 >
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.supplier_name}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                     {item.total_orders}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-warning-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-secondary-500 text-right">
                                     {formatCurrency(item.total_cost)}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
                                     {formatDate(item.last_order_date)}
                                   </td>
                                 </tr>
@@ -904,28 +905,28 @@ export default function Reports() {
 
               {/* Inventory Reports */}
               {activeTab === 'inventory' && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Enhanced Report Type Selector */}
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setInventoryReportType('stock')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${
                         inventoryReportType === 'stock'
-                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50'
+                          ? 'bg-secondary-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                       }`}
                     >
                       Stock Levels
                     </button>
                     <button
                       onClick={() => setInventoryReportType('low-stock')}
-                      className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${
                         inventoryReportType === 'low-stock'
-                          ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-red-300 hover:bg-red-50'
+                          ? 'bg-warning-500 text-white shadow-md'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-warning-300 hover:bg-warning-50'
                       }`}
                     >
-                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      <ExclamationTriangleIcon className="w-3.5 h-3.5" />
                       Low Stock
                     </button>
                   </div>
@@ -937,13 +938,13 @@ export default function Reports() {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Product
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Quantity on Hand
                               </th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Track Inventory
                               </th>
                             </tr>
@@ -951,9 +952,9 @@ export default function Reports() {
                           <tbody className="bg-white divide-y divide-gray-200">
                             {stockReport.length === 0 ? (
                               <tr>
-                                <td colSpan={3} className="px-6 py-12">
+                                <td colSpan={3} className="px-4 py-8">
                                   <EmptyState
-                                    icon={<CubeIcon className="w-12 h-12" />}
+                                    icon={<CubeIcon className="w-10 h-10" />}
                                     title="No data available"
                                     description="No stock data found"
                                   />
@@ -965,15 +966,15 @@ export default function Reports() {
                                   key={item.product_id}
                                   className={`transition-colors duration-150 ${
                                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-primary-50`}
+                                  } hover:bg-secondary-50/50`}
                                 >
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.product_name}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                     {item.track_inventory ? item.qty_on_hand : <span className="text-gray-400">N/A</span>}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
+                                  <td className="px-3 py-2 whitespace-nowrap">
                                     <Badge
                                       variant={item.track_inventory ? 'success' : 'gray'}
                                       size="sm"
@@ -994,10 +995,10 @@ export default function Reports() {
                   {inventoryReportType === 'low-stock' && (
                     <Card padding="none">
                       {lowStock.length > 0 && (
-                        <div className="px-6 py-4 bg-warning-50 border-b border-warning-200">
-                          <div className="flex items-center gap-2">
-                            <ExclamationTriangleIcon className="w-5 h-5 text-warning-600" />
-                            <p className="text-sm font-semibold text-warning-800">
+                        <div className="px-3 py-2.5 bg-warning-50 border-b border-warning-200">
+                          <div className="flex items-center gap-1.5">
+                            <ExclamationTriangleIcon className="w-4 h-4 text-warning-600" />
+                            <p className="text-xs font-semibold text-warning-800">
                               {lowStock.length} {lowStock.length === 1 ? 'item' : 'items'} need restocking
                             </p>
                           </div>
@@ -1007,16 +1008,16 @@ export default function Reports() {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Product
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Quantity on Hand
                               </th>
-                              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
                                 Threshold
                               </th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
                                 Status
                               </th>
                             </tr>
@@ -1024,9 +1025,9 @@ export default function Reports() {
                           <tbody className="bg-white divide-y divide-gray-200">
                             {lowStock.length === 0 ? (
                               <tr>
-                                <td colSpan={4} className="px-6 py-12">
+                                <td colSpan={4} className="px-4 py-8">
                                   <EmptyState
-                                    icon={<CubeIcon className="w-12 h-12" />}
+                                    icon={<CubeIcon className="w-10 h-10" />}
                                     title="All items are well stocked"
                                     description="No low stock items found"
                                   />
@@ -1040,16 +1041,16 @@ export default function Reports() {
                                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                                   } hover:bg-warning-50`}
                                 >
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.product_name}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-error-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs font-bold text-error-600 text-right">
                                     {item.qty_on_hand}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
+                                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
                                     {item.min_threshold || 10}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
+                                  <td className="px-3 py-2 whitespace-nowrap">
                                     <Badge variant="error" size="sm">
                                       Low Stock
                                     </Badge>

@@ -15,45 +15,45 @@ export interface ProductRowProps {
 
 export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, formatCurrency }) => {
   return (
-    <TableRow index={index} hoverClassName="hover:bg-emerald-50/50">
-      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <div className="p-2 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg">
-            <CubeIcon className="w-4 h-4 text-emerald-600" />
+    <TableRow index={index} hoverClassName="hover:bg-secondary-50/50">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center space-x-2">
+          <div className="p-1.5 bg-secondary-100 rounded-lg">
+            <CubeIcon className="w-3.5 h-3.5 text-secondary-500" />
           </div>
-          <div className="text-sm font-bold text-gray-900">{product.name}</div>
+          <div className="text-xs font-bold text-gray-900">{product.name}</div>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-600 font-mono">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="text-xs text-gray-600 font-mono">
           {product.sku || <span className="text-gray-400">-</span>}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-600 font-mono">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="text-xs text-gray-600 font-mono">
           {product.barcode || <span className="text-gray-400">-</span>}
         </div>
       </td>
-      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap hidden lg:table-cell">
+      <td className="px-3 py-2 whitespace-nowrap hidden lg:table-cell">
         <Badge variant="primary" size="sm">{product.product_type}</Badge>
       </td>
-      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-        <div className="text-sm font-semibold text-gray-900">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="text-xs font-semibold text-gray-900">
           {product.list_price ? formatCurrency(Number(product.list_price)) : <span className="text-gray-400">-</span>}
         </div>
       </td>
-      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-        <div className="text-sm font-bold text-emerald-600">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="text-xs font-bold text-secondary-500">
           {product.sale_price ? formatCurrency(Number(product.sale_price)) : <span className="text-gray-400">-</span>}
         </div>
       </td>
-      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap hidden sm:table-cell">
+      <td className="px-3 py-2 whitespace-nowrap hidden sm:table-cell">
         <Badge variant={product.track_inventory ? 'success' : 'gray'} size="sm">
           {product.track_inventory ? 'Tracked' : 'Not Tracked'}
         </Badge>
       </td>
-      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
-        <div className="flex items-center justify-end gap-2">
+      <td className="px-3 py-2 whitespace-nowrap text-right">
+        <div className="flex items-center justify-end gap-1.5">
           <Button
             onClick={() => onEdit(product)}
             variant="ghost"

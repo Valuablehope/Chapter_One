@@ -362,24 +362,24 @@ export default function Sales() {
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Left Column - Product Search & Cart */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="lg:col-span-2 space-y-3">
           {/* Enhanced Product Search */}
-          <Card className="border-2 border-gray-100 shadow-lg">
-            <div className="p-4 sm:p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-                  <MagnifyingGlassIcon className="w-5 h-5 text-white" />
+          <Card className="border-2 border-gray-100 shadow-md">
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-secondary-500 rounded-lg">
+                  <MagnifyingGlassIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Product Search</h2>
+                <h2 className="text-base font-bold text-gray-900">Product Search</h2>
               </div>
               
               {/* Barcode Scanner */}
-              <div className="mb-4">
+              <div className="mb-3">
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <QrCodeIcon className="w-5 h-5" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <QrCodeIcon className="w-4 h-4" />
                   </div>
                   <input
                     ref={barcodeInputRef}
@@ -393,17 +393,17 @@ export default function Sales() {
                         }
                       }
                     }}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white font-medium"
+                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2 ml-4">Press Enter to scan</p>
+                <p className="text-[10px] text-gray-500 mt-1 ml-3">Press Enter to scan</p>
               </div>
 
               {/* Product Search */}
               <div>
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <MagnifyingGlassIcon className="w-5 h-5" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <MagnifyingGlassIcon className="w-4 h-4" />
                   </div>
                   <input
                     ref={searchInputRef}
@@ -411,47 +411,47 @@ export default function Sales() {
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                     placeholder="Search by name, SKU, or barcode..."
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white font-medium"
+                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
                 </div>
               </div>
 
               {/* Enhanced Search Results */}
               {searchResults.length > 0 && (
-                <div className="mt-4 border-2 border-gray-200 rounded-xl max-h-64 overflow-y-auto divide-y divide-gray-100 bg-white shadow-inner">
+                <div className="mt-3 border-2 border-gray-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100 bg-white shadow-inner">
                   {searchResults.map((product) => (
                     <button
                       key={product.product_id}
                       onClick={() => addToCart(product)}
-                      className="w-full px-4 py-4 text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 transition-all duration-150 group"
+                      className="w-full px-3 py-2.5 text-left hover:bg-secondary-50 transition-all duration-150 group"
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="p-1.5 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg">
-                              <SparklesIcon className="w-4 h-4 text-blue-600" />
+                          <div className="flex items-center space-x-1.5 mb-1">
+                            <div className="p-1 bg-secondary-100 rounded-lg">
+                              <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
                             </div>
-                            <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{product.name}</p>
+                            <p className="font-bold text-xs text-gray-900 group-hover:text-secondary-500 transition-colors">{product.name}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {product.barcode && (
-                              <Badge variant="gray" size="sm" className="font-mono text-xs">
+                              <Badge variant="gray" size="sm" className="font-mono text-[10px]">
                                 {product.barcode}
                               </Badge>
                             )}
                             {product.sku && (
-                              <span className="text-xs text-gray-500 font-mono">SKU: {product.sku}</span>
+                              <span className="text-[10px] text-gray-500 font-mono">SKU: {product.sku}</span>
                             )}
                           </div>
                         </div>
-                        <div className="text-right ml-4">
-                          <p className="font-bold text-lg text-green-600">
+                        <div className="text-right ml-3">
+                          <p className="font-bold text-sm text-secondary-500">
                             ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
                           </p>
                           {product.track_inventory && (
-                            <p className="text-xs text-gray-500 mt-1">In Stock</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">In Stock</p>
                           )}
-                          <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-blue-600 mt-2 ml-auto transition-colors" />
+                          <ArrowRightIcon className="w-3 h-3 text-gray-400 group-hover:text-secondary-500 mt-1 ml-auto transition-colors" />
                         </div>
                       </div>
                     </button>
@@ -460,26 +460,26 @@ export default function Sales() {
               )}
 
               {searching && (
-                <div className="mt-4 text-center py-4">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
-                  <p className="mt-2 text-sm text-gray-500 font-medium">Searching...</p>
+                <div className="mt-3 text-center py-3">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-3 border-blue-200 border-t-blue-600"></div>
+                  <p className="mt-1.5 text-xs text-gray-500 font-medium">Searching...</p>
                 </div>
               )}
             </div>
           </Card>
 
           {/* Enhanced Shopping Cart */}
-          <Card padding="none" className="border-2 border-gray-100 shadow-lg overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+          <Card padding="none" className="border-2 border-gray-100 shadow-md overflow-hidden">
+            <div className="px-3 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-                    <ShoppingCartIcon className="w-6 h-6 text-white" />
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-secondary-500 rounded-lg">
+                    <ShoppingCartIcon className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Shopping Cart</h2>
+                    <h2 className="text-base font-bold text-gray-900">Shopping Cart</h2>
                     {cart.length > 0 && (
-                      <p className="text-sm text-gray-600">{cart.length} {cart.length === 1 ? 'item' : 'items'}</p>
+                      <p className="text-xs text-gray-600">{cart.length} {cart.length === 1 ? 'item' : 'items'}</p>
                     )}
                   </div>
                 </div>
@@ -492,9 +492,9 @@ export default function Sales() {
             </div>
 
             {cart.length === 0 ? (
-              <div className="p-12">
+              <div className="p-8">
                 <EmptyState
-                  icon={<ShoppingCartIcon className="w-16 h-16" />}
+                  icon={<ShoppingCartIcon className="w-12 h-12" />}
                   title="Cart is empty"
                   description="Search and add products to get started"
                 />
@@ -502,17 +502,17 @@ export default function Sales() {
             ) : (
               <div className="divide-y divide-gray-200">
                 {cart.map((item) => (
-                  <div key={item.product.product_id} className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all group">
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-4">
+                  <div key={item.product.product_id} className="px-3 py-2.5 hover:bg-secondary-50 transition-all group">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="p-1.5 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
-                            <SparklesIcon className="w-4 h-4 text-green-600" />
+                        <div className="flex items-center space-x-1.5 mb-1">
+                          <div className="p-1 bg-secondary-100 rounded-lg">
+                            <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
                           </div>
-                          <p className="font-bold text-gray-900">{item.product.name}</p>
+                          <p className="font-bold text-xs text-gray-900">{item.product.name}</p>
                         </div>
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="text-sm font-medium text-gray-600">
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs font-medium text-gray-600">
                             ${Number(item.unit_price).toFixed(2)} each
                           </span>
                           {Number(item.tax_rate) > 0 && (
@@ -522,28 +522,28 @@ export default function Sales() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                        <div className="flex items-center gap-2 border-2 border-gray-200 rounded-xl bg-white">
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white">
                           <Button
                             onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
                             variant="ghost"
                             size="sm"
-                            className="!p-2 hover:bg-gray-100"
+                            className="!p-1.5 hover:bg-gray-100"
                           >
-                            <MinusIcon className="w-4 h-4" />
+                            <MinusIcon className="w-3 h-3" />
                           </Button>
-                          <span className="w-12 text-center font-bold text-gray-900">{item.qty}</span>
+                          <span className="w-10 text-center font-bold text-xs text-gray-900">{item.qty}</span>
                           <Button
                             onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
                             variant="ghost"
                             size="sm"
-                            className="!p-2 hover:bg-gray-100"
+                            className="!p-1.5 hover:bg-gray-100"
                           >
-                            <PlusIcon className="w-4 h-4" />
+                            <PlusIcon className="w-3 h-3" />
                           </Button>
                         </div>
-                        <div className="text-right min-w-[100px]">
-                          <p className="font-bold text-base sm:text-lg text-green-600">
+                        <div className="text-right min-w-[80px]">
+                          <p className="font-bold text-sm text-secondary-500">
                             ${Number(item.line_total).toFixed(2)}
                           </p>
                         </div>
@@ -551,9 +551,9 @@ export default function Sales() {
                           onClick={() => removeFromCart(item.product.product_id)}
                           variant="danger"
                           size="sm"
-                          className="!p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                          className="!p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         >
-                          <XMarkIcon className="w-4 h-4" />
+                          <XMarkIcon className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
@@ -565,34 +565,34 @@ export default function Sales() {
         </div>
 
         {/* Right Column - Customer & Totals */}
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-3">
           {/* Enhanced Customer Selection */}
-          <Card className="border-2 border-gray-100 shadow-lg">
-            <div className="p-4 sm:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-gradient-to-br from-sky-500 to-blue-500 rounded-lg">
-                  <UserIcon className="w-5 h-5 text-white" />
+          <Card className="border-2 border-gray-100 shadow-md">
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-secondary-500 rounded-lg">
+                  <UserIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-lg font-bold text-gray-900">Customer</h2>
+                <h2 className="text-sm font-bold text-gray-900">Customer</h2>
               </div>
               {selectedCustomer ? (
-                <div className="p-4 bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl border-2 border-sky-200">
+                <div className="p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="font-bold text-gray-900">
+                      <p className="font-bold text-xs text-gray-900">
                         {selectedCustomer.full_name || 'Unnamed Customer'}
                       </p>
                       {selectedCustomer.phone && (
-                        <p className="text-sm text-gray-600 mt-1">{selectedCustomer.phone}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{selectedCustomer.phone}</p>
                       )}
                     </div>
                     <Button
                       onClick={() => setSelectedCustomer(null)}
                       variant="ghost"
                       size="sm"
-                      className="!p-1.5 hover:bg-white"
+                      className="!p-1 hover:bg-white"
                     >
-                      <XMarkIcon className="w-4 h-4" />
+                      <XMarkIcon className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
@@ -600,8 +600,9 @@ export default function Sales() {
                 <Button
                   onClick={() => setShowCustomerModal(true)}
                   variant="outline"
+                  size="sm"
                   className="w-full border-2 hover:bg-sky-50 hover:border-sky-300 transition-all"
-                  leftIcon={<PlusIcon className="w-5 h-5" />}
+                  leftIcon={<PlusIcon className="w-4 h-4" />}
                 >
                   Add Customer
                 </Button>
@@ -610,27 +611,27 @@ export default function Sales() {
           </Card>
 
           {/* Enhanced Totals */}
-          <Card className="border-2 border-green-200 bg-gradient-to-br from-white via-green-50 to-emerald-50 shadow-xl">
-            <div className="p-4 sm:p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-                  <CurrencyDollarIcon className="w-6 h-6 text-white" />
+          <Card className="border-2 border-secondary-200 bg-white shadow-lg">
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-secondary-500 rounded-lg">
+                  <CurrencyDollarIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Totals</h2>
+                <h2 className="text-base font-bold text-gray-900">Totals</h2>
               </div>
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center p-3 bg-white/60 rounded-lg">
-                  <span className="font-medium text-gray-700">Subtotal:</span>
-                  <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
+              <div className="space-y-2 mb-3">
+                <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
+                  <span className="font-medium text-xs text-gray-700">Subtotal:</span>
+                  <span className="font-bold text-xs text-gray-900">${subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-white/60 rounded-lg">
-                  <span className="font-medium text-gray-700">Tax:</span>
-                  <span className="font-bold text-gray-900">${taxTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
+                  <span className="font-medium text-xs text-gray-700">Tax:</span>
+                  <span className="font-bold text-xs text-gray-900">${taxTotal.toFixed(2)}</span>
                 </div>
-                <div className="border-t-2 border-green-300 pt-4 mt-4">
-                  <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl text-white">
-                    <span className="text-xl font-bold">Total:</span>
-                    <span className="text-3xl font-extrabold">${grandTotal.toFixed(2)}</span>
+                <div className="border-t-2 border-secondary-300 pt-2 mt-2">
+                  <div className="flex justify-between items-center p-3 bg-secondary-500 rounded-lg text-white">
+                    <span className="text-base font-bold">Total:</span>
+                    <span className="text-xl font-extrabold">${grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -638,8 +639,8 @@ export default function Sales() {
               <Button
                 onClick={openPaymentModal}
                 disabled={cart.length === 0 || processing}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed py-4 text-lg"
-                leftIcon={<CurrencyDollarIcon className="w-6 h-6" />}
+                className="w-full bg-secondary-500 hover:bg-secondary-600 text-white font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm"
+                leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
                 isLoading={processing}
               >
                 Process Payment
@@ -658,11 +659,11 @@ export default function Sales() {
           setCustomerResults([]);
         }}
         title={
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-sky-500 to-blue-500 rounded-lg">
-              <UserIcon className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <UserIcon className="w-4 h-4 text-white" />
             </div>
-            <span>Select Customer</span>
+            <span className="text-base">Select Customer</span>
           </div>
         }
         size="md"
@@ -679,28 +680,28 @@ export default function Sales() {
             leftIcon={<MagnifyingGlassIcon className="w-5 h-5" />}
             autoFocus
           />
-          <div className="mt-4 max-h-64 overflow-y-auto">
+          <div className="mt-3 max-h-48 overflow-y-auto">
             {customerResults.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {customerResults.map((customer) => (
                   <button
                     key={customer.customer_id}
                     onClick={() => selectCustomer(customer)}
-                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-sky-50 hover:to-blue-50 border-2 border-gray-200 hover:border-sky-300 rounded-xl transition-all group"
+                    className="w-full px-3 py-2 text-left hover:bg-secondary-50 border-2 border-gray-200 hover:border-secondary-300 rounded-lg transition-all group"
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="p-1.5 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg">
-                        <UserIcon className="w-4 h-4 text-sky-600" />
+                    <div className="flex items-center space-x-1.5">
+                      <div className="p-1 bg-secondary-100 rounded-lg">
+                        <UserIcon className="w-3.5 h-3.5 text-secondary-500" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-bold text-gray-900 group-hover:text-sky-600">
+                        <p className="font-bold text-xs text-gray-900 group-hover:text-secondary-500">
                           {customer.full_name || 'Unnamed Customer'}
                         </p>
                         {customer.phone && (
-                          <p className="text-sm text-gray-600 mt-1">{customer.phone}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{customer.phone}</p>
                         )}
                       </div>
-                      <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-sky-600 transition-colors" />
+                      <ArrowRightIcon className="w-3 h-3 text-gray-400 group-hover:text-secondary-500 transition-colors" />
                     </div>
                   </button>
                 ))}
@@ -725,11 +726,11 @@ export default function Sales() {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         title={
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-              <CurrencyDollarIcon className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <CurrencyDollarIcon className="w-4 h-4 text-white" />
             </div>
-            <span>Process Payment</span>
+            <span className="text-base">Process Payment</span>
           </div>
         }
         size="md"
@@ -745,7 +746,7 @@ export default function Sales() {
             <Button
               onClick={processPayment}
               disabled={processing}
-              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={processing}
               leftIcon={getPaymentIcon(paymentMethod)}
             >
@@ -754,35 +755,35 @@ export default function Sales() {
           </div>
         }
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <label className="block text-xs font-semibold text-gray-700 mb-2">
               Payment Method
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).map((method) => (
                 <button
                   key={method}
                   onClick={() => setPaymentMethod(method)}
-                  className={`p-4 rounded-xl border-2 transition-all ${
+                  className={`p-3 rounded-lg border-2 transition-all ${
                     paymentMethod === method
-                      ? 'border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg'
+                      ? 'border-secondary-500 bg-secondary-50 shadow-md'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <div className="flex flex-col items-center space-y-2">
-                    <div className={`p-2 rounded-lg ${
+                  <div className="flex flex-col items-center space-y-1.5">
+                    <div className={`p-1.5 rounded-lg ${
                       paymentMethod === method
-                        ? 'bg-gradient-to-br from-green-500 to-emerald-500'
+                        ? 'bg-secondary-500'
                         : 'bg-gray-200'
                     }`}>
-                      {method === 'cash' && <BanknotesIcon className="w-5 h-5 text-white" />}
-                      {method === 'card' && <CreditCardIcon className="w-5 h-5 text-white" />}
-                      {method === 'voucher' && <TicketIcon className="w-5 h-5 text-white" />}
-                      {method === 'other' && <CurrencyDollarIcon className="w-5 h-5 text-white" />}
+                      {method === 'cash' && <BanknotesIcon className="w-4 h-4 text-white" />}
+                      {method === 'card' && <CreditCardIcon className="w-4 h-4 text-white" />}
+                      {method === 'voucher' && <TicketIcon className="w-4 h-4 text-white" />}
+                      {method === 'other' && <CurrencyDollarIcon className="w-4 h-4 text-white" />}
                     </div>
-                    <span className={`font-semibold capitalize ${
-                      paymentMethod === method ? 'text-green-600' : 'text-gray-700'
+                    <span className={`font-semibold text-xs capitalize ${
+                      paymentMethod === method ? 'text-secondary-500' : 'text-gray-700'
                     }`}>
                       {method}
                     </span>
@@ -803,15 +804,15 @@ export default function Sales() {
               helperText={`Total due: $${grandTotal.toFixed(2)}`}
             />
           </div>
-          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200">
+          <div className="p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
             <div className="flex justify-between items-center">
-              <span className="font-bold text-gray-700">Grand Total:</span>
-              <span className="text-3xl font-extrabold text-green-600">${grandTotal.toFixed(2)}</span>
+              <span className="font-bold text-xs text-gray-700">Grand Total:</span>
+              <span className="text-xl font-extrabold text-secondary-500">${grandTotal.toFixed(2)}</span>
             </div>
             {parseFloat(paymentAmount) > grandTotal && (
-              <div className="mt-3 pt-3 border-t border-green-300 flex justify-between items-center">
-                <span className="font-semibold text-green-700">Change:</span>
-                <span className="text-xl font-bold text-green-600">
+              <div className="mt-2 pt-2 border-t border-secondary-300 flex justify-between items-center">
+                <span className="font-semibold text-xs text-secondary-700">Change:</span>
+                <span className="text-base font-bold text-secondary-500">
                   ${(parseFloat(paymentAmount) - grandTotal).toFixed(2)}
                 </span>
               </div>
@@ -832,7 +833,7 @@ export default function Sales() {
             <div className="flex gap-3 print:hidden">
               <Button
                 onClick={handlePrint}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PrinterIcon className="w-5 h-5" />}
               >
                 Print Receipt
@@ -886,7 +887,7 @@ export default function Sales() {
               
               {/* Modern Header with gradient accent */}
               <div className="text-center mb-8 relative">
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full"></div>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-secondary-500 rounded-full"></div>
                 <div className="pt-6 border-b-2 border-gray-200 pb-6">
                   {storeSettings?.receipt_header ? (
                     <div className="text-sm text-gray-700 whitespace-pre-line mb-2 leading-relaxed">
@@ -977,7 +978,7 @@ export default function Sales() {
                   // Show inclusive pricing
                   <>
                     {Number(completedSale.discount_total) > 0 && (
-                      <div className="flex justify-between items-center text-green-600 pb-2">
+                      <div className="flex justify-between items-center text-secondary-500 pb-2">
                         <span className="font-medium">Discount</span>
                         <span className="font-bold">-{formatCurrency(Number(completedSale.discount_total))}</span>
                       </div>
@@ -1001,7 +1002,7 @@ export default function Sales() {
                       </div>
                     )}
                     {Number(completedSale.discount_total) > 0 && (
-                      <div className="flex justify-between items-center text-green-600">
+                      <div className="flex justify-between items-center text-secondary-500">
                         <span className="font-medium">Discount</span>
                         <span className="font-bold">-{formatCurrency(Number(completedSale.discount_total))}</span>
                       </div>
@@ -1028,8 +1029,8 @@ export default function Sales() {
                 ))}
                 {Number(completedSale.payments[0]?.amount || 0) > Number(completedSale.grand_total) && (
                   <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
-                    <span className="font-bold text-green-600">Change</span>
-                    <span className="font-extrabold text-xl text-green-600">
+                    <span className="font-bold text-secondary-500">Change</span>
+                    <span className="font-extrabold text-xl text-secondary-500">
                       {formatCurrency((Number(completedSale.payments[0]?.amount || 0) - Number(completedSale.grand_total)))}
                     </span>
                   </div>

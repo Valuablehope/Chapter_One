@@ -54,7 +54,7 @@ export default function LicenseActivation({ onSuccess, onCancel }: LicenseActiva
 
         {success ? (
           <div className="text-center py-8">
-            <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <CheckCircleIcon className="h-16 w-16 text-secondary-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">License Activated!</h3>
             <p className="text-gray-600">Your license has been successfully activated.</p>
           </div>

@@ -72,7 +72,7 @@ export default function TrialBanner() {
             onClick={() => {
               navigate('/admin?tab=license');
             }}
-            className="px-4 py-1.5 text-sm font-medium text-yellow-900 bg-yellow-200 hover:bg-yellow-300 rounded-md transition-colors"
+            className="px-4 py-1.5 text-sm font-medium text-white bg-secondary-500 hover:bg-secondary-600 rounded-md transition-colors"
           >
             Upgrade
           </button>

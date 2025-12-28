@@ -13,20 +13,20 @@ export interface SupplierRowProps {
 
 export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, onDelete }) => {
   return (
-    <TableRow index={index} hoverClassName="hover:bg-indigo-50/50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg">
-            <BuildingOfficeIcon className="w-5 h-5 text-indigo-600" />
+    <TableRow index={index} hoverClassName="hover:bg-secondary-50/50">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center space-x-1.5">
+          <div className="p-1.5 bg-secondary-100 rounded-lg">
+            <BuildingOfficeIcon className="w-3.5 h-3.5 text-secondary-500" />
           </div>
-          <div className="text-sm font-bold text-gray-900">{supplier.name}</div>
+          <div className="text-xs font-bold text-gray-900">{supplier.name}</div>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center gap-1.5 text-xs text-gray-600">
           {supplier.contact_name ? (
             <>
-              <UserIcon className="w-4 h-4 text-indigo-500" />
+              <UserIcon className="w-3.5 h-3.5 text-secondary-500" />
               <span className="font-medium">{supplier.contact_name}</span>
             </>
           ) : (
@@ -34,11 +34,11 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
           )}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center gap-1.5 text-xs text-gray-600">
           {supplier.phone ? (
             <>
-              <PhoneIcon className="w-4 h-4 text-indigo-500" />
+              <PhoneIcon className="w-3.5 h-3.5 text-secondary-500" />
               <span className="font-medium">{supplier.phone}</span>
             </>
           ) : (
@@ -46,11 +46,11 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
           )}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center gap-1.5 text-xs text-gray-600">
           {supplier.email ? (
             <>
-              <EnvelopeIcon className="w-4 h-4 text-indigo-500" />
+              <EnvelopeIcon className="w-3.5 h-3.5 text-secondary-500" />
               <span className="font-medium">{supplier.email}</span>
             </>
           ) : (
@@ -58,11 +58,11 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
           )}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
         {new Date(supplier.created_at).toLocaleDateString()}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right">
-        <div className="flex items-center justify-end gap-2">
+      <td className="px-3 py-2 whitespace-nowrap text-right">
+        <div className="flex items-center justify-end gap-1.5">
           <Button
             onClick={() => onEdit(supplier)}
             variant="ghost"

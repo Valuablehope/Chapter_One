@@ -86,7 +86,7 @@ export default function UsersTab() {
               </div>
               <Button
                 onClick={openAddModal}
-                className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PlusIcon className="w-5 h-5" />}
               >
                 Add User
@@ -149,7 +149,7 @@ export default function UsersTab() {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg">
+                              <div className="p-2 bg-secondary-100 rounded-lg">
                                 <UserIcon className="w-5 h-5 text-sky-600" />
                               </div>
                               <span className="text-sm font-bold text-gray-900">{u.username}</span>

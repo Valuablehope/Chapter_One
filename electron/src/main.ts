@@ -13,11 +13,17 @@ function createWindow(): void {
   // Get preload script path
   const preloadPath = path.join(__dirname, 'preload.js');
 
+  // Get icon path - works for both dev and production
+  const iconPath = isDev
+    ? path.join(__dirname, '../../frontend/public/icon.png')
+    : path.join(__dirname, '../frontend/public/icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1200,
     minHeight: 700,
+    icon: iconPath, // Set window/taskbar icon
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

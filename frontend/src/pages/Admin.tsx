@@ -422,26 +422,26 @@ export default function Admin() {
   return (
     <>
       {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-red-500 via-rose-500 to-pink-500 rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <div className="flex items-center space-x-2 sm:space-x-3 mb-2">
-              <div className="p-2 sm:p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                <ShieldCheckIcon className="w-5 h-5 sm:w-7 sm:h-7" />
+            <div className="flex items-center space-x-2 mb-1">
+              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
+                <ShieldCheckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold">Admin Panel</h1>
-                <p className="text-red-50 text-xs sm:text-sm mt-1">Manage users, stores, and terminals</p>
+                <h1 className="text-xl sm:text-2xl font-extrabold">Admin Panel</h1>
+                <p className="text-white/80 text-xs mt-0.5">Manage users, stores, and terminals</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <Card padding="none" className="border-2 border-gray-100 shadow-lg">
+      <Card padding="none" className="border-2 border-gray-100 shadow-md">
         {/* Enhanced Tabs */}
         <div className="border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-          <nav className="flex -mb-px px-3 sm:px-6 overflow-x-auto scrollbar-hide">
+          <nav className="flex -mb-px px-3 overflow-x-auto scrollbar-hide">
             {([
               { key: 'users', label: 'Users', icon: UserGroupIcon },
               { key: 'stores', label: 'Stores', icon: BuildingStorefrontIcon },
@@ -451,13 +451,13 @@ export default function Admin() {
               <button
                 key={key}
                 onClick={() => handleTabChange(key as AdminTab)}
-                className={`px-6 py-4 text-sm font-bold border-b-2 transition-all duration-200 flex items-center gap-2 ${
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
                   activeTab === key
-                    ? `border-red-500 text-red-600 bg-gradient-to-b from-red-50 to-white`
+                    ? `border-secondary-500 text-secondary-600 bg-secondary-50`
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
                 {label}
               </button>
             ))}
@@ -466,15 +466,15 @@ export default function Admin() {
 
         {/* Users Tab */}
         {activeTab === 'users' && (
-          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="p-3 space-y-3">
             {/* Enhanced Search and Filters */}
-            <Card className="border-2 border-gray-100 shadow-lg">
-              <div className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                  <div className="flex flex-1 gap-4 w-full sm:w-auto">
+            <Card className="border-2 border-gray-100 shadow-md">
+              <div className="p-3">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                  <div className="flex flex-1 gap-3 w-full sm:w-auto">
                     <div className="relative flex-1">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <MagnifyingGlassIcon className="w-5 h-5" />
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <MagnifyingGlassIcon className="w-4 h-4" />
                       </div>
                       <input
                         type="text"
@@ -485,17 +485,17 @@ export default function Admin() {
                           setUserFilters(prev => ({ ...prev, search: value }));
                           debouncedUserSearch(value);
                         }}
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
+                        className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                       />
                     </div>
                     <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <FunnelIcon className="w-5 h-5" />
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <FunnelIcon className="w-4 h-4" />
                       </div>
                       <select
                         value={userFilters.role}
                         onChange={(e) => setUserFilters({ ...userFilters, role: e.target.value as 'cashier' | 'manager' | 'admin' | '', page: 1 })}
-                        className="pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none bg-white font-medium"
+                        className="pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium"
                       >
                         <option value="">All Roles</option>
                         <option value="cashier">Cashier</option>
@@ -511,13 +511,14 @@ export default function Admin() {
                       setUserFormErrors({});
                       setShowUserModal(true);
                     }}
-                    className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-                    leftIcon={<PlusIcon className="w-5 h-5" />}
+                    size="sm"
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                    leftIcon={<PlusIcon className="w-4 h-4" />}
                   >
                     Add User
                   </Button>
                 </div>
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-3 flex items-center gap-1.5">
                   <Badge variant="primary" size="sm">{userPagination.total} Users</Badge>
                   {userFilters.search && (
                     <Badge variant="info" size="sm">
@@ -529,12 +530,12 @@ export default function Admin() {
             </Card>
 
             {loading ? (
-              <div className="px-6 py-8">
+              <div className="px-4 py-6">
                 <TableSkeleton rows={10} columns={6} />
               </div>
             ) : users.length === 0 ? (
               <EmptyState
-                icon={<UserGroupIcon className="w-16 h-16" />}
+                icon={<UserGroupIcon className="w-12 h-12" />}
                 title="No users found"
                 description={userFilters.search || userFilters.role ? "Try adjusting your filters" : "Get started by adding your first user"}
                 action={
@@ -547,7 +548,8 @@ export default function Admin() {
                         setShowUserModal(true);
                       }}
                       variant="primary"
-                      leftIcon={<PlusIcon className="w-5 h-5" />}
+                      size="sm"
+                      leftIcon={<PlusIcon className="w-4 h-4" />}
                     >
                       Add User
                     </Button>
@@ -557,57 +559,57 @@ export default function Admin() {
             ) : (
               <>
                 <div className="overflow-x-auto -mx-3 sm:mx-0">
-                  <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-lg min-w-full">
+                  <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                           <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Username</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Full Name</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Role</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
-                          <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Actions</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Username</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Full Name</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Role</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Status</th>
+                          <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {users.map((u, idx) => (
                           <tr
                             key={u.user_id}
-                            className={`transition-all duration-150 hover:bg-sky-50/50 group ${
+                            className={`transition-all duration-150 hover:bg-secondary-50/50 group ${
                               idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                             }`}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg">
-                                  <UserIcon className="w-5 h-5 text-sky-600" />
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center space-x-1.5">
+                                <div className="p-1.5 bg-secondary-100 rounded-lg">
+                                  <UserIcon className="w-3.5 h-3.5 text-secondary-500" />
                                 </div>
-                                <span className="text-sm font-bold text-gray-900">{u.username}</span>
+                                <span className="text-xs font-bold text-gray-900">{u.username}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">{u.full_name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-700">{u.full_name}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">
                               <Badge variant="primary" size="sm" className="capitalize">
                                 {u.role}
                               </Badge>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap">
                               <Badge variant={u.is_active ? 'success' : 'error'} size="sm">
                                 {u.is_active ? (
                                   <>
-                                    <CheckCircleIcon className="w-3 h-3 inline mr-1" />
+                                    <CheckCircleIcon className="w-2.5 h-2.5 inline mr-0.5" />
                                     Active
                                   </>
                                 ) : (
                                   <>
-                                    <XCircleIcon className="w-3 h-3 inline mr-1" />
+                                    <XCircleIcon className="w-2.5 h-2.5 inline mr-0.5" />
                                     Inactive
                                   </>
                                 )}
                               </Badge>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-3 py-2 whitespace-nowrap text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <Button
                                   onClick={() => {
                                     setEditingUser(u);
@@ -644,13 +646,13 @@ export default function Admin() {
                 </div>
                 {userPagination.totalPages > 1 && (
                   <Card className="border-2 border-gray-100">
-                    <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                      <div className="text-sm text-gray-600 font-medium">
+                    <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+                      <div className="text-xs text-gray-600 font-medium">
                         Showing <span className="font-bold text-gray-900">{((userFilters.page - 1) * userFilters.limit) + 1}</span> to{' '}
                         <span className="font-bold text-gray-900">{Math.min(userFilters.page * userFilters.limit, userPagination.total)}</span> of{' '}
                         <span className="font-bold text-gray-900">{userPagination.total}</span> users
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <Button
                           onClick={() => setUserFilters({ ...userFilters, page: userFilters.page - 1 })}
                           disabled={userFilters.page === 1}
@@ -659,7 +661,7 @@ export default function Admin() {
                         >
                           Previous
                         </Button>
-                        <span className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg">
+                        <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
                           Page {userFilters.page} of {userPagination.totalPages}
                         </span>
                         <Button
@@ -681,14 +683,14 @@ export default function Admin() {
 
         {/* Stores Tab */}
         {activeTab === 'stores' && (
-          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="p-3 space-y-3">
             {/* Enhanced Search */}
-            <Card className="border-2 border-gray-100 shadow-lg">
-              <div className="p-6">
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <Card className="border-2 border-gray-100 shadow-md">
+              <div className="p-3">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
                   <div className="relative flex-1">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                      <MagnifyingGlassIcon className="w-5 h-5" />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <MagnifyingGlassIcon className="w-4 h-4" />
                     </div>
                     <input
                       type="text"
@@ -699,7 +701,7 @@ export default function Admin() {
                         setStoreFilters(prev => ({ ...prev, search: value }));
                         debouncedStoreSearch(value);
                       }}
-                      className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
+                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                     />
                   </div>
                   <Button
@@ -729,13 +731,14 @@ export default function Admin() {
                       setStoreFormErrors({});
                       setShowStoreModal(true);
                     }}
-                    className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-                    leftIcon={<PlusIcon className="w-5 h-5" />}
+                    size="sm"
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                    leftIcon={<PlusIcon className="w-4 h-4" />}
                   >
                     Add Store
                   </Button>
                 </div>
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-3 flex items-center gap-1.5">
                   <Badge variant="primary" size="sm">{storePagination.total} Stores</Badge>
                   {storeFilters.search && (
                     <Badge variant="info" size="sm">
@@ -747,12 +750,12 @@ export default function Admin() {
             </Card>
 
             {loading ? (
-              <div className="px-6 py-8">
+              <div className="px-4 py-6">
                 <TableSkeleton rows={10} columns={5} />
               </div>
             ) : stores.length === 0 ? (
               <EmptyState
-                icon={<BuildingStorefrontIcon className="w-16 h-16" />}
+                icon={<BuildingStorefrontIcon className="w-12 h-12" />}
                 title="No stores found"
                 description={storeFilters.search ? "Try adjusting your search" : "Get started by adding your first store"}
                 action={
@@ -785,7 +788,8 @@ export default function Admin() {
                         setShowStoreModal(true);
                       }}
                       variant="primary"
-                      leftIcon={<PlusIcon className="w-5 h-5" />}
+                      size="sm"
+                      leftIcon={<PlusIcon className="w-4 h-4" />}
                     >
                       Add Store
                     </Button>
@@ -795,53 +799,53 @@ export default function Admin() {
             ) : (
               <>
                 <div className="overflow-x-auto -mx-3 sm:mx-0">
-                  <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-lg min-w-full">
+                  <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                           <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Code</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Name</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Address</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Actions</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Code</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Name</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Address</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Status</th>
+                            <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {stores.map((s, idx) => (
                           <tr
                             key={s.store_id}
-                            className={`transition-all duration-150 hover:bg-indigo-50/50 group ${
+                            className={`transition-all duration-150 hover:bg-secondary-50/50 group ${
                               idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                             }`}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg">
-                                  <BuildingStorefrontIcon className="w-5 h-5 text-indigo-600" />
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center space-x-1.5">
+                                <div className="p-1.5 bg-secondary-100 rounded-lg">
+                                  <BuildingStorefrontIcon className="w-3.5 h-3.5 text-secondary-500" />
                                 </div>
-                                <span className="text-sm font-bold text-gray-900">{s.code}</span>
+                                <span className="text-xs font-bold text-gray-900">{s.code}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{s.name}</td>
-                            <td className="px-6 py-4 text-sm text-gray-600">{s.address || <span className="text-gray-400">-</span>}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap text-xs font-bold text-gray-900">{s.name}</td>
+                            <td className="px-3 py-2 text-xs text-gray-600">{s.address || <span className="text-gray-400">-</span>}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">
                               <Badge variant={s.is_active ? 'success' : 'error'} size="sm">
                                 {s.is_active ? (
                                   <>
-                                    <CheckCircleIcon className="w-3 h-3 inline mr-1" />
+                                    <CheckCircleIcon className="w-2.5 h-2.5 inline mr-0.5" />
                                     Active
                                   </>
                                 ) : (
                                   <>
-                                    <XCircleIcon className="w-3 h-3 inline mr-1" />
+                                    <XCircleIcon className="w-2.5 h-2.5 inline mr-0.5" />
                                     Inactive
                                   </>
                                 )}
                               </Badge>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-3 py-2 whitespace-nowrap text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <Button
                                   onClick={() => {
                                     setEditingStore(s);
@@ -896,13 +900,13 @@ export default function Admin() {
                 </div>
                 {storePagination.totalPages > 1 && (
                   <Card className="border-2 border-gray-100">
-                    <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                      <div className="text-sm text-gray-600 font-medium">
+                    <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+                      <div className="text-xs text-gray-600 font-medium">
                         Showing <span className="font-bold text-gray-900">{((storeFilters.page - 1) * storeFilters.limit) + 1}</span> to{' '}
                         <span className="font-bold text-gray-900">{Math.min(storeFilters.page * storeFilters.limit, storePagination.total)}</span> of{' '}
                         <span className="font-bold text-gray-900">{storePagination.total}</span> stores
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <Button
                           onClick={() => setStoreFilters({ ...storeFilters, page: storeFilters.page - 1 })}
                           disabled={storeFilters.page === 1}
@@ -911,7 +915,7 @@ export default function Admin() {
                         >
                           Previous
                         </Button>
-                        <span className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg">
+                        <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
                           Page {storeFilters.page} of {storePagination.totalPages}
                         </span>
                         <Button
@@ -933,15 +937,15 @@ export default function Admin() {
 
         {/* Terminals Tab */}
         {activeTab === 'terminals' && (
-          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="p-3 space-y-3">
             {/* Enhanced Search and Filters */}
-            <Card className="border-2 border-gray-100 shadow-lg">
-              <div className="p-6">
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                  <div className="flex flex-1 gap-4 w-full sm:w-auto">
+            <Card className="border-2 border-gray-100 shadow-md">
+              <div className="p-3">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                  <div className="flex flex-1 gap-3 w-full sm:w-auto">
                     <div className="relative flex-1">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <MagnifyingGlassIcon className="w-5 h-5" />
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <MagnifyingGlassIcon className="w-4 h-4" />
                       </div>
                       <input
                         type="text"
@@ -952,17 +956,17 @@ export default function Admin() {
                           setTerminalFilters(prev => ({ ...prev, search: value }));
                           debouncedTerminalSearch(value);
                         }}
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
+                        className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                       />
                     </div>
                     <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <FunnelIcon className="w-5 h-5" />
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <FunnelIcon className="w-4 h-4" />
                       </div>
                       <select
                         value={terminalFilters.store_id}
                         onChange={(e) => setTerminalFilters({ ...terminalFilters, store_id: e.target.value, page: 1 })}
-                        className="pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none bg-white font-medium"
+                        className="pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium"
                       >
                         <option value="">All Stores</option>
                         {storesForDropdown.map((s) => (
@@ -978,13 +982,14 @@ export default function Admin() {
                       setTerminalFormErrors({});
                       setShowTerminalModal(true);
                     }}
-                    className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-                    leftIcon={<PlusIcon className="w-5 h-5" />}
+                    size="sm"
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                    leftIcon={<PlusIcon className="w-4 h-4" />}
                   >
                     Add Terminal
                   </Button>
                 </div>
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-3 flex items-center gap-1.5">
                   <Badge variant="primary" size="sm">{terminalPagination.total} Terminals</Badge>
                   {(terminalFilters.search || terminalFilters.store_id) && (
                     <Badge variant="info" size="sm">
@@ -996,12 +1001,12 @@ export default function Admin() {
             </Card>
 
             {loading ? (
-              <div className="px-6 py-8">
+              <div className="px-4 py-6">
                 <TableSkeleton rows={10} columns={5} />
               </div>
             ) : terminals.length === 0 ? (
               <EmptyState
-                icon={<ComputerDesktopIcon className="w-16 h-16" />}
+                icon={<ComputerDesktopIcon className="w-12 h-12" />}
                 title="No terminals found"
                 description={terminalFilters.search || terminalFilters.store_id ? "Try adjusting your filters" : "Get started by adding your first terminal"}
                 action={
@@ -1014,7 +1019,8 @@ export default function Admin() {
                         setShowTerminalModal(true);
                       }}
                       variant="primary"
-                      leftIcon={<PlusIcon className="w-5 h-5" />}
+                      size="sm"
+                      leftIcon={<PlusIcon className="w-4 h-4" />}
                     >
                       Add Terminal
                     </Button>
@@ -1024,55 +1030,55 @@ export default function Admin() {
             ) : (
               <>
                 <div className="overflow-x-auto -mx-3 sm:mx-0">
-                  <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-lg min-w-full">
+                  <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                           <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Code</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Name</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Store</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
-                          <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Actions</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Code</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Name</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Store</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Status</th>
+                          <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {terminals.map((t, idx) => (
                           <tr
                             key={t.terminal_id}
-                            className={`transition-all duration-150 hover:bg-cyan-50/50 group ${
+                            className={`transition-all duration-150 hover:bg-secondary-50/50 group ${
                               idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                             }`}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-gradient-to-br from-cyan-100 to-blue-100 rounded-lg">
-                                  <ComputerDesktopIcon className="w-5 h-5 text-cyan-600" />
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center space-x-1.5">
+                                <div className="p-1.5 bg-secondary-100 rounded-lg">
+                                  <ComputerDesktopIcon className="w-3.5 h-3.5 text-secondary-500" />
                                 </div>
-                                <span className="text-sm font-bold text-gray-900">{t.code}</span>
+                                <span className="text-xs font-bold text-gray-900">{t.code}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{t.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            <td className="px-3 py-2 whitespace-nowrap text-xs font-bold text-gray-900">{t.name}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
                               {storesForDropdown.find(s => s.store_id === t.store_id)?.name || <span className="text-gray-400">-</span>}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap">
                               <Badge variant={t.is_active ? 'success' : 'error'} size="sm">
                                 {t.is_active ? (
                                   <>
-                                    <CheckCircleIcon className="w-3 h-3 inline mr-1" />
+                                    <CheckCircleIcon className="w-2.5 h-2.5 inline mr-0.5" />
                                     Active
                                   </>
                                 ) : (
                                   <>
-                                    <XCircleIcon className="w-3 h-3 inline mr-1" />
+                                    <XCircleIcon className="w-2.5 h-2.5 inline mr-0.5" />
                                     Inactive
                                   </>
                                 )}
                               </Badge>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-3 py-2 whitespace-nowrap text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <Button
                                   onClick={() => {
                                     setEditingTerminal(t);
@@ -1107,13 +1113,13 @@ export default function Admin() {
                 </div>
                 {terminalPagination.totalPages > 1 && (
                   <Card className="border-2 border-gray-100">
-                    <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                      <div className="text-sm text-gray-600 font-medium">
+                    <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+                      <div className="text-xs text-gray-600 font-medium">
                         Showing <span className="font-bold text-gray-900">{((terminalFilters.page - 1) * terminalFilters.limit) + 1}</span> to{' '}
                         <span className="font-bold text-gray-900">{Math.min(terminalFilters.page * terminalFilters.limit, terminalPagination.total)}</span> of{' '}
                         <span className="font-bold text-gray-900">{terminalPagination.total}</span> terminals
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <Button
                           onClick={() => setTerminalFilters({ ...terminalFilters, page: terminalFilters.page - 1 })}
                           disabled={terminalFilters.page === 1}
@@ -1122,7 +1128,7 @@ export default function Admin() {
                         >
                           Previous
                         </Button>
-                        <span className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg">
+                        <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
                           Page {terminalFilters.page} of {terminalPagination.totalPages}
                         </span>
                         <Button
@@ -1144,45 +1150,45 @@ export default function Admin() {
 
         {/* License Tab */}
         {activeTab === 'license' && (
-          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="p-3 space-y-3">
             {licenseLoading ? (
-              <div className="text-center py-16">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-red-200 border-t-red-600"></div>
-                <p className="mt-4 text-gray-600 font-medium">Loading license information...</p>
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-secondary-200 border-t-secondary-500"></div>
+                <p className="mt-3 text-xs text-gray-600 font-medium">Loading license information...</p>
               </div>
             ) : (
               <>
                 {/* License Status Card */}
-                <Card className="border-2 border-gray-100 shadow-lg">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-xl">
-                          <KeyIcon className="w-6 h-6 text-white" />
+                <Card className="border-2 border-gray-100 shadow-md">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-lg">
+                          <KeyIcon className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h2 className="text-xl font-bold text-gray-900">License Status</h2>
-                          <p className="text-sm text-gray-600">Manage your subscription and activation</p>
+                          <h2 className="text-base font-bold text-gray-900">License Status</h2>
+                          <p className="text-xs text-gray-600">Manage your subscription and activation</p>
                         </div>
                       </div>
                       {licenseStatus && (
                         <Badge
                           variant={licenseStatus.isValid ? 'success' : licenseStatus.isExpired ? 'error' : 'warning'}
-                          size="md"
+                          size="sm"
                         >
                           {licenseStatus.isValid ? (
                             <>
-                              <CheckCircleIcon className="w-4 h-4 inline mr-1" />
+                              <CheckCircleIcon className="w-3 h-3 inline mr-0.5" />
                               Active
                             </>
                           ) : licenseStatus.isExpired ? (
                             <>
-                              <XCircleIcon className="w-4 h-4 inline mr-1" />
+                              <XCircleIcon className="w-3 h-3 inline mr-0.5" />
                               Expired
                             </>
                           ) : (
                             <>
-                              <ExclamationTriangleIcon className="w-4 h-4 inline mr-1" />
+                              <ExclamationTriangleIcon className="w-3 h-3 inline mr-0.5" />
                               {licenseStatus.status}
                             </>
                           )}
@@ -1191,40 +1197,41 @@ export default function Admin() {
                     </div>
 
                     {!licenseStatus ? (
-                      <div className="text-center py-8">
-                        <LockClosedIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No License Found</h3>
-                        <p className="text-gray-600 mb-6">You're currently using the application without a license.</p>
+                      <div className="text-center py-6">
+                        <LockClosedIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1.5">No License Found</h3>
+                        <p className="text-xs text-gray-600 mb-4">You're currently using the application without a license.</p>
                         <Button
                           onClick={() => setShowActivationModal(true)}
-                          className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
-                          leftIcon={<KeyIcon className="w-5 h-5" />}
+                          size="sm"
+                          className="bg-secondary-500 hover:bg-secondary-600 text-white"
+                          leftIcon={<KeyIcon className="w-4 h-4" />}
                         >
                           Activate License
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-6">
+                      <div className="space-y-4">
                         {/* Subscription Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border-2 border-blue-100">
-                            <div className="flex items-center gap-2 mb-2">
-                              <ChartBarIcon className="w-5 h-5 text-blue-600" />
-                              <span className="text-sm font-semibold text-gray-700">Subscription Type</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <ChartBarIcon className="w-4 h-4 text-secondary-500" />
+                              <span className="text-xs font-semibold text-gray-700">Subscription Type</span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900 capitalize">{licenseStatus.subscriptionType}</p>
+                            <p className="text-lg font-bold text-gray-900 capitalize">{licenseStatus.subscriptionType}</p>
                           </div>
-                          <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-100">
-                            <div className="flex items-center gap-2 mb-2">
-                              <ClockIcon className="w-5 h-5 text-green-600" />
-                              <span className="text-sm font-semibold text-gray-700">
+                          <div className="p-3 bg-success-50 rounded-lg border-2 border-success-200">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <ClockIcon className="w-4 h-4 text-secondary-500" />
+                              <span className="text-xs font-semibold text-gray-700">
                                 {licenseStatus.isTrial ? 'Days Remaining' : 'Expires On'}
                               </span>
                             </div>
                             {licenseStatus.isTrial ? (
-                              <p className="text-2xl font-bold text-gray-900">{licenseStatus.daysRemaining} days</p>
+                              <p className="text-lg font-bold text-gray-900">{licenseStatus.daysRemaining} days</p>
                             ) : (
-                              <p className="text-lg font-bold text-gray-900">
+                              <p className="text-base font-bold text-gray-900">
                                 {new Date(licenseStatus.expiryDate).toLocaleDateString()}
                               </p>
                             )}
@@ -1308,7 +1315,7 @@ export default function Admin() {
                           {licenseStatus.isTrial && (
                             <Button
                               onClick={() => setShowActivationModal(true)}
-                              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
+                              className="bg-secondary-500 hover:bg-secondary-600 text-white"
                               leftIcon={<KeyIcon className="w-5 h-5" />}
                             >
                               Upgrade to Yearly Subscription
@@ -1317,7 +1324,7 @@ export default function Admin() {
                           {!licenseStatus.isTrial && licenseStatus.isExpired && (
                             <Button
                               onClick={() => setShowActivationModal(true)}
-                              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
+                              className="bg-secondary-500 hover:bg-secondary-600 text-white"
                               leftIcon={<KeyIcon className="w-5 h-5" />}
                             >
                               Renew License
@@ -1371,7 +1378,7 @@ export default function Admin() {
         onClose={() => setShowUserModal(false)}
         title={
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-sky-500 to-blue-500 rounded-lg">
+            <div className="p-2 bg-secondary-500 rounded-lg">
               <UserGroupIcon className="w-5 h-5 text-white" />
             </div>
             <span>{editingUser ? 'Edit User' : 'Add User'}</span>
@@ -1391,7 +1398,7 @@ export default function Admin() {
             <Button
               type="submit"
               form="user-form"
-              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={submittingUser}
             >
               {editingUser ? 'Update' : 'Create'}
@@ -1502,7 +1509,7 @@ export default function Admin() {
         onClose={() => setShowStoreModal(false)}
         title={
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-lg">
+            <div className="p-2 bg-secondary-500 rounded-lg">
               <BuildingStorefrontIcon className="w-5 h-5 text-white" />
             </div>
             <span>{editingStore ? 'Edit Store' : 'Add Store'}</span>
@@ -1522,7 +1529,7 @@ export default function Admin() {
             <Button
               type="submit"
               form="store-form"
-              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={submittingStore}
             >
               {editingStore ? 'Update' : 'Create'}
@@ -1605,7 +1612,7 @@ export default function Admin() {
           {/* Enhanced Store Settings Section */}
           <div className="pt-6 border-t-2 border-gray-200">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <div className="p-2 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-lg">
+              <div className="p-2 bg-secondary-500 rounded-lg">
                 <CogIcon className="w-5 h-5 text-white" />
               </div>
               Store Settings
@@ -1829,7 +1836,7 @@ export default function Admin() {
         onClose={() => setShowTerminalModal(false)}
         title={
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg">
+            <div className="p-2 bg-secondary-500 rounded-lg">
               <ComputerDesktopIcon className="w-5 h-5 text-white" />
             </div>
             <span>{editingTerminal ? 'Edit Terminal' : 'Add Terminal'}</span>
@@ -1849,7 +1856,7 @@ export default function Admin() {
             <Button
               type="submit"
               form="terminal-form"
-              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={submittingTerminal}
             >
               {editingTerminal ? 'Update' : 'Create'}

@@ -42,7 +42,7 @@ export default function UserModal({
       onClose={onClose}
       title={
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-br from-sky-500 to-blue-500 rounded-lg">
+          <div className="p-2 bg-secondary-500 rounded-lg">
             <UserGroupIcon className="w-5 h-5 text-white" />
           </div>
           <span>{editingUser ? 'Edit User' : 'Add User'}</span>
@@ -62,7 +62,7 @@ export default function UserModal({
           <Button
             type="submit"
             form="user-form"
-            className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
             isLoading={submitting}
           >
             {editingUser ? 'Update' : 'Create'}

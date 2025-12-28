@@ -378,23 +378,24 @@ export default function Purchases() {
   return (
     <>
       {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <div className="flex items-center space-x-2 sm:space-x-3 mb-2">
-              <div className="p-2 sm:p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                <ShoppingCartIcon className="w-5 h-5 sm:w-7 sm:h-7" />
+            <div className="flex items-center space-x-2 mb-1">
+              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
+                <ShoppingCartIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold">Purchase Orders</h1>
-                <p className="text-orange-50 text-xs sm:text-sm mt-1">Manage your inventory purchases and suppliers</p>
+                <h1 className="text-xl sm:text-2xl font-extrabold">Purchase Orders</h1>
+                <p className="text-white/80 text-xs mt-0.5">Manage your inventory purchases and suppliers</p>
               </div>
             </div>
           </div>
           <Button
             onClick={openAddModal}
-            className="bg-white !text-orange-700 hover:bg-orange-50 font-semibold shadow-lg hover:shadow-xl transition-all"
-            leftIcon={<PlusIcon className="w-5 h-5 !text-orange-700" />}
+            size="sm"
+            className="bg-white !text-secondary-500 hover:bg-gray-50 font-semibold shadow-md hover:shadow-lg transition-all"
+            leftIcon={<PlusIcon className="w-4 h-4 !text-secondary-500" />}
           >
             New Purchase Order
           </Button>
@@ -402,32 +403,32 @@ export default function Purchases() {
       </div>
 
       {/* Enhanced Filters */}
-      <Card className="mb-4 sm:mb-6 border-2 border-gray-100 shadow-lg">
-        <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <Card className="mb-3 border-2 border-gray-100 shadow-md">
+        <div className="p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="lg:col-span-2">
               <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <MagnifyingGlassIcon className="w-5 h-5" />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <MagnifyingGlassIcon className="w-4 h-4" />
                 </div>
                 <input
                   type="text"
                   placeholder="Search by PO number or supplier..."
                   value={filters.search || ''}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white font-medium"
+                  className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                 />
               </div>
             </div>
             
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <FunnelIcon className="w-5 h-5" />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <FunnelIcon className="w-4 h-4" />
               </div>
               <select
                 value={filters.status || ''}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('status', e.target.value || undefined)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 appearance-none bg-white font-medium"
+                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium"
               >
                 <option value="">All Statuses</option>
                 <option value="OPEN">Open</option>
@@ -438,8 +439,8 @@ export default function Purchases() {
             </div>
           </div>
           
-          <div className="mt-4 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-2">
+          <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
               <Badge variant="warning" size="sm">{pagination.total} Orders</Badge>
               {filters.search && (
                 <Badge variant="primary" size="sm">
@@ -449,9 +450,9 @@ export default function Purchases() {
             </div>
             <button
               onClick={loadPurchaseOrders}
-              className="flex items-center space-x-2 text-sm font-medium text-gray-600 hover:text-orange-600 transition-colors"
+              className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors"
             >
-              <ArrowPathIcon className="w-4 h-4" />
+              <ArrowPathIcon className="w-3.5 h-3.5" />
               <span>Refresh</span>
             </button>
           </div>
@@ -460,21 +461,21 @@ export default function Purchases() {
 
       {/* Purchase Orders Table */}
       <div className="overflow-x-auto -mx-3 sm:mx-0">
-        <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-lg min-w-full">
+        <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
           <div className="overflow-x-auto">
           {loading ? (
-            <div className="px-6 py-8">
+            <div className="px-4 py-6">
               <TableSkeleton rows={10} columns={7} />
             </div>
           ) : purchaseOrders.length === 0 ? (
-            <div className="px-6 py-16">
+            <div className="px-4 py-12">
               <EmptyState
-                icon={<ShoppingCartIcon className="w-16 h-16" />}
+                icon={<ShoppingCartIcon className="w-12 h-12" />}
                 title="No purchase orders found"
                 description={filters.search ? "Try adjusting your search or filters" : "Get started by creating your first purchase order"}
                 action={
                   !filters.search && (
-                    <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-5 h-5" />} variant="primary">
+                    <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
                       New Purchase Order
                     </Button>
                   )
@@ -485,59 +486,59 @@ export default function Purchases() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">PO Number</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Supplier</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Items</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Total Cost</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered At</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">PO Number</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Supplier</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Items</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Total Cost</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Ordered At</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {purchaseOrders.map((po, index) => (
                   <tr
                     key={po.po_id}
-                    className={`transition-all duration-150 hover:bg-orange-50/50 group ${
+                    className={`transition-all duration-150 hover:bg-secondary-50/50 group ${
                       index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                     }`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <div className="p-2 bg-gradient-to-br from-orange-100 to-amber-100 rounded-lg">
-                          <ShoppingCartIcon className="w-4 h-4 text-orange-600" />
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center space-x-1.5">
+                        <div className="p-1.5 bg-secondary-100 rounded-lg">
+                          <ShoppingCartIcon className="w-3.5 h-3.5 text-secondary-500" />
                         </div>
-                        <div className="text-sm font-bold text-gray-900 font-mono">
+                        <div className="text-xs font-bold text-gray-900 font-mono">
                           {po.po_number}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="text-xs font-semibold text-gray-900">
                         {po.supplier?.name || <span className="text-gray-400">Unknown</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       {getStatusBadge(po.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center space-x-1.5">
                         <Badge variant="primary" size="sm">{po.items.length}</Badge>
-                        <span className="text-sm text-gray-600">{po.items.length === 1 ? 'item' : 'items'}</span>
+                        <span className="text-xs text-gray-600">{po.items.length === 1 ? 'item' : 'items'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-orange-600">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="text-xs font-bold text-secondary-500">
                         {formatCurrency(Number(po.total_cost))}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="text-xs text-gray-600">
                         {new Date(po.ordered_at).toLocaleDateString()}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-2 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         {po.status !== 'RECEIVED' && po.status !== 'CANCELLED' && (
                           <Button
                             onClick={() => handleReceive(po)}
@@ -582,14 +583,14 @@ export default function Purchases() {
 
       {/* Enhanced Pagination */}
       {pagination.totalPages > 1 && (
-        <Card className="mt-4 sm:mt-6 border-2 border-gray-100">
-          <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-gray-600 font-medium">
+        <Card className="mt-3 border-2 border-gray-100">
+          <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div className="text-xs text-gray-600 font-medium">
               Showing <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> to{' '}
               <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
               <span className="font-bold text-gray-900">{pagination.total}</span> purchase orders
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Button
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
@@ -598,7 +599,7 @@ export default function Purchases() {
               >
                 Previous
               </Button>
-              <span className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg">
+              <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
                 Page {pagination.page} of {pagination.totalPages}
               </span>
               <Button
@@ -619,11 +620,11 @@ export default function Purchases() {
         isOpen={showModal}
         onClose={closeModal}
         title={
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
-              <ShoppingCartIcon className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <ShoppingCartIcon className="w-4 h-4 text-white" />
             </div>
-            <span>{editingPO ? 'View Purchase Order' : 'New Purchase Order'}</span>
+            <span className="text-base">{editingPO ? 'View Purchase Order' : 'New Purchase Order'}</span>
           </div>
         }
         size="xl"
@@ -641,7 +642,7 @@ export default function Purchases() {
               <Button
                 type="submit"
                 form="purchase-order-form"
-                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 isLoading={submitting}
                 leftIcon={<PlusIcon className="w-5 h-5" />}
               >
@@ -653,20 +654,20 @@ export default function Purchases() {
       >
         <form id="purchase-order-form" onSubmit={handleSubmit}>
           {/* Enhanced Supplier Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-gray-700 mb-2">
               Supplier <span className="text-red-500">*</span>
             </label>
             {selectedSupplier ? (
-              <div className="flex justify-between items-center p-4 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl border-2 border-indigo-200">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-lg">
-                    <BuildingOfficeIcon className="w-5 h-5 text-white" />
+              <div className="flex justify-between items-center p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-secondary-500 rounded-lg">
+                    <BuildingOfficeIcon className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">{selectedSupplier.name}</p>
+                    <p className="font-bold text-xs text-gray-900">{selectedSupplier.name}</p>
                     {selectedSupplier.phone && (
-                      <p className="text-sm text-gray-600">{selectedSupplier.phone}</p>
+                      <p className="text-xs text-gray-600">{selectedSupplier.phone}</p>
                     )}
                   </div>
                 </div>
@@ -675,7 +676,7 @@ export default function Purchases() {
                   onClick={() => setSelectedSupplier(null)}
                   variant="ghost"
                   size="sm"
-                  className="hover:bg-white"
+                  className="hover:bg-white !p-1"
                 >
                   Change
                 </Button>
@@ -685,8 +686,9 @@ export default function Purchases() {
                 type="button"
                 onClick={() => setShowSupplierModal(true)}
                 variant="outline"
-                className="w-full border-2 hover:bg-indigo-50 hover:border-indigo-300 transition-all"
-                leftIcon={<PlusIcon className="w-5 h-5" />}
+                size="sm"
+                className="w-full border-2 hover:bg-secondary-50 hover:border-secondary-300 transition-all"
+                leftIcon={<PlusIcon className="w-4 h-4" />}
               >
                 Select Supplier
               </Button>
@@ -694,32 +696,32 @@ export default function Purchases() {
           </div>
 
           {/* Enhanced Expected Date */}
-          <div className="mb-6">
+          <div className="mb-4">
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <CalendarIcon className="w-5 h-5" />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <CalendarIcon className="w-4 h-4" />
               </div>
               <input
                 type="date"
                 value={expectedAt}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExpectedAt(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white font-medium"
+                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-2 ml-4">Expected Delivery Date (Optional)</p>
+            <p className="text-[10px] text-gray-500 mt-1 ml-3">Expected Delivery Date (Optional)</p>
           </div>
 
           {/* Enhanced Items Section */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <label className="block text-sm font-semibold text-gray-700">
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-xs font-semibold text-gray-700">
                 Items <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {/* Barcode Scanner */}
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <QrCodeIcon className="w-4 h-4" />
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <QrCodeIcon className="w-3.5 h-3.5" />
                   </div>
                   <input
                     ref={barcodeInputRef}
@@ -733,13 +735,13 @@ export default function Purchases() {
                         }
                       }
                     }}
-                    className="w-48 pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white font-medium text-sm"
+                    className="w-40 pl-9 pr-2.5 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
                 </div>
                 {/* Product Search */}
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <MagnifyingGlassIcon className="w-4 h-4" />
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <MagnifyingGlassIcon className="w-3.5 h-3.5" />
                   </div>
                   <input
                     ref={productSearchRef}
@@ -747,7 +749,7 @@ export default function Purchases() {
                     value={productSearch}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProductSearch(e.target.value)}
                     placeholder="Search products..."
-                    className="w-64 pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white font-medium text-sm"
+                    className="w-56 pl-9 pr-2.5 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
                 </div>
               </div>
@@ -755,33 +757,33 @@ export default function Purchases() {
 
             {/* Enhanced Product Search Results */}
             {productResults.length > 0 && (
-              <div className="mb-4 border-2 border-gray-200 rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-100 bg-white shadow-inner">
+              <div className="mb-3 border-2 border-gray-200 rounded-lg max-h-40 overflow-y-auto divide-y divide-gray-100 bg-white shadow-inner">
                 {productResults.map((product) => (
                   <button
                     key={product.product_id}
                     type="button"
                     onClick={() => addItem(product)}
-                    className="w-full px-4 py-4 text-left hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-all duration-150 group"
+                    className="w-full px-3 py-2.5 text-left hover:bg-secondary-50 transition-all duration-150 group"
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="p-1.5 bg-gradient-to-br from-orange-100 to-amber-100 rounded-lg">
-                            <SparklesIcon className="w-4 h-4 text-orange-600" />
+                        <div className="flex items-center space-x-1.5 mb-1">
+                          <div className="p-1 bg-secondary-100 rounded-lg">
+                            <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
                           </div>
-                          <p className="font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{product.name}</p>
+                          <p className="font-bold text-xs text-gray-900 group-hover:text-secondary-500 transition-colors">{product.name}</p>
                         </div>
                         {product.barcode && (
-                          <Badge variant="gray" size="sm" className="font-mono text-xs">
+                          <Badge variant="gray" size="sm" className="font-mono text-[10px]">
                             {product.barcode}
                           </Badge>
                         )}
                       </div>
-                      <div className="text-right ml-4">
-                        <p className="font-bold text-lg text-orange-600">
+                      <div className="text-right ml-3">
+                        <p className="font-bold text-sm text-secondary-500">
                           {formatCurrency(Number(product.list_price || 0))}
                         </p>
-                        <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-orange-600 mt-2 ml-auto transition-colors" />
+                        <ArrowRightIcon className="w-3 h-3 text-gray-400 group-hover:text-secondary-500 mt-1 ml-auto transition-colors" />
                       </div>
                     </div>
                   </button>
@@ -792,101 +794,101 @@ export default function Purchases() {
             {/* Enhanced Items List */}
             {items.length === 0 ? (
               <EmptyState
-                icon={<ShoppingCartIcon className="w-12 h-12" />}
+                icon={<ShoppingCartIcon className="w-10 h-10" />}
                 title="No items added"
                 description="Search and add products to get started"
               />
             ) : (
-              <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+              <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-orange-50 to-amber-50">
+                    <thead className="bg-secondary-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Product</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Quantity</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Unit Cost</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Total</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Actions</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Product</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Quantity</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Unit Cost</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Total</th>
+                        <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {items.map((item) => (
-                        <tr key={item.product.product_id} className="hover:bg-orange-50/50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center space-x-2">
-                              <div className="p-1.5 bg-gradient-to-br from-orange-100 to-amber-100 rounded-lg">
-                                <SparklesIcon className="w-4 h-4 text-orange-600" />
+                        <tr key={item.product.product_id} className="hover:bg-secondary-50/50 transition-colors">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center space-x-1.5">
+                              <div className="p-1 bg-secondary-100 rounded-lg">
+                                <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
                               </div>
-                              <div className="text-sm font-bold text-gray-900">
+                              <div className="text-xs font-bold text-gray-900">
                                 {item.product.name}
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2 border-2 border-gray-200 rounded-lg bg-white w-24">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white w-20">
                               <Button
                                 type="button"
                                 onClick={() => updateItem(item.product.product_id, 'qty_ordered', Math.max(1, item.qty_ordered - 1))}
                                 variant="ghost"
                                 size="sm"
-                                className="!p-1 hover:bg-gray-100"
+                                className="!p-0.5 hover:bg-gray-100"
                               >
-                                <MinusIcon className="w-3 h-3" />
+                                <MinusIcon className="w-2.5 h-2.5" />
                               </Button>
                               <input
                                 type="number"
                                 min="1"
                                 value={item.qty_ordered}
                                 onChange={(e) => updateItem(item.product.product_id, 'qty_ordered', parseInt(e.target.value) || 1)}
-                                className="w-12 text-center font-bold text-gray-900 border-0 focus:ring-0 p-0"
+                                className="w-10 text-center text-xs font-bold text-gray-900 border-0 focus:ring-0 p-0"
                               />
                               <Button
                                 type="button"
                                 onClick={() => updateItem(item.product.product_id, 'qty_ordered', item.qty_ordered + 1)}
                                 variant="ghost"
                                 size="sm"
-                                className="!p-1 hover:bg-gray-100"
+                                className="!p-0.5 hover:bg-gray-100"
                               >
-                                <PlusIcon className="w-3 h-3" />
+                                <PlusIcon className="w-2.5 h-2.5" />
                               </Button>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <input
                               type="number"
                               step="0.01"
                               min="0"
                               value={item.unit_cost}
                               onChange={(e) => updateItem(item.product.product_id, 'unit_cost', parseFloat(e.target.value) || 0)}
-                              className="w-28 px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-medium"
+                              className="w-24 px-2 py-1.5 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 font-medium"
                             />
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-bold text-orange-600">
+                          <td className="px-3 py-2">
+                            <div className="text-xs font-bold text-secondary-500">
                               {formatCurrency(item.qty_ordered * item.unit_cost)}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 py-2 text-right">
                             <Button
                               type="button"
                               onClick={() => removeItem(item.product.product_id)}
                               variant="danger"
                               size="sm"
-                              className="!p-2"
+                              className="!p-1.5"
                             >
-                              <XMarkIcon className="w-4 h-4" />
+                              <XMarkIcon className="w-3 h-3" />
                             </Button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-gradient-to-r from-orange-50 to-amber-50">
+                    <tfoot className="bg-secondary-50">
                       <tr>
-                        <td colSpan={3} className="px-4 py-4 text-right font-bold text-gray-700">
+                        <td colSpan={3} className="px-3 py-2.5 text-right font-bold text-xs text-gray-700">
                           Total:
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="text-xl font-extrabold text-orange-600">
+                        <td className="px-3 py-2.5">
+                          <div className="text-base font-extrabold text-secondary-500">
                             {formatCurrency(totalCost)}
                           </div>
                         </td>
@@ -910,11 +912,11 @@ export default function Purchases() {
           setSupplierResults([]);
         }}
         title={
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-lg">
-              <BuildingOfficeIcon className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <BuildingOfficeIcon className="w-4 h-4 text-white" />
             </div>
-            <span>Select Supplier</span>
+            <span className="text-base">Select Supplier</span>
           </div>
         }
         size="md"
@@ -931,28 +933,28 @@ export default function Purchases() {
             leftIcon={<MagnifyingGlassIcon className="w-5 h-5" />}
             autoFocus
           />
-          <div className="mt-4 max-h-64 overflow-y-auto">
+          <div className="mt-3 max-h-48 overflow-y-auto">
             {supplierResults.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {supplierResults.map((supplier) => (
                   <button
                     key={supplier.supplier_id}
                     onClick={() => selectSupplier(supplier)}
-                    className="w-full px-4 py-3 text-left hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 border-2 border-gray-200 hover:border-indigo-300 rounded-xl transition-all group"
+                    className="w-full px-3 py-2 text-left hover:bg-secondary-50 border-2 border-gray-200 hover:border-secondary-300 rounded-lg transition-all group"
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="p-1.5 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg">
-                        <BuildingOfficeIcon className="w-4 h-4 text-indigo-600" />
+                    <div className="flex items-center space-x-1.5">
+                      <div className="p-1 bg-secondary-100 rounded-lg">
+                        <BuildingOfficeIcon className="w-3.5 h-3.5 text-secondary-500" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-bold text-gray-900 group-hover:text-indigo-600">
+                        <p className="font-bold text-xs text-gray-900 group-hover:text-secondary-500">
                           {supplier.name}
                         </p>
                         {supplier.phone && (
-                          <p className="text-sm text-gray-600 mt-1">{supplier.phone}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{supplier.phone}</p>
                         )}
                       </div>
-                      <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                      <ArrowRightIcon className="w-3 h-3 text-gray-400 group-hover:text-secondary-500 transition-colors" />
                     </div>
                   </button>
                 ))}

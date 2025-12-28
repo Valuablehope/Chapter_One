@@ -15,57 +15,38 @@ export default {
     },
     extend: {
       colors: {
-        // Primary - Blue
+        // Primary - White (for backgrounds)
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          DEFAULT: '#ffffff',
+          white: '#ffffff',
         },
-        // Secondary - Green (Success, Sales)
+        // Secondary - Brand Blue (#3582e2)
         secondary: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+          50: '#e8f1fc',
+          100: '#d1e3f9',
+          200: '#a3c7f3',
+          300: '#75abed',
+          400: '#4790e7',
+          500: '#3582e2', // Base brand color
+          600: '#2a68b5',
+          700: '#1f4e88',
+          800: '#15345b',
+          900: '#0a1a2e',
+          DEFAULT: '#3582e2',
         },
-        // Accent - Purple (Reports, Special Features)
-        accent: {
-          50: '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          300: '#d8b4fe',
-          400: '#c084fc',
-          500: '#a855f7',
-          600: '#9333ea',
-          700: '#7e22ce',
-          800: '#6b21a8',
-          900: '#581c87',
-        },
-        // Warning - Amber
-        warning: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+        // Success - Secondary Blue (using brand color)
+        success: {
+          50: '#e8f1fc',
+          100: '#d1e3f9',
+          200: '#a3c7f3',
+          300: '#75abed',
+          400: '#4790e7',
+          500: '#3582e2',
+          600: '#2a68b5',
+          700: '#1f4e88',
+          800: '#15345b',
+          900: '#0a1a2e',
+          DEFAULT: '#3582e2',
         },
         // Error - Red
         error: {
@@ -79,6 +60,21 @@ export default {
           700: '#b91c1c',
           800: '#991b1b',
           900: '#7f1d1d',
+          DEFAULT: '#ef4444',
+        },
+        // Warning - Amber
+        warning: {
+          50: '#fffbeb',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+          700: '#b45309',
+          800: '#92400e',
+          900: '#78350f',
+          DEFAULT: '#f59e0b',
         },
         // Info - Cyan
         info: {
@@ -92,6 +88,7 @@ export default {
           700: '#0e7490',
           800: '#155e75',
           900: '#164e63',
+          DEFAULT: '#06b6d4',
         },
       },
       fontFamily: {

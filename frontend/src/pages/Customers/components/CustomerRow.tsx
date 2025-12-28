@@ -13,22 +13,22 @@ export interface CustomerRowProps {
 
 export const CustomerRow = memo<CustomerRowProps>(({ customer, index, onEdit, onDelete }) => {
   return (
-    <TableRow index={index} hoverClassName="hover:bg-sky-50/50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg">
-            <UserGroupIcon className="w-5 h-5 text-sky-600" />
+    <TableRow index={index} hoverClassName="hover:bg-secondary-50/50">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center space-x-1.5">
+          <div className="p-1.5 bg-secondary-100 rounded-lg">
+            <UserGroupIcon className="w-3.5 h-3.5 text-secondary-500" />
           </div>
-          <div className="text-sm font-bold text-gray-900">
+          <div className="text-xs font-bold text-gray-900">
             {customer.full_name || <span className="text-gray-400">N/A</span>}
           </div>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center gap-1.5 text-xs text-gray-600">
           {customer.phone ? (
             <>
-              <PhoneIcon className="w-4 h-4 text-sky-500" />
+              <PhoneIcon className="w-3.5 h-3.5 text-secondary-500" />
               <span className="font-medium">{customer.phone}</span>
             </>
           ) : (
@@ -36,11 +36,11 @@ export const CustomerRow = memo<CustomerRowProps>(({ customer, index, onEdit, on
           )}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center gap-1.5 text-xs text-gray-600">
           {customer.email ? (
             <>
-              <EnvelopeIcon className="w-4 h-4 text-sky-500" />
+              <EnvelopeIcon className="w-3.5 h-3.5 text-secondary-500" />
               <span className="font-medium">{customer.email}</span>
             </>
           ) : (
@@ -48,11 +48,11 @@ export const CustomerRow = memo<CustomerRowProps>(({ customer, index, onEdit, on
           )}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
         {new Date(customer.created_at).toLocaleDateString()}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right">
-        <div className="flex items-center justify-end gap-2">
+      <td className="px-3 py-2 whitespace-nowrap text-right">
+        <div className="flex items-center justify-end gap-1.5">
           <Button
             onClick={() => onEdit(customer)}
             variant="ghost"
