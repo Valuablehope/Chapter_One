@@ -9,6 +9,7 @@ import Layout from './components/Layout';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const Sales = lazy(() => import('./pages/Sales'));
+const SalesManagement = lazy(() => import('./pages/SalesManagement'));
 const Purchases = lazy(() => import('./pages/Purchases'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
@@ -62,6 +63,18 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <Sales />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sales-management"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <SalesManagement />
                 </Suspense>
               </Layout>
             </ProtectedRoute>

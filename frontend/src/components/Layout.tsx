@@ -10,10 +10,10 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
-  ChevronDownIcon,
   Bars3Icon,
   XMarkIcon,
   MapPinIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -25,6 +25,7 @@ import {
   ChartBarIcon as ChartBarIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
   MapPinIcon as MapPinIconSolid,
+  DocumentTextIcon as DocumentTextIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
 import TrialBanner from './TrialBanner';
@@ -120,6 +121,12 @@ export default function Layout({ children }: LayoutProps) {
       label: 'POS Sales', 
       icon: CurrencyDollarIcon, 
       iconSolid: CurrencyDollarIconSolid,
+    },
+    { 
+      path: '/sales-management', 
+      label: 'Sales Management', 
+      icon: DocumentTextIcon, 
+      iconSolid: DocumentTextIconSolid,
     },
     { 
       path: '/purchases', 

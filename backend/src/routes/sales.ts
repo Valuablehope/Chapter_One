@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { body } from 'express-validator';
-import { createSale, getSaleById } from '../controllers/saleController';
+import { body, query } from 'express-validator';
+import { getSales, createSale, getSaleById } from '../controllers/saleController';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
@@ -9,6 +9,23 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Get all sales with filters
+router.get(
+  '/',
+  [
+    query('search').optional().isString(),
+    query('status').optional().isIn(['open', 'paid', 'void']),
+    query('customer_id').optional().isUUID(),
+    query('store_id').optional().isUUID(),
+    query('start_date').optional().isISO8601().toDate(),
+    query('end_date').optional().isISO8601().toDate(),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+  ],
+  validateRequest,
+  getSales
+);
 
 // Create sale
 router.post(

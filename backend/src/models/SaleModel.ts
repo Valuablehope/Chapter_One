@@ -1,4 +1,4 @@
-import { BaseModel } from './BaseModel';
+import { BaseModel, PaginatedResult } from './BaseModel';
 import { pool } from '../config/database';
 
 export type SaleStatus = 'open' | 'paid' | 'void';
@@ -24,6 +24,7 @@ export interface SaleItem {
   sale_item_id: string;
   sale_id: string;
   product_id: string;
+  product_name?: string;
   book_id?: string;
   qty: number;
   unit_price: number;
@@ -60,6 +61,20 @@ export interface SaleWithDetails extends Sale {
     full_name?: string;
     phone?: string;
   };
+  store_name?: string;
+  terminal_name?: string;
+  cashier_name?: string;
+}
+
+export interface SaleFilters {
+  search?: string;
+  status?: SaleStatus;
+  customer_id?: string;
+  store_id?: string;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
 }
 
 export class SaleModel extends BaseModel {
@@ -253,7 +268,7 @@ export class SaleModel extends BaseModel {
     }
   }
 
-  // Get sale by ID - Optimized to use single query with JSON aggregation
+  // Get sale by ID - Using subqueries to avoid Cartesian product with payments
   static async findById(saleId: string): Promise<SaleWithDetails | null> {
     const query = `
       SELECT 
@@ -261,42 +276,46 @@ export class SaleModel extends BaseModel {
         c.full_name as customer_name,
         c.phone as customer_phone,
         COALESCE(
-          json_agg(
-            json_build_object(
-              'sale_item_id', si.sale_item_id,
-              'sale_id', si.sale_id,
-              'product_id', si.product_id,
-              'book_id', si.book_id,
-              'qty', si.qty,
-              'unit_price', si.unit_price,
-              'tax_rate', si.tax_rate,
-              'discount', si.discount,
-              'line_total', si.line_total,
-              'created_at', si.created_at
+          (
+            SELECT json_agg(
+              json_build_object(
+                'sale_item_id', si.sale_item_id,
+                'sale_id', si.sale_id,
+                'product_id', si.product_id,
+                'product_name', p.name,
+                'book_id', si.book_id,
+                'qty', si.qty,
+                'unit_price', si.unit_price,
+                'tax_rate', si.tax_rate,
+                'line_total', si.line_total
+              )
+              ORDER BY si.sale_item_id
             )
-            ORDER BY si.created_at
-          ) FILTER (WHERE si.sale_item_id IS NOT NULL),
+            FROM sale_items si
+            LEFT JOIN products p ON p.product_id = si.product_id
+            WHERE si.sale_id = s.sale_id
+          ),
           '[]'::json
         ) as items,
         COALESCE(
-          json_agg(
-            json_build_object(
-              'payment_id', sp.payment_id,
-              'sale_id', sp.sale_id,
-              'payment_method', sp.payment_method,
-              'amount', sp.amount,
-              'created_at', sp.created_at
+          (
+            SELECT json_agg(
+              json_build_object(
+                'sale_payment_id', sp.sale_payment_id,
+                'sale_id', sp.sale_id,
+                'method', sp.method,
+                'amount', sp.amount
+              )
+              ORDER BY sp.sale_payment_id
             )
-            ORDER BY sp.created_at
-          ) FILTER (WHERE sp.payment_id IS NOT NULL),
+            FROM sale_payments sp
+            WHERE sp.sale_id = s.sale_id
+          ),
           '[]'::json
         ) as payments
       FROM sales s
       LEFT JOIN customers c ON c.customer_id = s.customer_id
-      LEFT JOIN sale_items si ON si.sale_id = s.sale_id
-      LEFT JOIN sale_payments sp ON sp.sale_id = s.sale_id
       WHERE s.sale_id = $1
-      GROUP BY s.sale_id, c.full_name, c.phone
     `;
     const saleResult = await this.query(query, [saleId]);
     
@@ -316,6 +335,166 @@ export class SaleModel extends BaseModel {
         phone: sale.customer_phone,
       } : undefined,
     };
+  }
+
+  // Get all sales with filters
+  static async findAll(filters: SaleFilters = {}): Promise<PaginatedResult<SaleWithDetails>> {
+    const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
+    
+    let query = `
+      SELECT 
+        s.*,
+        c.full_name as customer_name,
+        c.phone as customer_phone,
+        st.name as store_name,
+        t.name as terminal_name,
+        u.full_name as cashier_name
+      FROM sales s
+      LEFT JOIN customers c ON c.customer_id = s.customer_id
+      LEFT JOIN stores st ON st.store_id = s.store_id
+      LEFT JOIN terminals t ON t.terminal_id = s.terminal_id
+      LEFT JOIN app_users u ON u.user_id = s.cashier_id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (filters.status) {
+      paramCount++;
+      query += ` AND s.status = $${paramCount}`;
+      params.push(filters.status);
+    }
+
+    if (filters.customer_id) {
+      paramCount++;
+      query += ` AND s.customer_id = $${paramCount}`;
+      params.push(filters.customer_id);
+    }
+
+    if (filters.store_id) {
+      paramCount++;
+      query += ` AND s.store_id = $${paramCount}`;
+      params.push(filters.store_id);
+    }
+
+    if (filters.start_date) {
+      paramCount++;
+      query += ` AND DATE(s.created_at) >= $${paramCount}`;
+      params.push(filters.start_date);
+    }
+
+    if (filters.end_date) {
+      paramCount++;
+      query += ` AND DATE(s.created_at) <= $${paramCount}`;
+      params.push(filters.end_date);
+    }
+
+    if (filters.search) {
+      paramCount++;
+      query += ` AND (
+        s.receipt_no ILIKE $${paramCount} OR
+        c.full_name ILIKE $${paramCount} OR
+        u.full_name ILIKE $${paramCount}
+      )`;
+      params.push(`%${filters.search}%`);
+    }
+
+    // Get total count
+    const countQuery = this.buildCountQuery(query);
+    const countResult = await this.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Add pagination
+    paramCount++;
+    query += ` ORDER BY s.created_at DESC LIMIT $${paramCount}`;
+    params.push(limit);
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
+    params.push(offset);
+
+    const result = await this.query(query, params);
+    const sales = result.rows;
+
+    // If no sales, return empty result
+    if (sales.length === 0) {
+      return this.buildPaginatedResult([], total, page, limit);
+    }
+
+    // Get all items and payments for all sales in a single query (fixes N+1 problem)
+    const saleIds = sales.map((s: any) => s.sale_id);
+    
+    const itemsQuery = `
+      SELECT 
+        si.*, 
+        p.name as product_name, 
+        p.barcode
+      FROM sale_items si
+      LEFT JOIN products p ON p.product_id = si.product_id
+      WHERE si.sale_id = ANY($1)
+      ORDER BY si.sale_id, si.sale_item_id
+    `;
+    const itemsResult = await this.query(itemsQuery, [saleIds]);
+
+    const paymentsQuery = `
+      SELECT 
+        sale_payment_id,
+        sale_id,
+        method,
+        amount
+      FROM sale_payments
+      WHERE sale_id = ANY($1)
+      ORDER BY sale_id, sale_payment_id
+    `;
+    const paymentsResult = await this.query(paymentsQuery, [saleIds]);
+
+    // Group items and payments by sale_id
+    const itemsBySale: Record<string, SaleItem[]> = {};
+    itemsResult.rows.forEach((item: any) => {
+      if (!itemsBySale[item.sale_id]) {
+        itemsBySale[item.sale_id] = [];
+      }
+      itemsBySale[item.sale_id].push({
+        sale_item_id: item.sale_item_id,
+        sale_id: item.sale_id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        book_id: item.book_id,
+        qty: item.qty,
+        unit_price: item.unit_price,
+        tax_rate: item.tax_rate,
+        line_total: item.line_total,
+      });
+    });
+
+    const paymentsBySale: Record<string, SalePayment[]> = {};
+    paymentsResult.rows.forEach((payment: any) => {
+      if (!paymentsBySale[payment.sale_id]) {
+        paymentsBySale[payment.sale_id] = [];
+      }
+      paymentsBySale[payment.sale_id].push({
+        sale_payment_id: payment.sale_payment_id,
+        sale_id: payment.sale_id,
+        method: payment.method,
+        amount: payment.amount,
+      });
+    });
+
+    // Combine sales with their items and payments
+    const salesWithDetails: SaleWithDetails[] = sales.map((sale: any) => ({
+      ...sale,
+      items: itemsBySale[sale.sale_id] || [],
+      payments: paymentsBySale[sale.sale_id] || [],
+      customer: sale.customer_name ? {
+        customer_id: sale.customer_id,
+        full_name: sale.customer_name,
+        phone: sale.customer_phone,
+      } : undefined,
+      store_name: sale.store_name,
+      terminal_name: sale.terminal_name,
+      cashier_name: sale.cashier_name,
+    }));
+
+    return this.buildPaginatedResult(salesWithDetails, total, page, limit);
   }
 
 }

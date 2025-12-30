@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { SaleModel, CreateSaleData } from '../models/SaleModel';
+import { SaleModel, CreateSaleData, SaleFilters } from '../models/SaleModel';
 import { CustomError, asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 
@@ -61,6 +61,27 @@ export const createSale = asyncHandler(
     });
   }
 );
+
+// Get all sales with filters
+export const getSales = asyncHandler(async (req: Request, res: Response) => {
+  const filters: SaleFilters = {
+    search: req.query.search as string,
+    status: req.query.status as any,
+    customer_id: req.query.customer_id as string,
+    store_id: req.query.store_id as string,
+    start_date: req.query.start_date as string,
+    end_date: req.query.end_date as string,
+    page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
+    limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+  };
+
+  const result = await SaleModel.findAll(filters);
+  res.json({
+    success: true,
+    data: result.data,
+    pagination: result.pagination,
+  });
+});
 
 // Get sale by ID
 export const getSaleById = asyncHandler(
