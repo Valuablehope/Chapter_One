@@ -74,24 +74,13 @@ export default function SplashScreen() {
             <div className="absolute inset-0 rounded-3xl bg-secondary-500 opacity-20 blur-xl animate-pulse-slow"></div>
             
             {/* Logo Container */}
-            <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center transform transition-all duration-500 hover:scale-105 hover:rotate-3">
-              {/* Inner Background */}
-              <div className="absolute inset-2 rounded-2xl bg-secondary-50"></div>
-              
+            <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center transform transition-all duration-500 hover:scale-105 hover:rotate-3 p-3">
               {/* Logo Icon */}
-              <svg
-                className="relative w-16 h-16 text-secondary-500 animate-float"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
+              <img
+                src="/icon.png"
+                alt="Chapter One POS Logo"
+                className="w-full h-full object-contain animate-float"
+              />
             </div>
 
             {/* Orbiting Particles */}

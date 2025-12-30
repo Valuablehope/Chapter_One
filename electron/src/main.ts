@@ -14,9 +14,11 @@ function createWindow(): void {
   const preloadPath = path.join(__dirname, 'preload.js');
 
   // Get icon path - works for both dev and production
+  // Use .ico for Windows, .png for other platforms
+  const iconExtension = process.platform === 'win32' ? 'ico' : 'png';
   const iconPath = isDev
-    ? path.join(__dirname, '../../frontend/public/icon.png')
-    : path.join(__dirname, '../frontend/public/icon.png');
+    ? path.join(__dirname, `../../frontend/public/icon.${iconExtension}`)
+    : path.join(__dirname, `../frontend/public/icon.${iconExtension}`);
 
   mainWindow = new BrowserWindow({
     width: 1400,

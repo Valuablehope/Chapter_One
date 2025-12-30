@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import { decodeToken } from '../utils/jwt';
 
 /**
  * Request/Response logging middleware
@@ -13,12 +14,28 @@ export const requestLogger = (
 ): void => {
   const startTime = Date.now();
   const { method, path, ip } = req;
-  const user = (req as any).user?.username || 'anonymous';
+  
+  // Try to get user from req.user (set by authenticate middleware)
+  // If not available, try to decode from token in Authorization header
+  let user = (req as any).user?.username;
+  
+  if (!user) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const decoded = decodeToken(token);
+      if (decoded) {
+        user = decoded.username;
+      }
+    }
+  }
+  
+  const username = user || 'anonymous';
 
   // Log request (only in development for detailed logging)
   if (process.env.NODE_ENV === 'development') {
     logger.info(`→ ${method} ${path}`, {
-      user,
+      user: username,
       ip,
       timestamp: new Date().toISOString(),
     });
@@ -34,7 +51,7 @@ export const requestLogger = (
       // Detailed logging in development
       const logLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
       logger[logLevel](`← ${method} ${path} ${statusCode}`, {
-        user,
+        user: username,
         duration: `${duration}ms`,
         statusCode,
         timestamp: new Date().toISOString(),
@@ -43,7 +60,7 @@ export const requestLogger = (
       // Minimal logging in production (only errors and slow requests)
       if (statusCode >= 500 || duration > 1000) {
         logger.warn(`${method} ${path} ${statusCode} (${duration}ms)`, {
-          user,
+          user: username,
           ip,
         });
       }

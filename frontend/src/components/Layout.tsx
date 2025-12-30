@@ -13,6 +13,7 @@ import {
   ChevronDownIcon,
   Bars3Icon,
   XMarkIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -23,6 +24,7 @@ import {
   BuildingOfficeIcon as BuildingOfficeIconSolid,
   ChartBarIcon as ChartBarIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
+  MapPinIcon as MapPinIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
 import TrialBanner from './TrialBanner';
@@ -40,6 +42,13 @@ export default function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  
+  // Load pinned state from localStorage on mount
+  const [isPinned, setIsPinned] = useState(() => {
+    const saved = localStorage.getItem('sidebar-pinned');
+    return saved === 'true';
+  });
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +57,26 @@ export default function Layout({ children }: LayoutProps) {
     logout();
     navigate('/login', { replace: true });
   };
+
+  const handleTogglePin = () => {
+    setIsPinned(!isPinned);
+  };
+
+  // Initialize sidebar state based on pinned preference on mount
+  useEffect(() => {
+    if (isPinned) {
+      setIsSidebarCollapsed(false);
+    }
+  }, []); // Run only on mount
+
+  // Save pinned state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('sidebar-pinned', String(isPinned));
+    // If pinned, ensure sidebar is expanded
+    if (isPinned) {
+      setIsSidebarCollapsed(false);
+    }
+  }, [isPinned]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -139,14 +168,19 @@ export default function Layout({ children }: LayoutProps) {
         ref={sidebarRef}
         onMouseEnter={() => {
           setIsSidebarHovered(true);
-          setIsSidebarCollapsed(false);
+          if (!isPinned) {
+            setIsSidebarCollapsed(false);
+          }
         }}
         onMouseLeave={() => {
           setIsSidebarHovered(false);
-          setIsSidebarCollapsed(true);
+          // Only collapse if not pinned
+          if (!isPinned) {
+            setIsSidebarCollapsed(true);
+          }
         }}
         onClick={() => {
-          if (isSidebarCollapsed) {
+          if (isSidebarCollapsed && !isPinned) {
             setIsSidebarCollapsed(false);
           }
         }}
@@ -164,12 +198,16 @@ export default function Layout({ children }: LayoutProps) {
           {(!isSidebarCollapsed || isSidebarHovered) && (
             <Link 
               to="/dashboard" 
-              className="flex items-center space-x-2 group flex-shrink-0"
+              className="flex items-center space-x-2 group flex-shrink-0 flex-1"
             >
               <div className="relative">
                 <div className="absolute inset-0 bg-secondary-400 rounded-xl blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                <div className="relative w-10 h-10 bg-secondary-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                  <CubeIcon className="w-6 h-6 text-white" />
+                <div className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 p-1.5">
+                  <img
+                    src="/icon.png"
+                    alt="Chapter One POS Logo"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
               <div className="min-w-0">
@@ -181,17 +219,66 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           )}
           {(isSidebarCollapsed && !isSidebarHovered) && (
-            <Link 
-              to="/dashboard" 
-              className="flex items-center justify-center w-full group"
-            >
-              <div className="relative">
-                <div className="absolute inset-0 bg-secondary-400 rounded-xl blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                <div className="relative w-10 h-10 bg-secondary-500 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                  <CubeIcon className="w-6 h-6 text-white" />
+            <>
+              <Link 
+                to="/dashboard" 
+                className="flex items-center justify-center flex-1 group"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 bg-secondary-400 rounded-xl blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                  <div className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 p-1.5">
+                    <img
+                      src="/icon.png"
+                      alt="Chapter One POS Logo"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+              {/* Pin Button - Always visible when collapsed */}
+              <button
+                onClick={handleTogglePin}
+                className={`
+                  flex items-center justify-center
+                  w-8 h-8 rounded-lg
+                  transition-all duration-200
+                  ${isPinned 
+                    ? 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200' 
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                  }
+                `}
+                title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+              >
+                {isPinned ? (
+                  <MapPinIconSolid className="w-5 h-5" />
+                ) : (
+                  <MapPinIcon className="w-5 h-5" />
+                )}
+              </button>
+            </>
+          )}
+          
+          {/* Pin Button - When expanded */}
+          {(!isSidebarCollapsed || isSidebarHovered) && (
+            <button
+              onClick={handleTogglePin}
+              className={`
+                flex items-center justify-center
+                w-8 h-8 rounded-lg
+                transition-all duration-200
+                ${isPinned 
+                  ? 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200' 
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                }
+              `}
+              title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+            >
+              {isPinned ? (
+                <MapPinIconSolid className="w-5 h-5" />
+              ) : (
+                <MapPinIcon className="w-5 h-5" />
+              )}
+            </button>
           )}
         </div>
 
