@@ -5,7 +5,9 @@ import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
+import { adminService } from '../services/adminService';
 import { logger } from '../utils/logger';
+import { useCancellableRequest } from '../hooks/useCancellableRequest';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -31,6 +33,9 @@ import {
 import toast from 'react-hot-toast';
 
 export default function Sales() {
+  // Request cancellation hook - automatically cancels requests on unmount
+  const { getSignal } = useCancellableRequest();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
@@ -79,13 +84,22 @@ export default function Sales() {
       const response = await productService.getProducts({
         search: query,
         limit: 10,
-      });
-      setSearchResults(response.data);
+      }, getSignal());
+      // Only update state if component is still mounted and request wasn't cancelled
+      if (!getSignal().aborted) {
+        setSearchResults(response.data);
+      }
     } catch (err: any) {
+      // Ignore cancellation errors
+      if (err.name === 'AbortError' || err.name === 'CanceledError') {
+        return;
+      }
       toast.error('Failed to search products');
       logger.error('Error searching products:', err);
     } finally {
-      setSearching(false);
+      if (!getSignal().aborted) {
+        setSearching(false);
+      }
     }
   }, 300);
 
@@ -116,8 +130,8 @@ export default function Sales() {
 
   // Add product to cart
   const addToCart = async (product: Product) => {
-    // Check stock availability if product tracks inventory
-    if (product.track_inventory) {
+    // Check stock availability if product tracks inventory AND allow_negative is false
+    if (product.track_inventory && !storeSettings?.allow_negative) {
       try {
         const balance = await stockService.getStockBalance(product.product_id);
         const availableStock = balance?.qty_on_hand || 0;
@@ -182,9 +196,9 @@ export default function Sales() {
       return;
     }
 
-    // Check stock availability if product tracks inventory
+    // Check stock availability if product tracks inventory AND allow_negative is false
     const item = cart.find(i => i.product.product_id === productId);
-    if (item && item.product.track_inventory) {
+    if (item && item.product.track_inventory && !storeSettings?.allow_negative) {
       try {
         const balance = await stockService.getStockBalance(productId);
         const availableStock = balance?.qty_on_hand || 0;
@@ -233,9 +247,16 @@ export default function Sales() {
       const response = await customerService.getCustomers({
         search: query,
         limit: 10,
-      });
-      setCustomerResults(response.data);
+      }, getSignal());
+      // Only update state if component is still mounted and request wasn't cancelled
+      if (!getSignal().aborted) {
+        setCustomerResults(response.data);
+      }
     } catch (err: any) {
+      // Ignore cancellation errors
+      if (err.name === 'AbortError' || err.name === 'CanceledError') {
+        return;
+      }
       toast.error('Failed to search customers');
       logger.error('Error searching customers:', err);
     }
@@ -266,30 +287,32 @@ export default function Sales() {
       return;
     }
 
-    // Validate stock availability before processing payment
-    const productIds = cart.map(item => item.product.product_id);
-    try {
-      const balances = await stockService.getStockBalances(productIds);
-      const balancesMap = new Map(balances.map(b => [b.product_id, b]));
-      setStockBalances(balancesMap);
-      
-      // Check each item for sufficient stock
-      for (const item of cart) {
-        if (item.product.track_inventory) {
-          const balance = balancesMap.get(item.product.product_id);
-          const availableStock = balance?.qty_on_hand || 0;
-          
-          if (availableStock < item.qty) {
-            toast.error(
-              `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${item.qty}`
-            );
-            return;
+    // Validate stock availability before processing payment (only if allow_negative is false)
+    if (!storeSettings?.allow_negative) {
+      const productIds = cart.map(item => item.product.product_id);
+      try {
+        const balances = await stockService.getStockBalances(productIds);
+        const balancesMap = new Map(balances.map(b => [b.product_id, b]));
+        setStockBalances(balancesMap);
+        
+        // Check each item for sufficient stock
+        for (const item of cart) {
+          if (item.product.track_inventory) {
+            const balance = balancesMap.get(item.product.product_id);
+            const availableStock = balance?.qty_on_hand || 0;
+            
+            if (availableStock < item.qty) {
+              toast.error(
+                `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${item.qty}`
+              );
+              return;
+            }
           }
         }
+      } catch (error) {
+        logger.warn('Failed to validate stock before payment, proceeding', { error });
+        // Continue if stock validation fails (backend will validate)
       }
-    } catch (error) {
-      logger.warn('Failed to validate stock before payment, proceeding', { error });
-      // Continue if stock validation fails (backend will validate)
     }
 
     const amount = parseFloat(paymentAmount);
@@ -474,6 +497,37 @@ export default function Sales() {
       return new Date(dateString).toLocaleString();
     }
   };
+
+  // Load store settings on mount
+  useEffect(() => {
+    const fetchStoreSettings = async () => {
+      try {
+        // Get first active store (default store)
+        const response = await adminService.getStores({ is_active: true, limit: 1 });
+        if (response.data.length > 0) {
+          const store = response.data[0];
+          const settings = await storeService.getStoreSettings(store.store_id);
+          setStoreSettings({
+            ...settings,
+            allow_negative: settings.allow_negative ?? false,
+          });
+        }
+      } catch (error) {
+        logger.warn('Failed to fetch store settings on mount', { error });
+        // Set default allow_negative to false if fetch fails
+        setStoreSettings({
+          store_id: '',
+          code: '',
+          name: 'Chapter One',
+          currency_code: 'USD',
+          tax_inclusive: false,
+          timezone: 'UTC',
+          allow_negative: false,
+        } as StoreSettings);
+      }
+    };
+    fetchStoreSettings();
+  }, []);
 
   // Focus barcode input on mount (not search - user chooses when to search)
   useEffect(() => {

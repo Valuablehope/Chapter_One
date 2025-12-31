@@ -24,7 +24,7 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  const statusCode = (err as AppError).statusCode || 500;
+  let statusCode = (err as AppError).statusCode || 500;
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   // Log full error details (always log to server)

@@ -8,7 +8,7 @@ export interface StoreSettings {
   created_at: string;
   updated_at: string;
   theme: string;
-  timezone: string;
+  // timezone belongs in stores table, not store_settings
   tax_rate: number | null;
   receipt_footer: string | null;
   auto_backup: boolean;
@@ -26,7 +26,7 @@ export interface StoreSettingsInput {
   tax_inclusive?: boolean;
   low_stock_threshold?: number;
   theme?: string;
-  timezone?: string;
+  // timezone belongs in stores table, not store_settings
   tax_rate?: number | null;
   receipt_footer?: string | null;
   auto_backup?: boolean;
@@ -99,11 +99,7 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('theme');
       values.push(settings.theme);
     }
-    if (settings.timezone !== undefined && availableColumns.has('timezone')) {
-      paramCount++;
-      fields.push('timezone');
-      values.push(settings.timezone);
-    }
+    // timezone belongs in stores table, not store_settings - removed
     if (settings.tax_rate !== undefined && availableColumns.has('tax_rate')) {
       paramCount++;
       fields.push('tax_rate');
@@ -194,11 +190,7 @@ export class StoreSettingsModel extends BaseModel {
       fields.push(`theme = $${paramCount}`);
       values.push(settings.theme);
     }
-    if (settings.timezone !== undefined && availableColumns.has('timezone')) {
-      paramCount++;
-      fields.push(`timezone = $${paramCount}`);
-      values.push(settings.timezone);
-    }
+    // timezone belongs in stores table, not store_settings - removed
     if (settings.tax_rate !== undefined && availableColumns.has('tax_rate')) {
       paramCount++;
       fields.push(`tax_rate = $${paramCount}`);

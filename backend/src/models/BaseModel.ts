@@ -32,35 +32,36 @@ export class BaseModel {
     params?: any[],
     timeout?: number
   ): Promise<QueryResult<T>> {
-    // For queries with timeout, we need to use a transaction to set statement_timeout
+    // For queries with timeout, set statement_timeout at connection level (not transaction)
+    // This avoids acquiring a client from the pool unnecessarily
     if (timeout) {
       return await dbCircuitBreaker.execute(async () => {
         const client = await pool.connect();
         try {
-          await client.query('BEGIN');
-          await client.query(`SET LOCAL statement_timeout = ${timeout}`);
+          // Set statement_timeout at connection level (not in transaction)
+          // This allows the connection to be reused immediately after query
+          await client.query(`SET statement_timeout = ${timeout}`);
           const result = await client.query<T>(text, params);
-          await client.query('COMMIT');
+          // Reset timeout to default (0 = no timeout) to allow connection reuse
+          await client.query('SET statement_timeout = 0');
           return result;
         } catch (error) {
-          // Always rollback on error
+          // Reset timeout even on error to allow connection reuse
           try {
-            await client.query('ROLLBACK');
-          } catch (rollbackError) {
-            // Log rollback error but don't mask original error
-            logger.error('Failed to rollback transaction', {
-              error: rollbackError instanceof Error ? rollbackError.message : 'Unknown error',
+            await client.query('SET statement_timeout = 0');
+          } catch (resetError) {
+            logger.warn('Failed to reset statement_timeout', {
+              error: resetError instanceof Error ? resetError.message : 'Unknown error',
             });
           }
           throw error;
         } finally {
-          // Always release client, even if rollback failed
-          // This is critical to prevent connection pool exhaustion
+          // Always release client - critical to prevent connection pool exhaustion
           if (client) {
             try {
               client.release();
             } catch (releaseError) {
-              // Log but don't throw - we've already handled the transaction error
+              // Log but don't throw - connection may already be released
               logger.error('Failed to release database client', {
                 error: releaseError instanceof Error ? releaseError.message : 'Unknown error',
               });

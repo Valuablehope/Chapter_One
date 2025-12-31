@@ -359,7 +359,9 @@ export class PurchaseOrderModel extends BaseModel {
     return result.rows[0];
   }
 
-  // Receive purchase order (update stock) with SERIALIZABLE isolation and retry logic
+  // Receive purchase order (update stock) with REPEATABLE READ isolation and row-level locking
+  // REPEATABLE READ is more performant than SERIALIZABLE while still preventing race conditions
+  // with proper row-level locking (FOR UPDATE)
   static async receivePurchaseOrder(poId: string): Promise<PurchaseOrderWithDetails> {
     return await withRetry(
       async () => {
@@ -369,8 +371,11 @@ export class PurchaseOrderModel extends BaseModel {
           await client.query('BEGIN');
           // Set transaction timeout (30 seconds) to prevent long-running transactions
           await client.query('SET LOCAL statement_timeout = 30000');
-          // Set SERIALIZABLE isolation level to prevent race conditions
-          await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+          // Set lock timeout (5 seconds) to prevent indefinite blocking
+          await client.query('SET LOCAL lock_timeout = 5000');
+          // Set REPEATABLE READ isolation level (more performant than SERIALIZABLE)
+          // Row-level locking (FOR UPDATE) provides sufficient protection against race conditions
+          await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
       // Get purchase order with items
       const po = await this.findById(poId);

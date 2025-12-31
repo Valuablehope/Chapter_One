@@ -42,16 +42,46 @@ export function useOfflineSync() {
       }
 
       const result = await offlineQueue.syncPendingSales(async (saleData, clientSaleId) => {
+        // Re-validate stock from server before syncing to prevent overselling
+        // This ensures cache is in sync with server state
+        try {
+          const productIds = saleData.items.map(item => item.product_id);
+          await stockService.syncStockBalances(productIds);
+          
+          // Validate stock availability before syncing
+          const stockBalances = await stockService.getStockBalances(productIds);
+          for (const item of saleData.items) {
+            const balance = stockBalances.find(b => b.product_id === item.product_id);
+            const availableStock = balance?.qty_on_hand || 0;
+            
+            if (availableStock < item.qty) {
+              throw new Error(
+                `Insufficient stock for product ${item.product_id}. Available: ${availableStock}, Requested: ${item.qty}`
+              );
+            }
+          }
+        } catch (error: any) {
+          // If stock validation fails, throw error to mark sale as failed
+          if (error.message?.includes('Insufficient stock')) {
+            logger.error('Stock validation failed during sync', { error: error.message, saleData });
+            throw error;
+          }
+          // For other errors (e.g., network), log but allow sync to proceed
+          // Backend will validate stock anyway
+          logger.warn('Stock validation warning during sync', { error: error.message });
+        }
+        
         // Attempt to create sale via API with client sale ID for conflict resolution
         const sale = await saleService.createSale(saleData, clientSaleId);
         
-        // Update stock cache after successful sync (optimistic update)
+        // Update stock cache ONLY after successful sync to prevent desync
         try {
           for (const item of saleData.items) {
             await stockService.updateStockBalance(item.product_id, -item.qty);
           }
         } catch (error) {
           // Log but don't fail - cache update is best effort
+          // Sale is already created on server, so this is just cache maintenance
           logger.warn('Failed to update stock cache after sync', { error });
         }
         

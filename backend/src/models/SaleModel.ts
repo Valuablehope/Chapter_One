@@ -3,6 +3,7 @@ import { pool } from '../config/database';
 import { withRetry } from '../utils/retry';
 import { logger } from '../utils/logger';
 import { cache } from '../utils/cache';
+import { StoreSettingsModel } from './StoreSettingsModel';
 
 export type SaleStatus = 'open' | 'paid' | 'void';
 export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
@@ -172,7 +173,9 @@ export class SaleModel extends BaseModel {
     return `${date}-${sequence}`;
   }
 
-  // Create sale with SERIALIZABLE isolation and retry logic
+  // Create sale with REPEATABLE READ isolation and row-level locking
+  // REPEATABLE READ is more performant than SERIALIZABLE while still preventing race conditions
+  // with proper row-level locking (FOR UPDATE)
   static async create(
     cashierId: string,
     data: CreateSaleData
@@ -185,8 +188,11 @@ export class SaleModel extends BaseModel {
           await client.query('BEGIN');
           // Set transaction timeout (30 seconds) to prevent long-running transactions
           await client.query('SET LOCAL statement_timeout = 30000');
-          // Set SERIALIZABLE isolation level to prevent race conditions
-          await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+          // Set lock timeout (5 seconds) to prevent indefinite blocking
+          await client.query('SET LOCAL lock_timeout = 5000');
+          // Set REPEATABLE READ isolation level (more performant than SERIALIZABLE)
+          // Row-level locking (FOR UPDATE) provides sufficient protection against race conditions
+          await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
       // Check for duplicate sale (idempotency check) if client_sale_id is provided
       if (data.client_sale_id) {
@@ -208,13 +214,35 @@ export class SaleModel extends BaseModel {
         }
       }
 
-      // Get store and terminal
-      const store = await this.getDefaultStore();
+      // Get store and terminal INSIDE transaction to prevent mid-transaction changes
+      // Query stores table with lock to ensure consistency
+      const storeQuery = await client.query(`
+        SELECT store_id, code, name
+        FROM stores
+        WHERE is_active = true
+        ORDER BY created_at ASC
+        LIMIT 1
+        FOR UPDATE
+      `);
+      const store = storeQuery.rows[0];
       if (!store) {
         throw new Error('No active store found');
       }
 
-      const terminal = await this.getDefaultTerminal(store.store_id);
+      // Get store settings to check allow_negative flag
+      const storeSettings = await StoreSettingsModel.findByStoreId(store.store_id);
+      const allowNegative = storeSettings?.allow_negative ?? false;
+
+      // Get terminal INSIDE transaction with lock
+      const terminalQuery = await client.query(`
+        SELECT terminal_id, code, name
+        FROM terminals
+        WHERE store_id = $1 AND is_active = true
+        ORDER BY created_at ASC
+        LIMIT 1
+        FOR UPDATE
+      `, [store.store_id]);
+      const terminal = terminalQuery.rows[0];
       if (!terminal) {
         throw new Error('No active terminal found for store');
       }
@@ -306,18 +334,20 @@ export class SaleModel extends BaseModel {
             FOR UPDATE
           `, [store.store_id, item.product_id]);
           
-          // Validate stock availability
-          const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
-          if (currentStock < item.qty) {
-            // Get product name for error message
-            const productInfo = await client.query(
-              'SELECT name FROM products WHERE product_id = $1',
-              [item.product_id]
-            );
-            const productName = productInfo.rows[0]?.name || 'Unknown product';
-            throw new Error(
-              `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
-            );
+          // Validate stock availability ONLY if allow_negative is false
+          if (!allowNegative) {
+            const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+            if (currentStock < item.qty) {
+              // Get product name for error message
+              const productInfo = await client.query(
+                'SELECT name FROM products WHERE product_id = $1',
+                [item.product_id]
+              );
+              const productName = productInfo.rows[0]?.name || 'Unknown product';
+              throw new Error(
+                `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
+              );
+            }
           }
           
           // Create stock movement (outbound)

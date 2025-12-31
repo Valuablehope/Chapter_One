@@ -251,17 +251,10 @@ export class OfflineQueue {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.add(queuedSale);
 
-      request.onsuccess = async () => {
-        // Update stock cache after enqueueing (optimistic update)
-        // This helps keep cache in sync for subsequent offline operations
-        try {
-          for (const item of saleData.items) {
-            await stockService.updateStockBalance(item.product_id, -item.qty);
-          }
-        } catch (error) {
-          // Log but don't fail - cache update is best effort
-          logger.warn('Failed to update stock cache after enqueueing', { error });
-        }
+      request.onsuccess = () => {
+        // DO NOT update stock cache optimistically when enqueueing
+        // Cache will be updated only after successful sync to prevent desync
+        // This prevents overselling if sync fails
         resolve(id);
       };
 

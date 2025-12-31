@@ -70,8 +70,12 @@ export const csrfProtection = (
       throw new CustomError('Invalid or expired CSRF token', 403);
     }
 
-    // Clean up used token (one-time use for better security)
-    csrfTokens.delete(userId);
+    // Generate new token after validation (not one-time use)
+    // This allows multiple requests in quick succession while maintaining security
+    // The token is still validated, but a new one is issued for the next request
+    const newToken = generateCsrfToken();
+    csrfTokens.set(userId, { token: newToken, expires: Date.now() + 3600000 }); // 1 hour
+    res.setHeader('X-CSRF-Token', newToken);
   }
 
   next();
