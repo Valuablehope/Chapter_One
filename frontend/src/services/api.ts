@@ -9,6 +9,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Include cookies in requests
 });
 
 // Helper function to create a request with cancellation support
@@ -19,29 +20,46 @@ export function createCancellableRequest<T>(
   return requestFn(signal);
 }
 
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = useAuthStore.getState().token;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+// Note: Token is now stored in httpOnly cookie, so no need for Authorization header
+// Cookies are automatically sent with withCredentials: true
 
-// Response interceptor to handle errors
+// Store CSRF token from response headers
+let csrfToken: string | null = null;
+
+// Response interceptor to extract CSRF token and handle errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Extract CSRF token from response header (sent on GET requests)
+    const token = response.headers['x-csrf-token'];
+    if (token) {
+      csrfToken = token;
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       // Unauthorized - clear auth and redirect to login
       useAuthStore.getState().logout();
       window.location.href = '/login';
+    } else if (error.response?.status === 403 && error.response?.data?.error?.message?.includes('CSRF')) {
+      // CSRF token error - clear token and retry might be needed
+      csrfToken = null;
     }
+    return Promise.reject(error);
+  }
+);
+
+// Request interceptor to add CSRF token to state-changing requests
+api.interceptors.request.use(
+  (config) => {
+    // Add CSRF token to state-changing requests
+    const method = config.method?.toUpperCase();
+    if (csrfToken && method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+    return config;
+  },
+  (error) => {
     return Promise.reject(error);
   }
 );

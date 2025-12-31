@@ -8,7 +8,6 @@ export interface LoginCredentials {
 export interface LoginResponse {
   success: boolean;
   data: {
-    token: string;
     user: {
       userId: string;
       username: string;
@@ -32,7 +31,6 @@ export interface VerifyResponse {
 export interface RefreshResponse {
   success: boolean;
   data: {
-    token: string;
     user: {
       userId: string;
       username: string;
@@ -55,6 +53,10 @@ export const authService = {
   refreshToken: async (): Promise<RefreshResponse> => {
     const response = await api.post<RefreshResponse>('/auth/refresh');
     return response.data;
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
   },
 };
 

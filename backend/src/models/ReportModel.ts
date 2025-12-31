@@ -1,4 +1,4 @@
-import { BaseModel } from './BaseModel';
+import { BaseModel, PaginatedResult } from './BaseModel';
 
 export interface SalesSummary {
   date: string;
@@ -404,8 +404,18 @@ export class ReportModel extends BaseModel {
     return result.rows;
   }
 
-  // Stock Report
-  static async getStockReport(storeId?: string): Promise<StockReport[]> {
+  // Stock Report with pagination
+  static async getStockReport(
+    storeId?: string,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResult<StockReport>> {
+    const { page: pageNum, limit: limitNum, offset } = this.getPaginationParams(page, limit || 1000);
+    
+    // Enforce max limit
+    const maxLimit = 1000;
+    const actualLimit = Math.min(limitNum, maxLimit);
+    
     let query = `
       SELECT 
         p.product_id,
@@ -424,15 +434,38 @@ export class ReportModel extends BaseModel {
       params.push(storeId);
     }
 
+    // Get total count
+    const countQuery = this.buildCountQuery(query);
+    const countResult = await this.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Add pagination
     query += ` ORDER BY p.name`;
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(actualLimit);
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
+    params.push(offset);
 
     // Apply 60-second timeout for report queries
     const result = await this.query<StockReport>(query, params, 60000);
-    return result.rows;
+    return this.buildPaginatedResult(result.rows, total, pageNum, actualLimit);
   }
 
-  // Low Stock Report
-  static async getLowStockReport(storeId?: string, threshold: number = 10): Promise<LowStockReport[]> {
+  // Low Stock Report with pagination
+  static async getLowStockReport(
+    storeId?: string,
+    threshold: number = 10,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResult<LowStockReport>> {
+    const { page: pageNum, limit: limitNum, offset } = this.getPaginationParams(page, limit || 1000);
+    
+    // Enforce max limit
+    const maxLimit = 1000;
+    const actualLimit = Math.min(limitNum, maxLimit);
+    
     let query = `
       SELECT 
         p.product_id,
@@ -452,15 +485,27 @@ export class ReportModel extends BaseModel {
       params.push(storeId);
     }
 
-    query += ` 
-      AND COALESCE(sb.qty_on_hand, 0) <= $${paramCount + 1}
-      ORDER BY qty_on_hand ASC
-    `;
+    paramCount++;
+    query += ` AND COALESCE(sb.qty_on_hand, 0) <= $${paramCount}`;
     params.push(threshold);
+
+    // Get total count
+    const countQuery = this.buildCountQuery(query);
+    const countResult = await this.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Add pagination
+    query += ` ORDER BY qty_on_hand ASC`;
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(actualLimit);
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
+    params.push(offset);
 
     // Apply 60-second timeout for report queries
     const result = await this.query<LowStockReport>(query, params, 60000);
-    return result.rows;
+    return this.buildPaginatedResult(result.rows, total, pageNum, actualLimit);
   }
 }
 

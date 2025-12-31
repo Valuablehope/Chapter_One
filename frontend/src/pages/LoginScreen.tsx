@@ -23,7 +23,8 @@ export default function LoginScreen() {
       const response = await authService.login({ username, password });
 
       if (response.success) {
-        login(response.data.token, response.data.user);
+        // Token is now in httpOnly cookie, only store user info
+        login(response.data.user);
         navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {

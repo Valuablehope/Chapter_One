@@ -28,6 +28,7 @@ import {
   DocumentTextIcon as DocumentTextIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
+import { authService } from '../services/authService';
 import TrialBanner from './TrialBanner';
 import PageErrorBoundary from './PageErrorBoundary';
 import { useTokenRefresh } from '../hooks/useTokenRefresh';
@@ -62,8 +63,15 @@ export default function Layout({ children }: LayoutProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsDropdownOpen(false);
+    try {
+      // Call backend to clear httpOnly cookie
+      await authService.logout();
+    } catch (error) {
+      // Even if logout fails, clear local state
+      console.error('Logout error:', error);
+    }
     logout();
     navigate('/login', { replace: true });
   };

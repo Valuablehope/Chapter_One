@@ -95,6 +95,22 @@ app.whenReady().then(() => {
   });
 });
 
+// Handle system sleep/wake events
+app.on('ready', () => {
+  // Notify renderer when app becomes ready (useful after wake from sleep)
+  if (mainWindow) {
+    mainWindow.webContents.send('app:ready');
+  }
+});
+
+// Handle power state changes (sleep/wake)
+const powerSaveBlocker = require('electron').powerSaveBlocker;
+let powerSaveBlockerId: number | null = null;
+
+// Prevent system sleep during active use (optional - can be enabled for long sessions)
+// Uncomment if you want to prevent sleep during active POS usage
+// powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

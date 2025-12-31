@@ -52,6 +52,7 @@ export interface SalePayment {
 
 export interface CreateSaleData {
   customer_id?: string;
+  client_sale_id?: string; // Unique client-side sale ID for conflict resolution
   items: {
     product_id: string;
     qty: number;
@@ -128,19 +129,39 @@ export const saleService = {
     };
   },
 
+  /**
+   * Generate a unique client-side sale ID (UUID v4)
+   */
+  generateClientSaleId(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  },
+
   // Create sale with offline queue support
-  async createSale(data: CreateSaleData): Promise<Sale> {
+  async createSale(data: CreateSaleData, clientSaleId?: string): Promise<Sale> {
+    // Generate client sale ID if not provided
+    const saleId = clientSaleId || data.client_sale_id || this.generateClientSaleId();
+    
+    // Include client sale ID in request
+    const saleDataWithId = {
+      ...data,
+      client_sale_id: saleId,
+    };
+
     try {
       const response = await api.post<{ success: boolean; data: Sale }>(
         '/sales',
-        data
+        saleDataWithId
       );
       return response.data.data;
     } catch (error: any) {
-      // If network error, queue for offline sync
+      // If network error, queue for offline sync with client sale ID
       if (isNetworkError(error)) {
         logger.warn('Network error detected, queueing sale for offline sync', error);
-        const queueId = await offlineQueue.enqueueSale(data);
+        const queueId = await offlineQueue.enqueueSale(data, saleId);
         throw new OfflineError('Sale queued for offline sync. It will be synced when connection is restored.', queueId);
       }
       // Re-throw other errors

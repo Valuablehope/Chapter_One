@@ -10,10 +10,9 @@ export interface User {
 
 interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (token: string, user: User) => void;
+  login: (user: User) => void;
   logout: () => void;
   setLoading: (loading: boolean) => void;
 }
@@ -22,12 +21,10 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      token: null,
       isAuthenticated: false,
       isLoading: false,
-      login: (token: string, user: User) => {
+      login: (user: User) => {
         set({
-          token,
           user,
           isAuthenticated: true,
           isLoading: false,
@@ -35,7 +32,6 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: () => {
         set({
-          token: null,
           user: null,
           isAuthenticated: false,
           isLoading: false,
@@ -47,7 +43,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage), // Use sessionStorage instead of localStorage for user info
     }
   )
 );

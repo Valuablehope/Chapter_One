@@ -2,6 +2,7 @@ import { BaseModel, PaginatedResult } from './BaseModel';
 import { pool } from '../config/database';
 import { withRetry } from '../utils/retry';
 import { logger } from '../utils/logger';
+import { cache } from '../utils/cache';
 
 export type SaleStatus = 'open' | 'paid' | 'void';
 export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
@@ -43,6 +44,7 @@ export interface SalePayment {
 
 export interface CreateSaleData {
   customer_id?: string;
+  client_sale_id?: string; // Unique client-side sale ID for conflict resolution
   items: {
     product_id: string;
     qty: number;
@@ -81,7 +83,16 @@ export interface SaleFilters {
 
 export class SaleModel extends BaseModel {
   // Get default store (first active store) with settings
+  // Cached for 10 minutes to reduce database load
   static async getDefaultStore(): Promise<{ store_id: string; code: string; name: string } | null> {
+    const cacheKey = 'default_store';
+    
+    // Check cache first
+    const cached = cache.get<{ store_id: string; code: string; name: string }>(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
     const query = `
       SELECT store_id, code, name
       FROM stores
@@ -90,11 +101,27 @@ export class SaleModel extends BaseModel {
       LIMIT 1
     `;
     const result = await this.query(query);
-    return result.rows[0] || null;
+    const store = result.rows[0] || null;
+    
+    // Cache result for 10 minutes
+    if (store) {
+      cache.set(cacheKey, store, 10 * 60 * 1000);
+    }
+    
+    return store;
   }
 
   // Get default terminal for store
+  // Cached for 10 minutes to reduce database load
   static async getDefaultTerminal(storeId: string): Promise<{ terminal_id: string; code: string; name: string } | null> {
+    const cacheKey = `default_terminal_${storeId}`;
+    
+    // Check cache first
+    const cached = cache.get<{ terminal_id: string; code: string; name: string }>(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
     const query = `
       SELECT terminal_id, code, name
       FROM terminals
@@ -103,32 +130,38 @@ export class SaleModel extends BaseModel {
       LIMIT 1
     `;
     const result = await this.query(query, [storeId]);
-    return result.rows[0] || null;
+    const terminal = result.rows[0] || null;
+    
+    // Cache result for 10 minutes
+    if (terminal) {
+      cache.set(cacheKey, terminal, 10 * 60 * 1000);
+    }
+    
+    return terminal;
   }
 
   // Generate receipt number using atomic counter to prevent race conditions
-  static async generateReceiptNo(storeId: string): Promise<string> {
+  // Uses single atomic operation: INSERT with ON CONFLICT DO UPDATE
+  // Accepts optional client for use within transactions
+  static async generateReceiptNo(storeId: string, client?: any): Promise<string> {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Initialize counter for today if it doesn't exist (separate query)
-    await this.query(
-      `INSERT INTO daily_receipt_counters (store_id, date, counter)
-       VALUES ($1, $2, 0)
-       ON CONFLICT (store_id, date) DO NOTHING`,
-      [storeId, today]
-    );
+    // Single atomic operation: initialize if needed, then increment and return
+    // This prevents race conditions by combining INSERT and UPDATE in one query
+    const queryText = `INSERT INTO daily_receipt_counters (store_id, date, counter)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (store_id, date) 
+       DO UPDATE SET 
+         counter = daily_receipt_counters.counter + 1,
+         updated_at = NOW()
+       RETURNING counter`;
     
-    // Atomically increment and get counter (separate query)
-    const result = await this.query(
-      `UPDATE daily_receipt_counters
-       SET counter = counter + 1, updated_at = NOW()
-       WHERE store_id = $1 AND date = $2
-       RETURNING counter`,
-      [storeId, today]
-    );
+    const result = client 
+      ? await client.query(queryText, [storeId, today])
+      : await this.query(queryText, [storeId, today]);
     
     if (result.rows.length === 0) {
-      throw new Error('Failed to generate receipt number: counter not found');
+      throw new Error('Failed to generate receipt number: counter operation failed');
     }
     
     const count = parseInt(result.rows[0].counter, 10);
@@ -150,8 +183,30 @@ export class SaleModel extends BaseModel {
         
         try {
           await client.query('BEGIN');
+          // Set transaction timeout (30 seconds) to prevent long-running transactions
+          await client.query('SET LOCAL statement_timeout = 30000');
           // Set SERIALIZABLE isolation level to prevent race conditions
           await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+
+      // Check for duplicate sale (idempotency check) if client_sale_id is provided
+      if (data.client_sale_id) {
+        const duplicateCheck = await client.query(
+          'SELECT sale_id FROM sales WHERE client_sale_id = $1',
+          [data.client_sale_id]
+        );
+        if (duplicateCheck.rows.length > 0) {
+          // Sale already exists - rollback and return existing sale
+          await client.query('ROLLBACK');
+          logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
+          const existingSaleId = duplicateCheck.rows[0].sale_id;
+          const existingSale = await this.findById(existingSaleId);
+          if (existingSale) {
+            return existingSale;
+          }
+          // If findById fails, throw error
+          throw new Error('Duplicate sale found but could not retrieve details');
+        }
+      }
 
       // Get store and terminal
       const store = await this.getDefaultStore();
@@ -164,8 +219,8 @@ export class SaleModel extends BaseModel {
         throw new Error('No active terminal found for store');
       }
 
-      // Generate receipt number
-      const receiptNo = await this.generateReceiptNo(store.store_id);
+      // Generate receipt number (within transaction for atomicity)
+      const receiptNo = await this.generateReceiptNo(store.store_id, client);
 
       // Calculate totals
       let subtotal = 0;
@@ -191,9 +246,9 @@ export class SaleModel extends BaseModel {
         INSERT INTO sales (
           store_id, terminal_id, cashier_id, customer_id,
           receipt_no, subtotal, tax_total, discount_total,
-          grand_total, paid_total, status
+          grand_total, paid_total, status, client_sale_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
       const saleValues = [
@@ -208,6 +263,7 @@ export class SaleModel extends BaseModel {
         grandTotal,
         paidTotal,
         'paid',
+        data.client_sale_id || null,
       ];
       const saleResult = await client.query(saleQuery, saleValues);
       const sale = saleResult.rows[0];
@@ -302,10 +358,22 @@ export class SaleModel extends BaseModel {
             payments,
           };
         } catch (error) {
-          await client.query('ROLLBACK');
+          // Always rollback on error
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            // Log rollback error but don't mask original error
+            logger.error('Failed to rollback transaction', { error: rollbackError });
+          }
           throw error;
         } finally {
-          client.release();
+          // Always release client, even if rollback failed
+          try {
+            client.release();
+          } catch (releaseError) {
+            // Log release error - this is critical
+            logger.error('Failed to release database client', { error: releaseError });
+          }
         }
       },
       {

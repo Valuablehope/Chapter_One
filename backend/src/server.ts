@@ -2,6 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { pool, stopHealthMonitoring } from './config/database';
 import apiRoutes from './routes';
@@ -18,6 +19,7 @@ import licenseRoutes from './routes/license';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
 import { requestLogger } from './middleware/requestLogger';
+import { csrfProtection } from './middleware/csrf';
 
 // Load environment variables from root directory
 import * as path from 'path';
@@ -62,11 +64,13 @@ app.use(cors({
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
 }));
+app.use(cookieParser()); // Parse cookies
 app.use(morgan('dev')); // HTTP request logging
 app.use(requestLogger); // Custom request/response logging
 app.use(express.json({ limit: '10mb' })); // Request size limit
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Request size limit
 app.use(sanitizeMiddleware); // XSS protection - sanitize all inputs
+app.use(csrfProtection); // CSRF protection - generates tokens on GET, validates on POST/PUT/DELETE/PATCH
 
 // Root endpoint for wait-on health checks
 app.head('/', (req: Request, res: Response) => {

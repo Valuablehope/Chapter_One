@@ -12,13 +12,14 @@ export function useTokenRefresh() {
   const isRefreshingRef = useRef(false);
 
   useEffect(() => {
-    const token = useAuthStore.getState().token;
-    if (!token) {
-      return; // No token, don't set up refresh
+    const user = useAuthStore.getState().user;
+    if (!user) {
+      return; // No user, don't set up refresh
     }
 
     // Refresh token every 12 hours (43200000 ms)
     // This ensures token stays valid for long sessions without re-login
+    // Token is now in httpOnly cookie, so we just need to call refresh endpoint
     const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
     const refreshToken = async () => {
@@ -30,8 +31,8 @@ export function useTokenRefresh() {
         isRefreshingRef.current = true;
         const response = await authService.refreshToken();
         
-        // Update token in store
-        useAuthStore.getState().login(response.data.token, {
+        // Update user info in store (token is automatically updated in cookie)
+        useAuthStore.getState().login({
           userId: response.data.user.userId,
           username: response.data.user.username,
           fullName: response.data.user.username, // Backend doesn't return fullName in refresh

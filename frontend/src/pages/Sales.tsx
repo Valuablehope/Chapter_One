@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
 import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
@@ -41,6 +42,9 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState('');
+  const processingAbortController = useRef<AbortController | null>(null);
   const [completedSale, setCompletedSale] = useState<any>(null);
   const [receiptCartItems, setReceiptCartItems] = useState<CartItem[]>([]);
   const [receiptCustomer, setReceiptCustomer] = useState<Customer | null>(null);
@@ -61,8 +65,8 @@ export default function Sales() {
   }, 0);
   const grandTotal = subtotal + taxTotal;
 
-  // Search products
-  const handleSearch = async (query: string) => {
+  // Search products with debouncing (300ms delay)
+  const debouncedSearch = useDebouncedCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       return;
@@ -81,6 +85,12 @@ export default function Sales() {
     } finally {
       setSearching(false);
     }
+  }, 300);
+
+  // Handle search input change
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    debouncedSearch(query);
   };
 
   // Handle barcode scan
@@ -129,7 +139,7 @@ export default function Sales() {
     }
 
     // Clear search
-    setSearchQuery('');
+    handleSearchChange('');
     setSearchResults([]);
     // Focus barcode input instead of search
     if (barcodeInputRef.current) {
@@ -198,7 +208,7 @@ export default function Sales() {
     setShowPaymentModal(true);
   };
 
-  // Process payment
+  // Process payment with optimistic updates
   const processPayment = async () => {
     if (cart.length === 0) {
       toast.error('Cart is empty');
@@ -211,8 +221,17 @@ export default function Sales() {
       return;
     }
 
+    // Store current state for rollback
+    const previousCart = [...cart];
+    const previousCustomer = selectedCustomer;
+
+    // Create abort controller for cancellation
+    processingAbortController.current = new AbortController();
+
     try {
       setProcessing(true);
+      setProcessingProgress(0);
+      setProcessingStage('Preparing sale...');
 
       const saleData = {
         customer_id: selectedCustomer?.customer_id,
@@ -230,10 +249,24 @@ export default function Sales() {
         ],
       };
 
+      setProcessingProgress(30);
+      setProcessingStage('Processing payment...');
+
+      // Create sale with progress updates
       const sale = await saleService.createSale(saleData);
+      
+      setProcessingProgress(80);
+      setProcessingStage('Finalizing...');
+
+      // Small delay for UX
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      setProcessingProgress(100);
+      setProcessingStage('Complete!');
+
       setCompletedSale(sale);
-      setReceiptCartItems([...cart]); // Store cart items for receipt
-      setReceiptCustomer(selectedCustomer); // Store customer for receipt
+      setReceiptCartItems(previousCart); // Store cart items for receipt
+      setReceiptCustomer(previousCustomer); // Store customer for receipt
       setShowPaymentModal(false);
       toast.success('Sale completed successfully!');
       
@@ -241,10 +274,22 @@ export default function Sales() {
       setCart([]);
       setSelectedCustomer(null);
     } catch (err: any) {
+      // Check if cancelled
+      if (err.name === 'AbortError' || err.message?.includes('cancel')) {
+        toast.info('Sale processing cancelled');
+        setProcessingStage('');
+        setProcessingProgress(0);
+        return;
+      }
+
+      // Rollback optimistic updates on error
+      setCart(previousCart);
+      setSelectedCustomer(previousCustomer);
+
       // Handle offline errors specially
       if (err instanceof OfflineError) {
         toast.success('Sale queued for offline sync. It will be synced when connection is restored.');
-        // Clear cart and customer even for offline sales
+        // Clear cart and customer for offline sales (already queued)
         setCart([]);
         setSelectedCustomer(null);
         setShowPaymentModal(false);
@@ -254,7 +299,20 @@ export default function Sales() {
       }
     } finally {
       setProcessing(false);
+      setProcessingProgress(0);
+      setProcessingStage('');
+      processingAbortController.current = null;
     }
+  };
+
+  // Cancel sale processing
+  const cancelProcessing = () => {
+    if (processingAbortController.current) {
+      processingAbortController.current.abort();
+    }
+    setProcessing(false);
+    setProcessingProgress(0);
+    setProcessingStage('');
   };
 
   // Start new sale
@@ -347,14 +405,7 @@ export default function Sales() {
     }
   }, []);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleSearch(searchQuery);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  // Search is now debounced via useDebouncedCallback
 
   const getPaymentIcon = (method: PaymentMethod) => {
     switch (method) {
@@ -418,7 +469,7 @@ export default function Sales() {
                     ref={searchInputRef}
                     type="text"
                     value={searchQuery}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
                     placeholder="Search by name, SKU, or barcode..."
                     className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                   />
@@ -746,11 +797,17 @@ export default function Sales() {
         footer={
           <div className="flex justify-end gap-3">
             <Button
-              onClick={() => setShowPaymentModal(false)}
-              disabled={processing}
+              onClick={() => {
+                if (processing) {
+                  cancelProcessing();
+                } else {
+                  setShowPaymentModal(false);
+                }
+              }}
+              disabled={false}
               variant="outline"
             >
-              Cancel
+              {processing ? 'Cancel Processing' : 'Cancel'}
             </Button>
             <Button
               onClick={processPayment}
@@ -759,7 +816,7 @@ export default function Sales() {
               isLoading={processing}
               leftIcon={getPaymentIcon(paymentMethod)}
             >
-              Complete Sale
+              {processing ? 'Processing...' : 'Complete Sale'}
             </Button>
           </div>
         }
@@ -827,6 +884,23 @@ export default function Sales() {
               </div>
             )}
           </div>
+
+          {/* Progress indicator */}
+          {processing && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-blue-900">{processingStage || 'Processing...'}</span>
+                <span className="text-sm font-bold text-blue-600">{processingProgress}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2.5">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${processingProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-blue-700 mt-2">Please wait while we process your sale...</p>
+            </div>
+          )}
         </div>
       </Modal>
 

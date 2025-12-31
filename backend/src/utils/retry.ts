@@ -23,6 +23,7 @@ export function isRetryableError(error: any): boolean {
   // PostgreSQL error codes for retryable errors:
   // 40001: serialization_failure (deadlock)
   // 40P01: deadlock_detected
+  // 55P03: lock_not_available (lock timeout)
   // 57P03: cannot_connect_now (database is starting up)
   // 08006: connection_failure
   // 08003: connection_does_not_exist
@@ -32,6 +33,7 @@ export function isRetryableError(error: any): boolean {
   const retryableCodes = [
     '40001', // serialization_failure
     '40P01', // deadlock_detected
+    '55P03', // lock_not_available (lock timeout)
     '57P03', // cannot_connect_now
     '08006', // connection_failure
     '08003', // connection_does_not_exist
@@ -39,6 +41,18 @@ export function isRetryableError(error: any): boolean {
     '08004', // sqlserver_rejected_establishment_of_sqlconnection
     '08007', // transaction_resolution_unknown
   ];
+  
+  // Also check error message for lock-related errors
+  const errorMessage = error?.message?.toLowerCase() || '';
+  const isLockError = errorMessage.includes('lock') || 
+                      errorMessage.includes('timeout') ||
+                      errorMessage.includes('deadlock') ||
+                      errorMessage.includes('serialization');
+  
+  if (isLockError && !retryableCodes.includes(error.code)) {
+    // Treat lock-related errors as retryable even without specific error code
+    return true;
+  }
   
   return retryableCodes.includes(error.code);
 }

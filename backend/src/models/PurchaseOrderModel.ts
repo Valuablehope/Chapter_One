@@ -90,6 +90,8 @@ export class PurchaseOrderModel extends BaseModel {
     
     try {
       await client.query('BEGIN');
+      // Set transaction timeout (30 seconds) to prevent long-running transactions
+      await client.query('SET LOCAL statement_timeout = 30000');
 
       // Get store
       const store = await this.getDefaultStore();
@@ -172,10 +174,22 @@ export class PurchaseOrderModel extends BaseModel {
         total_cost: totalCost,
       };
     } catch (error) {
-      await client.query('ROLLBACK');
+      // Always rollback on error
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        // Log rollback error but don't mask original error
+        console.error('Failed to rollback transaction:', rollbackError);
+      }
       throw error;
     } finally {
-      client.release();
+      // Always release client, even if rollback failed
+      try {
+        client.release();
+      } catch (releaseError) {
+        // Log release error - this is critical
+        console.error('Failed to release database client:', releaseError);
+      }
     }
   }
 
@@ -353,6 +367,8 @@ export class PurchaseOrderModel extends BaseModel {
         
         try {
           await client.query('BEGIN');
+          // Set transaction timeout (30 seconds) to prevent long-running transactions
+          await client.query('SET LOCAL statement_timeout = 30000');
           // Set SERIALIZABLE isolation level to prevent race conditions
           await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 
@@ -435,10 +451,22 @@ export class PurchaseOrderModel extends BaseModel {
           // Return updated purchase order
           return await this.findById(poId) as PurchaseOrderWithDetails;
         } catch (error) {
-          await client.query('ROLLBACK');
+          // Always rollback on error
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            // Log rollback error but don't mask original error
+            console.error('Failed to rollback transaction:', rollbackError);
+          }
           throw error;
         } finally {
-          client.release();
+          // Always release client, even if rollback failed
+          try {
+            client.release();
+          } catch (releaseError) {
+            // Log release error - this is critical
+            console.error('Failed to release database client:', releaseError);
+          }
         }
       },
       {
@@ -461,6 +489,8 @@ export class PurchaseOrderModel extends BaseModel {
     
     try {
       await client.query('BEGIN');
+      // Set transaction timeout (30 seconds) to prevent long-running transactions
+      await client.query('SET LOCAL statement_timeout = 30000');
 
       // Delete items first
       await client.query('DELETE FROM purchase_order_items WHERE po_id = $1', [poId]);
@@ -470,10 +500,22 @@ export class PurchaseOrderModel extends BaseModel {
 
       await client.query('COMMIT');
     } catch (error) {
-      await client.query('ROLLBACK');
+      // Always rollback on error
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        // Log rollback error but don't mask original error
+        console.error('Failed to rollback transaction:', rollbackError);
+      }
       throw error;
     } finally {
-      client.release();
+      // Always release client, even if rollback failed
+      try {
+        client.release();
+      } catch (releaseError) {
+        // Log release error - this is critical
+        console.error('Failed to release database client:', releaseError);
+      }
     }
   }
 }

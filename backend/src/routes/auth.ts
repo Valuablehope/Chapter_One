@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { login, verifyToken, refreshToken } from '../controllers/authController';
+import { login, verifyToken, refreshToken, logout } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validateRequest } from '../middleware/validateRequest';
 import { authRateLimiter } from '../middleware/rateLimiter';
@@ -33,6 +33,9 @@ router.get('/verify', authenticate, verifyToken);
 
 // Refresh token route (protected) - extends token expiry without re-login
 router.post('/refresh', authenticate, refreshToken);
+
+// Logout route (protected) - clears the httpOnly cookie
+router.post('/logout', authenticate, logout);
 
 export default router;
 

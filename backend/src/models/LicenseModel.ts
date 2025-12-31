@@ -284,6 +284,8 @@ export class LicenseModel extends BaseModel {
     
     try {
       await client.query('BEGIN');
+      // Set transaction timeout (30 seconds) to prevent long-running transactions
+      await client.query('SET LOCAL statement_timeout = 30000');
 
       // Find license by key
       const license = await this.findByLicenseKey(licenseKey);
@@ -351,10 +353,22 @@ export class LicenseModel extends BaseModel {
       await client.query('COMMIT');
       return { success: true, message: 'Device activated successfully', license };
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      // Always rollback on error
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        // Log rollback error but don't mask original error
+        console.error('Failed to rollback transaction:', rollbackError);
+      }
       throw error;
     } finally {
-      client.release();
+      // Always release client, even if rollback failed
+      try {
+        client.release();
+      } catch (releaseError) {
+        // Log release error - this is critical
+        console.error('Failed to release database client:', releaseError);
+      }
     }
   }
 

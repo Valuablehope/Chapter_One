@@ -38,6 +38,16 @@ export const errorHandler = (
   // Sanitize error message for client
   let clientMessage = err.message || 'Internal server error';
   
+  // Check for specific database lock errors
+  const errorMessage = err.message?.toLowerCase() || '';
+  if (errorMessage.includes('lock') || errorMessage.includes('deadlock') || errorMessage.includes('serialization')) {
+    clientMessage = 'The system is processing another transaction. Please try again in a moment.';
+    // Set appropriate status code for lock errors
+    if (statusCode === 500) {
+      statusCode = 503; // Service Unavailable for lock errors
+    }
+  }
+  
   // In production, don't expose internal error details
   if (!isDevelopment) {
     // Don't expose database errors, stack traces, or internal details

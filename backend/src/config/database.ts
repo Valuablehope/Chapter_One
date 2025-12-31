@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from '../utils/logger';
+import { dbCircuitBreaker } from '../utils/circuitBreaker';
 
 // Find root directory by looking for .env file
 // Go up from backend/src/config/ (3 levels) or backend/dist/config/ (3 levels)
@@ -138,11 +139,14 @@ export function startHealthMonitoring(): void {
   
   healthCheckInterval = setInterval(async () => {
     try {
-      await pool.query('SELECT 1');
+      await dbCircuitBreaker.execute(async () => {
+        await pool.query('SELECT 1');
+      });
       consecutiveFatalErrors = 0; // Reset on successful health check
     } catch (err) {
       logger.warn('Health check failed, pool may be unhealthy', { 
-        error: err instanceof Error ? err.message : 'Unknown error' 
+        error: err instanceof Error ? err.message : 'Unknown error',
+        circuitState: dbCircuitBreaker.getState(),
       });
     }
   }, 30000); // Every 30 seconds

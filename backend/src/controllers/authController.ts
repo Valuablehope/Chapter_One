@@ -55,11 +55,20 @@ export const login = asyncHandler(
 
     logger.info(`User logged in: ${user.username} (${user.role})`);
 
-    // Return user info and token
+    // Set httpOnly cookie with token
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProduction, // Only use HTTPS in production
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/',
+    });
+
+    // Return user info (token is in cookie, not in response body)
     res.status(200).json({
       success: true,
       data: {
-        token,
         user: {
           userId: user.user_id,
           username: user.username,
@@ -101,12 +110,41 @@ export const refreshToken = asyncHandler(
 
     logger.info(`Token refreshed for user: ${req.user.username}`);
 
+    // Set httpOnly cookie with new token
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      secure: isProduction, // Only use HTTPS in production
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/',
+    });
+
+    // Return user info (token is in cookie, not in response body)
     res.status(200).json({
       success: true,
       data: {
-        token: newToken,
         user: req.user,
       },
+    });
+  }
+);
+
+export const logout = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    // Clear the httpOnly cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+
+    logger.info(`User logged out: ${req.user?.username || 'unknown'}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully',
     });
   }
 );

@@ -56,13 +56,25 @@ export class ProductModel extends BaseModel {
 
     if (filters.search) {
       paramCount++;
+      const searchTerm = filters.search.trim();
+      
+      // Use full-text search if tsvector column exists (better performance)
+      // Fall back to ILIKE for backward compatibility
+      // Check if tsvector column exists by attempting to use it
+      // If it fails, the fallback ILIKE will be used
       query += ` AND (
-        p.name ILIKE $${paramCount} OR
-        p.sku ILIKE $${paramCount} OR
-        p.barcode ILIKE $${paramCount} OR
-        pb.isbn13 ILIKE $${paramCount}
+        -- Full-text search on product name (if tsvector column exists)
+        (p.name_tsvector IS NOT NULL AND p.name_tsvector @@ plainto_tsquery('english', $${paramCount}))
+        OR
+        -- Fallback to ILIKE for name, sku, barcode, isbn
+        p.name ILIKE $${paramCount + 1} OR
+        p.sku ILIKE $${paramCount + 1} OR
+        p.barcode ILIKE $${paramCount + 1} OR
+        pb.isbn13 ILIKE $${paramCount + 1}
       )`;
-      params.push(`%${filters.search}%`);
+      params.push(searchTerm);
+      paramCount++;
+      params.push(`%${searchTerm}%`);
     }
 
     if (filters.product_type) {

@@ -6,6 +6,7 @@
 
 export interface QueuedSale {
   id: string;
+  clientSaleId: string; // Unique client-side sale ID for conflict resolution
   saleData: {
     customer_id?: string;
     items: Array<{
@@ -27,6 +28,8 @@ export interface QueuedSale {
 const DB_NAME = 'pos_offline_queue';
 const DB_VERSION = 1;
 const STORE_NAME = 'sales_queue';
+const MAX_QUEUE_SIZE = 1000; // Maximum number of queued sales
+const QUEUE_WARNING_THRESHOLD = 0.8; // Warn when queue is 80% full
 
 export class OfflineQueue {
   private db: IDBDatabase | null = null;
@@ -64,6 +67,7 @@ export class OfflineQueue {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
           store.createIndex('timestamp', 'timestamp', { unique: false });
           store.createIndex('status', 'status', { unique: false });
+          store.createIndex('clientSaleId', 'clientSaleId', { unique: true }); // Unique index for conflict detection
         }
       };
     });
@@ -72,14 +76,135 @@ export class OfflineQueue {
   }
 
   /**
-   * Enqueue a sale for offline sync
+   * Generate a unique client-side sale ID (UUID v4)
    */
-  async enqueueSale(saleData: QueuedSale['saleData']): Promise<string> {
+  private generateClientSaleId(): string {
+    // Generate UUID v4
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  /**
+   * Get current queue size
+   */
+  private async getQueueSize(): Promise<number> {
     await this.init();
+    
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+
+      const transaction = this.db.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.count();
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+
+      request.onerror = () => {
+        reject(new Error('Failed to get queue size'));
+      };
+    });
+  }
+
+  /**
+   * Evict oldest sales when queue is full (FIFO)
+   */
+  private async evictOldestSales(count: number): Promise<void> {
+    await this.init();
+    
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+
+      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const index = store.index('timestamp');
+      const request = index.openCursor(null, 'next'); // Oldest first
+
+      let evicted = 0;
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor && evicted < count) {
+          cursor.delete();
+          evicted++;
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+
+      request.onerror = () => {
+        reject(new Error('Failed to evict old sales'));
+      };
+    });
+  }
+
+  /**
+   * Check IndexedDB quota and available space
+   */
+  private async checkQuota(): Promise<{ available: boolean; reason?: string }> {
+    if ('storage' in navigator && 'estimate' in navigator.storage) {
+      try {
+        const estimate = await navigator.storage.estimate();
+        const used = estimate.usage || 0;
+        const quota = estimate.quota || 0;
+        const available = quota - used;
+        
+        // Warn if less than 10MB available
+        if (available < 10 * 1024 * 1024) {
+          return { available: false, reason: 'Insufficient disk space (less than 10MB available)' };
+        }
+        return { available: true };
+      } catch (error) {
+        // If quota check fails, allow enqueueing (graceful degradation)
+        return { available: true };
+      }
+    }
+    return { available: true };
+  }
+
+  /**
+   * Enqueue a sale for offline sync
+   * @param saleData The sale data to queue
+   * @param clientSaleId Optional client-side sale ID (for conflict resolution). If not provided, one will be generated.
+   */
+  async enqueueSale(saleData: QueuedSale['saleData'], clientSaleId?: string): Promise<string> {
+    await this.init();
+
+    // Check queue size
+    const currentSize = await this.getQueueSize();
+    
+    // Evict oldest sales if queue is full
+    if (currentSize >= MAX_QUEUE_SIZE) {
+      const evictCount = currentSize - MAX_QUEUE_SIZE + 1;
+      await this.evictOldestSales(evictCount);
+    }
+
+    // Check if queue is approaching limit
+    const newSize = await this.getQueueSize();
+    if (newSize >= MAX_QUEUE_SIZE * QUEUE_WARNING_THRESHOLD) {
+      console.warn(`Offline queue is ${Math.round((newSize / MAX_QUEUE_SIZE) * 100)}% full. Consider syncing sales.`);
+    }
+
+    // Check disk quota
+    const quotaCheck = await this.checkQuota();
+    if (!quotaCheck.available) {
+      throw new Error(quotaCheck.reason || 'Insufficient disk space to queue sale');
+    }
 
     const id = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const queuedSale: QueuedSale = {
       id,
+      clientSaleId: clientSaleId || this.generateClientSaleId(),
       saleData,
       timestamp: Date.now(),
       retryCount: 0,
@@ -100,8 +225,13 @@ export class OfflineQueue {
         resolve(id);
       };
 
-      request.onerror = () => {
-        reject(new Error('Failed to queue sale'));
+      request.onerror = (event: any) => {
+        // Check if error is due to quota exceeded
+        if (event.target?.error?.name === 'QuotaExceededError') {
+          reject(new Error('Disk quota exceeded. Please free up space and try again.'));
+        } else {
+          reject(new Error('Failed to queue sale'));
+        }
       };
     });
   }
@@ -207,10 +337,10 @@ export class OfflineQueue {
   }
 
   /**
-   * Sync all pending sales
+   * Sync all pending sales with conflict resolution
    */
   async syncPendingSales(
-    syncFn: (saleData: QueuedSale['saleData']) => Promise<any>
+    syncFn: (saleData: QueuedSale['saleData'], clientSaleId: string) => Promise<any>
   ): Promise<{ success: number; failed: number }> {
     const pending = await this.getPendingSales();
     let success = 0;
@@ -221,16 +351,26 @@ export class OfflineQueue {
         // Mark as syncing
         await this.updateSaleStatus(sale.id, 'syncing', sale.retryCount + 1);
 
-        // Attempt sync
-        await syncFn(sale.saleData);
+        // Attempt sync with client sale ID for conflict resolution
+        await syncFn(sale.saleData, sale.clientSaleId);
 
         // Mark as synced and remove
         await this.removeSale(sale.id);
         success++;
-      } catch (error) {
-        // Mark as failed (will retry on next sync)
-        await this.updateSaleStatus(sale.id, 'failed', sale.retryCount + 1);
-        failed++;
+      } catch (error: any) {
+        // Check if error is due to duplicate (409 Conflict or specific error message)
+        if (error.response?.status === 409 || 
+            error.response?.data?.error?.message?.includes('duplicate') ||
+            error.response?.data?.error?.message?.includes('already exists')) {
+          // Duplicate sale - remove from queue (already synced)
+          logger.info(`Duplicate sale detected: ${sale.clientSaleId}, removing from queue`);
+          await this.removeSale(sale.id);
+          success++;
+        } else {
+          // Mark as failed (will retry on next sync)
+          await this.updateSaleStatus(sale.id, 'failed', sale.retryCount + 1);
+          failed++;
+        }
       }
     }
 

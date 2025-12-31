@@ -3,6 +3,7 @@ import { LicenseModel } from '../models/LicenseModel';
 import { SaleModel } from '../models/SaleModel';
 import { asyncHandler, CustomError } from '../middleware/errorHandler';
 import { pool } from '../config/database';
+import { validateDeviceFingerprint, generateServerSideFingerprint } from '../utils/deviceFingerprint';
 
 // Get license status and record counts
 export const getLicenseInfo = asyncHandler(async (req: Request, res: Response) => {
@@ -49,6 +50,21 @@ export const activateLicense = asyncHandler(async (req: Request, res: Response) 
     throw new CustomError('License key and device fingerprint are required', 400);
   }
 
+  // Validate device fingerprint format and detect tampering
+  const fingerprintValidation = validateDeviceFingerprint(deviceFingerprint, deviceInfo);
+  if (!fingerprintValidation.isValid) {
+    throw new CustomError(`Invalid device fingerprint: ${fingerprintValidation.reason}`, 400);
+  }
+
+  // If deviceInfo is provided, generate server-side hash for additional validation
+  if (deviceInfo) {
+    const serverFingerprint = generateServerSideFingerprint(deviceInfo);
+    // Log mismatch for security monitoring (but don't block if client fingerprint is valid)
+    if (serverFingerprint !== deviceFingerprint) {
+      console.warn('Device fingerprint mismatch detected - client and server hashes differ');
+    }
+  }
+
   const result = await LicenseModel.activateDevice(
     store.store_id,
     licenseKey,
@@ -81,6 +97,12 @@ export const validateDevice = asyncHandler(async (req: Request, res: Response) =
 
   if (!deviceFingerprint) {
     throw new CustomError('Device fingerprint is required', 400);
+  }
+
+  // Validate device fingerprint format
+  const fingerprintValidation = validateDeviceFingerprint(deviceFingerprint);
+  if (!fingerprintValidation.isValid) {
+    throw new CustomError(`Invalid device fingerprint: ${fingerprintValidation.reason}`, 400);
   }
 
   const result = await LicenseModel.validateDevice(store.store_id, deviceFingerprint);

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { LicenseModel } from '../models/LicenseModel';
 import { SaleModel } from '../models/SaleModel';
 import { CustomError } from './errorHandler';
+import { cache } from '../utils/cache';
 
 // Get store_id from request (using default store)
 async function getStoreId(): Promise<string | null> {
@@ -21,7 +22,15 @@ export const checkLicense = async (
       return next(); // Allow if no store (for initial setup)
     }
 
-    const licenseStatus = await LicenseModel.getLicenseStatus(storeId);
+    // Check cache first (5 minute TTL)
+    const cacheKey = `license_status_${storeId}`;
+    let licenseStatus = cache.get<any>(cacheKey);
+    
+    if (licenseStatus === null) {
+      licenseStatus = await LicenseModel.getLicenseStatus(storeId);
+      // Cache result for 5 minutes
+      cache.set(cacheKey, licenseStatus, 5 * 60 * 1000);
+    }
     
     if (!licenseStatus) {
       // No license - could be trial mode or new install

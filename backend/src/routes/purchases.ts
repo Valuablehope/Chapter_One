@@ -29,7 +29,9 @@ router.post(
   checkRecordLimit('purchases'),
   [
     body('supplier_id').notEmpty().withMessage('Supplier ID is required'),
-    body('items').isArray({ min: 1 }).withMessage('Purchase order must have at least one item'),
+    body('items')
+      .isArray({ min: 1, max: 100 })
+      .withMessage('Purchase order must have at least one item and at most 100 items'),
     body('items.*.product_id').notEmpty().withMessage('Item product_id is required'),
     body('items.*.qty_ordered').isInt({ min: 1 }).withMessage('Item quantity must be at least 1'),
     body('items.*.unit_cost').isFloat({ min: 0 }).withMessage('Item unit cost must be positive'),

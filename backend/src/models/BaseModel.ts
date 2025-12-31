@@ -1,5 +1,6 @@
 import { pool } from '../config/database';
 import { QueryResult, QueryResultRow } from 'pg';
+import { dbCircuitBreaker } from '../utils/circuitBreaker';
 
 export interface PaginationParams {
   page?: number;
@@ -19,7 +20,8 @@ export interface PaginatedResult<T> {
 
 export class BaseModel {
   /**
-   * Execute a query with optional timeout protection
+   * Execute a simple query using pool.query() for better connection pool management
+   * Use this for read queries and simple operations that don't require transactions
    * @param text SQL query text
    * @param params Query parameters
    * @param timeout Optional timeout in milliseconds (default: 30 seconds from pool config)
@@ -29,16 +31,50 @@ export class BaseModel {
     params?: any[],
     timeout?: number
   ): Promise<QueryResult<T>> {
-    const client = await pool.connect();
-    try {
-      // Set per-query timeout if specified
-      if (timeout) {
-        await client.query(`SET LOCAL statement_timeout = ${timeout}`);
-      }
-      return await client.query<T>(text, params);
-    } finally {
-      client.release();
+    // For queries with timeout, we need to use a transaction to set statement_timeout
+    if (timeout) {
+      return await dbCircuitBreaker.execute(async () => {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query(`SET LOCAL statement_timeout = ${timeout}`);
+          const result = await client.query<T>(text, params);
+          await client.query('COMMIT');
+          return result;
+        } catch (error) {
+          // Always rollback on error
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            // Log rollback error but don't mask original error
+            console.error('Failed to rollback transaction:', rollbackError);
+          }
+          throw error;
+        } finally {
+          // Always release client, even if rollback failed
+          try {
+            client.release();
+          } catch (releaseError) {
+            // Log release error - this is critical
+            console.error('Failed to release database client:', releaseError);
+          }
+        }
+      });
     }
+    
+    // For queries without timeout, use pool.query() with circuit breaker
+    return await dbCircuitBreaker.execute(async () => {
+      return await pool.query<T>(text, params);
+    });
+  }
+
+  /**
+   * Get a client from the pool for transactions
+   * Use this when you need to perform multiple queries in a transaction
+   * Remember to release the client when done!
+   */
+  protected static async getClient() {
+    return await pool.connect();
   }
 
   protected static getPaginationParams(

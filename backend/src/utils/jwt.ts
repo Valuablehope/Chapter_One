@@ -19,26 +19,31 @@ function findEnvFile(): string {
 
 dotenv.config({ path: findEnvFile() });
 
-// Enforce JWT_SECRET in production
+// Enforce JWT_SECRET in all environments
 const JWT_SECRET: string = process.env.JWT_SECRET || '';
 
-if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+// Require JWT_SECRET in all environments (no development bypass)
+if (!JWT_SECRET) {
   throw new Error(
-    'JWT_SECRET must be set in production environment. ' +
+    'JWT_SECRET must be set in all environments. ' +
     'Please set JWT_SECRET in your .env file with at least 32 characters.'
   );
 }
 
-if (JWT_SECRET && JWT_SECRET.length < 32) {
+// Validate JWT_SECRET strength
+if (JWT_SECRET.length < 32) {
   throw new Error(
     `JWT_SECRET must be at least 32 characters long. Current length: ${JWT_SECRET.length}. ` +
     'Please set a stronger JWT_SECRET in your .env file.'
   );
 }
 
-if (!JWT_SECRET && process.env.NODE_ENV !== 'production') {
-  console.warn('⚠️  WARNING: JWT_SECRET is not set. Using empty string (INSECURE - for development only).');
-  console.warn('   Please set JWT_SECRET in your .env file for production deployment.');
+// Additional validation: ensure secret is not just whitespace
+if (JWT_SECRET.trim().length < 32) {
+  throw new Error(
+    'JWT_SECRET must contain at least 32 non-whitespace characters. ' +
+    'Please set a stronger JWT_SECRET in your .env file.'
+  );
 }
 
 const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRY || process.env.JWT_EXPIRES_IN || '24h';
@@ -50,12 +55,22 @@ export interface TokenPayload {
 }
 
 export const generateToken = (payload: TokenPayload): string => {
+  // Validate JWT_SECRET before token generation
+  if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET is not properly configured. Cannot generate token.');
+  }
+  
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   } as jwt.SignOptions);
 };
 
 export const verifyToken = (token: string): TokenPayload => {
+  // Validate JWT_SECRET before token verification
+  if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET is not properly configured. Cannot verify token.');
+  }
+  
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
     return decoded;

@@ -23,22 +23,26 @@ export function useOfflineSync() {
     }
   }, []);
 
-  // Sync pending sales
+  // Sync pending sales - wrapped in useCallback with stable dependencies
   const syncPendingSales = useCallback(async () => {
-    if (isSyncing) {
-      return; // Already syncing
-    }
+    // Use functional state update to avoid dependency on isSyncing
+    setIsSyncing((current) => {
+      if (current) {
+        return current; // Already syncing
+      }
+      return true;
+    });
 
-    const pending = await offlineQueue.getPendingSales();
-    if (pending.length === 0) {
-      return; // Nothing to sync
-    }
-
-    setIsSyncing(true);
     try {
-      const result = await offlineQueue.syncPendingSales(async (saleData) => {
-        // Attempt to create sale via API
-        return await saleService.createSale(saleData);
+      const pending = await offlineQueue.getPendingSales();
+      if (pending.length === 0) {
+        setIsSyncing(false);
+        return; // Nothing to sync
+      }
+
+      const result = await offlineQueue.syncPendingSales(async (saleData, clientSaleId) => {
+        // Attempt to create sale via API with client sale ID for conflict resolution
+        return await saleService.createSale(saleData, clientSaleId);
       });
 
       if (result.success > 0) {
@@ -51,16 +55,22 @@ export function useOfflineSync() {
         logger.warn(`Failed to sync ${result.failed} sales`);
       }
 
-      await updatePendingCount();
+      // Update pending count after sync
+      try {
+        const count = await offlineQueue.getPendingCount();
+        setPendingCount(count);
+      } catch (error) {
+        logger.error('Failed to get pending count', error);
+      }
     } catch (error) {
       logger.error('Failed to sync pending sales', error);
       toast.error('Failed to sync pending sales. Will retry when connection is restored.');
     } finally {
       setIsSyncing(false);
     }
-  }, [isSyncing, updatePendingCount]);
+  }, []); // Empty deps - function doesn't depend on state
 
-  // Monitor online/offline status
+  // Monitor online/offline status and visibility changes (sleep/wake)
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -76,34 +86,70 @@ export function useOfflineSync() {
       logger.warn('Connection lost, sales will be queued');
     };
 
+    // Handle visibility change (app wake from sleep, tab focus)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        logger.info('App became visible, checking for pending sales...');
+        // Small delay to ensure connection is stable after wake
+        setTimeout(() => {
+          syncPendingSales();
+        }, 2000);
+      }
+    };
+
+    // Handle Electron app ready event (wake from sleep)
+    const handleAppReady = () => {
+      if (navigator.onLine) {
+        logger.info('App ready after wake, checking for pending sales...');
+        setTimeout(() => {
+          syncPendingSales();
+        }, 2000);
+      }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Listen for Electron app ready event
+    if (window.electronAPI?.ipcRenderer) {
+      window.electronAPI.ipcRenderer.on('app:ready', handleAppReady);
+    }
 
     // Initial sync check
     if (navigator.onLine) {
       syncPendingSales();
     }
 
-    // Periodic sync check (every 30 seconds when online)
-    const syncInterval = setInterval(() => {
-      if (navigator.onLine && !isSyncing) {
-        syncPendingSales();
-      }
-    }, 30000);
-
     // Initial pending count
     updatePendingCount();
 
-    // Update pending count periodically
-    const countInterval = setInterval(updatePendingCount, 5000);
+    // Periodic sync check (every 60 seconds when online - reduced frequency)
+    const syncInterval = setInterval(() => {
+      if (navigator.onLine) {
+        syncPendingSales();
+      }
+    }, 60000); // Changed from 30s to 60s
+
+    // Update pending count periodically (every 30 seconds - reduced frequency)
+    const countInterval = setInterval(() => {
+      updatePendingCount();
+    }, 30000); // Changed from 5s to 30s
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Remove Electron event listener
+      if (window.electronAPI?.ipcRenderer) {
+        window.electronAPI.ipcRenderer.removeListener('app:ready', handleAppReady);
+      }
+      
       clearInterval(syncInterval);
       clearInterval(countInterval);
     };
-  }, [syncPendingSales, isSyncing, updatePendingCount]);
+  }, [syncPendingSales, updatePendingCount]); // Now stable references
 
   return {
     pendingCount,
