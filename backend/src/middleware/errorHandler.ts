@@ -48,6 +48,14 @@ export const errorHandler = (
     }
   }
   
+  // Check for stock-related errors
+  if (errorMessage.includes('insufficient stock') || errorMessage.includes('out of stock')) {
+    // Stock errors should be 400 Bad Request (client error)
+    statusCode = 400;
+    // Keep the original message as it contains useful details (product name, available quantity)
+    clientMessage = err.message;
+  }
+  
   // In production, don't expose internal error details
   if (!isDevelopment) {
     // Don't expose database errors, stack traces, or internal details

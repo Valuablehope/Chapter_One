@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { offlineQueue } from '../services/offlineQueue';
 import { saleService } from '../services/saleService';
+import { stockService } from '../services/stockService';
 import { logger } from '../utils/logger';
 import toast from 'react-hot-toast';
 
@@ -42,7 +43,19 @@ export function useOfflineSync() {
 
       const result = await offlineQueue.syncPendingSales(async (saleData, clientSaleId) => {
         // Attempt to create sale via API with client sale ID for conflict resolution
-        return await saleService.createSale(saleData, clientSaleId);
+        const sale = await saleService.createSale(saleData, clientSaleId);
+        
+        // Update stock cache after successful sync (optimistic update)
+        try {
+          for (const item of saleData.items) {
+            await stockService.updateStockBalance(item.product_id, -item.qty);
+          }
+        } catch (error) {
+          // Log but don't fail - cache update is best effort
+          logger.warn('Failed to update stock cache after sync', { error });
+        }
+        
+        return sale;
       });
 
       if (result.success > 0) {
@@ -74,9 +87,25 @@ export function useOfflineSync() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      logger.info('Connection restored, syncing pending sales...');
+      logger.info('Connection restored, syncing pending sales and stock...');
       // Small delay to ensure connection is stable
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Sync stock balances first (needed for validation)
+        try {
+          // Get product IDs from pending sales for targeted sync
+          const pending = await offlineQueue.getPendingSales();
+          const productIds = new Set<string>();
+          pending.forEach(sale => {
+            sale.saleData.items.forEach(item => {
+              productIds.add(item.product_id);
+            });
+          });
+          if (productIds.size > 0) {
+            await stockService.syncStockBalances(Array.from(productIds));
+          }
+        } catch (error) {
+          logger.warn('Failed to sync stock balances', error);
+        }
         syncPendingSales();
       }, 1000);
     };

@@ -1,6 +1,7 @@
 import { pool } from '../config/database';
 import { QueryResult, QueryResultRow } from 'pg';
 import { dbCircuitBreaker } from '../utils/circuitBreaker';
+import { logger } from '../utils/logger';
 
 export interface PaginationParams {
   page?: number;
@@ -47,16 +48,23 @@ export class BaseModel {
             await client.query('ROLLBACK');
           } catch (rollbackError) {
             // Log rollback error but don't mask original error
-            console.error('Failed to rollback transaction:', rollbackError);
+            logger.error('Failed to rollback transaction', {
+              error: rollbackError instanceof Error ? rollbackError.message : 'Unknown error',
+            });
           }
           throw error;
         } finally {
           // Always release client, even if rollback failed
-          try {
-            client.release();
-          } catch (releaseError) {
-            // Log release error - this is critical
-            console.error('Failed to release database client:', releaseError);
+          // This is critical to prevent connection pool exhaustion
+          if (client) {
+            try {
+              client.release();
+            } catch (releaseError) {
+              // Log but don't throw - we've already handled the transaction error
+              logger.error('Failed to release database client', {
+                error: releaseError instanceof Error ? releaseError.message : 'Unknown error',
+              });
+            }
           }
         }
       });

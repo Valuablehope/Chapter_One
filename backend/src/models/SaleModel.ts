@@ -300,11 +300,25 @@ export class SaleModel extends BaseModel {
         const productResult = await client.query(productQuery, [item.product_id]);
         if (productResult.rows[0]?.track_inventory) {
           // Lock stock balance row for update (prevents concurrent modifications)
-          await client.query(`
+          const stockBalanceResult = await client.query(`
             SELECT qty_on_hand FROM stock_balances
             WHERE store_id = $1 AND product_id = $2
             FOR UPDATE
           `, [store.store_id, item.product_id]);
+          
+          // Validate stock availability
+          const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+          if (currentStock < item.qty) {
+            // Get product name for error message
+            const productInfo = await client.query(
+              'SELECT name FROM products WHERE product_id = $1',
+              [item.product_id]
+            );
+            const productName = productInfo.rows[0]?.name || 'Unknown product';
+            throw new Error(
+              `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
+            );
+          }
           
           // Create stock movement (outbound)
           const stockQuery = `

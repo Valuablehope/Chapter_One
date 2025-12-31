@@ -4,6 +4,9 @@
  * Uses IndexedDB for persistent storage
  */
 
+import { stockService, StockBalance } from './stockService';
+import { logger } from '../utils/logger';
+
 export interface QueuedSale {
   id: string;
   clientSaleId: string; // Unique client-side sale ID for conflict resolution
@@ -180,6 +183,33 @@ export class OfflineQueue {
   async enqueueSale(saleData: QueuedSale['saleData'], clientSaleId?: string): Promise<string> {
     await this.init();
 
+    // Validate stock availability before enqueueing (using cached stock balances)
+    try {
+      const productIds = saleData.items.map(item => item.product_id);
+      const stockBalances = await stockService.getStockBalances(productIds);
+      
+      // Check each item for sufficient stock
+      for (const item of saleData.items) {
+        const balance = stockBalances.find(b => b.product_id === item.product_id);
+        const availableStock = balance?.qty_on_hand || 0;
+        
+        if (availableStock < item.qty) {
+          throw new Error(
+            `Insufficient stock for product ${item.product_id}. Available: ${availableStock}, Requested: ${item.qty}`
+          );
+        }
+      }
+    } catch (error: any) {
+      // If stock validation fails, reject the sale
+      if (error.message?.includes('Insufficient stock')) {
+        logger.error('Stock validation failed for offline sale', { error: error.message, saleData });
+        throw error;
+      }
+      // For other errors (e.g., cache issues), log but allow enqueueing
+      // The backend will validate stock when syncing
+      logger.warn('Stock validation warning (allowing enqueue)', { error: error.message });
+    }
+
     // Check queue size
     const currentSize = await this.getQueueSize();
     
@@ -221,7 +251,17 @@ export class OfflineQueue {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.add(queuedSale);
 
-      request.onsuccess = () => {
+      request.onsuccess = async () => {
+        // Update stock cache after enqueueing (optimistic update)
+        // This helps keep cache in sync for subsequent offline operations
+        try {
+          for (const item of saleData.items) {
+            await stockService.updateStockBalance(item.product_id, -item.qty);
+          }
+        } catch (error) {
+          // Log but don't fail - cache update is best effort
+          logger.warn('Failed to update stock cache after enqueueing', { error });
+        }
         resolve(id);
       };
 

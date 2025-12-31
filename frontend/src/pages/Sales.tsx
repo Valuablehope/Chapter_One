@@ -4,6 +4,7 @@ import { productService, Product } from '../services/productService';
 import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
+import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -49,6 +50,7 @@ export default function Sales() {
   const [receiptCartItems, setReceiptCartItems] = useState<CartItem[]>([]);
   const [receiptCustomer, setReceiptCustomer] = useState<Customer | null>(null);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [stockBalances, setStockBalances] = useState<Map<string, StockBalance>>(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -113,7 +115,33 @@ export default function Sales() {
   };
 
   // Add product to cart
-  const addToCart = (product: Product) => {
+  const addToCart = async (product: Product) => {
+    // Check stock availability if product tracks inventory
+    if (product.track_inventory) {
+      try {
+        const balance = await stockService.getStockBalance(product.product_id);
+        const availableStock = balance?.qty_on_hand || 0;
+        
+        // Update stock balance in state
+        if (balance) {
+          setStockBalances(prev => new Map(prev).set(product.product_id, balance));
+        }
+        
+        const existingItem = cart.find((item) => item.product.product_id === product.product_id);
+        const requestedQty = existingItem ? existingItem.qty + 1 : 1;
+        
+        if (availableStock < requestedQty) {
+          toast.error(
+            `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${requestedQty}`
+          );
+          return;
+        }
+      } catch (error) {
+        logger.warn('Failed to check stock, allowing add to cart', { error, productId: product.product_id });
+        // Continue if stock check fails (graceful degradation)
+      }
+    }
+
     const existingItem = cart.find((item) => item.product.product_id === product.product_id);
 
     if (existingItem) {
@@ -148,10 +176,33 @@ export default function Sales() {
   };
 
   // Update cart item quantity
-  const updateCartItemQuantity = (productId: string, qty: number) => {
+  const updateCartItemQuantity = async (productId: string, qty: number) => {
     if (qty <= 0) {
       removeFromCart(productId);
       return;
+    }
+
+    // Check stock availability if product tracks inventory
+    const item = cart.find(i => i.product.product_id === productId);
+    if (item && item.product.track_inventory) {
+      try {
+        const balance = await stockService.getStockBalance(productId);
+        const availableStock = balance?.qty_on_hand || 0;
+        
+        if (balance) {
+          setStockBalances(prev => new Map(prev).set(productId, balance));
+        }
+        
+        if (availableStock < qty) {
+          toast.error(
+            `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${qty}`
+          );
+          return;
+        }
+      } catch (error) {
+        logger.warn('Failed to check stock, allowing quantity update', { error, productId });
+        // Continue if stock check fails (graceful degradation)
+      }
     }
 
     setCart(
@@ -213,6 +264,32 @@ export default function Sales() {
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return;
+    }
+
+    // Validate stock availability before processing payment
+    const productIds = cart.map(item => item.product.product_id);
+    try {
+      const balances = await stockService.getStockBalances(productIds);
+      const balancesMap = new Map(balances.map(b => [b.product_id, b]));
+      setStockBalances(balancesMap);
+      
+      // Check each item for sufficient stock
+      for (const item of cart) {
+        if (item.product.track_inventory) {
+          const balance = balancesMap.get(item.product.product_id);
+          const availableStock = balance?.qty_on_hand || 0;
+          
+          if (availableStock < item.qty) {
+            toast.error(
+              `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${item.qty}`
+            );
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to validate stock before payment, proceeding', { error });
+      // Continue if stock validation fails (backend will validate)
     }
 
     const amount = parseFloat(paymentAmount);
@@ -561,8 +638,14 @@ export default function Sales() {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {cart.map((item) => (
-                  <div key={item.product.product_id} className="px-3 py-2.5 hover:bg-secondary-50 transition-all group">
+                {cart.map((item) => {
+                  const stockBalance = stockBalances.get(item.product.product_id);
+                  const availableStock = stockBalance?.qty_on_hand ?? null;
+                  const isLowStock = item.product.track_inventory && availableStock !== null && availableStock < item.qty;
+                  const isOutOfStock = item.product.track_inventory && availableStock !== null && availableStock === 0;
+                  
+                  return (
+                  <div key={item.product.product_id} className={`px-3 py-2.5 hover:bg-secondary-50 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-1.5 mb-1">
@@ -575,6 +658,11 @@ export default function Sales() {
                           <span className="text-xs font-medium text-gray-600">
                             ${Number(item.unit_price).toFixed(2)} each
                           </span>
+                          {item.product.track_inventory && availableStock !== null && (
+                            <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
+                              Stock: {availableStock}
+                            </span>
+                          )}
                           {Number(item.tax_rate) > 0 && (
                             <Badge variant="info" size="sm">
                               Tax: {Number(item.tax_rate)}%
@@ -618,7 +706,8 @@ export default function Sales() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>

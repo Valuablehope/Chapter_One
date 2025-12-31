@@ -94,6 +94,10 @@ CREATE INDEX IF NOT EXISTS idx_sales_store_created_at ON sales(store_id, created
 -- Index for created_at ordering
 CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at DESC);
 
+-- Index for client_sale_id (duplicate detection for offline sync)
+CREATE INDEX IF NOT EXISTS idx_sales_client_sale_id ON sales(client_sale_id) 
+WHERE client_sale_id IS NOT NULL;
+
 -- =====================================================
 -- Sale Items Table Indexes
 -- =====================================================
