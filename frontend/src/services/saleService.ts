@@ -1,5 +1,37 @@
 import api from './api';
 import { Product } from './productService';
+import { offlineQueue } from './offlineQueue';
+import { logger } from '../utils/logger';
+
+/**
+ * Custom error for offline operations
+ */
+export class OfflineError extends Error {
+  constructor(
+    message: string,
+    public queueId: string
+  ) {
+    super(message);
+    this.name = 'OfflineError';
+  }
+}
+
+/**
+ * Check if an error is a network error (offline)
+ */
+function isNetworkError(error: any): boolean {
+  if (!error) return false;
+  
+  // Network errors
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return true;
+  if (error.message?.includes('Network Error')) return true;
+  if (error.message?.includes('Failed to fetch')) return true;
+  
+  // No response from server (offline)
+  if (!error.response && error.request) return true;
+  
+  return false;
+}
 
 export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
 
@@ -96,13 +128,24 @@ export const saleService = {
     };
   },
 
-  // Create sale
+  // Create sale with offline queue support
   async createSale(data: CreateSaleData): Promise<Sale> {
-    const response = await api.post<{ success: boolean; data: Sale }>(
-      '/sales',
-      data
-    );
-    return response.data.data;
+    try {
+      const response = await api.post<{ success: boolean; data: Sale }>(
+        '/sales',
+        data
+      );
+      return response.data.data;
+    } catch (error: any) {
+      // If network error, queue for offline sync
+      if (isNetworkError(error)) {
+        logger.warn('Network error detected, queueing sale for offline sync', error);
+        const queueId = await offlineQueue.enqueueSale(data);
+        throw new OfflineError('Sale queued for offline sync. It will be synced when connection is restored.', queueId);
+      }
+      // Re-throw other errors
+      throw error;
+    }
   },
 
   // Get sale by ID

@@ -18,11 +18,27 @@ export interface PaginatedResult<T> {
 }
 
 export class BaseModel {
+  /**
+   * Execute a query with optional timeout protection
+   * @param text SQL query text
+   * @param params Query parameters
+   * @param timeout Optional timeout in milliseconds (default: 30 seconds from pool config)
+   */
   protected static async query<T extends QueryResultRow = any>(
     text: string,
-    params?: any[]
+    params?: any[],
+    timeout?: number
   ): Promise<QueryResult<T>> {
-    return pool.query<T>(text, params);
+    const client = await pool.connect();
+    try {
+      // Set per-query timeout if specified
+      if (timeout) {
+        await client.query(`SET LOCAL statement_timeout = ${timeout}`);
+      }
+      return await client.query<T>(text, params);
+    } finally {
+      client.release();
+    }
   }
 
   protected static getPaginationParams(

@@ -1,5 +1,7 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
 import { pool } from '../config/database';
+import { withRetry } from '../utils/retry';
+import { logger } from '../utils/logger';
 
 export type PurchaseOrderStatus = 'OPEN' | 'PENDING' | 'RECEIVED' | 'CANCELLED';
 
@@ -343,12 +345,16 @@ export class PurchaseOrderModel extends BaseModel {
     return result.rows[0];
   }
 
-  // Receive purchase order (update stock)
+  // Receive purchase order (update stock) with SERIALIZABLE isolation and retry logic
   static async receivePurchaseOrder(poId: string): Promise<PurchaseOrderWithDetails> {
-    const client = await pool.connect();
-    
-    try {
-      await client.query('BEGIN');
+    return await withRetry(
+      async () => {
+        const client = await pool.connect();
+        
+        try {
+          await client.query('BEGIN');
+          // Set SERIALIZABLE isolation level to prevent race conditions
+          await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 
       // Get purchase order with items
       const po = await this.findById(poId);
@@ -371,6 +377,13 @@ export class PurchaseOrderModel extends BaseModel {
         const productResult = await client.query(productQuery, [item.product_id]);
         
         if (productResult.rows[0]?.track_inventory) {
+          // Lock stock balance row for update (prevents concurrent modifications)
+          await client.query(`
+            SELECT qty_on_hand FROM stock_balances
+            WHERE store_id = $1 AND product_id = $2
+            FOR UPDATE
+          `, [po.store_id, item.product_id]);
+          
           // Create stock movement (inbound)
           const stockQuery = `
             INSERT INTO stock_movements (
@@ -386,6 +399,16 @@ export class PurchaseOrderModel extends BaseModel {
             po.po_number,
             null, // System created
           ]);
+          
+          // Update stock balance atomically (maintain O(1) query performance)
+          await client.query(`
+            INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (store_id, product_id)
+            DO UPDATE SET 
+              qty_on_hand = stock_balances.qty_on_hand + $3,
+              updated_at = NOW()
+          `, [po.store_id, item.product_id, qtyReceived]); // Positive for purchase (inbound)
         }
 
         // Update qty_received
@@ -407,16 +430,29 @@ export class PurchaseOrderModel extends BaseModel {
       const updateResult = await client.query(updateQuery, [poId]);
       const updatedPO = updateResult.rows[0];
 
-      await client.query('COMMIT');
+          await client.query('COMMIT');
 
-      // Return updated purchase order
-      return await this.findById(poId) as PurchaseOrderWithDetails;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+          // Return updated purchase order
+          return await this.findById(poId) as PurchaseOrderWithDetails;
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
+      },
+      {
+        maxAttempts: 3,
+        backoffMs: 100,
+        onRetry: (attempt, error) => {
+          logger.warn(`Retrying purchase order receive (attempt ${attempt})`, {
+            error: error.message,
+            code: (error as any).code,
+            poId,
+          });
+        },
+      }
+    );
   }
 
   // Delete purchase order

@@ -84,3 +84,30 @@ export const verifyToken = asyncHandler(
   }
 );
 
+export const refreshToken = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    // This endpoint is protected by auth middleware
+    // If we reach here, token is valid but may be expiring soon
+    // Generate a new token with extended expiry
+    if (!req.user) {
+      throw new CustomError('User not authenticated', 401);
+    }
+
+    const newToken = generateToken({
+      userId: req.user.userId,
+      username: req.user.username,
+      role: req.user.role,
+    });
+
+    logger.info(`Token refreshed for user: ${req.user.username}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        token: newToken,
+        user: req.user,
+      },
+    });
+  }
+);
+

@@ -24,6 +24,10 @@ class Logger {
       console.debug(this.formatMessage('debug', message, ...args));
     }
   }
+
+  fatal(message: string, ...args: any[]): void {
+    console.error(this.formatMessage('error', `[FATAL] ${message}`, ...args));
+  }
 }
 
 export const logger = new Logger();

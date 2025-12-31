@@ -1,5 +1,7 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
 import { pool } from '../config/database';
+import { withRetry } from '../utils/retry';
+import { logger } from '../utils/logger';
 
 export type SaleStatus = 'open' | 'paid' | 'void';
 export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
@@ -104,31 +106,52 @@ export class SaleModel extends BaseModel {
     return result.rows[0] || null;
   }
 
-  // Generate receipt number
+  // Generate receipt number using atomic counter to prevent race conditions
   static async generateReceiptNo(storeId: string): Promise<string> {
-    const query = `
-      SELECT COUNT(*) as count
-      FROM sales
-      WHERE store_id = $1 AND DATE(created_at) = CURRENT_DATE
-    `;
-    const result = await this.query(query, [storeId]);
-    const count = parseInt(result.rows[0].count, 10);
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Initialize counter for today if it doesn't exist (separate query)
+    await this.query(
+      `INSERT INTO daily_receipt_counters (store_id, date, counter)
+       VALUES ($1, $2, 0)
+       ON CONFLICT (store_id, date) DO NOTHING`,
+      [storeId, today]
+    );
+    
+    // Atomically increment and get counter (separate query)
+    const result = await this.query(
+      `UPDATE daily_receipt_counters
+       SET counter = counter + 1, updated_at = NOW()
+       WHERE store_id = $1 AND date = $2
+       RETURNING counter`,
+      [storeId, today]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error('Failed to generate receipt number: counter not found');
+    }
+    
+    const count = parseInt(result.rows[0].counter, 10);
     
     // Format: YYYYMMDD-XXXX (e.g., 20231205-0001)
-    const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const sequence = String(count + 1).padStart(4, '0');
+    const date = today.replace(/-/g, '');
+    const sequence = String(count).padStart(4, '0');
     return `${date}-${sequence}`;
   }
 
-  // Create sale
+  // Create sale with SERIALIZABLE isolation and retry logic
   static async create(
     cashierId: string,
     data: CreateSaleData
   ): Promise<SaleWithDetails> {
-    const client = await pool.connect();
-    
-    try {
-      await client.query('BEGIN');
+    return await withRetry(
+      async () => {
+        const client = await pool.connect();
+        
+        try {
+          await client.query('BEGIN');
+          // Set SERIALIZABLE isolation level to prevent race conditions
+          await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 
       // Get store and terminal
       const store = await this.getDefaultStore();
@@ -214,11 +237,19 @@ export class SaleModel extends BaseModel {
         items.push(itemResult.rows[0]);
 
         // Update stock if product tracks inventory
+        // Lock stock balance row to prevent race conditions
         const productQuery = `
           SELECT track_inventory FROM products WHERE product_id = $1
         `;
         const productResult = await client.query(productQuery, [item.product_id]);
         if (productResult.rows[0]?.track_inventory) {
+          // Lock stock balance row for update (prevents concurrent modifications)
+          await client.query(`
+            SELECT qty_on_hand FROM stock_balances
+            WHERE store_id = $1 AND product_id = $2
+            FOR UPDATE
+          `, [store.store_id, item.product_id]);
+          
           // Create stock movement (outbound)
           const stockQuery = `
             INSERT INTO stock_movements (
@@ -234,6 +265,16 @@ export class SaleModel extends BaseModel {
             sale.receipt_no,
             cashierId,
           ]);
+          
+          // Update stock balance atomically (maintain O(1) query performance)
+          await client.query(`
+            INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (store_id, product_id)
+            DO UPDATE SET 
+              qty_on_hand = stock_balances.qty_on_hand + $3,
+              updated_at = NOW()
+          `, [store.store_id, item.product_id, -item.qty]); // Negative for sale (outbound)
         }
       }
 
@@ -253,19 +294,31 @@ export class SaleModel extends BaseModel {
         payments.push(paymentResult.rows[0]);
       }
 
-      await client.query('COMMIT');
+          await client.query('COMMIT');
 
-      return {
-        ...sale,
-        items,
-        payments,
-      };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+          return {
+            ...sale,
+            items,
+            payments,
+          };
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
+      },
+      {
+        maxAttempts: 3,
+        backoffMs: 100,
+        onRetry: (attempt, error) => {
+          logger.warn(`Retrying sale creation (attempt ${attempt})`, {
+            error: error.message,
+            code: (error as any).code,
+          });
+        },
+      }
+    );
   }
 
   // Get sale by ID - Using subqueries to avoid Cartesian product with payments

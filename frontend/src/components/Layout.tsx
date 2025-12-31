@@ -30,6 +30,9 @@ import {
 import { useAuthStore } from '../store/authStore';
 import TrialBanner from './TrialBanner';
 import PageErrorBoundary from './PageErrorBoundary';
+import { useTokenRefresh } from '../hooks/useTokenRefresh';
+import { useOfflineSync } from '../hooks/useOfflineSync';
+import { CloudArrowUpIcon, WifiIcon } from '@heroicons/react/24/outline';
 
 interface LayoutProps {
   children: ReactNode;
@@ -39,6 +42,12 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Automatically refresh token for long-running sessions
+  useTokenRefresh();
+  
+  // Manage offline sales sync
+  const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
@@ -375,6 +384,40 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Trial Banner */}
         <TrialBanner />
+
+        {/* Offline Sync Indicator */}
+        {pendingCount > 0 && (
+          <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {isOnline ? (
+                <>
+                  <CloudArrowUpIcon className="w-5 h-5 text-yellow-600" />
+                  <span className="text-sm font-medium text-yellow-800">
+                    {isSyncing 
+                      ? `Syncing ${pendingCount} pending sale${pendingCount > 1 ? 's' : ''}...`
+                      : `${pendingCount} sale${pendingCount > 1 ? 's' : ''} pending sync`
+                    }
+                  </span>
+                </>
+              ) : (
+                <>
+                  <WifiIcon className="w-5 h-5 text-yellow-600" />
+                  <span className="text-sm font-medium text-yellow-800">
+                    Offline: {pendingCount} sale{pendingCount > 1 ? 's' : ''} queued
+                  </span>
+                </>
+              )}
+            </div>
+            {isOnline && !isSyncing && (
+              <button
+                onClick={syncPendingSales}
+                className="text-sm font-semibold text-yellow-800 hover:text-yellow-900 underline"
+              >
+                Sync Now
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Main Content */}
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 overflow-auto">

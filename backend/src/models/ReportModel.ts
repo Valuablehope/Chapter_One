@@ -66,9 +66,60 @@ export interface ReportFilters {
   limit?: number;
 }
 
+// Reporting safeguards constants
+const MAX_REPORT_LIMIT = 10000;
+const MAX_DATE_RANGE_DAYS = 365;
+const DEFAULT_REPORT_LIMIT = 1000;
+
 export class ReportModel extends BaseModel {
+  /**
+   * Validate and sanitize report filters
+   * Enforces maximum limits and date ranges to prevent memory exhaustion
+   */
+  private static validateReportFilters(filters: ReportFilters): ReportFilters {
+    const validated = { ...filters };
+
+    // Enforce maximum limit
+    if (validated.limit && validated.limit > MAX_REPORT_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_REPORT_LIMIT} records. Please use pagination for larger datasets.`);
+    }
+
+    // Set default limit if not specified
+    if (!validated.limit) {
+      validated.limit = DEFAULT_REPORT_LIMIT;
+    }
+
+    // Validate date range
+    if (validated.start_date && validated.end_date) {
+      const startDate = new Date(validated.start_date);
+      const endDate = new Date(validated.end_date);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Invalid date format. Use YYYY-MM-DD format.');
+      }
+
+      if (startDate > endDate) {
+        throw new Error('Start date cannot be after end date.');
+      }
+
+      const daysDiff = Math.ceil(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (daysDiff > MAX_DATE_RANGE_DAYS) {
+        throw new Error(
+          `Date range cannot exceed ${MAX_DATE_RANGE_DAYS} days (${Math.ceil(MAX_DATE_RANGE_DAYS / 30)} months). ` +
+          `Please use a smaller date range or use pagination.`
+        );
+      }
+    }
+
+    return validated;
+  }
+
   // Sales Summary Report
   static async getSalesSummary(filters: ReportFilters = {}): Promise<SalesSummary[]> {
+    const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
         DATE(created_at) as date,
@@ -82,38 +133,39 @@ export class ReportModel extends BaseModel {
     const params: any[] = [];
     let paramCount = 0;
 
-    if (filters.start_date) {
+    if (validatedFilters.start_date) {
       paramCount++;
       query += ` AND DATE(created_at) >= $${paramCount}`;
-      params.push(filters.start_date);
+      params.push(validatedFilters.start_date);
     }
 
-    if (filters.end_date) {
+    if (validatedFilters.end_date) {
       paramCount++;
       query += ` AND DATE(created_at) <= $${paramCount}`;
-      params.push(filters.end_date);
+      params.push(validatedFilters.end_date);
     }
 
-    if (filters.store_id) {
+    if (validatedFilters.store_id) {
       paramCount++;
       query += ` AND store_id = $${paramCount}`;
-      params.push(filters.store_id);
+      params.push(validatedFilters.store_id);
     }
 
     query += ` GROUP BY DATE(created_at) ORDER BY date DESC`;
 
-    if (filters.limit) {
-      paramCount++;
-      query += ` LIMIT $${paramCount}`;
-      params.push(filters.limit);
-    }
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
 
-    const result = await this.query<SalesSummary>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<SalesSummary>(query, params, 60000);
     return result.rows;
   }
 
   // Product Sales Report
   static async getProductSales(filters: ReportFilters = {}): Promise<ProductSalesReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
         p.product_id,
@@ -129,22 +181,22 @@ export class ReportModel extends BaseModel {
     const params: any[] = [];
     let paramCount = 0;
 
-    if (filters.start_date) {
+    if (validatedFilters.start_date) {
       paramCount++;
       query += ` AND DATE(s.created_at) >= $${paramCount}`;
-      params.push(filters.start_date);
+      params.push(validatedFilters.start_date);
     }
 
-    if (filters.end_date) {
+    if (validatedFilters.end_date) {
       paramCount++;
       query += ` AND DATE(s.created_at) <= $${paramCount}`;
-      params.push(filters.end_date);
+      params.push(validatedFilters.end_date);
     }
 
-    if (filters.store_id) {
+    if (validatedFilters.store_id) {
       paramCount++;
       query += ` AND s.store_id = $${paramCount}`;
-      params.push(filters.store_id);
+      params.push(validatedFilters.store_id);
     }
 
     query += ` 
@@ -152,18 +204,19 @@ export class ReportModel extends BaseModel {
       ORDER BY total_revenue DESC
     `;
 
-    if (filters.limit) {
-      paramCount++;
-      query += ` LIMIT $${paramCount}`;
-      params.push(filters.limit);
-    }
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
 
-    const result = await this.query<ProductSalesReport>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<ProductSalesReport>(query, params, 60000);
     return result.rows;
   }
 
   // Customer Sales Report
   static async getCustomerSales(filters: ReportFilters = {}): Promise<CustomerSalesReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
         c.customer_id,
@@ -178,22 +231,22 @@ export class ReportModel extends BaseModel {
     const params: any[] = [];
     let paramCount = 0;
 
-    if (filters.start_date) {
+    if (validatedFilters.start_date) {
       paramCount++;
       query += ` AND DATE(s.created_at) >= $${paramCount}`;
-      params.push(filters.start_date);
+      params.push(validatedFilters.start_date);
     }
 
-    if (filters.end_date) {
+    if (validatedFilters.end_date) {
       paramCount++;
       query += ` AND DATE(s.created_at) <= $${paramCount}`;
-      params.push(filters.end_date);
+      params.push(validatedFilters.end_date);
     }
 
-    if (filters.store_id) {
+    if (validatedFilters.store_id) {
       paramCount++;
       query += ` AND s.store_id = $${paramCount}`;
-      params.push(filters.store_id);
+      params.push(validatedFilters.store_id);
     }
 
     query += ` 
@@ -201,18 +254,19 @@ export class ReportModel extends BaseModel {
       ORDER BY total_spent DESC
     `;
 
-    if (filters.limit) {
-      paramCount++;
-      query += ` LIMIT $${paramCount}`;
-      params.push(filters.limit);
-    }
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
 
-    const result = await this.query<CustomerSalesReport>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<CustomerSalesReport>(query, params, 60000);
     return result.rows;
   }
 
   // Payment Method Report
   static async getPaymentMethodReport(filters: ReportFilters = {}): Promise<PaymentMethodReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
         sp.method,
@@ -225,22 +279,22 @@ export class ReportModel extends BaseModel {
     const params: any[] = [];
     let paramCount = 0;
 
-    if (filters.start_date) {
+    if (validatedFilters.start_date) {
       paramCount++;
       query += ` AND DATE(s.created_at) >= $${paramCount}`;
-      params.push(filters.start_date);
+      params.push(validatedFilters.start_date);
     }
 
-    if (filters.end_date) {
+    if (validatedFilters.end_date) {
       paramCount++;
       query += ` AND DATE(s.created_at) <= $${paramCount}`;
-      params.push(filters.end_date);
+      params.push(validatedFilters.end_date);
     }
 
-    if (filters.store_id) {
+    if (validatedFilters.store_id) {
       paramCount++;
       query += ` AND s.store_id = $${paramCount}`;
-      params.push(filters.store_id);
+      params.push(validatedFilters.store_id);
     }
 
     query += ` 
@@ -248,12 +302,14 @@ export class ReportModel extends BaseModel {
       ORDER BY total_amount DESC
     `;
 
-    const result = await this.query<PaymentMethodReport>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<PaymentMethodReport>(query, params, 60000);
     return result.rows;
   }
 
   // Purchase Summary Report
   static async getPurchaseSummary(filters: ReportFilters = {}): Promise<PurchaseSummary[]> {
+    const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
         DATE(po.ordered_at) as date,
@@ -267,38 +323,39 @@ export class ReportModel extends BaseModel {
     const params: any[] = [];
     let paramCount = 0;
 
-    if (filters.start_date) {
+    if (validatedFilters.start_date) {
       paramCount++;
       query += ` AND DATE(po.ordered_at) >= $${paramCount}`;
-      params.push(filters.start_date);
+      params.push(validatedFilters.start_date);
     }
 
-    if (filters.end_date) {
+    if (validatedFilters.end_date) {
       paramCount++;
       query += ` AND DATE(po.ordered_at) <= $${paramCount}`;
-      params.push(filters.end_date);
+      params.push(validatedFilters.end_date);
     }
 
-    if (filters.store_id) {
+    if (validatedFilters.store_id) {
       paramCount++;
       query += ` AND po.store_id = $${paramCount}`;
-      params.push(filters.store_id);
+      params.push(validatedFilters.store_id);
     }
 
     query += ` GROUP BY DATE(po.ordered_at) ORDER BY date DESC`;
 
-    if (filters.limit) {
-      paramCount++;
-      query += ` LIMIT $${paramCount}`;
-      params.push(filters.limit);
-    }
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
 
-    const result = await this.query<PurchaseSummary>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<PurchaseSummary>(query, params, 60000);
     return result.rows;
   }
 
   // Supplier Purchase Report
   static async getSupplierPurchases(filters: ReportFilters = {}): Promise<SupplierPurchaseReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
         s.supplier_id,
@@ -314,22 +371,22 @@ export class ReportModel extends BaseModel {
     const params: any[] = [];
     let paramCount = 0;
 
-    if (filters.start_date) {
+    if (validatedFilters.start_date) {
       paramCount++;
       query += ` AND DATE(po.ordered_at) >= $${paramCount}`;
-      params.push(filters.start_date);
+      params.push(validatedFilters.start_date);
     }
 
-    if (filters.end_date) {
+    if (validatedFilters.end_date) {
       paramCount++;
       query += ` AND DATE(po.ordered_at) <= $${paramCount}`;
-      params.push(filters.end_date);
+      params.push(validatedFilters.end_date);
     }
 
-    if (filters.store_id) {
+    if (validatedFilters.store_id) {
       paramCount++;
       query += ` AND po.store_id = $${paramCount}`;
-      params.push(filters.store_id);
+      params.push(validatedFilters.store_id);
     }
 
     query += ` 
@@ -337,13 +394,13 @@ export class ReportModel extends BaseModel {
       ORDER BY total_cost DESC
     `;
 
-    if (filters.limit) {
-      paramCount++;
-      query += ` LIMIT $${paramCount}`;
-      params.push(filters.limit);
-    }
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
 
-    const result = await this.query<SupplierPurchaseReport>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<SupplierPurchaseReport>(query, params, 60000);
     return result.rows;
   }
 
@@ -369,7 +426,8 @@ export class ReportModel extends BaseModel {
 
     query += ` ORDER BY p.name`;
 
-    const result = await this.query<StockReport>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<StockReport>(query, params, 60000);
     return result.rows;
   }
 
@@ -400,7 +458,8 @@ export class ReportModel extends BaseModel {
     `;
     params.push(threshold);
 
-    const result = await this.query<LowStockReport>(query, params);
+    // Apply 60-second timeout for report queries
+    const result = await this.query<LowStockReport>(query, params, 60000);
     return result.rows;
   }
 }

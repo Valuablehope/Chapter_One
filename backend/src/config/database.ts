@@ -2,6 +2,7 @@ import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
+import { logger } from '../utils/logger';
 
 // Find root directory by looking for .env file
 // Go up from backend/src/config/ (3 levels) or backend/dist/config/ (3 levels)
@@ -73,26 +74,112 @@ if (process.env.DATABASE_URL) {
 // Create connection pool
 export const pool = new Pool(dbConfig);
 
-// Handle pool errors
+// Track consecutive fatal errors for reconnection logic
+let consecutiveFatalErrors = 0;
+const MAX_FATAL_ERRORS = 5;
+
+/**
+ * Classify database errors as fatal or transient
+ * Fatal errors: authentication failures, invalid configuration, unrecoverable states
+ * Transient errors: connection timeouts, network issues, temporary unavailability
+ */
+function isFatalError(err: Error): boolean {
+  const fatalPatterns = [
+    'password authentication failed',
+    'SASL authentication failed',
+    'database ".*" does not exist',
+    'role ".*" does not exist',
+    'invalid connection string',
+    'connection refused',
+  ];
+  
+  const errorMessage = err.message.toLowerCase();
+  return fatalPatterns.some(pattern => {
+    const regex = new RegExp(pattern);
+    return regex.test(errorMessage);
+  });
+}
+
+// Handle pool errors with graceful degradation
 pool.on('error', (err: Error) => {
-  console.error('Unexpected error on idle client', err);
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(-1);
+  logger.error('Database pool error', { error: err.message, stack: err.stack });
+  
+  if (isFatalError(err)) {
+    consecutiveFatalErrors++;
+    logger.fatal('Fatal database error detected', { 
+      error: err.message, 
+      consecutiveErrors: consecutiveFatalErrors 
+    });
+    
+    // Only exit after multiple consecutive fatal errors
+    if (consecutiveFatalErrors >= MAX_FATAL_ERRORS) {
+      logger.fatal('Too many consecutive fatal database errors, shutting down', { 
+        error: err.message 
+      });
+      // Give time for graceful shutdown
+      setTimeout(() => {
+        process.exit(1);
+      }, 5000);
+    }
+  } else {
+    // Transient error - reset counter and log warning
+    consecutiveFatalErrors = 0;
+    logger.warn('Transient database error, will retry', { error: err.message });
   }
 });
+
+// Connection health monitoring (every 30 seconds)
+let healthCheckInterval: NodeJS.Timeout | null = null;
+
+export function startHealthMonitoring(): void {
+  if (healthCheckInterval) {
+    return; // Already started
+  }
+  
+  healthCheckInterval = setInterval(async () => {
+    try {
+      await pool.query('SELECT 1');
+      consecutiveFatalErrors = 0; // Reset on successful health check
+    } catch (err) {
+      logger.warn('Health check failed, pool may be unhealthy', { 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      });
+    }
+  }, 30000); // Every 30 seconds
+}
+
+export function stopHealthMonitoring(): void {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+}
+
+/**
+ * Check if the database pool is healthy
+ */
+export function isPoolHealthy(): boolean {
+  return pool.totalCount > 0 && consecutiveFatalErrors < MAX_FATAL_ERRORS;
+}
+
+// Start health monitoring
+if (process.env.NODE_ENV !== 'test') {
+  startHealthMonitoring();
+}
 
 // Test connection (non-blocking)
 if (process.env.NODE_ENV !== 'test') {
   pool.query('SELECT NOW()')
     .then(() => {
-      console.log('✅ Database connected successfully');
+      logger.info('Database connected successfully');
+      consecutiveFatalErrors = 0; // Reset on successful connection
     })
     .catch((err: Error) => {
-      console.error('❌ Database connection failed:', err.message);
+      logger.error('Database connection failed', { error: err.message });
       if (err.message.includes('password') || err.message.includes('SASL')) {
-        console.error('   → Check your database credentials in .env file');
-        console.error('   → Make sure .env file exists in the root directory');
-        console.error('   → Restart the server after updating .env');
+        logger.error('Check your database credentials in .env file');
+        logger.error('Make sure .env file exists in the root directory');
+        logger.error('Restart the server after updating .env');
       }
     });
 }

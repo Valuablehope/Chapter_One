@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { pool } from './config/database';
+import { pool, stopHealthMonitoring } from './config/database';
 import apiRoutes from './routes';
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
@@ -141,12 +141,14 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
+  stopHealthMonitoring();
   await pool.end();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
+  stopHealthMonitoring();
   await pool.end();
   process.exit(0);
 });

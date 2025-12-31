@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { productService, Product } from '../services/productService';
 import { customerService, Customer } from '../services/customerService';
-import { saleService, CartItem, PaymentMethod } from '../services/saleService';
+import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
 import { logger } from '../utils/logger';
 import Button from '../components/ui/Button';
@@ -241,8 +241,17 @@ export default function Sales() {
       setCart([]);
       setSelectedCustomer(null);
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to process payment');
-      logger.error('Error processing payment:', err);
+      // Handle offline errors specially
+      if (err instanceof OfflineError) {
+        toast.success('Sale queued for offline sync. It will be synced when connection is restored.');
+        // Clear cart and customer even for offline sales
+        setCart([]);
+        setSelectedCustomer(null);
+        setShowPaymentModal(false);
+      } else {
+        toast.error(err.response?.data?.error?.message || 'Failed to process payment');
+        logger.error('Error processing payment:', err);
+      }
     } finally {
       setProcessing(false);
     }
