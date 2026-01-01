@@ -30,3 +30,5 @@ UPDATE products
 SET name_tsvector = to_tsvector('english', COALESCE(name, ''))
 WHERE name_tsvector IS NULL;
 
+
+

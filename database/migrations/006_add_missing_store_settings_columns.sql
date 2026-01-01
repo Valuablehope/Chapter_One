@@ -51,3 +51,5 @@ COMMENT ON COLUMN store_settings.paper_size IS 'Receipt paper size (e.g., 80mm, 
 COMMENT ON COLUMN store_settings.auto_print IS 'Automatically print receipts after sale';
 COMMENT ON COLUMN store_settings.receipt_header IS 'Custom header text for receipts';
 
+
+

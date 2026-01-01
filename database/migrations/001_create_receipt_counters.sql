@@ -21,3 +21,5 @@ ON daily_receipt_counters(store_id, date);
 -- Add comment
 COMMENT ON TABLE daily_receipt_counters IS 'Atomic counter for daily receipt number generation per store';
 
+
+

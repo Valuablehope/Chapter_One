@@ -307,3 +307,5 @@ class StockService {
 // Export singleton instance
 export const stockService = new StockService();
 
+
+
