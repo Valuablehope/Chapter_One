@@ -37,7 +37,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input({
         <input
           ref={ref}
           className={clsx(
-            'px-4 py-2.5 border rounded-lg transition-all duration-200',
+            'w-full px-4 py-2.5 border rounded-lg transition-all duration-200',
             'focus:outline-none focus:ring-2 focus:ring-offset-0',
             'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
             leftIcon && 'pl-10',

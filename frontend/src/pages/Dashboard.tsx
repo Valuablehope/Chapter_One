@@ -280,7 +280,7 @@ export default function Dashboard() {
                   to={link.to}
                   className={`group relative overflow-hidden rounded-lg border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] animate-card-in ${
                     link.highlight
-                      ? 'border-2 border-secondary-200 bg-secondary-50'
+                      ? 'border-2 border-orange-400/60 bg-orange-200/70'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                   style={{ animationDelay: `${(index + 4) * 0.1}s` }}

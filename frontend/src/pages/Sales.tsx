@@ -872,17 +872,20 @@ export default function Sales() {
         size="md"
       >
         <div>
-          <Input
-            type="text"
-            value={customerSearch}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setCustomerSearch(e.target.value);
-              handleCustomerSearch(e.target.value);
-            }}
-            placeholder="Search customers..."
-            leftIcon={<MagnifyingGlassIcon className="w-5 h-5" />}
-            autoFocus
-          />
+          <div className="w-full">
+            <Input
+              type="text"
+              value={customerSearch}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setCustomerSearch(e.target.value);
+                handleCustomerSearch(e.target.value);
+              }}
+              placeholder="Search customers..."
+              leftIcon={<MagnifyingGlassIcon className="w-5 h-5" />}
+              autoFocus
+              className="w-full"
+            />
+          </div>
           <div className="mt-3 max-h-48 overflow-y-auto">
             {customerResults.length > 0 ? (
               <div className="space-y-1.5">
