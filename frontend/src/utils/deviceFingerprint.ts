@@ -36,7 +36,7 @@ export function generateDeviceFingerprint(): string {
     maxTouchPoints: navigator.maxTouchPoints || 0,
     vendor: navigator.vendor,
     cookieEnabled: navigator.cookieEnabled,
-    doNotTrack: navigator.doNotTrack,
+    doNotTrack: navigator.doNotTrack || undefined,
     pluginsLength: navigator.plugins?.length || 0,
   };
 
@@ -85,7 +85,7 @@ export function getDeviceInfo(): DeviceInfo {
     maxTouchPoints: navigator.maxTouchPoints || 0,
     vendor: navigator.vendor,
     cookieEnabled: navigator.cookieEnabled,
-    doNotTrack: navigator.doNotTrack,
+    doNotTrack: navigator.doNotTrack || undefined,
     pluginsLength: navigator.plugins?.length || 0,
   };
 }

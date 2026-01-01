@@ -56,7 +56,7 @@ export class StoreSettingsModel extends BaseModel {
         WHERE table_name = 'store_settings'
       `;
       const result = await this.query<{ column_name: string }>(query);
-      this.availableColumns = new Set(result.rows.map(row => row.column_name));
+      this.availableColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
       return this.availableColumns;
     } catch (error) {
       console.warn('Could not fetch store_settings columns, using defaults');

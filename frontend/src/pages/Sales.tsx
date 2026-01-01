@@ -395,7 +395,7 @@ export default function Sales() {
     } catch (err: any) {
       // Check if cancelled
       if (err.name === 'AbortError' || err.message?.includes('cancel')) {
-        toast.info('Sale processing cancelled');
+        toast('Sale processing cancelled', { icon: 'ℹ️' });
         setProcessingStage('');
         setProcessingProgress(0);
         return;

@@ -9,11 +9,20 @@ export interface AppError extends Error {
 export class CustomError extends Error implements AppError {
   statusCode: number;
   isOperational: boolean;
+  data?: any; // Add optional data property
 
-  constructor(message: string, statusCode: number = 500, isOperational: boolean = true) {
+  constructor(message: string, statusCode: number = 500, dataOrOperational?: any, isOperational: boolean = true) {
     super(message);
     this.statusCode = statusCode;
-    this.isOperational = isOperational;
+    
+    // Check if third parameter is an object (data) or boolean (isOperational)
+    if (typeof dataOrOperational === 'object' && dataOrOperational !== null) {
+      this.data = dataOrOperational;
+      this.isOperational = isOperational;
+    } else {
+      this.isOperational = dataOrOperational !== undefined ? dataOrOperational : true;
+    }
+    
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -73,6 +82,7 @@ export const errorHandler = (
     error: {
       message: clientMessage,
       statusCode,
+      ...(err instanceof CustomError && err.data ? { data: err.data } : {}),
       ...(isDevelopment && { 
         stack: err.stack,
         originalMessage: err.message,

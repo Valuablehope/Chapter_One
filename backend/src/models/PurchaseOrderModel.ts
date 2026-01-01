@@ -56,6 +56,13 @@ export interface PurchaseOrderWithDetails extends PurchaseOrder {
   total_cost: number;
 }
 
+// Type for SQL query result that includes supplier fields from JOIN
+interface PurchaseOrderWithSupplierFields extends PurchaseOrder {
+  supplier_name?: string;
+  supplier_contact?: string;
+  supplier_phone?: string;
+}
+
 export interface PurchaseOrderFilters {
   supplier_id?: string;
   status?: PurchaseOrderStatus;
@@ -254,7 +261,7 @@ export class PurchaseOrderModel extends BaseModel {
     query += ` OFFSET $${paramCount}`;
     params.push(offset);
 
-    const result = await this.query(query, params);
+    const result = await this.query<PurchaseOrderWithSupplierFields>(query, params);
     const purchaseOrders = result.rows;
 
     // If no purchase orders, return empty result
@@ -263,7 +270,7 @@ export class PurchaseOrderModel extends BaseModel {
     }
 
     // Get all items for all purchase orders in a single query (fixes N+1 problem)
-    const poIds = purchaseOrders.map(po => po.po_id);
+    const poIds = purchaseOrders.map((po: PurchaseOrderWithSupplierFields) => po.po_id);
     const itemsQuery = `
       SELECT poi.*, p.name as product_name, p.barcode
       FROM purchase_order_items poi
@@ -284,9 +291,9 @@ export class PurchaseOrderModel extends BaseModel {
     }
 
     // Build purchase orders with details
-    const purchaseOrdersWithDetails: PurchaseOrderWithDetails[] = purchaseOrders.map(po => {
+    const purchaseOrdersWithDetails: PurchaseOrderWithDetails[] = purchaseOrders.map((po: PurchaseOrderWithSupplierFields) => {
       const items = itemsByPoId.get(po.po_id) || [];
-      const totalCost = items.reduce((sum, item) => {
+      const totalCost = items.reduce((sum: number, item: PurchaseOrderItem & { product_name?: string; barcode?: string }) => {
         return sum + (item.qty_ordered * item.unit_cost);
       }, 0);
 
@@ -318,7 +325,7 @@ export class PurchaseOrderModel extends BaseModel {
       LEFT JOIN suppliers s ON s.supplier_id = po.supplier_id
       WHERE po.po_id = $1
     `;
-    const result = await this.query(query, [poId]);
+    const result = await this.query<PurchaseOrderWithSupplierFields>(query, [poId]);
     
     if (result.rows.length === 0) {
       return null;
@@ -333,10 +340,10 @@ export class PurchaseOrderModel extends BaseModel {
       LEFT JOIN products p ON p.product_id = poi.product_id
       WHERE poi.po_id = $1
     `;
-    const itemsResult = await this.query(itemsQuery, [poId]);
+    const itemsResult = await this.query<PurchaseOrderItem & { product_name?: string; barcode?: string }>(itemsQuery, [poId]);
     const items = itemsResult.rows;
 
-    const totalCost = items.reduce((sum, item) => {
+    const totalCost = items.reduce((sum: number, item: PurchaseOrderItem & { product_name?: string; barcode?: string }) => {
       return sum + (item.qty_ordered * item.unit_cost);
     }, 0);
 
@@ -346,7 +353,7 @@ export class PurchaseOrderModel extends BaseModel {
       supplier: po.supplier_name ? {
         supplier_id: po.supplier_id,
         name: po.supplier_name,
-        contact_person: po.supplier_contact,
+        contact_name: po.supplier_contact,
         phone: po.supplier_phone,
       } : undefined,
       total_cost: totalCost,

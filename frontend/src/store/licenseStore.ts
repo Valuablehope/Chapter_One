@@ -19,7 +19,7 @@ interface LicenseState {
 
 export const useLicenseStore = create<LicenseState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       licenseStatus: null,
       recordCounts: null,
       limits: null,

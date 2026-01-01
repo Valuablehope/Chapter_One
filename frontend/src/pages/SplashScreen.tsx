@@ -5,7 +5,7 @@ import { authService } from '../services/authService';
 
 export default function SplashScreen() {
   const navigate = useNavigate();
-  const { token, setLoading } = useAuthStore();
+  const { isAuthenticated, setLoading } = useAuthStore();
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStage, setLoadingStage] = useState('Initializing...');
 
@@ -32,7 +32,7 @@ export default function SplashScreen() {
       // Final delay for visual effect
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      if (token) {
+      if (isAuthenticated) {
         try {
           const response = await authService.verifyToken();
           if (response.success) {
@@ -55,7 +55,7 @@ export default function SplashScreen() {
     };
 
     checkAuth();
-  }, [navigate, token, setLoading]);
+  }, [navigate, isAuthenticated, setLoading]);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white flex items-center justify-center">

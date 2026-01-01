@@ -211,7 +211,7 @@ class StockService {
    * Get stock balance from cache
    */
   private async getFromCache(productId: string): Promise<StockBalance | null> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (!this.db) {
         resolve(null);
         return;

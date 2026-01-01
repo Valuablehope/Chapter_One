@@ -49,7 +49,7 @@ export class StoreModel extends BaseModel {
         WHERE table_name = 'store_settings'
       `;
       const result = await this.query<{ column_name: string }>(query);
-      this.availableSettingsColumns = new Set(result.rows.map(row => row.column_name));
+      this.availableSettingsColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
       return this.availableSettingsColumns;
     } catch (error) {
       // If query fails, return empty set (will only select from stores table)

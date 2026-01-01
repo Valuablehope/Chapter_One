@@ -4,8 +4,9 @@
  * Uses IndexedDB for persistent storage
  */
 
-import { stockService, StockBalance } from './stockService';
+import { stockService } from './stockService';
 import { logger } from '../utils/logger';
+import { PaymentMethod } from './saleService';
 
 export interface QueuedSale {
   id: string;
@@ -19,7 +20,7 @@ export interface QueuedSale {
       tax_rate?: number;
     }>;
     payments: Array<{
-      method: string;
+      method: PaymentMethod;
       amount: number;
     }>;
   };

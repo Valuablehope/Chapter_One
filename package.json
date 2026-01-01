@@ -15,6 +15,8 @@
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:electron": "cd electron && npm run build",
+    "build:win": "npm run build && npm run install:backend:prod && npx electron-builder --win",
+    "install:backend:prod": "cd backend && npm install --production",
     "start": "electron .",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
@@ -23,9 +25,67 @@
     "create-license": "cd backend && npm run create-license"
   },
   "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.3.7",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
+    "electron-builder": "^24.13.3",
     "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.chapterone.pos",
+    "productName": "Chapter One POS",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/dist/**/*",
+      "frontend/dist/**/*",
+      "backend/dist/**/*",
+      "backend/node_modules/**/*",
+      "backend/package.json",
+      "!backend/node_modules/**/*.{md,ts,map}",
+      "!backend/node_modules/**/{test,__tests__,tests,powered-test,example,examples}",
+      "!backend/node_modules/.bin",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "extraResources": [
+      {
+        "from": ".env.example",
+        "to": ".env.example"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "frontend/public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "frontend/public/icon.ico",
+      "uninstallerIcon": "frontend/public/icon.ico",
+      "installerHeaderIcon": "frontend/public/icon.ico"
+    }
   },
   "workspaces": [
     "frontend",

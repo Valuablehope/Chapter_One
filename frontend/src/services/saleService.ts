@@ -50,6 +50,11 @@ export interface SalePayment {
   amount: number;
 }
 
+export interface CreateSalePayment {
+  method: PaymentMethod;
+  amount: number;
+}
+
 export interface CreateSaleData {
   customer_id?: string;
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
@@ -59,7 +64,7 @@ export interface CreateSaleData {
     unit_price: number;
     tax_rate?: number;
   }[];
-  payments: SalePayment[];
+  payments: CreateSalePayment[];
 }
 
 export interface UpdateSaleData {

@@ -61,9 +61,17 @@ const PORT = process.env.PORT || process.env.API_PORT || 3001;
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? false 
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // In production, allow requests from Electron (no origin) and localhost
+    if (!origin || origin.startsWith('file://') || origin.startsWith('app://')) {
+      callback(null, true);
+    } else if (process.env.NODE_ENV !== 'production') {
+      // In development, allow Vite dev server
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all in production for Electron
+    }
+  },
   credentials: true,
 }));
 app.use(cookieParser()); // Parse cookies
