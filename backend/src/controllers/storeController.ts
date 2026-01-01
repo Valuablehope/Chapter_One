@@ -166,6 +166,35 @@ export const deleteStore = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+// Get store settings (public endpoint for all authenticated users)
+export const getStoreSettings = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const store = await StoreModel.findById(id);
+
+  if (!store) {
+    throw new CustomError('Store not found', 404);
+  }
+
+  res.json({
+    success: true,
+    data: store, // This includes store settings
+  });
+});
+
+// Get default store (public endpoint for all authenticated users)
+export const getDefaultStore = asyncHandler(async (req: Request, res: Response) => {
+  const result = await StoreModel.findAll({ is_active: true, limit: 1 });
+
+  if (result.data.length === 0) {
+    throw new CustomError('No active store found', 404);
+  }
+
+  res.json({
+    success: true,
+    data: result.data[0], // Returns first active store with settings
+  });
+});
+
 
 
 

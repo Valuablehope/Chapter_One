@@ -24,8 +24,17 @@ export interface StoreSettings {
 
 export const storeService = {
   async getStoreSettings(storeId: string): Promise<StoreSettings> {
+    // Use public endpoint (accessible to all authenticated users)
     const response = await api.get<{ success: boolean; data: StoreSettings }>(
-      `/admin/stores/${storeId}`
+      `/stores/${storeId}/settings`
+    );
+    return response.data.data;
+  },
+  
+  async getDefaultStore(): Promise<StoreSettings> {
+    // Get default active store (accessible to all authenticated users)
+    const response = await api.get<{ success: boolean; data: StoreSettings }>(
+      `/stores/default`
     );
     return response.data.data;
   },

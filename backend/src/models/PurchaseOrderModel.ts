@@ -35,6 +35,16 @@ export interface CreatePurchaseOrderData {
   }[];
 }
 
+export interface UpdatePurchaseOrderData {
+  supplier_id?: string;
+  expected_at?: string;
+  items?: {
+    product_id: string;
+    qty_ordered: number;
+    unit_cost: number;
+  }[];
+}
+
 export interface PurchaseOrderWithDetails extends PurchaseOrder {
   items: PurchaseOrderItem[];
   supplier?: {
@@ -341,6 +351,74 @@ export class PurchaseOrderModel extends BaseModel {
       } : undefined,
       total_cost: totalCost,
     };
+  }
+
+  // Update purchase order
+  static async update(poId: string, data: UpdatePurchaseOrderData): Promise<PurchaseOrderWithDetails> {
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL statement_timeout = 30000');
+      await client.query('SET LOCAL lock_timeout = 5000');
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+
+      // Check if PO exists and can be edited (only OPEN status can be edited)
+      const existingPO = await this.findById(poId);
+      if (!existingPO) {
+        throw new Error('Purchase order not found');
+      }
+      
+      if (existingPO.status !== 'OPEN') {
+        throw new Error('Only OPEN purchase orders can be edited');
+      }
+
+      // Update supplier if provided
+      if (data.supplier_id) {
+        await client.query(
+          'UPDATE purchase_orders SET supplier_id = $1 WHERE po_id = $2',
+          [data.supplier_id, poId]
+        );
+      }
+
+      // Update expected_at if provided
+      if (data.expected_at !== undefined) {
+        await client.query(
+          'UPDATE purchase_orders SET expected_at = $1 WHERE po_id = $2',
+          [data.expected_at || null, poId]
+        );
+      }
+
+      // Update items if provided
+      if (data.items && data.items.length > 0) {
+        // Delete existing items
+        await client.query('DELETE FROM purchase_order_items WHERE po_id = $1', [poId]);
+        
+        // Insert new items
+        for (const item of data.items) {
+          await client.query(
+            `INSERT INTO purchase_order_items (po_id, product_id, qty_ordered, qty_received, unit_cost)
+             VALUES ($1, $2, $3, 0, $4)`,
+            [poId, item.product_id, item.qty_ordered, item.unit_cost]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      
+      // Return updated purchase order
+      const updatedPO = await this.findById(poId);
+      if (!updatedPO) {
+        throw new Error('Failed to retrieve updated purchase order');
+      }
+      
+      return updatedPO;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // Update purchase order status

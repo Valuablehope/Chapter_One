@@ -42,6 +42,16 @@ export interface CreatePurchaseOrderData {
   }[];
 }
 
+export interface UpdatePurchaseOrderData {
+  supplier_id?: string;
+  expected_at?: string;
+  items?: {
+    product_id: string;
+    qty_ordered: number;
+    unit_cost: number;
+  }[];
+}
+
 export interface PurchaseOrderFilters {
   supplier_id?: string;
   status?: PurchaseOrderStatus;
@@ -89,6 +99,15 @@ export const purchaseService = {
   async createPurchaseOrder(data: CreatePurchaseOrderData): Promise<PurchaseOrder> {
     const response = await api.post<{ success: boolean; data: PurchaseOrder }>(
       '/purchases',
+      data
+    );
+    return response.data.data;
+  },
+
+  // Update purchase order
+  async updatePurchaseOrder(id: string, data: UpdatePurchaseOrderData): Promise<PurchaseOrder> {
+    const response = await api.put<{ success: boolean; data: PurchaseOrder }>(
+      `/purchases/${id}`,
       data
     );
     return response.data.data;

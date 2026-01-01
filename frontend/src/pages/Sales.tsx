@@ -5,7 +5,6 @@ import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
-import { adminService } from '../services/adminService';
 import { logger } from '../utils/logger';
 import { useCancellableRequest } from '../hooks/useCancellableRequest';
 import Button from '../components/ui/Button';
@@ -130,8 +129,9 @@ export default function Sales() {
 
   // Add product to cart
   const addToCart = async (product: Product) => {
-    // Check stock availability if product tracks inventory AND allow_negative is false
-    if (product.track_inventory && !storeSettings?.allow_negative) {
+    // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false
+    // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
+    if (product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
       try {
         const balance = await stockService.getStockBalance(product.product_id);
         const availableStock = balance?.qty_on_hand || 0;
@@ -196,9 +196,10 @@ export default function Sales() {
       return;
     }
 
-    // Check stock availability if product tracks inventory AND allow_negative is false
+    // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false
+    // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
     const item = cart.find(i => i.product.product_id === productId);
-    if (item && item.product.track_inventory && !storeSettings?.allow_negative) {
+    if (item && item.product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
       try {
         const balance = await stockService.getStockBalance(productId);
         const availableStock = balance?.qty_on_hand || 0;
@@ -287,8 +288,9 @@ export default function Sales() {
       return;
     }
 
-    // Validate stock availability before processing payment (only if allow_negative is false)
-    if (!storeSettings?.allow_negative) {
+    // Validate stock availability ONLY if allow_negative is explicitly false
+    // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
+    if (storeSettings && storeSettings.allow_negative === false) {
       const productIds = cart.map(item => item.product.product_id);
       try {
         const balances = await stockService.getStockBalances(productIds);
@@ -333,14 +335,31 @@ export default function Sales() {
       setProcessingProgress(0);
       setProcessingStage('Preparing sale...');
 
-      const saleData = {
-        customer_id: selectedCustomer?.customer_id,
-        items: cart.map((item) => ({
+      // Filter out invalid items and ensure all required fields are present
+      const validItems = cart
+        .filter((item) => 
+          item.product && 
+          item.product.product_id && 
+          item.qty > 0 && 
+          item.unit_price > 0
+        )
+        .map((item) => ({
           product_id: item.product.product_id,
           qty: item.qty,
           unit_price: item.unit_price,
-          tax_rate: item.tax_rate,
-        })),
+          tax_rate: item.tax_rate || 0,
+        }));
+
+      // Validate we have valid items
+      if (validItems.length === 0) {
+        toast.error('Cart is empty or contains invalid items');
+        setProcessing(false);
+        return;
+      }
+
+      const saleData = {
+        customer_id: selectedCustomer?.customer_id,
+        items: validItems,
         payments: [
           {
             method: paymentMethod,
@@ -502,28 +521,18 @@ export default function Sales() {
   useEffect(() => {
     const fetchStoreSettings = async () => {
       try {
-        // Get first active store (default store)
-        const response = await adminService.getStores({ is_active: true, limit: 1 });
-        if (response.data.length > 0) {
-          const store = response.data[0];
-          const settings = await storeService.getStoreSettings(store.store_id);
-          setStoreSettings({
-            ...settings,
-            allow_negative: settings.allow_negative ?? false,
-          });
-        }
+        // Get default store using public endpoint (accessible to all authenticated users)
+        const settings = await storeService.getDefaultStore();
+        setStoreSettings({
+          ...settings,
+          // Preserve allow_negative value from API (don't default to false)
+          allow_negative: settings.allow_negative,
+        });
       } catch (error) {
         logger.warn('Failed to fetch store settings on mount', { error });
-        // Set default allow_negative to false if fetch fails
-        setStoreSettings({
-          store_id: '',
-          code: '',
-          name: 'Chapter One',
-          currency_code: 'USD',
-          tax_inclusive: false,
-          timezone: 'UTC',
-          allow_negative: false,
-        } as StoreSettings);
+        // Don't set default to false - let it be null so stock checks are skipped
+        // This allows sales to proceed even if settings can't be loaded
+        setStoreSettings(null);
       }
     };
     fetchStoreSettings();

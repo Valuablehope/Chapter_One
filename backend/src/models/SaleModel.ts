@@ -58,6 +58,20 @@ export interface CreateSaleData {
   }[];
 }
 
+export interface UpdateSaleData {
+  customer_id?: string;
+  items?: {
+    product_id: string;
+    qty: number;
+    unit_price: number;
+    tax_rate?: number;
+  }[];
+  payments?: {
+    method: PaymentMethod;
+    amount: number;
+  }[];
+}
+
 export interface SaleWithDetails extends Sale {
   items: SaleItem[];
   payments: SalePayment[];
@@ -195,22 +209,33 @@ export class SaleModel extends BaseModel {
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
       // Check for duplicate sale (idempotency check) if client_sale_id is provided
+      // Gracefully handle if column doesn't exist yet
       if (data.client_sale_id) {
-        const duplicateCheck = await client.query(
-          'SELECT sale_id FROM sales WHERE client_sale_id = $1',
-          [data.client_sale_id]
-        );
-        if (duplicateCheck.rows.length > 0) {
-          // Sale already exists - rollback and return existing sale
-          await client.query('ROLLBACK');
-          logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
-          const existingSaleId = duplicateCheck.rows[0].sale_id;
-          const existingSale = await this.findById(existingSaleId);
-          if (existingSale) {
-            return existingSale;
+        try {
+          const duplicateCheck = await client.query(
+            'SELECT sale_id FROM sales WHERE client_sale_id = $1',
+            [data.client_sale_id]
+          );
+          if (duplicateCheck.rows.length > 0) {
+            // Sale already exists - rollback and return existing sale
+            await client.query('ROLLBACK');
+            logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
+            const existingSaleId = duplicateCheck.rows[0].sale_id;
+            const existingSale = await this.findById(existingSaleId);
+            if (existingSale) {
+              return existingSale;
+            }
+            // If findById fails, throw error
+            throw new Error('Duplicate sale found but could not retrieve details');
           }
-          // If findById fails, throw error
-          throw new Error('Duplicate sale found but could not retrieve details');
+        } catch (error: any) {
+          // If column doesn't exist, skip duplicate check (graceful degradation)
+          if (error.message?.includes('column') && error.message?.includes('client_sale_id')) {
+            logger.warn('client_sale_id column does not exist, skipping duplicate check');
+            // Continue with sale creation
+          } else {
+            throw error;
+          }
         }
       }
 
@@ -270,29 +295,95 @@ export class SaleModel extends BaseModel {
       }
 
       // Create sale
-      const saleQuery = `
-        INSERT INTO sales (
-          store_id, terminal_id, cashier_id, customer_id,
-          receipt_no, subtotal, tax_total, discount_total,
-          grand_total, paid_total, status, client_sale_id
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        RETURNING *
-      `;
-      const saleValues = [
-        store.store_id,
-        terminal.terminal_id,
-        cashierId,
-        data.customer_id || null,
-        receiptNo,
-        subtotal,
-        taxTotal,
-        discountTotal,
-        grandTotal,
-        paidTotal,
-        'paid',
-        data.client_sale_id || null,
-      ];
+      // Check if client_sale_id column exists before including it
+      let saleQuery: string;
+      let saleValues: any[];
+      
+      try {
+        // Check if column exists
+        const columnCheck = await client.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'sales' AND column_name = 'client_sale_id'
+        `);
+        
+        const hasClientSaleId = columnCheck.rows.length > 0;
+        
+        if (hasClientSaleId) {
+          saleQuery = `
+            INSERT INTO sales (
+              store_id, terminal_id, cashier_id, customer_id,
+              receipt_no, subtotal, tax_total, discount_total,
+              grand_total, paid_total, status, client_sale_id
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING *
+          `;
+          saleValues = [
+            store.store_id,
+            terminal.terminal_id,
+            cashierId,
+            data.customer_id || null,
+            receiptNo,
+            subtotal,
+            taxTotal,
+            discountTotal,
+            grandTotal,
+            paidTotal,
+            'paid',
+            data.client_sale_id || null,
+          ];
+        } else {
+          // Column doesn't exist, exclude it from INSERT
+          saleQuery = `
+            INSERT INTO sales (
+              store_id, terminal_id, cashier_id, customer_id,
+              receipt_no, subtotal, tax_total, discount_total,
+              grand_total, paid_total, status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING *
+          `;
+          saleValues = [
+            store.store_id,
+            terminal.terminal_id,
+            cashierId,
+            data.customer_id || null,
+            receiptNo,
+            subtotal,
+            taxTotal,
+            discountTotal,
+            grandTotal,
+            paidTotal,
+            'paid',
+          ];
+        }
+      } catch (error) {
+        // Fallback: assume column doesn't exist
+        saleQuery = `
+          INSERT INTO sales (
+            store_id, terminal_id, cashier_id, customer_id,
+            receipt_no, subtotal, tax_total, discount_total,
+            grand_total, paid_total, status
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          RETURNING *
+        `;
+        saleValues = [
+          store.store_id,
+          terminal.terminal_id,
+          cashierId,
+          data.customer_id || null,
+          receiptNo,
+          subtotal,
+          taxTotal,
+          discountTotal,
+          grandTotal,
+          paidTotal,
+          'paid',
+        ];
+      }
+      
       const saleResult = await client.query(saleQuery, saleValues);
       const sale = saleResult.rows[0];
 
@@ -347,6 +438,18 @@ export class SaleModel extends BaseModel {
               throw new Error(
                 `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
               );
+            }
+          } else {
+            // Log when negative stock is allowed (for auditing/debugging)
+            const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+            if (currentStock < item.qty) {
+              logger.info(`Negative stock allowed: Product ${item.product_id}, Current: ${currentStock}, Selling: ${item.qty}`, {
+                store_id: store.store_id,
+                product_id: item.product_id,
+                current_stock: currentStock,
+                qty_sold: item.qty,
+                receipt_no: sale.receipt_no
+              });
             }
           }
           
@@ -425,6 +528,155 @@ export class SaleModel extends BaseModel {
         backoffMs: 100,
         onRetry: (attempt, error) => {
           logger.warn(`Retrying sale creation (attempt ${attempt})`, {
+            error: error.message,
+            code: (error as any).code,
+          });
+        },
+      }
+    );
+  }
+
+  // Update sale
+  static async update(
+    saleId: string,
+    cashierId: string,
+    data: UpdateSaleData
+  ): Promise<SaleWithDetails> {
+    return await withRetry(
+      async () => {
+        const client = await pool.connect();
+        
+        try {
+          await client.query('BEGIN');
+          await client.query('SET LOCAL statement_timeout = 30000');
+          await client.query('SET LOCAL lock_timeout = 5000');
+          await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+
+          // Get existing sale
+          const existingSale = await this.findById(saleId);
+          if (!existingSale) {
+            await client.query('ROLLBACK');
+            throw new Error('Sale not found');
+          }
+
+          // Update customer if provided
+          if (data.customer_id !== undefined) {
+            const updateQuery = `
+              UPDATE sales 
+              SET customer_id = $1 
+              WHERE sale_id = $2
+            `;
+            await client.query(updateQuery, [data.customer_id || null, saleId]);
+          }
+
+          // Update items if provided
+          if (data.items) {
+            if (data.items.length === 0) {
+              await client.query('ROLLBACK');
+              throw new Error('Sale must have at least one item');
+            }
+
+            // Delete existing items
+            await client.query('DELETE FROM sale_items WHERE sale_id = $1', [saleId]);
+            
+            // Insert new items
+            for (const item of data.items) {
+              const taxRate = item.tax_rate || 0;
+              const lineTotal = item.qty * item.unit_price * (1 + taxRate / 100);
+              
+              await client.query(`
+                INSERT INTO sale_items (sale_id, product_id, qty, unit_price, tax_rate, line_total)
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `, [saleId, item.product_id, item.qty, item.unit_price, taxRate, lineTotal]);
+            }
+          }
+
+          // Update payments if provided
+          if (data.payments) {
+            if (data.payments.length === 0) {
+              await client.query('ROLLBACK');
+              throw new Error('Sale must have at least one payment');
+            }
+
+            // Delete existing payments
+            await client.query('DELETE FROM sale_payments WHERE sale_id = $1', [saleId]);
+            
+            // Insert new payments
+            for (const payment of data.payments) {
+              await client.query(`
+                INSERT INTO sale_payments (sale_id, method, amount)
+                VALUES ($1, $2, $3)
+              `, [saleId, payment.method, payment.amount]);
+            }
+          }
+
+          // Recalculate totals
+          const itemsResult = await client.query(
+            'SELECT * FROM sale_items WHERE sale_id = $1',
+            [saleId]
+          );
+          const items = itemsResult.rows;
+
+          let subtotal = 0;
+          let taxTotal = 0;
+          for (const item of items) {
+            const lineTotal = item.qty * item.unit_price;
+            subtotal += lineTotal;
+            taxTotal += lineTotal * (item.tax_rate / 100);
+          }
+
+          const discountTotal = 0;
+          const grandTotal = subtotal + taxTotal - discountTotal;
+
+          const paymentsResult = await client.query(
+            'SELECT * FROM sale_payments WHERE sale_id = $1',
+            [saleId]
+          );
+          const paidTotal = paymentsResult.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
+
+          if (paidTotal < grandTotal) {
+            await client.query('ROLLBACK');
+            throw new Error('Payment amount is less than grand total');
+          }
+
+          // Update sale totals
+          await client.query(`
+            UPDATE sales 
+            SET subtotal = $1, tax_total = $2, discount_total = $3, 
+                grand_total = $4, paid_total = $5
+            WHERE sale_id = $6
+          `, [subtotal, taxTotal, discountTotal, grandTotal, paidTotal, saleId]);
+
+          await client.query('COMMIT');
+          
+          // Return updated sale
+          const updatedSale = await this.findById(saleId);
+          if (!updatedSale) {
+            throw new Error('Failed to retrieve updated sale');
+          }
+          return updatedSale;
+        } catch (error) {
+          // Always rollback on error
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            logger.error('Failed to rollback transaction', { error: rollbackError });
+          }
+          throw error;
+        } finally {
+          // Always release client
+          try {
+            client.release();
+          } catch (releaseError) {
+            logger.error('Failed to release database client', { error: releaseError });
+          }
+        }
+      },
+      {
+        maxAttempts: 3,
+        backoffMs: 100,
+        onRetry: (attempt, error) => {
+          logger.warn(`Retrying sale update (attempt ${attempt})`, {
             error: error.message,
             code: (error as any).code,
           });

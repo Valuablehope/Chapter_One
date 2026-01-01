@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { SaleModel, CreateSaleData, SaleFilters } from '../models/SaleModel';
+import { SaleModel, CreateSaleData, SaleFilters, UpdateSaleData } from '../models/SaleModel';
 import { CustomError, asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 
@@ -22,16 +22,23 @@ export const createSale = asyncHandler(
       throw new CustomError('Sale must have at least one payment', 400);
     }
 
-    // Validate items
-    for (const item of items) {
-      if (!item.product_id || !item.qty || !item.unit_price) {
-        throw new CustomError('Each item must have product_id, qty, and unit_price', 400);
+    // Validate items with better error messages
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.product_id) {
+        throw new CustomError(`Item ${i + 1}: product_id is required`, 400);
+      }
+      if (item.qty === undefined || item.qty === null) {
+        throw new CustomError(`Item ${i + 1}: qty is required`, 400);
       }
       if (item.qty <= 0) {
-        throw new CustomError('Item quantity must be greater than 0', 400);
+        throw new CustomError(`Item ${i + 1}: quantity must be greater than 0`, 400);
+      }
+      if (item.unit_price === undefined || item.unit_price === null) {
+        throw new CustomError(`Item ${i + 1}: unit_price is required`, 400);
       }
       if (item.unit_price < 0) {
-        throw new CustomError('Item unit price cannot be negative', 400);
+        throw new CustomError(`Item ${i + 1}: unit price cannot be negative`, 400);
       }
     }
 
@@ -95,6 +102,67 @@ export const getSaleById = asyncHandler(
     }
 
     res.status(200).json({
+      success: true,
+      data: sale,
+    });
+  }
+);
+
+// Update sale
+export const updateSale = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      throw new CustomError('User not authenticated', 401);
+    }
+
+    const { id } = req.params;
+    const { customer_id, items, payments } = req.body;
+
+    // Validate items if provided
+    if (items && Array.isArray(items)) {
+      if (items.length === 0) {
+        throw new CustomError('Sale must have at least one item', 400);
+      }
+      for (const item of items) {
+        if (!item.product_id || !item.qty || !item.unit_price) {
+          throw new CustomError('Each item must have product_id, qty, and unit_price', 400);
+        }
+        if (item.qty <= 0) {
+          throw new CustomError('Item quantity must be greater than 0', 400);
+        }
+        if (item.unit_price < 0) {
+          throw new CustomError('Item unit price cannot be negative', 400);
+        }
+      }
+    }
+
+    // Validate payments if provided
+    if (payments && Array.isArray(payments)) {
+      if (payments.length === 0) {
+        throw new CustomError('Sale must have at least one payment', 400);
+      }
+      for (const payment of payments) {
+        if (!payment.method || !payment.amount) {
+          throw new CustomError('Each payment must have method and amount', 400);
+        }
+        if (payment.amount <= 0) {
+          throw new CustomError('Payment amount must be greater than 0', 400);
+        }
+      }
+    }
+
+    const updateData: UpdateSaleData = {
+      customer_id,
+      items,
+      payments,
+    };
+
+    const sale = await SaleModel.update(id, userId, updateData);
+
+    logger.info(`Sale updated: ${sale.receipt_no} by user ${userId}`);
+
+    res.json({
       success: true,
       data: sale,
     });

@@ -126,6 +126,7 @@ export default function Layout({ children }: LayoutProps) {
       label: 'Dashboard', 
       icon: HomeIcon, 
       iconSolid: HomeIconSolid,
+      blockedRoles: ['cashier'],
     },
     { 
       path: '/products', 
@@ -144,6 +145,7 @@ export default function Layout({ children }: LayoutProps) {
       label: 'Sales Management', 
       icon: DocumentTextIcon, 
       iconSolid: DocumentTextIconSolid,
+      blockedRoles: ['cashier'],
     },
     { 
       path: '/purchases', 
@@ -179,7 +181,12 @@ export default function Layout({ children }: LayoutProps) {
   ];
 
   const filteredNavItems = navItems.filter((item) => {
+    // Hide items that require admin role if user is not admin
     if (item.role && user?.role !== 'admin') {
+      return false;
+    }
+    // Hide items that are blocked for the user's role
+    if (item.blockedRoles && user && item.blockedRoles.includes(user.role)) {
       return false;
     }
     return true;

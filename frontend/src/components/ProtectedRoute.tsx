@@ -4,16 +4,23 @@ import { useAuthStore } from '../store/authStore';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: 'cashier' | 'manager' | 'admin';
+  blockedRoles?: ('cashier' | 'manager' | 'admin')[];
 }
 
 export default function ProtectedRoute({
   children,
   requiredRole,
+  blockedRoles,
 }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuthStore();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check if user's role is blocked
+  if (blockedRoles && user && blockedRoles.includes(user.role)) {
+    return <Navigate to="/sales" replace />;
   }
 
   if (requiredRole && user && user.role !== requiredRole) {
@@ -28,7 +35,9 @@ export default function ProtectedRoute({
     const requiredRoleLevel = roleHierarchy[requiredRole] || 0;
 
     if (userRoleLevel < requiredRoleLevel) {
-      return <Navigate to="/dashboard" replace />;
+      // Redirect cashiers to sales page instead of dashboard
+      const redirectPath = user.role === 'cashier' ? '/sales' : '/dashboard';
+      return <Navigate to={redirectPath} replace />;
     }
   }
 

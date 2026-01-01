@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
-import { getSales, createSale, getSaleById } from '../controllers/saleController';
+import { getSales, createSale, getSaleById, updateSale } from '../controllers/saleController';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
@@ -52,6 +52,24 @@ router.post(
 
 // Get sale by ID
 router.get('/:id', getSaleById);
+
+// Update sale
+router.put(
+  '/:id',
+  [
+    body('items').optional().isArray({ min: 1 }),
+    body('items.*.product_id').optional().notEmpty(),
+    body('items.*.qty').optional().isInt({ min: 1 }),
+    body('items.*.unit_price').optional().isFloat({ min: 0 }),
+    body('items.*.tax_rate').optional().isFloat({ min: 0, max: 100 }),
+    body('payments').optional().isArray({ min: 1 }),
+    body('payments.*.method').optional().isIn(['cash', 'card', 'voucher', 'other']),
+    body('payments.*.amount').optional().isFloat({ min: 0.01 }),
+    body('customer_id').optional().isUUID(),
+  ],
+  validateRequest,
+  updateSale
+);
 
 export default router;
 

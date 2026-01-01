@@ -42,6 +42,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '../store/authStore';
 
 type ReportTab = 'sales' | 'purchases' | 'inventory';
 type SalesReportType = 'summary' | 'products' | 'customers' | 'payment-methods';
@@ -49,7 +50,9 @@ type PurchaseReportType = 'summary' | 'suppliers';
 type InventoryReportType = 'stock' | 'low-stock';
 
 export default function Reports() {
-  const [activeTab, setActiveTab] = useState<ReportTab>('sales');
+  const { user } = useAuthStore();
+  const isCashier = user?.role === 'cashier';
+  const [activeTab, setActiveTab] = useState<ReportTab>(isCashier ? 'inventory' : 'sales');
   const [salesReportType, setSalesReportType] = useState<SalesReportType>('summary');
   const [purchaseReportType, setPurchaseReportType] = useState<PurchaseReportType>('summary');
   const [inventoryReportType, setInventoryReportType] = useState<InventoryReportType>('stock');
@@ -134,9 +137,14 @@ export default function Reports() {
   };
 
   useEffect(() => {
+    // Redirect cashiers to inventory tab if they try to access other tabs
+    if (isCashier && activeTab !== 'inventory') {
+      setActiveTab('inventory');
+      return;
+    }
     loadReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, salesReportType, purchaseReportType, inventoryReportType, startDate, endDate]);
+  }, [activeTab, salesReportType, purchaseReportType, inventoryReportType, startDate, endDate, isCashier]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -151,9 +159,9 @@ export default function Reports() {
 
   // Calculate summary totals for cards
   const totalRevenue = salesSummary.reduce((sum, item) => sum + Number(item.total_revenue || 0), 0);
-  const totalTransactions = salesSummary.reduce((sum, item) => sum + (item.transaction_count || 0), 0);
+  const totalTransactions = salesSummary.reduce((sum, item) => sum + Number(item.transaction_count || 0), 0);
   const totalCost = purchaseSummary.reduce((sum, item) => sum + Number(item.total_cost || 0), 0);
-  const totalPOs = purchaseSummary.reduce((sum, item) => sum + (item.po_count || 0), 0);
+  const totalPOs = purchaseSummary.reduce((sum, item) => sum + Number(item.po_count || 0), 0);
 
   // Chart colors - using secondary color variations and semantic colors
   const CHART_COLORS = ['#3582e2', '#2a68b5', '#3582e2', '#f59e0b', '#ef4444', '#06b6d4'];
@@ -191,28 +199,32 @@ export default function Reports() {
         {/* Enhanced Tabs */}
         <div className="border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
           <nav className="flex -mb-px px-3">
-            <button
-              onClick={() => setActiveTab('sales')}
-              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
-                activeTab === 'sales'
-                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-              }`}
-            >
-              <CurrencyDollarIcon className="w-4 h-4" />
-              Sales Reports
-            </button>
-            <button
-              onClick={() => setActiveTab('purchases')}
-              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
-                activeTab === 'purchases'
-                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-              }`}
-            >
-              <ShoppingCartIcon className="w-4 h-4" />
-              Purchase Reports
-            </button>
+            {!isCashier && (
+              <button
+                onClick={() => setActiveTab('sales')}
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
+                  activeTab === 'sales'
+                    ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                <CurrencyDollarIcon className="w-4 h-4" />
+                Sales Reports
+              </button>
+            )}
+            {!isCashier && (
+              <button
+                onClick={() => setActiveTab('purchases')}
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
+                  activeTab === 'purchases'
+                    ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+              >
+                <ShoppingCartIcon className="w-4 h-4" />
+                Purchase Reports
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('inventory')}
               className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${

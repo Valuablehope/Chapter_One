@@ -17,6 +17,7 @@ import reportsRoutes from './routes/reports';
 import adminRoutes from './routes/admin';
 import licenseRoutes from './routes/license';
 import stockRoutes from './routes/stock';
+import storesRoutes from './routes/stores';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
 import { requestLogger } from './middleware/requestLogger';
@@ -125,6 +126,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/license', licenseRoutes);
 app.use('/api/stock', stockRoutes);
+app.use('/api/stores', storesRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req: Request, res: Response) => {

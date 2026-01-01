@@ -35,7 +35,7 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockedRoles={['cashier']}>
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <Dashboard />
@@ -71,7 +71,7 @@ function App() {
         <Route
           path="/sales-management"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockedRoles={['cashier']}>
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <SalesManagement />
@@ -140,7 +140,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/sales" replace />} />
         </Routes>
     </BrowserRouter>
   );

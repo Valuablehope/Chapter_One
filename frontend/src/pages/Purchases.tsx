@@ -26,8 +26,10 @@ import {
   SparklesIcon,
   ArrowPathIcon,
   MinusIcon,
+  PrinterIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { storeService, StoreSettings } from '../services/storeService';
 
 interface PurchaseOrderItem {
   product: Product;
@@ -59,6 +61,8 @@ export default function Purchases() {
   const [productResults, setProductResults] = useState<Product[]>([]);
   const [expectedAt, setExpectedAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
 
@@ -211,29 +215,46 @@ export default function Purchases() {
   };
 
   // Open edit modal
-  const openEditModal = (po: PurchaseOrder) => {
-    setEditingPO(po);
-    setSelectedSupplier(po.supplier ? {
-      supplier_id: po.supplier_id,
-      name: po.supplier.name,
-      contact_name: po.supplier.contact_name,
-      phone: po.supplier.phone,
-      created_at: '',
-      updated_at: '',
-    } as Supplier : null);
-    // Convert PO items to form items
-    const formItems: PurchaseOrderItem[] = po.items.map((item) => ({
-      product: {
-        product_id: item.product_id,
-        name: item.product_name || `[Deleted Product - ID: ${item.product_id.substring(0, 8)}...]`,
-        barcode: item.barcode || 'N/A',
-      } as Product,
-      qty_ordered: item.qty_ordered,
-      unit_cost: item.unit_cost,
-    }));
-    setItems(formItems);
-    setExpectedAt(po.expected_at ? po.expected_at.split('T')[0] : '');
-    setShowModal(true);
+  const openEditModal = async (po: PurchaseOrder) => {
+    try {
+      // Load full purchase order details if needed
+      const fullPO = await purchaseService.getPurchaseOrderById(po.po_id);
+      setEditingPO(fullPO);
+      setSelectedSupplier(fullPO.supplier ? {
+        supplier_id: fullPO.supplier_id,
+        name: fullPO.supplier.name,
+        contact_name: fullPO.supplier.contact_name,
+        phone: fullPO.supplier.phone,
+        created_at: '',
+        updated_at: '',
+      } as Supplier : null);
+      // Convert PO items to form items
+      const formItems: PurchaseOrderItem[] = fullPO.items.map((item) => ({
+        product: {
+          product_id: item.product_id,
+          name: item.product_name || `[Deleted Product - ID: ${item.product_id.substring(0, 8)}...]`,
+          barcode: item.barcode || 'N/A',
+        } as Product,
+        qty_ordered: item.qty_ordered,
+        unit_cost: item.unit_cost,
+      }));
+      setItems(formItems);
+      setExpectedAt(fullPO.expected_at ? fullPO.expected_at.split('T')[0] : '');
+      setShowModal(true);
+      
+      // Load store settings for printing
+      if (fullPO.store_id) {
+        try {
+          const settings = await storeService.getStoreSettings(fullPO.store_id);
+          setStoreSettings(settings);
+        } catch (err) {
+          logger.error('Error loading store settings:', err);
+        }
+      }
+    } catch (err: any) {
+      toast.error('Failed to load purchase order details');
+      logger.error('Error loading purchase order:', err);
+    }
   };
 
   // Close modal
@@ -243,6 +264,7 @@ export default function Purchases() {
     setSelectedSupplier(null);
     setItems([]);
     setExpectedAt('');
+    setShowPrintPreview(false);
   };
 
   // Select supplier
@@ -281,15 +303,22 @@ export default function Purchases() {
       };
 
       if (editingPO) {
-        // For now, we can only create new POs. Update functionality can be added later.
-        toast.error('Editing purchase orders is not yet supported');
-        return;
+        // Only allow editing if status is OPEN
+        if (editingPO.status !== 'OPEN') {
+          toast.error('Only OPEN purchase orders can be edited');
+          setSubmitting(false);
+          return;
+        }
+        
+        await purchaseService.updatePurchaseOrder(editingPO.po_id, purchaseOrderData);
+        closeModal();
+        toast.success('Purchase order updated successfully');
       } else {
         await purchaseService.createPurchaseOrder(purchaseOrderData);
+        closeModal();
+        toast.success('Purchase order created successfully');
       }
 
-      closeModal();
-      toast.success('Purchase order created successfully');
       loadPurchaseOrders();
     } catch (err: any) {
       toast.error(err.response?.data?.error?.message || 'Failed to save purchase order');
@@ -373,6 +402,21 @@ export default function Purchases() {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Print receipt
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
@@ -538,7 +582,7 @@ export default function Purchases() {
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 relative">
                         {po.status !== 'RECEIVED' && po.status !== 'CANCELLED' && (
                           <Button
                             onClick={() => handleReceive(po)}
@@ -624,20 +668,57 @@ export default function Purchases() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <ShoppingCartIcon className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base">{editingPO ? 'View Purchase Order' : 'New Purchase Order'}</span>
+            <span className="text-base">
+              {showPrintPreview ? `Print Preview: ${editingPO?.po_number}` : (editingPO ? 'View Purchase Order' : 'New Purchase Order')}
+            </span>
           </div>
         }
         size="xl"
         footer={
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 print:hidden">
+            {editingPO && !showPrintPreview && (
+              <Button
+                onClick={() => setShowPrintPreview(true)}
+                className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                leftIcon={<PrinterIcon className="w-5 h-5" />}
+              >
+                Print Preview
+              </Button>
+            )}
+            {editingPO && showPrintPreview && (
+              <Button
+                onClick={handlePrint}
+                className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                leftIcon={<PrinterIcon className="w-5 h-5" />}
+              >
+                Print
+              </Button>
+            )}
             <Button
               type="button"
-              onClick={closeModal}
+              onClick={() => {
+                if (showPrintPreview) {
+                  setShowPrintPreview(false);
+                } else {
+                  closeModal();
+                }
+              }}
               variant="outline"
               disabled={submitting}
             >
-              Cancel
+              {showPrintPreview ? 'Back' : (editingPO ? 'Close' : 'Cancel')}
             </Button>
+            {editingPO && !showPrintPreview && editingPO.status === 'OPEN' && (
+              <Button
+                type="submit"
+                form="purchase-order-form"
+                className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                isLoading={submitting}
+                leftIcon={<PencilIcon className="w-5 h-5" />}
+              >
+                Save Changes
+              </Button>
+            )}
             {!editingPO && (
               <Button
                 type="submit"
@@ -652,9 +733,11 @@ export default function Purchases() {
           </div>
         }
       >
-        <form id="purchase-order-form" onSubmit={handleSubmit}>
-          {/* Enhanced Supplier Selection */}
-          <div className="mb-4">
+        {!showPrintPreview ? (
+          // Editable Form
+          <form id="purchase-order-form" onSubmit={handleSubmit}>
+            {/* Enhanced Supplier Selection */}
+            <div className="mb-4">
             <label className="block text-xs font-semibold text-gray-700 mb-2">
               Supplier <span className="text-red-500">*</span>
             </label>
@@ -727,8 +810,10 @@ export default function Purchases() {
                     ref={barcodeInputRef}
                     type="text"
                     placeholder="Scan barcode..."
-                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent form submission
+                        e.stopPropagation(); // Stop event from bubbling
                         const barcode = (e.target as HTMLInputElement).value.trim();
                         if (barcode) {
                           handleBarcodeScan(barcode);
@@ -901,6 +986,211 @@ export default function Purchases() {
             )}
           </div>
         </form>
+        ) : (
+          // Print Preview
+          <>
+            {/* Enhanced Print Styles */}
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden;
+                }
+                .receipt-container-po, .receipt-container-po * {
+                  visibility: visible;
+                }
+                .receipt-container-po {
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  width: 100%;
+                  max-width: 100%;
+                  padding: 20px;
+                  background: white;
+                }
+                .print\\:hidden {
+                  display: none !important;
+                }
+                .modal-content {
+                  box-shadow: none !important;
+                  border: none !important;
+                }
+                @page {
+                  margin: 0.5cm;
+                  size: auto;
+                }
+              }
+            `}</style>
+
+            {/* Receipt Preview */}
+            {editingPO && (
+              <div className="bg-white print:shadow-none">
+                <div className="receipt-container-po max-w-md mx-auto p-8 print:p-6 bg-gradient-to-b from-white to-gray-50">
+                
+                {/* Modern Header */}
+                <div className="text-center mb-8 relative">
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-secondary-500 rounded-full"></div>
+                  <div className="pt-6 border-b-2 border-gray-200 pb-6">
+                    {storeSettings?.receipt_header ? (
+                      <div className="text-sm text-gray-700 whitespace-pre-line mb-2 leading-relaxed">
+                        {storeSettings.receipt_header}
+                      </div>
+                    ) : (
+                      <>
+                        <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
+                          {(storeSettings?.name && storeSettings.name.trim()) ? storeSettings.name : (storeSettings?.code ? storeSettings.code : 'Store')}
+                        </h1>
+                        {storeSettings?.address && (
+                          <p className="text-sm text-gray-600 leading-relaxed">{storeSettings.address}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Purchase Order Info */}
+                <div className="mb-8 space-y-3 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">PO Number</span>
+                    <span className="font-mono font-bold text-gray-900 text-base tracking-wider">
+                      {editingPO.po_number}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Date</span>
+                    <span className="text-gray-900 font-semibold">
+                      {formatDate(editingPO.ordered_at)}
+                    </span>
+                  </div>
+                  {editingPO.expected_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Expected Delivery</span>
+                      <span className="text-gray-900 font-semibold">
+                        {new Date(editingPO.expected_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Status</span>
+                    <span className="font-bold text-gray-900">
+                      {editingPO.status}
+                    </span>
+                  </div>
+                  {selectedSupplier && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600 font-medium">Supplier</span>
+                        <span className="font-bold text-gray-900">
+                          {selectedSupplier.name}
+                        </span>
+                      </div>
+                      {selectedSupplier.phone && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Phone</span>
+                          <span className="text-gray-900">{selectedSupplier.phone}</span>
+                        </div>
+                      )}
+                      {selectedSupplier.contact_name && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Contact</span>
+                          <span className="text-gray-900">{selectedSupplier.contact_name}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Items List */}
+                <div className="mb-8">
+                  <div className="border-t-2 border-b-2 border-gray-300 py-4">
+                    <div className="space-y-4">
+                      {editingPO.items.map((item) => {
+                        const lineTotal = item.qty_ordered * item.unit_cost;
+                        return (
+                          <div key={item.po_item_id} className="flex justify-between items-start gap-4 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-gray-900 text-base leading-snug">
+                                {item.product_name || `Product ID: ${item.product_id.substring(0, 8)}...`}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                                <span className="font-mono">
+                                  {item.qty_ordered} × {formatCurrency(item.unit_cost)}
+                                </span>
+                                {item.qty_received > 0 && item.qty_received !== item.qty_ordered && (
+                                  <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded font-medium">
+                                    Received: {item.qty_received}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-gray-900 text-base">
+                                {formatCurrency(lineTotal)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div className="mb-8 space-y-3 text-sm bg-white rounded-xl p-5 border-2 border-gray-200 shadow-sm">
+                  <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
+                    <span className="text-lg font-bold text-gray-900">Total Cost</span>
+                    <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(Number(editingPO.total_cost))}</span>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center space-y-4 border-t-2 border-gray-200 pt-6">
+                  {storeSettings?.receipt_footer ? (
+                    <div className="whitespace-pre-line text-sm text-gray-600 leading-relaxed">
+                      {storeSettings.receipt_footer}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-gray-800 text-base">Thank you for your business!</p>
+                      <p className="text-sm text-gray-600">Have a great day!</p>
+                    </>
+                  )}
+                  
+                  {/* Cubiq Solutions Branding */}
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <img 
+                        src="/cubiq-logo.jpg" 
+                        alt="Cubiq Solutions" 
+                        className="h-16 w-auto object-contain opacity-90 print:opacity-100 max-w-xs"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="text-center">
+                        <a 
+                          href="https://www.cubiq-solutions.com" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors print:text-gray-600 print:no-underline"
+                        >
+                          www.cubiq-solutions.com
+                        </a>
+                        <p className="text-xs text-gray-500 mt-1 print:text-gray-400">
+                          Digital Innovation Agency
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            )}
+          </>
+        )}
       </Modal>
 
       {/* Enhanced Supplier Selection Modal */}

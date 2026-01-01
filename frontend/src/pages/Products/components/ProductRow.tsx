@@ -13,6 +13,24 @@ export interface ProductRowProps {
   formatCurrency: (amount: number) => string;
 }
 
+// Map product types to badge variants for color differentiation
+// Each type has a clearly distinct color for easy visual identification
+const getProductTypeVariant = (productType: string): 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'gray' => {
+  const typeMap: Record<string, 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'gray'> = {
+    'BOOK': 'primary',        // Blue/purple - distinct primary color
+    'STATIONERY': 'error',    // Red/pink - error color (clearly distinct)
+    'ACCESSORY': 'info',      // Light blue - info color (different from primary blue)
+    'GIFT': 'warning',       // Yellow/orange - warning color
+    'OFFICE_SUPPLY': 'success', // Green - success color
+    'OTHER': 'secondary',    // Gray - neutral secondary color
+    // Less common types - will use fallback gray if not in main list
+    'MAGAZINE': 'warning',   // Yellow/orange (shares with GIFT if both exist)
+    'NEWSPAPER': 'success',  // Green (shares with OFFICE_SUPPLY if both exist)
+  };
+  
+  return typeMap[productType.toUpperCase()] || 'gray';
+};
+
 export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, formatCurrency }) => {
   return (
     <TableRow index={index} hoverClassName="hover:bg-secondary-50/50">
@@ -35,7 +53,7 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
         </div>
       </td>
       <td className="px-3 py-2 whitespace-nowrap hidden lg:table-cell">
-        <Badge variant="primary" size="sm">{product.product_type}</Badge>
+        <Badge variant={getProductTypeVariant(product.product_type)} size="sm">{product.product_type}</Badge>
       </td>
       <td className="px-3 py-2 whitespace-nowrap">
         <div className="text-xs font-semibold text-gray-900">

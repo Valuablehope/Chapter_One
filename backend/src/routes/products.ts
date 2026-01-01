@@ -9,7 +9,6 @@ import {
   validateBarcode,
 } from '../controllers/productController';
 import { authenticate } from '../middleware/auth';
-import { authorize } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
 import { body, query, param } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
@@ -52,7 +51,6 @@ router.get(
 // Create product
 router.post(
   '/',
-  authorize('manager', 'admin'),
   checkRecordLimit('products'),
   [
     body('name').trim().notEmpty().withMessage('Product name is required'),

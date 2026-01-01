@@ -62,6 +62,20 @@ export interface CreateSaleData {
   payments: SalePayment[];
 }
 
+export interface UpdateSaleData {
+  customer_id?: string;
+  items?: {
+    product_id: string;
+    qty: number;
+    unit_price: number;
+    tax_rate?: number;
+  }[];
+  payments?: {
+    method: PaymentMethod;
+    amount: number;
+  }[];
+}
+
 export interface Sale {
   sale_id: string;
   store_id: string;
@@ -173,6 +187,15 @@ export const saleService = {
   async getSaleById(id: string): Promise<Sale> {
     const response = await api.get<{ success: boolean; data: Sale }>(
       `/sales/${id}`
+    );
+    return response.data.data;
+  },
+
+  // Update sale
+  async updateSale(id: string, data: UpdateSaleData): Promise<Sale> {
+    const response = await api.put<{ success: boolean; data: Sale }>(
+      `/sales/${id}`,
+      data
     );
     return response.data.data;
   },

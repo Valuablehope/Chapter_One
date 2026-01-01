@@ -16,8 +16,14 @@ import {
   EyeIcon,
   UserGroupIcon,
   XMarkIcon,
+  PencilIcon,
+  PlusIcon,
+  MinusIcon,
+  PrinterIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { productService, Product } from '../services/productService';
+import { storeService, StoreSettings } from '../services/storeService';
 
 export default function SalesManagement() {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -38,6 +44,17 @@ export default function SalesManagement() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [editPayments, setEditPayments] = useState<any[]>([]);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [productResults, setProductResults] = useState<Product[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showEditPrintPreview, setShowEditPrintPreview] = useState(false);
 
   // Load sales
   useEffect(() => {
@@ -104,6 +121,17 @@ export default function SalesManagement() {
       const fullSale = await saleService.getSaleById(sale.sale_id);
       setSelectedSale(fullSale);
       setShowDetailsModal(true);
+      
+      // Load store settings for printing
+      if (fullSale.store_id) {
+        try {
+          const settings = await storeService.getStoreSettings(fullSale.store_id);
+          logger.info('Store settings loaded for view:', { name: settings.name, code: settings.code, settings });
+          setStoreSettings(settings);
+        } catch (err) {
+          logger.error('Error loading store settings:', err);
+        }
+      }
     } catch (err: any) {
       toast.error('Failed to load sale details');
       logger.error('Error loading sale details:', err);
@@ -152,6 +180,158 @@ export default function SalesManagement() {
         return 'Other';
       default:
         return method;
+    }
+  };
+
+  // Print receipt
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const openEditModal = async (sale: Sale) => {
+    try {
+      const fullSale = await saleService.getSaleById(sale.sale_id);
+      setEditingSale(fullSale);
+      setEditItems(fullSale.items.map(item => ({
+        ...item,
+        product: null,
+      })));
+      setEditPayments(fullSale.payments);
+      // Convert sale customer to full Customer object
+      setEditCustomer(fullSale.customer ? {
+        ...fullSale.customer,
+        email: undefined,
+        created_at: '',
+        updated_at: '',
+      } as Customer : null);
+      setShowEditModal(true);
+      
+      // Load store settings for printing
+      if (fullSale.store_id) {
+        try {
+          const settings = await storeService.getStoreSettings(fullSale.store_id);
+          logger.info('Store settings loaded for edit:', { name: settings.name, code: settings.code, settings });
+          setStoreSettings(settings);
+        } catch (err) {
+          logger.error('Error loading store settings:', err);
+        }
+      }
+    } catch (err: any) {
+      toast.error('Failed to load sale for editing');
+      logger.error('Error loading sale:', err);
+    }
+  };
+
+  const handleProductSearch = async (query: string) => {
+    if (!query.trim()) {
+      setProductResults([]);
+      return;
+    }
+    try {
+      const response = await productService.getProducts({ search: query, limit: 10 });
+      setProductResults(response.data);
+    } catch (err: any) {
+      logger.error('Error searching products:', err);
+    }
+  };
+
+  const addProductToEdit = (product: Product) => {
+    const price = Number(product.sale_price || product.list_price || 0);
+    const taxRate = Number(product.tax_rate || 0);
+    setEditItems([...editItems, {
+      product_id: product.product_id,
+      product_name: product.name,
+      qty: 1,
+      unit_price: price,
+      tax_rate: taxRate,
+      line_total: price * (1 + taxRate / 100),
+      product: product,
+    }]);
+    setProductSearch('');
+    setProductResults([]);
+  };
+
+  const removeItemFromEdit = (index: number) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  const updateItemQuantity = (index: number, qty: number) => {
+    if (qty <= 0) {
+      removeItemFromEdit(index);
+      return;
+    }
+    const newItems = [...editItems];
+    const item = newItems[index];
+    item.qty = qty;
+    item.line_total = item.qty * item.unit_price * (1 + (item.tax_rate || 0) / 100);
+    setEditItems(newItems);
+  };
+
+  const addPayment = () => {
+    setEditPayments([...editPayments, { method: 'cash', amount: 0 }]);
+  };
+
+  const removePayment = (index: number) => {
+    setEditPayments(editPayments.filter((_, i) => i !== index));
+  };
+
+  const calculateEditTotals = () => {
+    const subtotal = editItems.reduce((sum, item) => sum + (item.qty * item.unit_price), 0);
+    const taxTotal = editItems.reduce((sum, item) => {
+      const lineTotal = item.qty * item.unit_price;
+      return sum + (lineTotal * ((item.tax_rate || 0) / 100));
+    }, 0);
+    const grandTotal = subtotal + taxTotal;
+    const paidTotal = editPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    return { subtotal, taxTotal, grandTotal, paidTotal };
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSale) return;
+    
+    const { grandTotal, paidTotal } = calculateEditTotals();
+    if (paidTotal < grandTotal) {
+      toast.error('Payment amount must be at least equal to grand total');
+      return;
+    }
+
+    if (editItems.length === 0) {
+      toast.error('Sale must have at least one item');
+      return;
+    }
+
+    if (editPayments.length === 0) {
+      toast.error('Sale must have at least one payment');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await saleService.updateSale(editingSale.sale_id, {
+        customer_id: editCustomer?.customer_id,
+        items: editItems.map(item => ({
+          product_id: item.product_id,
+          qty: item.qty,
+          unit_price: item.unit_price,
+          tax_rate: item.tax_rate || 0,
+        })),
+        payments: editPayments.map(p => ({
+          method: p.method,
+          amount: p.amount,
+        })),
+      });
+      toast.success('Sale updated successfully');
+      setShowEditModal(false);
+      setEditingSale(null);
+      setEditItems([]);
+      setEditPayments([]);
+      setEditCustomer(null);
+      loadSales();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to update sale');
+      logger.error('Error updating sale:', err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -348,6 +528,7 @@ export default function SalesManagement() {
                         {getStatusBadge(sale.status)}
                       </td>
                       <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -356,6 +537,15 @@ export default function SalesManagement() {
                         >
                           View
                         </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditModal(sale)}
+                            leftIcon={<PencilIcon className="w-4 h-4" />}
+                          >
+                            Edit
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -405,10 +595,54 @@ export default function SalesManagement() {
           onClose={() => {
             setShowDetailsModal(false);
             setSelectedSale(null);
+            setShowPrintPreview(false);
           }}
-          title={`Sale Invoice: ${selectedSale.receipt_no}`}
+          title={showPrintPreview ? `Print Preview: ${selectedSale.receipt_no}` : `Sale Invoice: ${selectedSale.receipt_no}`}
           size="lg"
+          footer={
+            <div className="flex gap-3 print:hidden">
+              {!showPrintPreview ? (
+                <>
+                  <Button
+                    onClick={() => setShowPrintPreview(true)}
+                    className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    Print Preview
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setSelectedSale(null);
+                      setShowPrintPreview(false);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handlePrint}
+                    className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPrintPreview(false)}
+                  >
+                    Back
+                  </Button>
+                </>
+              )}
+            </div>
+          }
         >
+          {!showPrintPreview ? (
+            // Original View Content
           <div className="space-y-6">
             {/* Sale Info */}
             <div className="grid grid-cols-2 gap-4">
@@ -512,6 +746,745 @@ export default function SalesManagement() {
               </div>
             )}
           </div>
+          ) : (
+            // Print Preview
+            <>
+              {/* Enhanced Print Styles */}
+              <style>{`
+                @media print {
+                  body * {
+                    visibility: hidden;
+                  }
+                  .receipt-container, .receipt-container * {
+                    visibility: visible;
+                  }
+                  .receipt-container {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    max-width: 100%;
+                    padding: 20px;
+                    background: white;
+                  }
+                  .print\\:hidden {
+                    display: none !important;
+                  }
+                  .modal-content {
+                    box-shadow: none !important;
+                    border: none !important;
+                  }
+                  @page {
+                    margin: 0.5cm;
+                    size: auto;
+                  }
+                }
+              `}</style>
+
+              {/* Modern Receipt Content */}
+              <div className="bg-white print:shadow-none">
+                <div className="receipt-container max-w-md mx-auto p-8 print:p-6 bg-gradient-to-b from-white to-gray-50">
+              
+              {/* Modern Header */}
+              <div className="text-center mb-8 relative">
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-secondary-500 rounded-full"></div>
+                <div className="pt-6 border-b-2 border-gray-200 pb-6">
+                  {storeSettings?.receipt_header ? (
+                    <div className="text-sm text-gray-700 whitespace-pre-line mb-2 leading-relaxed">
+                      {storeSettings.receipt_header}
+                    </div>
+                  ) : (
+                    <>
+                      <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
+                        {(storeSettings?.name && storeSettings.name.trim()) ? storeSettings.name : (storeSettings?.code ? storeSettings.code : 'Store')}
+                      </h1>
+                      {storeSettings?.address && (
+                        <p className="text-sm text-gray-600 leading-relaxed">{storeSettings.address}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Receipt Info */}
+              <div className="mb-8 space-y-3 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 font-medium">Receipt #</span>
+                  <span className="font-mono font-bold text-gray-900 text-base tracking-wider">
+                    {selectedSale.receipt_no}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 font-medium">Date</span>
+                  <span className="text-gray-900 font-semibold">
+                    {formatDate(selectedSale.created_at)}
+                  </span>
+                </div>
+                {selectedSale.customer && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-600 font-medium">Customer</span>
+                      <span className="font-bold text-gray-900">
+                        {selectedSale.customer.full_name || 'Unnamed Customer'}
+                      </span>
+                    </div>
+                    {selectedSale.customer.phone && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 font-medium">Phone</span>
+                        <span className="text-gray-900">{selectedSale.customer.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Items List */}
+              <div className="mb-8">
+                <div className="border-t-2 border-b-2 border-gray-300 py-4">
+                  <div className="space-y-4">
+                    {selectedSale.items.map((item) => (
+                      <div key={item.sale_item_id} className="flex justify-between items-start gap-4 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 text-base leading-snug">
+                            {item.product_name || `Product ID: ${item.product_id.substring(0, 8)}...`}
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                            <span className="font-mono">
+                              {item.qty} × {formatCurrency(item.unit_price)}
+                            </span>
+                            {item.tax_rate && Number(item.tax_rate) > 0 && (
+                              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-medium">
+                                Tax: {Number(item.tax_rate)}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-900 text-base">
+                            {formatCurrency(item.line_total)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="mb-8 space-y-3 text-sm bg-white rounded-xl p-5 border-2 border-gray-200 shadow-sm">
+                {storeSettings?.tax_inclusive ? (
+                  <>
+                    {Number(selectedSale.discount_total) > 0 && (
+                      <div className="flex justify-between items-center text-secondary-500 pb-2">
+                        <span className="font-medium">Discount</span>
+                        <span className="font-bold">-{formatCurrency(Number(selectedSale.discount_total))}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
+                      <span className="text-lg font-bold text-gray-900">Total (Tax Inclusive)</span>
+                      <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(Number(selectedSale.grand_total))}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Subtotal</span>
+                      <span className="text-gray-900 font-semibold">{formatCurrency(Number(selectedSale.subtotal))}</span>
+                    </div>
+                    {Number(selectedSale.tax_total) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 font-medium">Tax</span>
+                        <span className="text-gray-900 font-semibold">{formatCurrency(Number(selectedSale.tax_total))}</span>
+                      </div>
+                    )}
+                    {Number(selectedSale.discount_total) > 0 && (
+                      <div className="flex justify-between items-center text-secondary-500">
+                        <span className="font-medium">Discount</span>
+                        <span className="font-bold">-{formatCurrency(Number(selectedSale.discount_total))}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
+                      <span className="text-lg font-bold text-gray-900">Total</span>
+                      <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(Number(selectedSale.grand_total))}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Payment */}
+              <div className="mb-8 space-y-2 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
+                {selectedSale.payments.map((payment, index) => (
+                  <div key={payment.sale_payment_id || index} className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium capitalize">
+                      {getPaymentMethodLabel(payment.method)} Payment
+                    </span>
+                    <span className="font-bold text-gray-900">
+                      {formatCurrency(payment.amount)}
+                    </span>
+                  </div>
+                ))}
+                {Number(selectedSale.payments[0]?.amount || 0) > Number(selectedSale.grand_total) && (
+                  <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
+                    <span className="font-bold text-secondary-500">Change</span>
+                    <span className="font-extrabold text-xl text-secondary-500">
+                      {formatCurrency((Number(selectedSale.payments[0]?.amount || 0) - Number(selectedSale.grand_total)))}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="text-center space-y-4 border-t-2 border-gray-200 pt-6">
+                {storeSettings?.receipt_footer ? (
+                  <div className="whitespace-pre-line text-sm text-gray-600 leading-relaxed">
+                    {storeSettings.receipt_footer}
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-semibold text-gray-800 text-base">Thank you for your business!</p>
+                    <p className="text-sm text-gray-600">Have a great day!</p>
+                  </>
+                )}
+                
+                {/* Cubiq Solutions Branding */}
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <img 
+                      src="/cubiq-logo.jpg" 
+                      alt="Cubiq Solutions" 
+                      className="h-16 w-auto object-contain opacity-90 print:opacity-100 max-w-xs"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="text-center">
+                      <a 
+                        href="https://www.cubiq-solutions.com" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors print:text-gray-600 print:no-underline"
+                      >
+                        www.cubiq-solutions.com
+                      </a>
+                      <p className="text-xs text-gray-500 mt-1 print:text-gray-400">
+                        Digital Innovation Agency
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {/* Edit Sale Modal */}
+      {showEditModal && editingSale && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingSale(null);
+            setEditItems([]);
+            setEditPayments([]);
+            setEditCustomer(null);
+            setShowEditPrintPreview(false);
+          }}
+          title={showEditPrintPreview ? `Print Preview: ${editingSale.receipt_no}` : `Edit Sale: ${editingSale.receipt_no}`}
+          size="xl"
+          footer={
+            <div className="flex justify-end gap-3 print:hidden">
+              {!showEditPrintPreview ? (
+                <>
+                  <Button
+                    onClick={() => setShowEditPrintPreview(true)}
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    Print Preview
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingSale(null);
+                      setEditItems([]);
+                      setEditPayments([]);
+                      setEditCustomer(null);
+                      setShowEditPrintPreview(false);
+                    }}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    isLoading={submitting}
+                  >
+                    Save Changes
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handlePrint}
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEditPrintPreview(false)}
+                  >
+                    Back
+                  </Button>
+                </>
+              )}
+            </div>
+          }
+        >
+          {!showEditPrintPreview ? (
+            // Editable Form
+            <div className="space-y-4">
+            {/* Customer Selection */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Customer</label>
+              {editCustomer ? (
+                <div className="flex items-center justify-between p-2 border border-gray-300 rounded-lg bg-gray-50">
+                  <span>{editCustomer.full_name}</span>
+                  <button onClick={() => setEditCustomer(null)}>
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <Input
+                  type="text"
+                  placeholder="Search customer..."
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    handleCustomerSearch(e.target.value);
+                  }}
+                  leftIcon={<UserGroupIcon className="w-4 h-4" />}
+                />
+              )}
+              {customerResults.length > 0 && !editCustomer && (
+                <div className="mt-1 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                  {customerResults.map((customer) => (
+                    <button
+                      key={customer.customer_id}
+                      onClick={() => {
+                        setEditCustomer(customer);
+                        setCustomerSearch('');
+                        setCustomerResults([]);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                    >
+                      {customer.full_name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Items */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Items</label>
+              
+              {/* Product Search */}
+              <div className="mb-3">
+                <Input
+                  type="text"
+                  placeholder="Search products to add..."
+                  value={productSearch}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    handleProductSearch(e.target.value);
+                  }}
+                  leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
+                />
+                {productResults.length > 0 && (
+                  <div className="mt-1 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                    {productResults.map((product) => (
+                      <button
+                        key={product.product_id}
+                        onClick={() => addProductToEdit(product)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                      >
+                        {product.name} - {formatCurrency(product.sale_price || product.list_price || 0)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Items List */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold">Product</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold">Qty</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold">Price</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold">Total</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {editItems.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-3 py-2 text-sm">{item.product_name || 'Product'}</td>
+                        <td className="px-3 py-2 text-sm text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => updateItemQuantity(index, item.qty - 1)}
+                              className="p-1 hover:bg-gray-100 rounded"
+                            >
+                              <MinusIcon className="w-4 h-4" />
+                            </button>
+                            <span>{item.qty}</span>
+                            <button
+                              onClick={() => updateItemQuantity(index, item.qty + 1)}
+                              className="p-1 hover:bg-gray-100 rounded"
+                            >
+                              <PlusIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right">{formatCurrency(item.unit_price)}</td>
+                        <td className="px-3 py-2 text-sm text-right font-semibold">
+                          {formatCurrency(item.line_total)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            onClick={() => removeItemFromEdit(index)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Payments */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Payments</label>
+              <Button
+                size="sm"
+                onClick={addPayment}
+                leftIcon={<PlusIcon className="w-4 h-4" />}
+                className="mb-2"
+              >
+                Add Payment
+              </Button>
+              <div className="space-y-2">
+                {editPayments.map((payment, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 border border-gray-200 rounded-lg">
+                    <select
+                      value={payment.method}
+                      onChange={(e) => {
+                        const newPayments = [...editPayments];
+                        newPayments[index].method = e.target.value;
+                        setEditPayments(newPayments);
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="voucher">Voucher</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={payment.amount || ''}
+                      onChange={(e) => {
+                        const newPayments = [...editPayments];
+                        newPayments[index].amount = parseFloat(e.target.value) || 0;
+                        setEditPayments(newPayments);
+                      }}
+                      placeholder="Amount"
+                      className="flex-1"
+                    />
+                    <button
+                      onClick={() => removePayment(index)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Totals */}
+            <div className="border-t pt-4">
+              {(() => {
+                const { subtotal, taxTotal, grandTotal, paidTotal } = calculateEditTotals();
+                return (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax:</span>
+                      <span>{formatCurrency(taxTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                      <span>Grand Total:</span>
+                      <span>{formatCurrency(grandTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Paid:</span>
+                      <span>{formatCurrency(paidTotal)}</span>
+                    </div>
+                    {paidTotal < grandTotal && (
+                      <p className="text-xs text-red-600">Payment amount is less than grand total</p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+          ) : (
+            // Print Preview
+            <>
+              {/* Enhanced Print Styles */}
+              <style>{`
+                @media print {
+                  body * {
+                    visibility: hidden;
+                  }
+                  .receipt-container-edit, .receipt-container-edit * {
+                    visibility: visible;
+                  }
+                  .receipt-container-edit {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    max-width: 100%;
+                    padding: 20px;
+                    background: white;
+                  }
+                  .print\\:hidden {
+                    display: none !important;
+                  }
+                  .modal-content {
+                    box-shadow: none !important;
+                    border: none !important;
+                  }
+                  @page {
+                    margin: 0.5cm;
+                    size: auto;
+                  }
+                }
+              `}</style>
+
+              {/* Receipt Preview */}
+              <div className="bg-white">
+            <div className="bg-white print:shadow-none">
+              <div className="receipt-container-edit max-w-md mx-auto p-8 print:p-6 bg-gradient-to-b from-white to-gray-50">
+                
+                {/* Modern Header */}
+                <div className="text-center mb-8 relative">
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-secondary-500 rounded-full"></div>
+                  <div className="pt-6 border-b-2 border-gray-200 pb-6">
+                    {storeSettings?.receipt_header ? (
+                      <div className="text-sm text-gray-700 whitespace-pre-line mb-2 leading-relaxed">
+                        {storeSettings.receipt_header}
+                      </div>
+                    ) : (
+                      <>
+                        <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
+                          {(storeSettings?.name && storeSettings.name.trim()) ? storeSettings.name : (storeSettings?.code ? storeSettings.code : 'Store')}
+                        </h1>
+                        {storeSettings?.address && (
+                          <p className="text-sm text-gray-600 leading-relaxed">{storeSettings.address}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Receipt Info */}
+                <div className="mb-8 space-y-3 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Receipt #</span>
+                    <span className="font-mono font-bold text-gray-900 text-base tracking-wider">
+                      {editingSale.receipt_no}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Date</span>
+                    <span className="text-gray-900 font-semibold">
+                      {formatDate(editingSale.created_at)}
+                    </span>
+                  </div>
+                  {editCustomer && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600 font-medium">Customer</span>
+                        <span className="font-bold text-gray-900">
+                          {editCustomer.full_name || 'Unnamed Customer'}
+                        </span>
+                      </div>
+                      {editCustomer.phone && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Phone</span>
+                          <span className="text-gray-900">{editCustomer.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Items List */}
+                <div className="mb-8">
+                  <div className="border-t-2 border-b-2 border-gray-300 py-4">
+                    <div className="space-y-4">
+                      {editItems.map((item, index) => {
+                        const lineTotal = item.qty * item.unit_price * (1 + (item.tax_rate || 0) / 100);
+                        return (
+                          <div key={index} className="flex justify-between items-start gap-4 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-gray-900 text-base leading-snug">
+                                {item.product_name || 'Product'}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                                <span className="font-mono">
+                                  {item.qty} × {formatCurrency(item.unit_price)}
+                                </span>
+                                {item.tax_rate && Number(item.tax_rate) > 0 && (
+                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-medium">
+                                    Tax: {Number(item.tax_rate)}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-gray-900 text-base">
+                                {formatCurrency(lineTotal)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div className="mb-8 space-y-3 text-sm bg-white rounded-xl p-5 border-2 border-gray-200 shadow-sm">
+                  {(() => {
+                    const { subtotal, taxTotal, grandTotal } = calculateEditTotals();
+                    return storeSettings?.tax_inclusive ? (
+                      <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
+                        <span className="text-lg font-bold text-gray-900">Total (Tax Inclusive)</span>
+                        <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(grandTotal)}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Subtotal</span>
+                          <span className="text-gray-900 font-semibold">{formatCurrency(subtotal)}</span>
+                        </div>
+                        {taxTotal > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">Tax</span>
+                            <span className="text-gray-900 font-semibold">{formatCurrency(taxTotal)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
+                          <span className="text-lg font-bold text-gray-900">Total</span>
+                          <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(grandTotal)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Payment */}
+                <div className="mb-8 space-y-2 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  {editPayments.map((payment, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <span className="text-gray-600 font-medium capitalize">
+                        {getPaymentMethodLabel(payment.method)} Payment
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {formatCurrency(payment.amount || 0)}
+                      </span>
+                    </div>
+                  ))}
+                  {(() => {
+                    const { grandTotal, paidTotal } = calculateEditTotals();
+                    if (paidTotal > grandTotal) {
+                      return (
+                        <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
+                          <span className="font-bold text-secondary-500">Change</span>
+                          <span className="font-extrabold text-xl text-secondary-500">
+                            {formatCurrency(paidTotal - grandTotal)}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                {/* Footer */}
+                <div className="text-center space-y-4 border-t-2 border-gray-200 pt-6">
+                  {storeSettings?.receipt_footer ? (
+                    <div className="whitespace-pre-line text-sm text-gray-600 leading-relaxed">
+                      {storeSettings.receipt_footer}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-gray-800 text-base">Thank you for your business!</p>
+                      <p className="text-sm text-gray-600">Have a great day!</p>
+                    </>
+                  )}
+                  
+                  {/* Cubiq Solutions Branding */}
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <img 
+                        src="/cubiq-logo.jpg" 
+                        alt="Cubiq Solutions" 
+                        className="h-16 w-auto object-contain opacity-90 print:opacity-100 max-w-xs"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="text-center">
+                        <a 
+                          href="https://www.cubiq-solutions.com" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors print:text-gray-600 print:no-underline"
+                        >
+                          www.cubiq-solutions.com
+                        </a>
+                        <p className="text-xs text-gray-500 mt-1 print:text-gray-400">
+                          Digital Innovation Agency
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
         </Modal>
       )}
     </>
