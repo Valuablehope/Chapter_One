@@ -1,5 +1,6 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
 import { QueryResult } from 'pg';
+import { SaleModel } from './SaleModel';
 
 export interface Product {
   product_id: string;
@@ -23,6 +24,9 @@ export interface ProductWithDetails extends Product {
   publish_year?: number;
   edition?: string;
   language?: string;
+  qty_in?: number;      // Sum of qty where reason = 'purchase'
+  qty_out?: number;     // Sum of ABS(qty) where reason = 'sale' (qty is negative)
+  balance?: number;     // qty_in - qty_out
 }
 
 export interface ProductFilters {
@@ -37,6 +41,10 @@ export class ProductModel extends BaseModel {
   static async findAll(filters: ProductFilters = {}): Promise<PaginatedResult<ProductWithDetails>> {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
     
+    // Get default store_id for stock movement aggregation
+    const defaultStore = await SaleModel.getDefaultStore();
+    const storeId = defaultStore?.store_id || null;
+    
     let query = `
       SELECT 
         p.*,
@@ -46,13 +54,42 @@ export class ProductModel extends BaseModel {
         pb.publisher_id,
         pb.publish_year,
         pb.edition,
-        pb.language
+        pb.language`;
+    
+    // Add stock movement aggregations only if store_id exists
+    if (storeId) {
+      query += `,
+      COALESCE(SUM(CASE WHEN sm.reason = 'purchase' THEN sm.qty ELSE 0 END), 0)::integer as qty_in,
+      COALESCE(SUM(CASE WHEN sm.reason = 'sale' THEN ABS(sm.qty) ELSE 0 END), 0)::integer as qty_out,
+      (COALESCE(SUM(CASE WHEN sm.reason = 'purchase' THEN sm.qty ELSE 0 END), 0)::integer - 
+       COALESCE(SUM(CASE WHEN sm.reason = 'sale' THEN ABS(sm.qty) ELSE 0 END), 0)::integer) as balance`;
+    } else {
+      query += `,
+      0::integer as qty_in,
+      0::integer as qty_out,
+      0::integer as balance`;
+    }
+    
+    query += `
       FROM products p
-      LEFT JOIN product_books pb ON pb.product_id = p.product_id
-      WHERE 1=1
-    `;
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id`;
+    
+    // Add stock_movements JOIN only if store_id exists
+    if (storeId) {
+      query += `
+      LEFT JOIN stock_movements sm ON sm.product_id = p.product_id AND sm.store_id = $1`;
+    }
+    
+    query += `
+      WHERE 1=1`;
+    
     const params: any[] = [];
-    let paramCount = 0;
+    let paramCount = storeId ? 1 : 0;
+    
+    // Add store_id as first parameter if it exists
+    if (storeId) {
+      params.push(storeId);
+    }
 
     if (filters.search) {
       paramCount++;
@@ -80,7 +117,13 @@ export class ProductModel extends BaseModel {
       params.push(filters.track_inventory);
     }
 
-    // Get total count - use query before adding ORDER BY, LIMIT, OFFSET
+    // Add GROUP BY clause if we're aggregating stock movements
+    if (storeId) {
+      query += `
+      GROUP BY p.product_id, pb.book_id, pb.isbn13, pb.subtitle, pb.publisher_id, pb.publish_year, pb.edition, pb.language`;
+    }
+
+    // Get total count - buildCountQuery will handle the GROUP BY properly by wrapping in subquery
     const countQuery = this.buildCountQuery(query);
     const countResult = await this.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count, 10);

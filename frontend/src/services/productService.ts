@@ -16,6 +16,9 @@ export interface Product {
   track_inventory: boolean;
   created_at: string;
   updated_at: string;
+  qty_in?: number;      // Sum of purchases
+  qty_out?: number;     // Sum of sales
+  balance?: number;     // qty_in - qty_out
 }
 
 export interface ProductFilters {

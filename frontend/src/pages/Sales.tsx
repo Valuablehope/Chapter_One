@@ -585,8 +585,10 @@ export default function Sales() {
                     ref={barcodeInputRef}
                     type="text"
                     placeholder="Scan or enter barcode..."
-                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent form submission
+                        e.stopPropagation(); // Stop event from bubbling
                         const barcode = (e.target as HTMLInputElement).value.trim();
                         if (barcode) {
                           handleBarcodeScan(barcode);

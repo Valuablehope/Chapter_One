@@ -336,8 +336,10 @@ export default function Products() {
               <input
                 type="text"
                 placeholder="Scan barcode..."
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent form submission
+                    e.stopPropagation(); // Stop event from bubbling
                     const barcode = (e.target as HTMLInputElement).value.trim();
                     if (barcode) {
                       handleBarcodeScan(barcode);
@@ -404,6 +406,9 @@ export default function Products() {
                   <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">List Price</th>
                   <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Sale Price</th>
                   <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">Inventory</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty In</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty Out</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Balance</th>
                   <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>

@@ -70,6 +70,21 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
           {product.track_inventory ? 'Tracked' : 'Not Tracked'}
         </Badge>
       </td>
+      <td className="px-3 py-2 whitespace-nowrap hidden md:table-cell">
+        <div className="text-xs font-semibold text-green-600">
+          {product.qty_in !== undefined ? product.qty_in.toLocaleString() : <span className="text-gray-400">-</span>}
+        </div>
+      </td>
+      <td className="px-3 py-2 whitespace-nowrap hidden md:table-cell">
+        <div className="text-xs font-semibold text-red-600">
+          {product.qty_out !== undefined ? product.qty_out.toLocaleString() : <span className="text-gray-400">-</span>}
+        </div>
+      </td>
+      <td className="px-3 py-2 whitespace-nowrap hidden md:table-cell">
+        <div className={`text-xs font-bold ${product.balance !== undefined && product.balance < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+          {product.balance !== undefined ? product.balance.toLocaleString() : <span className="text-gray-400">-</span>}
+        </div>
+      </td>
       <td className="px-3 py-2 whitespace-nowrap text-right">
         <div className="flex items-center justify-end gap-1.5">
           <Button
