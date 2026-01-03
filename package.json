@@ -11,12 +11,18 @@
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
     "dev:electron": "cross-env ELECTRON_IS_DEV=true wait-on http://localhost:5173 http://localhost:3001 && cd electron && cross-env ELECTRON_IS_DEV=true npm run dev",
-    "build": "npm run build:frontend && npm run build:backend && npm run build:electron",
+    "clean": "npm run clean:frontend && npm run clean:backend && npm run clean:electron && npm run clean:dist",
+    "clean:frontend": "cd frontend && rimraf dist node_modules/.vite",
+    "clean:backend": "cd backend && rimraf dist",
+    "clean:electron": "cd electron && rimraf dist",
+    "clean:dist": "rimraf dist-installer",
+    "build": "npm run clean && npm run build:frontend && npm run build:backend && npm run build:electron",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:electron": "cd electron && npm run build",
-    "build:win": "npm run build && npm run install:backend:prod && npx electron-builder --win",
+    "build:win": "npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish never",
     "install:backend:prod": "cd backend && npm install --production",
+    "prune:backend": "cd backend && npm prune --production",
     "start": "electron .",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
@@ -30,6 +36,7 @@
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron-builder": "^24.13.3",
+    "rimraf": "^6.1.2",
     "wait-on": "^7.2.0"
   },
   "build": {
@@ -58,11 +65,18 @@
       "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!**/.env",
+      "!**/.env.local",
+      "!**/.env.*.local",
+      "!**/src/**/*",
+      "!**/tsconfig.json",
+      "!**/*.ts",
+      "!**/*.tsx"
     ],
     "extraResources": [
       {
-        "from": ".env.example",
+        "from": "env.example",
         "to": ".env.example"
       }
     ],
@@ -84,8 +98,12 @@
       "createStartMenuShortcut": true,
       "installerIcon": "frontend/public/icon.ico",
       "uninstallerIcon": "frontend/public/icon.ico",
-      "installerHeaderIcon": "frontend/public/icon.ico"
-    }
+      "installerHeaderIcon": "frontend/public/icon.ico",
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "shortcutName": "${productName}"
+    },
+    "compression": "maximum",
+    "removePackageScripts": true
   },
   "workspaces": [
     "frontend",

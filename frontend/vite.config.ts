@@ -17,6 +17,25 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@heroicons/react', 'recharts'],
+          'utils-vendor': ['axios', 'zustand', 'clsx', 'tailwind-merge'],
+        },
+      },
+    },
+    sourcemap: false, // Disable sourcemaps for production
+    reportCompressedSize: true,
+    chunkSizeWarningLimit: 1000,
   },
   define: {
     'process.env': {},
