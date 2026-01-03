@@ -23,7 +23,7 @@
     "build:win": "npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish never",
     "install:backend:prod": "cd backend && npm install --production",
     "prune:backend": "cd backend && npm prune --production",
-    "start": "electron .",
+    "start": "cross-env NODE_ENV=production electron .",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../electron && npm install",

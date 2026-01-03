@@ -5,9 +5,13 @@ import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 
 // Better environment detection - use app.isPackaged for reliable detection
-const isDev = process.env.NODE_ENV === 'development' || 
-              process.env.ELECTRON_IS_DEV === 'true' ||
-              !app.isPackaged;
+// Also check if built frontend exists - if it does, prefer production mode
+const builtFrontendPath = path.join(__dirname, '../frontend/dist/index.html');
+const hasBuiltFrontend = fs.existsSync(builtFrontendPath);
+
+const isDev = (process.env.NODE_ENV === 'development' || 
+              process.env.ELECTRON_IS_DEV === 'true') &&
+              !hasBuiltFrontend && !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
@@ -224,13 +228,23 @@ function createWindow(): void {
   } else {
     // Production: Load from built files
     const indexPath = path.join(__dirname, '../frontend/dist/index.html');
+    
+    // Check if built files exist
+    if (!fs.existsSync(indexPath)) {
+      console.error('❌ Built frontend not found. Please run "npm run build" first.');
+      console.error(`   Expected at: ${indexPath}`);
+      console.error('   Or use "npm run dev" for development mode.');
+    }
+    
     mainWindow.loadURL(
       url.format({
         pathname: indexPath,
         protocol: 'file:',
         slashes: true,
       })
-    );
+    ).catch((err: Error) => {
+      console.error('Failed to load frontend:', err);
+    });
   }
 
   // Show window when ready and maximize it
