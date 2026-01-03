@@ -18,6 +18,7 @@ export interface Sale {
   subtotal: number;
   tax_total: number;
   discount_total: number;
+  discount_rate?: number;  // Discount percentage (0-100)
   grand_total: number;
   paid_total: number;
   status: SaleStatus;
@@ -46,6 +47,7 @@ export interface SalePayment {
 export interface CreateSaleData {
   customer_id?: string;
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
+  discount_rate?: number;  // Discount percentage (0-100)
   items: {
     product_id: string;
     qty: number;
@@ -286,7 +288,11 @@ export class SaleModel extends BaseModel {
         taxTotal += lineTotal * (taxRate / 100);
       }
 
-      const discountTotal = 0; // Can be added later
+      // Calculate discount_total from discount_rate if provided
+      const discountRate = data.discount_rate || 0;
+      const discountTotal = discountRate > 0 
+        ? (subtotal + taxTotal) * (discountRate / 100) 
+        : 0;
       const grandTotal = subtotal + taxTotal - discountTotal;
       const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
@@ -295,71 +301,63 @@ export class SaleModel extends BaseModel {
       }
 
       // Create sale
-      // Check if client_sale_id column exists before including it
+      // Check if client_sale_id and discount_rate columns exist before including them
       let saleQuery: string;
       let saleValues: any[];
       
       try {
-        // Check if column exists
+        // Check if columns exist
         const columnCheck = await client.query(`
           SELECT column_name 
           FROM information_schema.columns 
-          WHERE table_name = 'sales' AND column_name = 'client_sale_id'
+          WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate')
         `);
         
-        const hasClientSaleId = columnCheck.rows.length > 0;
+        const hasClientSaleId = columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id');
+        const hasDiscountRate = columnCheck.rows.some((r: any) => r.column_name === 'discount_rate');
+        
+        let paramCount = 11; // Base parameters
+        const columns: string[] = [
+          'store_id', 'terminal_id', 'cashier_id', 'customer_id',
+          'receipt_no', 'subtotal', 'tax_total', 'discount_total',
+          'grand_total', 'paid_total', 'status'
+        ];
+        const values: any[] = [
+          store.store_id,
+          terminal.terminal_id,
+          cashierId,
+          data.customer_id || null,
+          receiptNo,
+          subtotal,
+          taxTotal,
+          discountTotal,
+          grandTotal,
+          paidTotal,
+          'paid',
+        ];
+        
+        if (hasDiscountRate) {
+          columns.push('discount_rate');
+          paramCount++;
+          values.push(discountRate);
+        }
         
         if (hasClientSaleId) {
-          saleQuery = `
-            INSERT INTO sales (
-              store_id, terminal_id, cashier_id, customer_id,
-              receipt_no, subtotal, tax_total, discount_total,
-              grand_total, paid_total, status, client_sale_id
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING *
-          `;
-          saleValues = [
-            store.store_id,
-            terminal.terminal_id,
-            cashierId,
-            data.customer_id || null,
-            receiptNo,
-            subtotal,
-            taxTotal,
-            discountTotal,
-            grandTotal,
-            paidTotal,
-            'paid',
-            data.client_sale_id || null,
-          ];
-        } else {
-          // Column doesn't exist, exclude it from INSERT
-          saleQuery = `
-            INSERT INTO sales (
-              store_id, terminal_id, cashier_id, customer_id,
-              receipt_no, subtotal, tax_total, discount_total,
-              grand_total, paid_total, status
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING *
-          `;
-          saleValues = [
-            store.store_id,
-            terminal.terminal_id,
-            cashierId,
-            data.customer_id || null,
-            receiptNo,
-            subtotal,
-            taxTotal,
-            discountTotal,
-            grandTotal,
-            paidTotal,
-            'paid',
-          ];
+          columns.push('client_sale_id');
+          paramCount++;
+          values.push(data.client_sale_id || null);
         }
+        
+        const placeholders = Array.from({ length: paramCount }, (_, i) => `$${i + 1}`).join(', ');
+        
+        saleQuery = `
+          INSERT INTO sales (${columns.join(', ')})
+          VALUES (${placeholders})
+          RETURNING *
+        `;
+        saleValues = values;
       } catch (error) {
-        // Fallback: assume column doesn't exist
+        // Fallback: assume columns don't exist
         saleQuery = `
           INSERT INTO sales (
             store_id, terminal_id, cashier_id, customer_id,

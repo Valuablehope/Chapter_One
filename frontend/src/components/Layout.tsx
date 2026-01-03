@@ -12,7 +12,6 @@ import {
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  MapPinIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import {
@@ -24,7 +23,6 @@ import {
   BuildingOfficeIcon as BuildingOfficeIconSolid,
   ChartBarIcon as ChartBarIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
-  MapPinIcon as MapPinIconSolid,
   DocumentTextIcon as DocumentTextIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
@@ -34,6 +32,41 @@ import PageErrorBoundary from './PageErrorBoundary';
 import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import { CloudArrowUpIcon, WifiIcon } from '@heroicons/react/24/outline';
+
+// Classic Pushpin Icon Component
+const PushpinIcon = ({ className }: { className?: string }) => (
+  <svg 
+    className={className} 
+    fill="none" 
+    viewBox="0 0 24 24" 
+    stroke="currentColor" 
+    strokeWidth={2}
+  >
+    {/* Pin head - rounded cylinder shape */}
+    <path 
+      d="M12 3C10 3 8 5 8 7C8 9 9 10 10 11C10.5 11.5 11 12 11 13C11 13.5 10.5 14 10 14H14C13.5 14 13 13.5 13 13C13 12 13.5 11.5 14 11C15 10 16 9 16 7C16 5 14 3 12 3Z" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    {/* Pin shaft */}
+    <line x1="12" y1="14" x2="12" y2="21" strokeLinecap="round" />
+  </svg>
+);
+
+const PushpinIconSolid = ({ className }: { className?: string }) => (
+  <svg 
+    className={className} 
+    viewBox="0 0 24 24" 
+    fill="currentColor"
+  >
+    {/* Pin head - rounded cylinder shape */}
+    <path 
+      d="M12 3C10 3 8 5 8 7C8 9 9 10 10 11C10.5 11.5 11 12 11 13C11 13.5 10.5 14 10 14H14C13.5 14 13 13.5 13 13C13 12 13.5 11.5 14 11C15 10 16 9 16 7C16 5 14 3 12 3Z" 
+    />
+    {/* Pin shaft */}
+    <rect x="11" y="14" width="2" height="7" rx="1" />
+  </svg>
+);
 
 interface LayoutProps {
   children: ReactNode;
@@ -281,9 +314,9 @@ export default function Layout({ children }: LayoutProps) {
                 title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
               >
                 {isPinned ? (
-                  <MapPinIconSolid className="w-5 h-5" />
+                  <PushpinIconSolid className="w-5 h-5" />
                 ) : (
-                  <MapPinIcon className="w-5 h-5" />
+                  <PushpinIcon className="w-5 h-5" />
                 )}
               </button>
             </>
@@ -305,9 +338,9 @@ export default function Layout({ children }: LayoutProps) {
               title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
             >
               {isPinned ? (
-                <MapPinIconSolid className="w-5 h-5" />
+                <PushpinIconSolid className="w-5 h-5" />
               ) : (
-                <MapPinIcon className="w-5 h-5" />
+                <PushpinIcon className="w-5 h-5" />
               )}
             </button>
           )}

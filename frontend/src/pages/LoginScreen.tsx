@@ -49,12 +49,12 @@ export default function LoginScreen() {
   return (
     <div className="min-h-screen flex bg-white">
       {/* Left Side - Promotional Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-        <div className="absolute inset-0 rounded-[7px] overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-r-3xl">
+        <div className="absolute inset-0 rounded-r-3xl overflow-hidden">
           <img
             src="/pos-promo.png"
             alt="POS v4.0 Enterprise Point of Sale & Retail Management System"
-            className="w-full h-full object-cover rounded-[7px]"
+            className="w-full h-full object-cover rounded-r-3xl"
             onError={(e) => {
               // Fallback if image doesn't exist
               const target = e.target as HTMLImageElement;
@@ -63,7 +63,27 @@ export default function LoginScreen() {
           />
         </div>
         {/* Overlay gradient for better text readability if needed */}
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 to-transparent rounded-r-3xl"></div>
+        
+        {/* Logo Badge - Top Left */}
+        <div className="absolute top-6 left-6 z-10">
+          <div className="flex items-center gap-3 bg-white/20 backdrop-blur-2xl rounded-3xl px-5 py-3.5 shadow-2xl border border-white/30" style={{ boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)' }}>
+            <img
+              src="/icon.png"
+              alt="Chapter One POS Logo"
+              className="w-10 h-10 object-contain rounded-[7px]"
+              onError={(e) => {
+                // Hide image if it doesn't exist
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-lg font-semibold text-white" style={{ textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)' }}>Chapter One POS</h2>
+              <span className="text-xs font-medium text-white/90" style={{ textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)' }}>V4.0</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Right Side - Login Form */}
@@ -88,7 +108,7 @@ export default function LoginScreen() {
           </div>
 
           {/* Desktop Header - Minimal */}
-          <div className="hidden lg:block mb-8 animate-slide-up">
+          <div className="hidden lg:block mb-8 animate-slide-up text-center">
             <h1 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">
               Welcome Back
             </h1>
@@ -244,6 +264,18 @@ export default function LoginScreen() {
               <p className="text-sm text-gray-500 font-semibold">
                 Version 4.0.0 • Secure & Professional
               </p>
+              <div className="mt-4 flex justify-center">
+                <img
+                  src="/cubiq-logo.jpg"
+                  alt="Cubiq"
+                  className="h-6 object-contain opacity-70 hover:opacity-100 transition-opacity duration-200"
+                  onError={(e) => {
+                    // Hide image if it doesn't exist
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+              </div>
             </div>
           </div>
 

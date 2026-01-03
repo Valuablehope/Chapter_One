@@ -46,6 +46,7 @@ export default function Sales() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [discountRate, setDiscountRate] = useState('');
   const [processing, setProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState('');
@@ -69,7 +70,10 @@ export default function Sales() {
     const tax = item.tax_rate ? (itemSubtotal * Number(item.tax_rate)) / 100 : 0;
     return sum + tax;
   }, 0);
-  const grandTotal = subtotal + taxTotal;
+  const discountAmount = discountRate 
+    ? (subtotal + taxTotal) * (parseFloat(discountRate) / 100) 
+    : 0;
+  const grandTotal = subtotal + taxTotal - discountAmount;
 
   // Search products with debouncing (300ms delay)
   const debouncedSearch = useDebouncedCallback(async (query: string) => {
@@ -359,11 +363,12 @@ export default function Sales() {
 
       const saleData = {
         customer_id: selectedCustomer?.customer_id,
+        discount_rate: discountRate ? parseFloat(discountRate) : undefined,
         items: validItems,
         payments: [
           {
             method: paymentMethod,
-            amount: amount,
+            amount: grandTotal,  // Save the amount due (grand total), not the payment amount entered
           },
         ],
       };
@@ -441,6 +446,7 @@ export default function Sales() {
     setReceiptCustomer(null);
     setCart([]);
     setSelectedCustomer(null);
+    setDiscountRate(''); // Clear discount
     // Focus barcode input instead of search
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
@@ -842,6 +848,35 @@ export default function Sales() {
                   <span className="font-medium text-xs text-gray-700">Tax:</span>
                   <span className="font-bold text-xs text-gray-900">${taxTotal.toFixed(2)}</span>
                 </div>
+                
+                {/* Discount Percentage Input */}
+                <div className="p-2 bg-white/60 rounded-lg">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-medium text-xs text-gray-700">Discount %:</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={discountRate}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
+                          setDiscountRate(value);
+                        }
+                      }}
+                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
+                    <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>Discount Amount:</span>
+                    <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                      {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                
                 <div className="border-t-2 border-secondary-300 pt-2 mt-2">
                   <div className="flex justify-between items-center p-3 bg-secondary-500 rounded-lg text-white">
                     <span className="text-base font-bold">Total:</span>
@@ -1219,7 +1254,7 @@ export default function Sales() {
                   <>
                     {Number(completedSale.discount_total) > 0 && (
                       <div className="flex justify-between items-center text-secondary-500 pb-2">
-                        <span className="font-medium">Discount</span>
+                        <span className="font-medium">Discount{completedSale.discount_rate ? ` (${completedSale.discount_rate}%)` : ''}</span>
                         <span className="font-bold">-{formatCurrency(Number(completedSale.discount_total))}</span>
                       </div>
                     )}
@@ -1243,7 +1278,7 @@ export default function Sales() {
                     )}
                     {Number(completedSale.discount_total) > 0 && (
                       <div className="flex justify-between items-center text-secondary-500">
-                        <span className="font-medium">Discount</span>
+                        <span className="font-medium">Discount{completedSale.discount_rate ? ` (${completedSale.discount_rate}%)` : ''}</span>
                         <span className="font-bold">-{formatCurrency(Number(completedSale.discount_total))}</span>
                       </div>
                     )}
