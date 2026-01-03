@@ -28,10 +28,16 @@ export default function LoginScreen() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error?.message ||
-        err.message ||
-        'Login failed. Please check your credentials.';
+      let errorMessage = 'Login failed. Please check your credentials.';
+      
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        errorMessage = 'Connection timed out. Please check your internet connection and try again.';
+      } else if (err.response?.data?.error?.message) {
+        errorMessage = err.response.data.error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
       setTimeout(() => setError(''), 5000);
     } finally {

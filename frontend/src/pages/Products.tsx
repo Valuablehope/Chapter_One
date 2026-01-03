@@ -212,8 +212,12 @@ export default function Products() {
       toast.success(editingProduct ? 'Product updated successfully' : 'Product created successfully');
       loadProducts();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error?.message || 'Failed to save product';
-      toast.error(errorMessage);
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        const errorMessage = err.response?.data?.error?.message || 'Failed to save product';
+        toast.error(errorMessage);
+      }
       console.error('Error saving product:', err);
     } finally {
       setSubmitting(false);
@@ -230,8 +234,12 @@ export default function Products() {
       toast.success('Product deleted successfully');
       loadProducts();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error?.message || 'Failed to delete product';
-      toast.error(errorMessage);
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        const errorMessage = err.response?.data?.error?.message || 'Failed to delete product';
+        toast.error(errorMessage);
+      }
       console.error('Error deleting product:', err);
     }
   }, [loadProducts]);

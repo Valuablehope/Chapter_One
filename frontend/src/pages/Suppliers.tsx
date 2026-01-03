@@ -162,9 +162,13 @@ export default function Suppliers() {
       toast.success(editingSupplier ? 'Supplier updated successfully' : 'Supplier created successfully');
       loadSuppliers();
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error?.message || 'Failed to save supplier';
-      toast.error(errorMessage);
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        const errorMessage =
+          err.response?.data?.error?.message || 'Failed to save supplier';
+        toast.error(errorMessage);
+      }
       console.error('Error saving supplier:', err);
     } finally {
       setSubmitting(false);
@@ -185,9 +189,13 @@ export default function Suppliers() {
       toast.success('Supplier deleted successfully');
       loadSuppliers();
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error?.message || 'Failed to delete supplier';
-      toast.error(errorMessage);
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        const errorMessage =
+          err.response?.data?.error?.message || 'Failed to delete supplier';
+        toast.error(errorMessage);
+      }
       console.error('Error deleting supplier:', err);
     }
   };

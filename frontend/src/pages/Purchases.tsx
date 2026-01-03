@@ -321,7 +321,11 @@ export default function Purchases() {
 
       loadPurchaseOrders();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to save purchase order');
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(err.response?.data?.error?.message || 'Failed to save purchase order');
+      }
       logger.error('Error saving purchase order:', err);
     } finally {
       setSubmitting(false);
@@ -355,7 +359,11 @@ export default function Purchases() {
       toast.success('Purchase order deleted successfully');
       loadPurchaseOrders();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to delete purchase order');
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(err.response?.data?.error?.message || 'Failed to delete purchase order');
+      }
       logger.error('Error deleting purchase order:', err);
     }
   };

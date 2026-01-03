@@ -42,27 +42,41 @@ export interface StoreSettingsInput {
 export class StoreSettingsModel extends BaseModel {
   // Cache for available columns
   private static availableColumns: Set<string> | null = null;
+  private static columnsCheckPromise: Promise<Set<string>> | null = null;
 
   // Get available columns from store_settings table
   private static async getAvailableColumns(): Promise<Set<string>> {
+    // Return cached result immediately if available
     if (this.availableColumns !== null) {
       return this.availableColumns;
     }
 
-    try {
-      const query = `
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'store_settings'
-      `;
-      const result = await this.query<{ column_name: string }>(query);
-      this.availableColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
-      return this.availableColumns;
-    } catch (error) {
-      console.warn('Could not fetch store_settings columns, using defaults');
-      this.availableColumns = new Set();
-      return this.availableColumns;
+    // If a check is already in progress, wait for it instead of starting a new one
+    if (this.columnsCheckPromise) {
+      return this.columnsCheckPromise;
     }
+
+    // Start new check
+    this.columnsCheckPromise = (async () => {
+      try {
+        const query = `
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'store_settings'
+        `;
+        const result = await this.query<{ column_name: string }>(query);
+        this.availableColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
+        this.columnsCheckPromise = null; // Clear promise after completion
+        return this.availableColumns;
+      } catch (error) {
+        this.columnsCheckPromise = null; // Clear promise on error
+        console.warn('Could not fetch store_settings columns, using defaults', error);
+        this.availableColumns = new Set();
+        return this.availableColumns;
+      }
+    })();
+
+    return this.columnsCheckPromise;
   }
 
   static async findByStoreId(storeId: string): Promise<StoreSettings | null> {

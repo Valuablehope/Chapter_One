@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { StoreModel, StoreFilters } from '../models/StoreModel';
 import { StoreSettingsModel, StoreSettingsInput } from '../models/StoreSettingsModel';
 import { CustomError, asyncHandler } from '../middleware/errorHandler';
+import { logger } from '../utils/logger';
 
 export const getStores = asyncHandler(async (req: Request, res: Response) => {
   const filters: StoreFilters = {
@@ -91,6 +92,8 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateStore = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  
+  logger.info(`[StoreController] Starting update for store ${id}`);
   const existing = await StoreModel.findById(id);
 
   if (!existing) {
@@ -116,8 +119,10 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     ...storeData
   } = req.body;
 
+  logger.info(`[StoreController] Updating store fields for ${id}`);
   // Update store (only existing columns)
   const store = await StoreModel.update(id, storeData);
+  logger.info(`[StoreController] Store fields updated for ${id}`);
 
   // Update store settings if provided
   const settings: StoreSettingsInput = {
@@ -140,12 +145,16 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
   // Only update settings if at least one setting field is provided
   const hasSettings = Object.values(settings).some(value => value !== undefined);
   if (hasSettings) {
+    logger.info(`[StoreController] Updating store settings for ${id}`);
     await StoreSettingsModel.createOrUpdate(id, settings);
+    logger.info(`[StoreController] Store settings updated for ${id}`);
   }
 
+  logger.info(`[StoreController] Fetching complete store for ${id}`);
   // Fetch complete store with settings
   const completeStore = await StoreModel.findById(id);
 
+  logger.info(`[StoreController] Store update complete for ${id}`);
   res.json({
     success: true,
     data: completeStore,

@@ -3,13 +3,14 @@ import { useAuthStore } from '../store/authStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-// Create axios instance
+// Create axios instance with timeout
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Include cookies in requests
+  timeout: 30000, // 30 second timeout for all requests
 });
 
 // Helper function to create a request with cancellation support
@@ -37,6 +38,12 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Handle timeout errors
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      error.isTimeout = true;
+      error.message = 'Request timed out. Please check your connection and try again.';
+    }
+    
     if (error.response?.status === 401) {
       // Unauthorized - clear auth and redirect to login
       useAuthStore.getState().logout();

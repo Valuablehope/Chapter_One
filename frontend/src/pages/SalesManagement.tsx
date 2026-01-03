@@ -328,7 +328,11 @@ export default function SalesManagement() {
       setEditCustomer(null);
       loadSales();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to update sale');
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(err.response?.data?.error?.message || 'Failed to update sale');
+      }
       logger.error('Error updating sale:', err);
     } finally {
       setSubmitting(false);

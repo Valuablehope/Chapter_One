@@ -13,3 +13,4 @@ WHERE client_sale_id IS NOT NULL;
 
 
 
+

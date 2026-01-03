@@ -162,9 +162,13 @@ export default function Customers() {
       toast.success(editingCustomer ? 'Customer updated successfully' : 'Customer created successfully');
       loadCustomers();
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error?.message || 'Failed to save customer';
-      toast.error(errorMessage);
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        const errorMessage =
+          err.response?.data?.error?.message || 'Failed to save customer';
+        toast.error(errorMessage);
+      }
       console.error('Error saving customer:', err);
     } finally {
       setSubmitting(false);
@@ -185,9 +189,13 @@ export default function Customers() {
       toast.success('Customer deleted successfully');
       loadCustomers();
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error?.message || 'Failed to delete customer';
-      toast.error(errorMessage);
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        const errorMessage =
+          err.response?.data?.error?.message || 'Failed to delete customer';
+        toast.error(errorMessage);
+      }
       console.error('Error deleting customer:', err);
     }
   };

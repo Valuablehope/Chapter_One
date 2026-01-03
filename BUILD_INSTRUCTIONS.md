@@ -103,3 +103,4 @@ After building:
 3. Test database connection with sample `.env`
 4. Distribute installer and `INSTALLATION_INSTRUCTIONS.md` to clients
 
+

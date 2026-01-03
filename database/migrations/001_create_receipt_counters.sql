@@ -23,3 +23,4 @@ COMMENT ON TABLE daily_receipt_counters IS 'Atomic counter for daily receipt num
 
 
 
+

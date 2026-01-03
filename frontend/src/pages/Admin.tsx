@@ -213,8 +213,17 @@ export default function Admin() {
       toast.success(editingUser ? 'User updated successfully' : 'User created successfully');
       loadUsers();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to save user');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to save user');
+      }
     } finally {
       setSubmittingUser(false);
     }
@@ -231,8 +240,17 @@ export default function Admin() {
       toast.success('User deleted successfully');
       loadUsers();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to delete user');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to delete user');
+      }
     }
   };
 
@@ -323,8 +341,17 @@ export default function Admin() {
       loadStores();
       if (activeTab === 'terminals') loadStoresForDropdown();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to save store');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to save store');
+      }
     } finally {
       setSubmittingStore(false);
     }
@@ -338,8 +365,17 @@ export default function Admin() {
       loadStores();
       if (activeTab === 'terminals') loadStoresForDropdown();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to delete store');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to delete store');
+      }
     }
   };
 
@@ -387,8 +423,17 @@ export default function Admin() {
       toast.success(editingTerminal ? 'Terminal updated successfully' : 'Terminal created successfully');
       loadTerminals();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to save terminal');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to save terminal');
+      }
     } finally {
       setSubmittingTerminal(false);
     }
@@ -401,8 +446,17 @@ export default function Admin() {
       toast.success('Terminal deleted successfully');
       loadTerminals();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to delete terminal');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to delete terminal');
+      }
     }
   };
 

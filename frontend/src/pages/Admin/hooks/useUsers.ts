@@ -171,8 +171,17 @@ export function useUsers() {
       toast.success(editingUser ? 'User updated successfully' : 'User created successfully');
       loadUsers();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to save user');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to save user');
+      }
       logger.error('Error saving user:', err);
     } finally {
       setSubmitting(false);
@@ -191,8 +200,17 @@ export function useUsers() {
       toast.success('User deleted successfully');
       loadUsers();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to delete user');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to delete user');
+      }
       logger.error('Error deleting user:', err);
     }
   }, [user, loadUsers]);

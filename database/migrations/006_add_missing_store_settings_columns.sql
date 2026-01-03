@@ -53,3 +53,4 @@ COMMENT ON COLUMN store_settings.receipt_header IS 'Custom header text for recei
 
 
 
+

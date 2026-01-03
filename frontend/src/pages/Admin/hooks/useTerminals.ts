@@ -150,8 +150,17 @@ export function useTerminals() {
       toast.success(editingTerminal ? 'Terminal updated successfully' : 'Terminal created successfully');
       loadTerminals();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to save terminal');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to save terminal');
+      }
       logger.error('Error saving terminal:', err);
     } finally {
       setSubmitting(false);
@@ -166,8 +175,17 @@ export function useTerminals() {
       toast.success('Terminal deleted successfully');
       loadTerminals();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: { message?: string } } } };
-      toast.error(error.response?.data?.error?.message || 'Failed to delete terminal');
+      const error = err as { 
+        response?: { data?: { error?: { message?: string } } }; 
+        isTimeout?: boolean;
+        message?: string;
+      };
+      
+      if (error.isTimeout || error.message?.includes('timeout')) {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to delete terminal');
+      }
       logger.error('Error deleting terminal:', err);
     }
   }, [loadTerminals]);
