@@ -108,7 +108,7 @@ export default class PageErrorBoundary extends Component<Props, State> {
                 </Button>
               </div>
 
-              {this.state.error && process.env.NODE_ENV === 'development' && (
+              {this.state.error && import.meta.env.DEV && (
                 <details className="mt-8 text-left">
                   <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-3 hover:text-gray-900">
                     Error Details (Development Only)
