@@ -36,6 +36,7 @@ Thumbs.db
 # Electron
 out/
 release/
+dist-installer/
 
 # Testing
 coverage/
