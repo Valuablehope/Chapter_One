@@ -72,12 +72,12 @@ export default function SplashScreen() {
           <div className="relative mx-auto w-32 h-32 mb-6">
             {/* Outer Glow Ring */}
             <div className="absolute inset-0 rounded-3xl bg-secondary-500 opacity-20 blur-xl animate-pulse-slow"></div>
-            
+
             {/* Logo Container */}
             <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center transform transition-all duration-500 hover:scale-105 hover:rotate-3 p-3">
               {/* Logo Icon */}
               <img
-                src="/icon.png"
+                src="icon.png"
                 alt="Chapter One POS Logo"
                 className="w-full h-full object-contain animate-float"
               />
@@ -110,10 +110,10 @@ export default function SplashScreen() {
               <span className="text-sm font-semibold text-gray-700">{loadingStage}</span>
               <span className="text-sm font-bold text-secondary-500">{loadingProgress}%</span>
             </div>
-            
+
             {/* Progress Bar Container */}
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-secondary-500 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
                 style={{ width: `${loadingProgress}%` }}
               >

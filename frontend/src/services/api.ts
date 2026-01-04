@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore';
 // In development, use VITE_API_URL or default to localhost:3001
 // For Electron apps, always use localhost:3001 (backend runs locally)
 // For browser dev, use VITE_API_URL or default to localhost:3001
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3001';
 
 // Create axios instance with timeout
 export const api = axios.create({
@@ -48,7 +48,7 @@ api.interceptors.response.use(
       error.isTimeout = true;
       error.message = 'Request timed out. Please check your connection and try again.';
     }
-    
+
     if (error.response?.status === 401) {
       // Unauthorized - clear auth and redirect to login
       useAuthStore.getState().logout();

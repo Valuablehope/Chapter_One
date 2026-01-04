@@ -60,7 +60,7 @@ export const login = asyncHandler(
     res.cookie('token', token, {
       httpOnly: true,
       secure: isProduction, // Only use HTTPS in production
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
     });
@@ -115,7 +115,7 @@ export const refreshToken = asyncHandler(
     res.cookie('token', newToken, {
       httpOnly: true,
       secure: isProduction, // Only use HTTPS in production
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
     });
@@ -136,7 +136,7 @@ export const logout = asyncHandler(
     res.clearCookie('token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       path: '/',
     });
 

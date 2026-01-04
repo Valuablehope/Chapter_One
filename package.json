@@ -10,7 +10,7 @@
     "dev": "concurrently --kill-others -n \"backend,frontend,electron\" -c \"blue,green,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
-    "dev:electron": "cross-env ELECTRON_IS_DEV=true wait-on http://localhost:5173 http://localhost:3001 && cd electron && cross-env ELECTRON_IS_DEV=true npm run dev",
+    "dev:electron": "cross-env ELECTRON_IS_DEV=true wait-on http://127.0.0.1:5173 http://127.0.0.1:3001 && cd electron && cross-env ELECTRON_IS_DEV=true npm run dev",
     "clean": "node scripts/clean-build.js && npm run clean:dist",
     "clean:frontend": "node scripts/clean-build.js",
     "clean:backend": "node scripts/clean-build.js",
@@ -20,9 +20,9 @@
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:electron": "cd electron && npm run build",
-    "build:win": "npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish never",
-    "install:backend:prod": "cd backend && npm install --production",
-    "prune:backend": "cd backend && npm prune --production",
+    "build:win": "npm install && npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish never",
+    "install:backend:prod": "cd backend && npm install --omit=dev --no-workspaces",
+    "prune:backend": "cd backend && npm prune --production --no-workspaces",
     "start": "cross-env NODE_ENV=production electron .",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
@@ -79,6 +79,10 @@
       "!**/*.tsx"
     ],
     "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      },
       {
         "from": "env.example",
         "to": ".env.example"

@@ -114,6 +114,8 @@ function startBackendServer(): void {
 
   console.log(`🚀 Starting backend server from: ${serverPath}`);
   console.log(`📦 Using node_modules from: ${nodeModulesPath}`);
+  console.log(`📂 Working directory: ${backendDir}`);
+  console.log(`📄 Using .env path: ${envPath || 'none'}`);
 
   // Use the Node.js executable that's running Electron
   const nodeExecutable = process.execPath;
@@ -249,8 +251,8 @@ function createWindow(): void {
   // Load the app
   if (isDev) {
     // Development: Load from Vite dev server
-    console.log('🔧 Development mode: Loading from http://localhost:5173');
-    mainWindow.loadURL('http://localhost:5173').catch((err: Error) => {
+    console.log('🔧 Development mode: Loading from http://127.0.0.1:5173');
+    mainWindow.loadURL('http://127.0.0.1:5173').catch((err: Error) => {
       console.error('Failed to load frontend:', err);
     });
   } else {
@@ -295,7 +297,7 @@ function createWindow(): void {
       // In dev, try to reload after a delay if Vite server isn't ready
       console.log('Retrying to load from Vite dev server in 2 seconds...');
       setTimeout(() => {
-        mainWindow?.loadURL('http://localhost:5173').catch((err: Error) => {
+        mainWindow?.loadURL('http://127.0.0.1:5173').catch((err: Error) => {
           console.error('Retry failed:', err);
         });
       }, 2000);

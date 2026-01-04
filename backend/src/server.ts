@@ -31,20 +31,24 @@ import * as fs from 'fs';
 // Find root directory by looking for .env file
 // Go up from backend/src/ (2 levels) or backend/dist/ (2 levels)
 function findEnvFile(): string {
+  // 1. Check current directory and parents
   let currentDir = __dirname;
-  const maxDepth = 5; // Prevent infinite loop
+  const maxDepth = 5;
 
   for (let i = 0; i < maxDepth; i++) {
     const envPath = path.join(currentDir, '.env');
-    if (fs.existsSync(envPath)) {
-      return envPath;
-    }
+    if (fs.existsSync(envPath)) return envPath;
     const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) break; // Reached filesystem root
+    if (parentDir === currentDir) break;
     currentDir = parentDir;
   }
 
-  // Fallback: try root directory (2 levels up from backend/src)
+  // 2. Check production resources path (Electron)
+  // In production, __dirname is .../resources/app.asar.unpacked/backend/dist
+  const productionEnvPath = path.resolve(__dirname, '../../../../.env');
+  if (fs.existsSync(productionEnvPath)) return productionEnvPath;
+
+  // 3. Last resort fallback
   return path.resolve(__dirname, '../../.env');
 }
 
@@ -171,18 +175,22 @@ async function startServer(): Promise<void> {
     await pool.query('SELECT NOW()');
     logger.info('✅ Database connection validated');
   } catch (error) {
-    logger.error('❌ Database connection failed:', {
+    logger.warn('⚠️  Database connection failed during startup:', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    logger.error('Server cannot start without a valid database connection.');
-    logger.error('Please check your database configuration in the .env file.');
-    process.exit(1);
+    logger.warn('Backend will continue to run, but API requests requiring DB will fail.');
+    logger.warn('Please check your database configuration in the .env file.');
+    // DO NOT exit(1) here in production - keep the server running so we don't get ERR_CONNECTION_REFUSED
+    if (!isProduction) {
+      // In dev, we still might want to exit to force fix
+      // but let's keep it running for now for consistency
+    }
   }
 
   // Start server
-  const server = app.listen(PORT, () => {
-    logger.info(`🚀 Server running on http://localhost:${PORT}`);
-    logger.info(`📊 Health check: http://localhost:${PORT}/health`);
+  const server = app.listen(Number(PORT), '127.0.0.1', () => {
+    logger.info(`🚀 Server running on http://127.0.0.1:${PORT}`);
+    logger.info(`📊 Health check: http://127.0.0.1:${PORT}/health`);
     logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   });
 

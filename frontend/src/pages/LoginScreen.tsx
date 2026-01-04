@@ -29,7 +29,7 @@ export default function LoginScreen() {
       }
     } catch (err: any) {
       let errorMessage = 'Login failed. Please check your credentials.';
-      
+
       if (err.isTimeout || err.message?.includes('timeout')) {
         errorMessage = 'Connection timed out. Please check your internet connection and try again.';
       } else if (err.response?.data?.error?.message) {
@@ -37,7 +37,7 @@ export default function LoginScreen() {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
       setTimeout(() => setError(''), 5000);
     } finally {
@@ -52,7 +52,7 @@ export default function LoginScreen() {
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-r-3xl">
         <div className="absolute inset-0 rounded-r-3xl overflow-hidden">
           <img
-            src="/pos-promo.png"
+            src="pos-promo.png"
             alt="POS v4.0 Enterprise Point of Sale & Retail Management System"
             className="w-full h-full object-cover rounded-r-3xl"
             onError={(e) => {
@@ -64,12 +64,12 @@ export default function LoginScreen() {
         </div>
         {/* Overlay gradient for better text readability if needed */}
         <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 to-transparent rounded-r-3xl"></div>
-        
+
         {/* Logo Badge - Top Left */}
         <div className="absolute top-6 left-6 z-10">
           <div className="flex items-center gap-3 bg-white/20 backdrop-blur-2xl rounded-3xl px-5 py-3.5 shadow-2xl border border-white/30" style={{ boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)' }}>
             <img
-              src="/icon.png"
+              src="icon.png"
               alt="Chapter One POS Logo"
               className="w-10 h-10 object-contain rounded-[7px]"
               onError={(e) => {
@@ -95,7 +95,7 @@ export default function LoginScreen() {
               <div className="absolute inset-0 rounded-3xl bg-secondary-500 opacity-20 blur-xl animate-pulse-slow"></div>
               <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center p-2">
                 <img
-                  src="/icon.png"
+                  src="icon.png"
                   alt="Chapter One POS Logo"
                   className="w-full h-full object-contain"
                 />
@@ -155,11 +155,10 @@ export default function LoginScreen() {
                     required
                     autoFocus
                     disabled={isLoading}
-                    className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${
-                      focusedField === 'username'
+                    className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${focusedField === 'username'
                         ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
                         : 'border-gray-200 hover:border-gray-300'
-                    } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
+                      } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
                     placeholder="Enter your username"
                   />
                 </div>
@@ -191,11 +190,10 @@ export default function LoginScreen() {
                     onBlur={() => setFocusedField(null)}
                     required
                     disabled={isLoading}
-                    className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${
-                      focusedField === 'password'
+                    className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${focusedField === 'password'
                         ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
                         : 'border-gray-200 hover:border-gray-300'
-                    } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
+                      } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
                     placeholder="Enter your password"
                   />
                   <button
@@ -266,7 +264,7 @@ export default function LoginScreen() {
               </p>
               <div className="mt-4 flex justify-center">
                 <img
-                  src="/cubiq-logo.jpg"
+                  src="cubiq-logo.jpg"
                   alt="Cubiq"
                   className="h-6 object-contain opacity-70 hover:opacity-100 transition-opacity duration-200"
                   onError={(e) => {

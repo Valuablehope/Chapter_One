@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import SplashScreen from './pages/SplashScreen';
 import LoginScreen from './pages/LoginScreen';
@@ -28,10 +28,10 @@ const PageLoader = () => (
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
-          <Route path="/" element={<SplashScreen />} />
-          <Route path="/login" element={<LoginScreen />} />
+        <Route path="/" element={<SplashScreen />} />
+        <Route path="/login" element={<LoginScreen />} />
         <Route
           path="/dashboard"
           element={
@@ -140,9 +140,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-          <Route path="*" element={<Navigate to="/sales" replace />} />
-        </Routes>
-    </BrowserRouter>
+        <Route path="*" element={<Navigate to="/sales" replace />} />
+      </Routes>
+    </HashRouter>
   );
 }
 

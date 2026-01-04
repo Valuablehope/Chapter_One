@@ -8,20 +8,24 @@ import { dbCircuitBreaker } from '../utils/circuitBreaker';
 // Find root directory by looking for .env file
 // Go up from backend/src/config/ (3 levels) or backend/dist/config/ (3 levels)
 function findEnvFile(): string {
+  // 1. Check current directory and parents
   let currentDir = __dirname;
-  const maxDepth = 5; // Prevent infinite loop
-  
+  const maxDepth = 5;
+
   for (let i = 0; i < maxDepth; i++) {
     const envPath = path.join(currentDir, '.env');
-    if (fs.existsSync(envPath)) {
-      return envPath;
-    }
+    if (fs.existsSync(envPath)) return envPath;
     const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) break; // Reached filesystem root
+    if (parentDir === currentDir) break;
     currentDir = parentDir;
   }
-  
-  // Fallback: try root directory (3 levels up from backend/src/config)
+
+  // 2. Check production resources path (Electron)
+  // In production, __dirname is .../resources/app.asar.unpacked/backend/dist
+  const productionEnvPath = path.resolve(__dirname, '../../../../.env');
+  if (fs.existsSync(productionEnvPath)) return productionEnvPath;
+
+  // 3. Last resort fallback
   return path.resolve(__dirname, '../../../.env');
 }
 
@@ -56,8 +60,8 @@ if (process.env.DATABASE_URL) {
     logger.info('📦 Using individual database variables');
   }
   // Use individual variables
-  const dbPassword = process.env.DB_PASSWORD !== undefined 
-    ? String(process.env.DB_PASSWORD) 
+  const dbPassword = process.env.DB_PASSWORD !== undefined
+    ? String(process.env.DB_PASSWORD)
     : '';
 
   if (!dbPassword && process.env.NODE_ENV !== 'test') {
@@ -67,7 +71,7 @@ if (process.env.DATABASE_URL) {
   }
 
   dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || '127.0.0.1',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     database: process.env.DB_NAME || 'Chapter_One',
     user: process.env.DB_USER || 'postgres',
@@ -99,7 +103,7 @@ function isFatalError(err: Error): boolean {
     'invalid connection string',
     'connection refused',
   ];
-  
+
   const errorMessage = err.message.toLowerCase();
   return fatalPatterns.some(pattern => {
     const regex = new RegExp(pattern);
@@ -110,18 +114,18 @@ function isFatalError(err: Error): boolean {
 // Handle pool errors with graceful degradation
 pool.on('error', (err: Error) => {
   logger.error('Database pool error', { error: err.message, stack: err.stack });
-  
+
   if (isFatalError(err)) {
     consecutiveFatalErrors++;
-    logger.fatal('Fatal database error detected', { 
-      error: err.message, 
-      consecutiveErrors: consecutiveFatalErrors 
+    logger.fatal('Fatal database error detected', {
+      error: err.message,
+      consecutiveErrors: consecutiveFatalErrors
     });
-    
+
     // Only exit after multiple consecutive fatal errors
     if (consecutiveFatalErrors >= MAX_FATAL_ERRORS) {
-      logger.fatal('Too many consecutive fatal database errors, shutting down', { 
-        error: err.message 
+      logger.fatal('Too many consecutive fatal database errors, shutting down', {
+        error: err.message
       });
       // Give time for graceful shutdown
       setTimeout(() => {
@@ -142,7 +146,7 @@ export function startHealthMonitoring(): void {
   if (healthCheckInterval) {
     return; // Already started
   }
-  
+
   healthCheckInterval = setInterval(async () => {
     try {
       await dbCircuitBreaker.execute(async () => {
@@ -150,7 +154,7 @@ export function startHealthMonitoring(): void {
       });
       consecutiveFatalErrors = 0; // Reset on successful health check
     } catch (err) {
-      logger.warn('Health check failed, pool may be unhealthy', { 
+      logger.warn('Health check failed, pool may be unhealthy', {
         error: err instanceof Error ? err.message : 'Unknown error',
         circuitState: dbCircuitBreaker.getState(),
       });
