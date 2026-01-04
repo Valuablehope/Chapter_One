@@ -15,7 +15,7 @@
     "clean:frontend": "cd frontend && rimraf dist node_modules/.vite",
     "clean:backend": "cd backend && rimraf dist",
     "clean:electron": "cd electron && rimraf dist",
-    "clean:dist": "rimraf dist-installer",
+    "clean:dist": "node scripts/clean-dist.js",
     "build": "npm run clean && npm run build:frontend && npm run build:backend && npm run build:electron",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
