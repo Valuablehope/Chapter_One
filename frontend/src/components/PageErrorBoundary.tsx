@@ -31,7 +31,7 @@ export default class PageErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error('Page Error Boundary caught an error:', error, errorInfo);
-    
+
     // Call optional error handler
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
@@ -50,7 +50,7 @@ export default class PageErrorBoundary extends Component<Props, State> {
   };
 
   private handleGoHome = () => {
-    window.location.href = '/dashboard';
+    window.location.hash = '#/dashboard';
   };
 
   public render() {
@@ -70,15 +70,15 @@ export default class PageErrorBoundary extends Component<Props, State> {
                   <ExclamationTriangleIcon className="w-12 h-12 text-red-600" />
                 </div>
               </div>
-              
+
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 Something went wrong
               </h2>
-              
+
               <p className="text-gray-600 mb-2">
                 {this.state.error?.message || 'An unexpected error occurred on this page'}
               </p>
-              
+
               <p className="text-sm text-gray-500 mb-8">
                 Don't worry, your data is safe. Try refreshing the page or navigating away.
               </p>
@@ -91,14 +91,14 @@ export default class PageErrorBoundary extends Component<Props, State> {
                 >
                   Try Again
                 </Button>
-                
+
                 <Button
                   onClick={this.handleReload}
                   variant="secondary"
                 >
                   Reload Page
                 </Button>
-                
+
                 <Button
                   onClick={this.handleGoHome}
                   variant="secondary"

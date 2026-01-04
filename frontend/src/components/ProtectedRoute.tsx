@@ -15,12 +15,12 @@ export default function ProtectedRoute({
   const { isAuthenticated, user } = useAuthStore();
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="login" replace />;
   }
 
   // Check if user's role is blocked
   if (blockedRoles && user && blockedRoles.includes(user.role)) {
-    return <Navigate to="/sales" replace />;
+    return <Navigate to="sales" replace />;
   }
 
   if (requiredRole && user && user.role !== requiredRole) {
@@ -36,7 +36,7 @@ export default function ProtectedRoute({
 
     if (userRoleLevel < requiredRoleLevel) {
       // Redirect cashiers to sales page instead of dashboard
-      const redirectPath = user.role === 'cashier' ? '/sales' : '/dashboard';
+      const redirectPath = user.role === 'cashier' ? 'sales' : 'dashboard';
       return <Navigate to={redirectPath} replace />;
     }
   }

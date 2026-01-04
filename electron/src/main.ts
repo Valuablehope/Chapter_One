@@ -3,8 +3,9 @@ import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 
-// Better environment detection - use app.isPackaged for reliable detection
-const isDev = !app.isPackaged;
+// Better environment detection
+const isDev = process.env.ELECTRON_IS_DEV === 'true' || (!app.isPackaged && process.env.NODE_ENV !== 'production');
+const isProduction = !isDev;
 const appPath = app.getAppPath();
 const resourcesPath = process.resourcesPath;
 
@@ -13,14 +14,15 @@ let backendProcess: ChildProcess | null = null;
 
 // Function to get backend paths based on dev/production
 function getBackendPaths() {
-  if (isDev) {
+  // If we are not packaged, we are running from source (either dev or npm start)
+  if (!app.isPackaged) {
     return {
       serverPath: path.join(appPath, 'backend/dist/server.js'),
       nodeModulesPath: path.join(appPath, 'backend/node_modules'),
       backendDir: path.join(appPath, 'backend'),
     };
   } else {
-    // In production, backend is unpacked from asar
+    // In actual production (packaged EXE), backend is unpacked from asar
     const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked');
     return {
       serverPath: path.join(unpackedPath, 'backend/dist/server.js'),
@@ -32,26 +34,25 @@ function getBackendPaths() {
 
 // Function to get .env file path
 function getEnvPath(): string | null {
-  if (isDev) {
-    const devEnvPath = path.join(appPath, '.env');
-    return fs.existsSync(devEnvPath) ? devEnvPath : null;
-  } else {
-    // In production, look for .env in installation directory (same as app)
-    // For portable apps, it's next to the exe. For installed apps, it might be in resources.
-    const installDir = path.dirname(app.getPath('exe'));
-    const envPath = path.join(installDir, '.env');
-
-    // Also check resources path
-    const resourcesEnvPath = path.join(resourcesPath, '.env');
-
-    if (fs.existsSync(envPath)) {
-      return envPath;
-    } else if (fs.existsSync(resourcesEnvPath)) {
-      return resourcesEnvPath;
-    }
-
-    return envPath;
+  // 1. If we are running from source (not packaged), always look in project root
+  if (!app.isPackaged) {
+    const rootEnvPath = path.join(appPath, '.env');
+    if (fs.existsSync(rootEnvPath)) return rootEnvPath;
+    return null;
   }
+
+  // 2. In packaged production, look for .env in installation directory and resources
+  const installDir = path.dirname(app.getPath('exe'));
+  const envPath = path.join(installDir, '.env');
+  const resourcesEnvPath = path.join(resourcesPath, '.env');
+
+  if (fs.existsSync(envPath)) {
+    return envPath;
+  } else if (fs.existsSync(resourcesEnvPath)) {
+    return resourcesEnvPath;
+  }
+
+  return envPath;
 }
 
 // Start backend server

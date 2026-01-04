@@ -30,14 +30,15 @@ export function useTokenRefresh() {
       try {
         isRefreshingRef.current = true;
         const response = await authService.refreshToken();
-        
-        // Update user info in store (token is automatically updated in cookie)
+
+        // Update user info and token in store
+        const currentUser = useAuthStore.getState().user;
         useAuthStore.getState().login({
           userId: response.data.user.userId,
           username: response.data.user.username,
-          fullName: response.data.user.username, // Backend doesn't return fullName in refresh
+          fullName: currentUser?.fullName || response.data.user.username,
           role: response.data.user.role as 'cashier' | 'manager' | 'admin',
-        });
+        }, response.data.token);
 
         logger.info('Token refreshed successfully');
       } catch (error) {

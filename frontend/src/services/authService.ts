@@ -14,6 +14,7 @@ export interface LoginResponse {
       fullName: string;
       role: 'cashier' | 'manager' | 'admin';
     };
+    token: string;
   };
 }
 
@@ -25,6 +26,7 @@ export interface VerifyResponse {
       username: string;
       role: string;
     };
+    token: string;
   };
 }
 
@@ -36,6 +38,7 @@ export interface RefreshResponse {
       username: string;
       role: string;
     };
+    token: string;
   };
 }
 

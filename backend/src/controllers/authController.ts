@@ -59,7 +59,7 @@ export const login = asyncHandler(
     const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction, // Only use HTTPS in production
+      secure: false, // Must be false for local http://127.0.0.1
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
@@ -75,6 +75,7 @@ export const login = asyncHandler(
           fullName: user.full_name,
           role: user.role,
         },
+        token,
       },
     });
   }
@@ -114,7 +115,7 @@ export const refreshToken = asyncHandler(
     const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('token', newToken, {
       httpOnly: true,
-      secure: isProduction, // Only use HTTPS in production
+      secure: false, // Must be false for local http://127.0.0.1
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
@@ -125,6 +126,7 @@ export const refreshToken = asyncHandler(
       success: true,
       data: {
         user: req.user,
+        token: newToken,
       },
     });
   }
@@ -135,7 +137,7 @@ export const logout = asyncHandler(
     // Clear the httpOnly cookie
     res.clearCookie('token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Must be false for local http://127.0.0.1
       sameSite: 'lax',
       path: '/',
     });

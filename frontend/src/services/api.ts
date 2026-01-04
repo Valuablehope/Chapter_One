@@ -52,7 +52,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Unauthorized - clear auth and redirect to login
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      window.location.hash = '#/login';
     } else if (error.response?.status === 403 && error.response?.data?.error?.message?.includes('CSRF')) {
       // CSRF token error - clear token and retry might be needed
       csrfToken = null;
@@ -61,14 +61,21 @@ api.interceptors.response.use(
   }
 );
 
-// Request interceptor to add CSRF token to state-changing requests
+// Request interceptor to add CSRF token and Authorization header
 api.interceptors.request.use(
   (config) => {
-    // Add CSRF token to state-changing requests
+    // 1. Add CSRF token to state-changing requests
     const method = config.method?.toUpperCase();
     if (csrfToken && method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
       config.headers['X-CSRF-Token'] = csrfToken;
     }
+
+    // 2. Add Authorization header if token exists (Fallback for Electron cookie issues)
+    const token = useAuthStore.getState().token;
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => {

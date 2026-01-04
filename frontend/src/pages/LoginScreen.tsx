@@ -23,9 +23,9 @@ export default function LoginScreen() {
       const response = await authService.login({ username, password });
 
       if (response.success) {
-        // Token is now in httpOnly cookie, only store user info
-        login(response.data.user);
-        navigate('/dashboard', { replace: true });
+        // We store the token to use in Authorization header (Reliable for Electron file://)
+        login(response.data.user, response.data.token);
+        navigate('dashboard', { replace: true });
       }
     } catch (err: any) {
       let errorMessage = 'Login failed. Please check your credentials.';
@@ -156,8 +156,8 @@ export default function LoginScreen() {
                     autoFocus
                     disabled={isLoading}
                     className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${focusedField === 'username'
-                        ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
-                        : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
+                      : 'border-gray-200 hover:border-gray-300'
                       } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
                     placeholder="Enter your username"
                   />
@@ -191,8 +191,8 @@ export default function LoginScreen() {
                     required
                     disabled={isLoading}
                     className={`w-full pl-12 pr-12 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0 transition-all duration-300 font-medium ${focusedField === 'password'
-                        ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
-                        : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-secondary-500 bg-white shadow-lg shadow-secondary-500/20'
+                      : 'border-gray-200 hover:border-gray-300'
                       } ${error ? 'border-red-300 bg-red-50' : ''} disabled:opacity-50 disabled:cursor-not-allowed`}
                     placeholder="Enter your password"
                   />

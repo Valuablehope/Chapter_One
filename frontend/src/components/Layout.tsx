@@ -35,17 +35,17 @@ import { CloudArrowUpIcon, WifiIcon } from '@heroicons/react/24/outline';
 
 // Classic Pushpin Icon Component
 const PushpinIcon = ({ className }: { className?: string }) => (
-  <svg 
-    className={className} 
-    fill="none" 
-    viewBox="0 0 24 24" 
-    stroke="currentColor" 
+  <svg
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
     strokeWidth={2}
   >
     {/* Pin head - rounded cylinder shape */}
-    <path 
-      d="M12 3C10 3 8 5 8 7C8 9 9 10 10 11C10.5 11.5 11 12 11 13C11 13.5 10.5 14 10 14H14C13.5 14 13 13.5 13 13C13 12 13.5 11.5 14 11C15 10 16 9 16 7C16 5 14 3 12 3Z" 
-      strokeLinecap="round" 
+    <path
+      d="M12 3C10 3 8 5 8 7C8 9 9 10 10 11C10.5 11.5 11 12 11 13C11 13.5 10.5 14 10 14H14C13.5 14 13 13.5 13 13C13 12 13.5 11.5 14 11C15 10 16 9 16 7C16 5 14 3 12 3Z"
+      strokeLinecap="round"
       strokeLinejoin="round"
     />
     {/* Pin shaft */}
@@ -54,14 +54,14 @@ const PushpinIcon = ({ className }: { className?: string }) => (
 );
 
 const PushpinIconSolid = ({ className }: { className?: string }) => (
-  <svg 
-    className={className} 
-    viewBox="0 0 24 24" 
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
     fill="currentColor"
   >
     {/* Pin head - rounded cylinder shape */}
-    <path 
-      d="M12 3C10 3 8 5 8 7C8 9 9 10 10 11C10.5 11.5 11 12 11 13C11 13.5 10.5 14 10 14H14C13.5 14 13 13.5 13 13C13 12 13.5 11.5 14 11C15 10 16 9 16 7C16 5 14 3 12 3Z" 
+    <path
+      d="M12 3C10 3 8 5 8 7C8 9 9 10 10 11C10.5 11.5 11 12 11 13C11 13.5 10.5 14 10 14H14C13.5 14 13 13.5 13 13C13 12 13.5 11.5 14 11C15 10 16 9 16 7C16 5 14 3 12 3Z"
     />
     {/* Pin shaft */}
     <rect x="11" y="14" width="2" height="7" rx="1" />
@@ -76,23 +76,23 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Automatically refresh token for long-running sessions
   useTokenRefresh();
-  
+
   // Manage offline sales sync
   const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  
+
   // Load pinned state from localStorage on mount
   const [isPinned, setIsPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned');
     return saved === 'true';
   });
-  
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -106,7 +106,7 @@ export default function Layout({ children }: LayoutProps) {
       console.error('Logout error:', error);
     }
     logout();
-    navigate('/login', { replace: true });
+    navigate('login', { replace: true });
   };
 
   const handleTogglePin = () => {
@@ -154,61 +154,61 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const navItems = [
-    { 
-      path: '/dashboard', 
-      label: 'Dashboard', 
-      icon: HomeIcon, 
+    {
+      path: '/dashboard',
+      label: 'Dashboard',
+      icon: HomeIcon,
       iconSolid: HomeIconSolid,
       blockedRoles: ['cashier'],
     },
-    { 
-      path: '/products', 
-      label: 'Products', 
-      icon: CubeIcon, 
+    {
+      path: '/products',
+      label: 'Products',
+      icon: CubeIcon,
       iconSolid: CubeIconSolid,
     },
-    { 
-      path: '/sales', 
-      label: 'POS Sales', 
-      icon: CurrencyDollarIcon, 
+    {
+      path: '/sales',
+      label: 'POS Sales',
+      icon: CurrencyDollarIcon,
       iconSolid: CurrencyDollarIconSolid,
     },
-    { 
-      path: '/sales-management', 
-      label: 'Sales Management', 
-      icon: DocumentTextIcon, 
+    {
+      path: '/sales-management',
+      label: 'Sales Management',
+      icon: DocumentTextIcon,
       iconSolid: DocumentTextIconSolid,
       blockedRoles: ['cashier'],
     },
-    { 
-      path: '/purchases', 
-      label: 'Purchases', 
-      icon: ShoppingCartIcon, 
+    {
+      path: '/purchases',
+      label: 'Purchases',
+      icon: ShoppingCartIcon,
       iconSolid: ShoppingCartIconSolid,
     },
-    { 
-      path: '/customers', 
-      label: 'Customers', 
-      icon: UserGroupIcon, 
+    {
+      path: '/customers',
+      label: 'Customers',
+      icon: UserGroupIcon,
       iconSolid: UserGroupIconSolid,
     },
-    { 
-      path: '/suppliers', 
-      label: 'Suppliers', 
-      icon: BuildingOfficeIcon, 
+    {
+      path: '/suppliers',
+      label: 'Suppliers',
+      icon: BuildingOfficeIcon,
       iconSolid: BuildingOfficeIconSolid,
     },
-    { 
-      path: '/reports', 
-      label: 'Reports', 
-      icon: ChartBarIcon, 
+    {
+      path: '/reports',
+      label: 'Reports',
+      icon: ChartBarIcon,
       iconSolid: ChartBarIconSolid,
     },
-    { 
-      path: '/admin', 
-      label: 'Admin Panel', 
-      icon: Cog6ToothIcon, 
-      iconSolid: Cog6ToothIconSolid, 
+    {
+      path: '/admin',
+      label: 'Admin Panel',
+      icon: Cog6ToothIcon,
+      iconSolid: Cog6ToothIconSolid,
       role: 'admin',
     },
   ];
@@ -260,15 +260,15 @@ export default function Layout({ children }: LayoutProps) {
         {/* Logo Section */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
           {(!isSidebarCollapsed || isSidebarHovered) && (
-            <Link 
-              to="/dashboard" 
+            <Link
+              to="/dashboard"
               className="flex items-center space-x-2 group flex-shrink-0 flex-1"
             >
               <div className="relative">
                 <div className="absolute inset-0 bg-secondary-400 rounded-xl blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
                 <div className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 p-1.5">
                   <img
-                    src="/icon.png"
+                    src="icon.png"
                     alt="Chapter One POS Logo"
                     className="w-full h-full object-contain"
                   />
@@ -284,15 +284,15 @@ export default function Layout({ children }: LayoutProps) {
           )}
           {(isSidebarCollapsed && !isSidebarHovered) && (
             <>
-              <Link 
-                to="/dashboard" 
+              <Link
+                to="/dashboard"
                 className="flex items-center justify-center flex-1 group"
               >
                 <div className="relative">
                   <div className="absolute inset-0 bg-secondary-400 rounded-xl blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
                   <div className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 p-1.5">
                     <img
-                      src="/icon.png"
+                      src="icon.png"
                       alt="Chapter One POS Logo"
                       className="w-full h-full object-contain"
                     />
@@ -306,8 +306,8 @@ export default function Layout({ children }: LayoutProps) {
                   flex items-center justify-center
                   w-8 h-8 rounded-lg
                   transition-all duration-200
-                  ${isPinned 
-                    ? 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200' 
+                  ${isPinned
+                    ? 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200'
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                   }
                 `}
@@ -321,7 +321,7 @@ export default function Layout({ children }: LayoutProps) {
               </button>
             </>
           )}
-          
+
           {/* Pin Button - When expanded */}
           {(!isSidebarCollapsed || isSidebarHovered) && (
             <button
@@ -330,8 +330,8 @@ export default function Layout({ children }: LayoutProps) {
                 flex items-center justify-center
                 w-8 h-8 rounded-lg
                 transition-all duration-200
-                ${isPinned 
-                  ? 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200' 
+                ${isPinned
+                  ? 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200'
                   : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }
               `}
@@ -352,7 +352,7 @@ export default function Layout({ children }: LayoutProps) {
             {filteredNavItems.map((item) => {
               const Icon = isActive(item.path) ? item.iconSolid : item.icon;
               const active = isActive(item.path);
-              
+
               return (
                 <Link
                   key={item.path}
@@ -441,7 +441,7 @@ export default function Layout({ children }: LayoutProps) {
                 <>
                   <CloudArrowUpIcon className="w-5 h-5 text-yellow-600" />
                   <span className="text-sm font-medium text-yellow-800">
-                    {isSyncing 
+                    {isSyncing
                       ? `Syncing ${pendingCount} pending sale${pendingCount > 1 ? 's' : ''}...`
                       : `${pendingCount} sale${pendingCount > 1 ? 's' : ''} pending sync`
                     }
@@ -477,11 +477,11 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         >
-          <div 
+          <div
             ref={sidebarRef}
             className="fixed top-0 left-0 bottom-0 w-64 bg-white shadow-2xl overflow-y-auto flex flex-col animate-slide-in-left"
             onClick={(e) => e.stopPropagation()}
@@ -504,20 +504,19 @@ export default function Layout({ children }: LayoutProps) {
                 </button>
               </div>
             </div>
-            
+
             <nav className="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
               {filteredNavItems.map((item) => {
                 const Icon = isActive(item.path) ? item.iconSolid : item.icon;
                 const active = isActive(item.path);
-                
+
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`group relative flex items-center space-x-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                      active ? 'text-white' : 'text-gray-700'
-                    }`}
+                    className={`group relative flex items-center space-x-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${active ? 'text-white' : 'text-gray-700'
+                      }`}
                   >
                     {active && (
                       <div className="absolute inset-0 bg-secondary-500 rounded-xl shadow-lg"></div>
@@ -534,7 +533,7 @@ export default function Layout({ children }: LayoutProps) {
                 );
               })}
             </nav>
-            
+
             {/* Mobile Menu Footer */}
             <div className="px-4 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
               <div className="flex items-center space-x-3 mb-3">
