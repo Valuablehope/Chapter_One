@@ -22,6 +22,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
 import { requestLogger } from './middleware/requestLogger';
 import { csrfProtection } from './middleware/csrf';
+import { logger } from './utils/logger';
 
 // Load environment variables from root directory
 import * as path from 'path';
@@ -50,9 +51,23 @@ function findEnvFile(): string {
 const envPath = findEnvFile();
 dotenv.config({ path: envPath });
 
-// Debug log
-if (process.env.NODE_ENV !== 'production') {
-  console.log(`📄 Loading .env from: ${envPath}`);
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Validate required environment variables in production
+if (isProduction) {
+  const requiredVars = ['JWT_SECRET', 'LICENSE_ENCRYPTION_KEY'];
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    logger.error('Application cannot start in production without these variables.');
+    process.exit(1);
+  }
+}
+
+// Debug log (only in development)
+if (!isProduction) {
+  logger.info(`📄 Loading .env from: ${envPath}`);
 }
 
 const app: Express = express();
@@ -62,20 +77,22 @@ const PORT = process.env.PORT || process.env.API_PORT || 3001;
 app.use(helmet()); // Security headers
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // In production, allow requests from Electron (no origin) and localhost
+    // In production, only allow requests from Electron (no origin) or file:///app:// protocols
     if (!origin || origin.startsWith('file://') || origin.startsWith('app://')) {
       callback(null, true);
-    } else if (process.env.NODE_ENV !== 'production') {
-      // In development, allow Vite dev server
+    } else if (!isProduction) {
+      // In development, allow Vite dev server and localhost
       callback(null, true);
     } else {
-      callback(null, true); // Allow all in production for Electron
+      // In production, reject other origins for security
+      callback(null, false);
     }
   },
   credentials: true,
 }));
 app.use(cookieParser()); // Parse cookies
-app.use(morgan('dev')); // HTTP request logging
+// Use appropriate logging format based on environment
+app.use(morgan(isProduction ? 'combined' : 'dev')); // HTTP request logging
 app.use(requestLogger); // Custom request/response logging
 app.use(express.json({ limit: '10mb' })); // Request size limit
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Request size limit
@@ -147,23 +164,45 @@ app.use((req: Request, res: Response) => {
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+// Validate database connection before starting server
+async function startServer(): Promise<void> {
+  try {
+    // Test database connection
+    await pool.query('SELECT NOW()');
+    logger.info('✅ Database connection validated');
+  } catch (error) {
+    logger.error('❌ Database connection failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    logger.error('Server cannot start without a valid database connection.');
+    logger.error('Please check your database configuration in the .env file.');
+    process.exit(1);
+  }
+
+  // Start server
+  app.listen(PORT, () => {
+    logger.info(`🚀 Server running on http://localhost:${PORT}`);
+    logger.info(`📊 Health check: http://localhost:${PORT}/health`);
+    logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
+
+// Start the server
+startServer().catch((error) => {
+  logger.error('Failed to start server:', error);
+  process.exit(1);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+  logger.info('SIGTERM signal received: closing HTTP server');
   stopHealthMonitoring();
   await pool.end();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT signal received: closing HTTP server');
+  logger.info('SIGINT signal received: closing HTTP server');
   stopHealthMonitoring();
   await pool.end();
   process.exit(0);

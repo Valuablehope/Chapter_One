@@ -28,18 +28,22 @@ function findEnvFile(): string {
 const envPath = findEnvFile();
 dotenv.config({ path: envPath });
 
-// Debug: Log which .env file is being used
-if (process.env.NODE_ENV !== 'production') {
-  console.log(`📄 Loading .env from: ${envPath}`);
-  console.log(`📄 DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Debug: Log which .env file is being used (only in development)
+if (!isProduction) {
+  logger.info(`📄 Loading .env from: ${envPath}`);
+  logger.debug(`📄 DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
 }
 
 // Support both DATABASE_URL and individual variables
 let dbConfig: PoolConfig;
 
-// Debug: Log which config method is being used
+// Debug: Log which config method is being used (only in development)
 if (process.env.DATABASE_URL) {
-  console.log('📦 Using DATABASE_URL connection string');
+  if (!isProduction) {
+    logger.info('📦 Using DATABASE_URL connection string');
+  }
   // Use connection string if provided
   dbConfig = {
     connectionString: process.env.DATABASE_URL,
@@ -48,16 +52,18 @@ if (process.env.DATABASE_URL) {
     connectionTimeoutMillis: 2000,
   };
 } else {
-  console.log('📦 Using individual database variables');
+  if (!isProduction) {
+    logger.info('📦 Using individual database variables');
+  }
   // Use individual variables
   const dbPassword = process.env.DB_PASSWORD !== undefined 
     ? String(process.env.DB_PASSWORD) 
     : '';
 
   if (!dbPassword && process.env.NODE_ENV !== 'test') {
-    console.warn('⚠️  DB_PASSWORD is not set in .env file');
-    console.warn('   Database connection will likely fail.');
-    console.warn('   Please set DB_PASSWORD or DATABASE_URL in your .env file');
+    logger.warn('⚠️  DB_PASSWORD is not set in .env file');
+    logger.warn('   Database connection will likely fail.');
+    logger.warn('   Please set DB_PASSWORD or DATABASE_URL in your .env file');
   }
 
   dbConfig = {

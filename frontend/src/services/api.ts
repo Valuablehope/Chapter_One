@@ -1,6 +1,15 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+// Determine API base URL
+// In Electron (production), backend always runs on localhost:3001
+// In development, use VITE_API_URL or default to localhost:3001
+// Check if we're in Electron by checking for window.electronAPI (exposed via preload)
+const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+
+// For Electron apps, always use localhost:3001 (backend runs locally)
+// For browser dev, use VITE_API_URL or default to localhost:3001
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Create axios instance with timeout

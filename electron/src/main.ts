@@ -145,15 +145,36 @@ function startBackendServer(): void {
   backendProcess.on('error', (error) => {
     console.error('❌ Failed to start backend server:', error);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('backend:error', error.message);
+      mainWindow.webContents.send('backend:error', {
+        message: error.message,
+        code: (error as any).code,
+        type: 'startup_error',
+      });
+      // Show error dialog to user
+      mainWindow.webContents.executeJavaScript(`
+        alert('Failed to start backend server:\\n\\n${error.message.replace(/'/g, "\\'")}\\n\\nPlease check your configuration and try again.');
+      `);
     }
   });
 
   backendProcess.on('exit', (code, signal) => {
     if (code !== 0 && code !== null) {
-      console.error(`❌ Backend server exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
+      const errorMsg = `Backend server exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
+      console.error(`❌ ${errorMsg}`);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('backend:exit', { code, signal });
+        mainWindow.webContents.send('backend:exit', { 
+          code, 
+          signal,
+          message: errorMsg,
+        });
+        // Show error notification to user (non-blocking)
+        mainWindow.webContents.executeJavaScript(`
+          if (window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('backend-error', { 
+              detail: { message: '${errorMsg.replace(/'/g, "\\'")}' }
+            }));
+          }
+        `);
       }
       // Don't auto-restart in production to avoid infinite loops
     } else {
@@ -277,6 +298,60 @@ function createWindow(): void {
           console.error('Retry failed:', err);
         });
       }, 2000);
+    } else {
+      // In production, show user-friendly error
+      console.error('Failed to load application files. The application may be corrupted.');
+      if (mainWindow) {
+        mainWindow.webContents.executeJavaScript(`
+          document.body.innerHTML = \`
+            <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: system-ui; background: #f3f4f6;">
+              <div style="text-align: center; padding: 2rem; max-width: 500px;">
+                <h1 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: #111827;">Application Error</h1>
+                <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                  Failed to load the application. Please restart the application or contact support if the problem persists.
+                </p>
+                <button onclick="location.reload()" style="padding: 0.5rem 1.5rem; background: #dc2626; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
+                  Reload Application
+                </button>
+              </div>
+            </div>
+          \`;
+        `);
+      }
+    }
+  });
+
+  // Handle uncaught exceptions in renderer
+  mainWindow.webContents.on('unresponsive', () => {
+    console.warn('Window became unresponsive');
+    if (mainWindow) {
+      const { dialog } = require('electron');
+      const choice = dialog.showMessageBoxSync(mainWindow, {
+        type: 'warning',
+        title: 'Application Not Responding',
+        message: 'The application is not responding. Would you like to wait or reload?',
+        buttons: ['Wait', 'Reload', 'Close'],
+        defaultId: 0,
+      });
+      
+      if (choice === 1) {
+        mainWindow.reload();
+      } else if (choice === 2) {
+        mainWindow.close();
+      }
+    }
+  });
+
+  // Handle renderer process crash
+  mainWindow.webContents.on('render-process-gone', (_event: any, details: any) => {
+    console.error('Renderer process crashed:', details);
+    if (mainWindow && details.reason !== 'killed') {
+      const { dialog } = require('electron');
+      dialog.showErrorBox(
+        'Application Crashed',
+        'The application has crashed. It will be reloaded.'
+      );
+      mainWindow.reload();
     }
   });
 }

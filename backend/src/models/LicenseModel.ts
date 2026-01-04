@@ -1,6 +1,7 @@
 import { BaseModel } from './BaseModel';
 import { pool } from '../config/database';
 import { SaleModel } from './SaleModel';
+import { logger } from '../utils/logger';
 
 export interface License {
   license_id: string;
@@ -102,18 +103,26 @@ export class LicenseModel extends BaseModel {
     } catch (error: any) {
       // If the decrypt function doesn't exist or fails, try alternative method
       // This can happen if the SQL script hasn't been run yet
-      console.error('[LicenseModel] Error using decrypt_license_key function:', error.message);
-      console.error('[LicenseModel] Make sure you have run the updated generate_license_key.sql script');
+      logger.error('[LicenseModel] Error using decrypt_license_key function:', error.message);
+      logger.error('[LicenseModel] Make sure you have run the updated generate_license_key.sql script');
       
       // Fallback: Try to encrypt the input key and search for it
       // NOTE: This may not work perfectly due to differences between PostgreSQL and Node.js encryption
       // The primary method (using decrypt_license_key SQL function) should be used
       // Make sure to run the generate_license_key.sql script to create the decrypt function
-      const encryptionKey = (process.env.LICENSE_ENCRYPTION_KEY || 'ChapterOneLicenseKey2024!SecureEncryptionKey12345678').substring(0, 32);
       
-      if (!process.env.LICENSE_ENCRYPTION_KEY) {
-        console.warn('[LicenseModel] LICENSE_ENCRYPTION_KEY not set in environment variables. Using default key (NOT SECURE FOR PRODUCTION)');
+      // Validate encryption key - fail in production if not set
+      const encryptionKeyEnv = process.env.LICENSE_ENCRYPTION_KEY;
+      if (!encryptionKeyEnv) {
+        const errorMsg = 'LICENSE_ENCRYPTION_KEY is required but not set in environment variables';
+        logger.error(`[LicenseModel] ${errorMsg}`);
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error(errorMsg);
+        }
+        logger.warn('[LicenseModel] Using default key (NOT SECURE - only for development/testing)');
       }
+      
+      const encryptionKey = (encryptionKeyEnv || 'ChapterOneLicenseKey2024!SecureEncryptionKey12345678').substring(0, 32);
       
       try {
         const crypto = require('crypto');
