@@ -4,13 +4,9 @@ import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 
 // Better environment detection - use app.isPackaged for reliable detection
-// Also check if built frontend exists - if it does, prefer production mode
-const builtFrontendPath = path.join(__dirname, '../frontend/dist/index.html');
-const hasBuiltFrontend = fs.existsSync(builtFrontendPath);
-
-const isDev = (process.env.NODE_ENV === 'development' || 
-              process.env.ELECTRON_IS_DEV === 'true') &&
-              !hasBuiltFrontend && !app.isPackaged;
+const isDev = !app.isPackaged;
+const appPath = app.getAppPath();
+const resourcesPath = process.resourcesPath;
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
@@ -19,17 +15,17 @@ let backendProcess: ChildProcess | null = null;
 function getBackendPaths() {
   if (isDev) {
     return {
-      serverPath: path.join(__dirname, '../../backend/dist/server.js'),
-      nodeModulesPath: path.join(__dirname, '../../backend/node_modules'),
-      backendDir: path.join(__dirname, '../../backend'),
+      serverPath: path.join(appPath, 'backend/dist/server.js'),
+      nodeModulesPath: path.join(appPath, 'backend/node_modules'),
+      backendDir: path.join(appPath, 'backend'),
     };
   } else {
-    // In production, files are in resourcesPath
-    const resourcesPath = process.resourcesPath || app.getAppPath();
+    // In production, backend is unpacked from asar
+    const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked');
     return {
-      serverPath: path.join(resourcesPath, 'backend/dist/server.js'),
-      nodeModulesPath: path.join(resourcesPath, 'backend/node_modules'),
-      backendDir: path.join(resourcesPath, 'backend'),
+      serverPath: path.join(unpackedPath, 'backend/dist/server.js'),
+      nodeModulesPath: path.join(unpackedPath, 'backend/node_modules'),
+      backendDir: path.join(unpackedPath, 'backend'),
     };
   }
 }
@@ -37,23 +33,23 @@ function getBackendPaths() {
 // Function to get .env file path
 function getEnvPath(): string | null {
   if (isDev) {
-    const devEnvPath = path.join(__dirname, '../../.env');
+    const devEnvPath = path.join(appPath, '.env');
     return fs.existsSync(devEnvPath) ? devEnvPath : null;
   } else {
     // In production, look for .env in installation directory (same as app)
-    const appPath = app.getAppPath();
-    const envPath = path.join(path.dirname(appPath), '.env');
-    
+    // For portable apps, it's next to the exe. For installed apps, it might be in resources.
+    const installDir = path.dirname(app.getPath('exe'));
+    const envPath = path.join(installDir, '.env');
+
     // Also check resources path
-    const resourcesEnvPath = path.join(process.resourcesPath || appPath, '.env');
-    
+    const resourcesEnvPath = path.join(resourcesPath, '.env');
+
     if (fs.existsSync(envPath)) {
       return envPath;
     } else if (fs.existsSync(resourcesEnvPath)) {
       return resourcesEnvPath;
     }
-    
-    // Return path where .env should be created (installation directory)
+
     return envPath;
   }
 }
@@ -61,7 +57,7 @@ function getEnvPath(): string | null {
 // Start backend server
 function startBackendServer(): void {
   const { serverPath, nodeModulesPath, backendDir } = getBackendPaths();
-  
+
   // Check if backend file exists
   if (!fs.existsSync(serverPath)) {
     console.error(`❌ Backend server not found at: ${serverPath}`);
@@ -76,7 +72,7 @@ function startBackendServer(): void {
 
   // Get .env path
   const envPath = getEnvPath();
-  
+
   // Build environment variables
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -84,6 +80,7 @@ function startBackendServer(): void {
     PORT: '3001',
     API_PORT: '3001',
     ELECTRON_IS_DEV: 'false',
+    ELECTRON_RUN_AS_NODE: '1', // CRITICAL: Run as plain Node, not Electron
     // Set NODE_PATH so Node.js can find modules
     NODE_PATH: nodeModulesPath,
     // Add node_modules to PATH for native modules
@@ -102,8 +99,8 @@ function startBackendServer(): void {
           const key = trimmedLine.substring(0, equalIndex).trim();
           let value = trimmedLine.substring(equalIndex + 1).trim();
           // Remove quotes if present
-          if ((value.startsWith('"') && value.endsWith('"')) || 
-              (value.startsWith("'") && value.endsWith("'"))) {
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
             value = value.slice(1, -1);
           }
           env[key] = value;
@@ -117,10 +114,10 @@ function startBackendServer(): void {
 
   console.log(`🚀 Starting backend server from: ${serverPath}`);
   console.log(`📦 Using node_modules from: ${nodeModulesPath}`);
-  
+
   // Use the Node.js executable that's running Electron
   const nodeExecutable = process.execPath;
-  
+
   backendProcess = spawn(nodeExecutable, [serverPath], {
     env,
     cwd: backendDir,
@@ -161,9 +158,11 @@ function startBackendServer(): void {
     if (code !== 0 && code !== null) {
       const errorMsg = `Backend server exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
       console.error(`❌ ${errorMsg}`);
+
+      const { dialog } = require('electron');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('backend:exit', { 
-          code, 
+        mainWindow.webContents.send('backend:exit', {
+          code,
           signal,
           message: errorMsg,
         });
@@ -175,8 +174,11 @@ function startBackendServer(): void {
             }));
           }
         `);
+      } else {
+        // Window not ready yet, show blocking dialog
+        dialog.showErrorBox('Backend Error', `${errorMsg}\n\nThe application cannot start without the backend server. Please check your database configuration in the .env file and ensure PostgreSQL is running.`);
+        app.quit();
       }
-      // Don't auto-restart in production to avoid infinite loops
     } else {
       console.log('✅ Backend server stopped gracefully');
     }
@@ -216,11 +218,22 @@ function createWindow(): void {
   const preloadPath = path.join(__dirname, 'preload.js');
 
   // Get icon path - works for both dev and production
-  // Use .ico for Windows, .png for other platforms
   const iconExtension = process.platform === 'win32' ? 'ico' : 'png';
-  const iconPath = isDev
-    ? path.join(__dirname, `../../frontend/public/icon.${iconExtension}`)
-    : path.join(process.resourcesPath || app.getAppPath(), `frontend/public/icon.${iconExtension}`);
+  let iconPath: string;
+
+  if (isDev) {
+    iconPath = path.join(appPath, `frontend/public/icon.${iconExtension}`);
+  } else {
+    // In production, icon is in the built/packaged location
+    // Try multiple possible locations
+    const possiblePaths = [
+      path.join(appPath, `frontend/dist/icon.${iconExtension}`),
+      path.join(appPath, `frontend/public/icon.${iconExtension}`),
+      path.join(resourcesPath, `icon.${iconExtension}`)
+    ];
+
+    iconPath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
+  }
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -247,16 +260,9 @@ function createWindow(): void {
     });
   } else {
     // Production: Load from built files
-    // Use proper path resolution for packaged apps
-    let indexPath: string;
-    if (app.isPackaged) {
-      // When packaged, files are in app.asar or resources path
-      indexPath = path.join(process.resourcesPath || app.getAppPath(), 'frontend/dist/index.html');
-    } else {
-      // When not packaged (development build testing)
-      indexPath = path.join(__dirname, '../frontend/dist/index.html');
-    }
-    
+    // Files are always in the app path (asar)
+    const indexPath = path.join(appPath, 'frontend/dist/index.html');
+
     // Check if built files exist
     if (!fs.existsSync(indexPath)) {
       console.error('❌ Built frontend not found. Please run "npm run build" first.');
@@ -264,7 +270,7 @@ function createWindow(): void {
       console.error('   Or use "npm run dev" for development mode.');
       return;
     }
-    
+
     // Use loadFile() instead of loadURL() with file:// protocol
     // loadFile() properly handles app.asar paths and is the recommended way
     mainWindow.loadFile(indexPath).catch((err: Error) => {
@@ -276,7 +282,7 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.maximize(); // Maximize window on startup
-    
+
     // Open dev tools in development
     if (isDev) {
       mainWindow?.webContents.openDevTools();
@@ -333,7 +339,7 @@ function createWindow(): void {
         buttons: ['Wait', 'Reload', 'Close'],
         defaultId: 0,
       });
-      
+
       if (choice === 1) {
         mainWindow.reload();
       } else if (choice === 2) {

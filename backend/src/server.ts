@@ -33,7 +33,7 @@ import * as fs from 'fs';
 function findEnvFile(): string {
   let currentDir = __dirname;
   const maxDepth = 5; // Prevent infinite loop
-  
+
   for (let i = 0; i < maxDepth; i++) {
     const envPath = path.join(currentDir, '.env');
     if (fs.existsSync(envPath)) {
@@ -43,7 +43,7 @@ function findEnvFile(): string {
     if (parentDir === currentDir) break; // Reached filesystem root
     currentDir = parentDir;
   }
-  
+
   // Fallback: try root directory (2 levels up from backend/src)
   return path.resolve(__dirname, '../../.env');
 }
@@ -57,7 +57,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 if (isProduction) {
   const requiredVars = ['JWT_SECRET', 'LICENSE_ENCRYPTION_KEY'];
   const missingVars = requiredVars.filter(varName => !process.env[varName]);
-  
+
   if (missingVars.length > 0) {
     logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
     logger.error('Application cannot start in production without these variables.');
@@ -180,10 +180,20 @@ async function startServer(): Promise<void> {
   }
 
   // Start server
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info(`🚀 Server running on http://localhost:${PORT}`);
     logger.info(`📊 Health check: http://localhost:${PORT}/health`);
     logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+
+  server.on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(`❌ Port ${PORT} is already in use.`);
+      logger.error('Please kill the process using this port or use a different port.');
+    } else {
+      logger.error('❌ Server error:', error);
+    }
+    process.exit(1);
   });
 }
 
