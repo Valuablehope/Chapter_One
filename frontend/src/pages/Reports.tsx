@@ -202,11 +202,10 @@ export default function Reports() {
             {!isCashier && (
               <button
                 onClick={() => setActiveTab('sales')}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
-                  activeTab === 'sales'
-                    ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                }`}
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'sales'
+                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
               >
                 <CurrencyDollarIcon className="w-4 h-4" />
                 Sales Reports
@@ -215,11 +214,10 @@ export default function Reports() {
             {!isCashier && (
               <button
                 onClick={() => setActiveTab('purchases')}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
-                  activeTab === 'purchases'
-                    ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                }`}
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'purchases'
+                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
               >
                 <ShoppingCartIcon className="w-4 h-4" />
                 Purchase Reports
@@ -227,11 +225,10 @@ export default function Reports() {
             )}
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
-                activeTab === 'inventory'
-                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-              }`}
+              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'inventory'
+                ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
             >
               <CubeIcon className="w-4 h-4" />
               Inventory Reports
@@ -346,41 +343,37 @@ export default function Reports() {
                   <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setSalesReportType('summary')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                        salesReportType === 'summary'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${salesReportType === 'summary'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       Summary
                     </button>
                     <button
                       onClick={() => setSalesReportType('products')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                        salesReportType === 'products'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${salesReportType === 'products'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       By Product
                     </button>
                     <button
                       onClick={() => setSalesReportType('customers')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                        salesReportType === 'customers'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${salesReportType === 'customers'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       By Customer
                     </button>
                     <button
                       onClick={() => setSalesReportType('payment-methods')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                        salesReportType === 'payment-methods'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${salesReportType === 'payment-methods'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       Payment Methods
                     </button>
@@ -399,7 +392,7 @@ export default function Reports() {
                               <XAxis dataKey="date" tickFormatter={(value) => formatDate(value)} />
                               <YAxis tickFormatter={(value) => `$${value}`} />
                               <Tooltip
-                                formatter={(value: number) => formatCurrency(value)}
+                                formatter={(value: any) => formatCurrency(Number(value))}
                                 labelFormatter={(label) => formatDate(label)}
                               />
                               <Legend />
@@ -449,9 +442,8 @@ export default function Reports() {
                                 salesSummary.map((item, idx) => (
                                   <tr
                                     key={idx}
-                                    className={`transition-all duration-150 hover:bg-secondary-50/50 ${
-                                      idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                                    }`}
+                                    className={`transition-all duration-150 hover:bg-secondary-50/50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                                      }`}
                                   >
                                     <td className="px-3 py-2 whitespace-nowrap text-xs font-bold text-gray-900">
                                       {formatDate(item.date)}
@@ -490,7 +482,7 @@ export default function Reports() {
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis type="number" tickFormatter={(value) => `$${value}`} />
                               <YAxis dataKey="product_name" type="category" width={150} />
-                              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                              <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                               <Legend />
                               <Bar dataKey="total_revenue" fill="#6366f1" name="Revenue" />
                             </BarChart>
@@ -533,9 +525,8 @@ export default function Reports() {
                                 productSales.map((item, idx) => (
                                   <tr
                                     key={item.product_id}
-                                    className={`transition-colors duration-150 ${
-                                      idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    } hover:bg-secondary-50/50`}
+                                    className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                      } hover:bg-secondary-50/50`}
                                   >
                                     <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                       {item.product_name}
@@ -595,9 +586,8 @@ export default function Reports() {
                               customerSales.map((item, idx) => (
                                 <tr
                                   key={item.customer_id}
-                                  className={`transition-colors duration-150 ${
-                                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-secondary-50/50`}
+                                  className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                    } hover:bg-secondary-50/50`}
                                 >
                                   <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.customer_name}
@@ -646,7 +636,7 @@ export default function Reports() {
                                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                                 ))}
                               </Pie>
-                              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                              <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                             </PieChart>
                           </ResponsiveContainer>
                         </Card>
@@ -684,9 +674,8 @@ export default function Reports() {
                                 paymentMethods.map((item, idx) => (
                                   <tr
                                     key={idx}
-                                    className={`transition-colors duration-150 ${
-                                      idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    } hover:bg-secondary-50/50`}
+                                    className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                      } hover:bg-secondary-50/50`}
                                   >
                                     <td className="px-3 py-2 whitespace-nowrap">
                                       <Badge variant="primary" size="sm" className="capitalize">
@@ -754,21 +743,19 @@ export default function Reports() {
                   <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setPurchaseReportType('summary')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                        purchaseReportType === 'summary'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${purchaseReportType === 'summary'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       Summary
                     </button>
                     <button
                       onClick={() => setPurchaseReportType('suppliers')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                        purchaseReportType === 'suppliers'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${purchaseReportType === 'suppliers'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       By Supplier
                     </button>
@@ -787,7 +774,7 @@ export default function Reports() {
                               <XAxis dataKey="date" tickFormatter={(value) => formatDate(value)} />
                               <YAxis tickFormatter={(value) => `$${value}`} />
                               <Tooltip
-                                formatter={(value: number) => formatCurrency(value)}
+                                formatter={(value: any) => formatCurrency(Number(value))}
                                 labelFormatter={(label) => formatDate(label)}
                               />
                               <Legend />
@@ -829,9 +816,8 @@ export default function Reports() {
                                 purchaseSummary.map((item, idx) => (
                                   <tr
                                     key={idx}
-                                    className={`transition-colors duration-150 ${
-                                      idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    } hover:bg-secondary-50/50`}
+                                    className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                      } hover:bg-secondary-50/50`}
                                   >
                                     <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
                                       {formatDate(item.date)}
@@ -888,9 +874,8 @@ export default function Reports() {
                               supplierPurchases.map((item, idx) => (
                                 <tr
                                   key={item.supplier_id}
-                                  className={`transition-colors duration-150 ${
-                                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-secondary-50/50`}
+                                  className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                    } hover:bg-secondary-50/50`}
                                 >
                                   <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.supplier_name}
@@ -922,21 +907,19 @@ export default function Reports() {
                   <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setInventoryReportType('stock')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${
-                        inventoryReportType === 'stock'
-                          ? 'bg-secondary-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${inventoryReportType === 'stock'
+                        ? 'bg-secondary-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
+                        }`}
                     >
                       Stock Levels
                     </button>
                     <button
                       onClick={() => setInventoryReportType('low-stock')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${
-                        inventoryReportType === 'low-stock'
-                          ? 'bg-warning-500 text-white shadow-md'
-                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-warning-300 hover:bg-warning-50'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${inventoryReportType === 'low-stock'
+                        ? 'bg-warning-500 text-white shadow-md'
+                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-warning-300 hover:bg-warning-50'
+                        }`}
                     >
                       <ExclamationTriangleIcon className="w-3.5 h-3.5" />
                       Low Stock
@@ -976,9 +959,8 @@ export default function Reports() {
                               stockReport.map((item, idx) => (
                                 <tr
                                   key={item.product_id}
-                                  className={`transition-colors duration-150 ${
-                                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-secondary-50/50`}
+                                  className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                    } hover:bg-secondary-50/50`}
                                 >
                                   <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.product_name}
@@ -1049,9 +1031,8 @@ export default function Reports() {
                               lowStock.map((item, idx) => (
                                 <tr
                                   key={item.product_id}
-                                  className={`transition-colors duration-150 ${
-                                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                  } hover:bg-warning-50`}
+                                  className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                    } hover:bg-warning-50`}
                                 >
                                   <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-900">
                                     {item.product_name}

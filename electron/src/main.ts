@@ -125,6 +125,8 @@ function startBackendServer(): void {
     shell: false,
   });
 
+  let lastError = '';
+
   backendProcess.stdout?.on('data', (data) => {
     const output = data.toString().trim();
     if (output) {
@@ -136,6 +138,7 @@ function startBackendServer(): void {
     const output = data.toString().trim();
     if (output) {
       console.error(`[Backend Error] ${output}`);
+      lastError = output; // Capture last error message
     }
   });
 
@@ -160,23 +163,15 @@ function startBackendServer(): void {
       console.error(`❌ ${errorMsg}`);
 
       const { dialog } = require('electron');
+      const detailedError = lastError ? `\n\nSpecific Error:\n${lastError}` : '';
+
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('backend:exit', {
-          code,
-          signal,
-          message: errorMsg,
-        });
-        // Show error notification to user (non-blocking)
         mainWindow.webContents.executeJavaScript(`
-          if (window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('backend-error', { 
-              detail: { message: '${errorMsg.replace(/'/g, "\\'")}' }
-            }));
-          }
+          alert('Backend Error: ${errorMsg}${detailedError.replace(/'/g, "\\'")}\\n\\nThe application may not function correctly.');
         `);
       } else {
         // Window not ready yet, show blocking dialog
-        dialog.showErrorBox('Backend Error', `${errorMsg}\n\nThe application cannot start without the backend server. Please check your database configuration in the .env file and ensure PostgreSQL is running.`);
+        dialog.showErrorBox('Backend Error', `${errorMsg}${detailedError}\n\nThe application cannot start without the backend server. Please check your database configuration in the .env file and ensure PostgreSQL is running.`);
         app.quit();
       }
     } else {
