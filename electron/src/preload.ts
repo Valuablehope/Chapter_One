@@ -5,6 +5,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
+  log: (level: string, message: string) => ipcRenderer.send('app:log', { level, message }),
   ipcRenderer: {
     on: (channel: string, callback: (...args: any[]) => void) => {
       ipcRenderer.on(channel, (_event, ...args) => callback(...args));
@@ -21,6 +22,7 @@ declare global {
     electronAPI: {
       getVersion: () => Promise<string>;
       getPlatform: () => Promise<string>;
+      log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       ipcRenderer: {
         on: (channel: string, callback: (...args: any[]) => void) => void;
         removeListener: (channel: string, callback: (...args: any[]) => void) => void;

@@ -2,6 +2,24 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import log from 'electron-log';
+
+// Configure logging
+log.transports.file.level = 'info';
+log.transports.console.level = 'info';
+
+// Set log file name and format
+log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+log.transports.file.fileName = 'application.log';
+
+// Log where the log file is located
+console.log('Log file located at:', log.transports.file.getFile().path);
+
+// Log startup information
+log.info('--- Application starting ---');
+log.info('Version:', app.getVersion());
+log.info('Platform:', process.platform);
+log.info('Process ID:', process.pid);
 
 // Better environment detection
 const isDev = process.env.ELECTRON_IS_DEV === 'true' || (!app.isPackaged && process.env.NODE_ENV !== 'production');
@@ -61,13 +79,13 @@ function startBackendServer(): void {
 
   // Check if backend file exists
   if (!fs.existsSync(serverPath)) {
-    console.error(`❌ Backend server not found at: ${serverPath}`);
+    log.error(`❌ Backend server not found at: ${serverPath}`);
     return;
   }
 
   // Check if node_modules exists
   if (!fs.existsSync(nodeModulesPath)) {
-    console.error(`❌ Backend node_modules not found at: ${nodeModulesPath}`);
+    log.error(`❌ Backend node_modules not found at: ${nodeModulesPath}`);
     return;
   }
 
@@ -133,14 +151,14 @@ function startBackendServer(): void {
   backendProcess.stdout?.on('data', (data) => {
     const output = data.toString().trim();
     if (output) {
-      console.log(`[Backend] ${output}`);
+      log.info(`[Backend] ${output}`);
     }
   });
 
   backendProcess.stderr?.on('data', (data) => {
     const output = data.toString().trim();
     if (output) {
-      console.error(`[Backend Error] ${output}`);
+      log.error(`[Backend Error] ${output}`);
       lastError = output; // Capture last error message
     }
   });
@@ -163,7 +181,7 @@ function startBackendServer(): void {
   backendProcess.on('exit', (code, signal) => {
     if (code !== 0 && code !== null) {
       const errorMsg = `Backend server exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
-      console.error(`❌ ${errorMsg}`);
+      log.error(`❌ ${errorMsg}`);
 
       const { dialog } = require('electron');
       const detailedError = lastError ? `\n\nSpecific Error:\n${lastError}` : '';
@@ -252,9 +270,9 @@ function createWindow(): void {
   // Load the app
   if (isDev) {
     // Development: Load from Vite dev server
-    console.log('🔧 Development mode: Loading from http://127.0.0.1:5173');
+    log.info('🔧 Development mode: Loading from http://127.0.0.1:5173');
     mainWindow.loadURL('http://127.0.0.1:5173').catch((err: Error) => {
-      console.error('Failed to load frontend:', err);
+      log.error('Failed to load frontend:', err);
     });
   } else {
     // Production: Load from built files
@@ -263,16 +281,16 @@ function createWindow(): void {
 
     // Check if built files exist
     if (!fs.existsSync(indexPath)) {
-      console.error('❌ Built frontend not found. Please run "npm run build" first.');
-      console.error(`   Expected at: ${indexPath}`);
-      console.error('   Or use "npm run dev" for development mode.');
+      log.error('❌ Built frontend not found. Please run "npm run build" first.');
+      log.error(`   Expected at: ${indexPath}`);
+      log.error('   Or use "npm run dev" for development mode.');
       return;
     }
 
     // Use loadFile() instead of loadURL() with file:// protocol
     // loadFile() properly handles app.asar paths and is the recommended way
     mainWindow.loadFile(indexPath).catch((err: Error) => {
-      console.error('Failed to load frontend:', err);
+      log.error('Failed to load frontend:', err);
     });
   }
 
@@ -293,18 +311,18 @@ function createWindow(): void {
 
   // Handle navigation errors
   mainWindow.webContents.on('did-fail-load', (_event: unknown, errorCode: number, errorDescription: string) => {
-    console.error('Failed to load:', errorCode, errorDescription);
+    log.error('Failed to load:', errorCode, errorDescription);
     if (isDev) {
       // In dev, try to reload after a delay if Vite server isn't ready
-      console.log('Retrying to load from Vite dev server in 2 seconds...');
+      log.info('Retrying to load from Vite dev server in 2 seconds...');
       setTimeout(() => {
         mainWindow?.loadURL('http://127.0.0.1:5173').catch((err: Error) => {
-          console.error('Retry failed:', err);
+          log.error('Retry failed:', err);
         });
       }, 2000);
     } else {
       // In production, show user-friendly error
-      console.error('Failed to load application files. The application may be corrupted.');
+      log.error('Failed to load application files. The application may be corrupted.');
       if (mainWindow) {
         mainWindow.webContents.executeJavaScript(`
           document.body.innerHTML = \`
@@ -327,7 +345,7 @@ function createWindow(): void {
 
   // Handle uncaught exceptions in renderer
   mainWindow.webContents.on('unresponsive', () => {
-    console.warn('Window became unresponsive');
+    log.warn('Window became unresponsive');
     if (mainWindow) {
       const { dialog } = require('electron');
       const choice = dialog.showMessageBoxSync(mainWindow, {
@@ -348,7 +366,7 @@ function createWindow(): void {
 
   // Handle renderer process crash
   mainWindow.webContents.on('render-process-gone', (_event: any, details: any) => {
-    console.error('Renderer process crashed:', details);
+    log.error('Renderer process crashed:', details);
     if (mainWindow && details.reason !== 'killed') {
       const { dialog } = require('electron');
       dialog.showErrorBox(
@@ -364,7 +382,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // Start backend server first (only in production)
   if (!isDev) {
-    console.log('🚀 Starting backend server...');
+    log.info('🚀 Starting backend server...');
     startBackendServer();
     // Wait a bit for backend to start before showing window
     setTimeout(() => {
@@ -420,5 +438,24 @@ ipcMain.handle('app:getPlatform', () => {
 
 ipcMain.handle('app:getEnvPath', () => {
   return getEnvPath();
+});
+
+ipcMain.on('app:log', (_event, { level, message }) => {
+  const logMessage = `[Renderer] ${message}`;
+  switch (level) {
+    case 'error': log.error(logMessage); break;
+    case 'warn': log.warn(logMessage); break;
+    case 'debug': log.debug(logMessage); break;
+    default: log.info(logMessage);
+  }
+});
+
+// Catch unhandled exceptions
+process.on('uncaughtException', (error) => {
+  log.error('Main Process Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  log.error('Main Process Unhandled Rejection:', reason);
 });
 
