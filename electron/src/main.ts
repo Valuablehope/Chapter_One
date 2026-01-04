@@ -1,6 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
-import * as url from 'url';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 
@@ -227,22 +226,27 @@ function createWindow(): void {
     });
   } else {
     // Production: Load from built files
-    const indexPath = path.join(__dirname, '../frontend/dist/index.html');
+    // Use proper path resolution for packaged apps
+    let indexPath: string;
+    if (app.isPackaged) {
+      // When packaged, files are in app.asar or resources path
+      indexPath = path.join(process.resourcesPath || app.getAppPath(), 'frontend/dist/index.html');
+    } else {
+      // When not packaged (development build testing)
+      indexPath = path.join(__dirname, '../frontend/dist/index.html');
+    }
     
     // Check if built files exist
     if (!fs.existsSync(indexPath)) {
       console.error('❌ Built frontend not found. Please run "npm run build" first.');
       console.error(`   Expected at: ${indexPath}`);
       console.error('   Or use "npm run dev" for development mode.');
+      return;
     }
     
-    mainWindow.loadURL(
-      url.format({
-        pathname: indexPath,
-        protocol: 'file:',
-        slashes: true,
-      })
-    ).catch((err: Error) => {
+    // Use loadFile() instead of loadURL() with file:// protocol
+    // loadFile() properly handles app.asar paths and is the recommended way
+    mainWindow.loadFile(indexPath).catch((err: Error) => {
       console.error('Failed to load frontend:', err);
     });
   }
