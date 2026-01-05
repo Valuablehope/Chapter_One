@@ -450,6 +450,16 @@ ipcMain.on('app:log', (_event, { level, message }) => {
   }
 });
 
+ipcMain.handle('app:openLogs', () => {
+  const logPath = log.transports.file.getFile().path;
+  const logDir = path.dirname(logPath);
+  if (fs.existsSync(logDir)) {
+    require('electron').shell.openPath(logDir);
+    return { success: true };
+  }
+  return { success: false, error: 'Log directory not found' };
+});
+
 // Catch unhandled exceptions
 process.on('uncaughtException', (error) => {
   log.error('Main Process Uncaught Exception:', error);
