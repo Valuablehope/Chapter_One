@@ -7,8 +7,10 @@ import { dbCircuitBreaker } from '../utils/circuitBreaker';
 
 // Find root directory by looking for .env file
 // Go up from backend/src/config/ (3 levels) or backend/dist/config/ (3 levels)
-function findEnvFile(): string {
-  // 1. Check current directory and parents
+// Find root directory by looking for .env file
+// Go up from backend/src/config/ (3 levels) or backend/dist/config/ (3 levels)
+function findEnvFile(): string | null {
+  // 1. Check current directory and parents (for development)
   let currentDir = __dirname;
   const maxDepth = 5;
 
@@ -20,24 +22,51 @@ function findEnvFile(): string {
     currentDir = parentDir;
   }
 
-  // 2. Check production resources path (Electron)
-  // In production, __dirname is .../resources/app.asar.unpacked/backend/dist
-  const productionEnvPath = path.resolve(__dirname, '../../../../.env');
-  if (fs.existsSync(productionEnvPath)) return productionEnvPath;
+  // 2. Check explicitly provided RESOURCES_PATH (from Electron main process)
+  if (process.env.RESOURCES_PATH) {
+    const resourcesEnvPath = path.join(process.env.RESOURCES_PATH, '.env');
+    if (fs.existsSync(resourcesEnvPath)) return resourcesEnvPath;
+  }
 
-  // 3. Last resort fallback
-  return path.resolve(__dirname, '../../../.env');
+  // 3. Check production resources path (Electron)
+  // In production, __dirname is .../resources/app.asar.unpacked/backend/dist/config
+  // We want to find .../resources/.env
+
+  // Try going up 4 levels to reach 'resources' from 'config'
+  const resourcesEnvPath = path.resolve(__dirname, '../../../../.env');
+  if (fs.existsSync(resourcesEnvPath)) return resourcesEnvPath;
+
+  // Try going up 5 levels (just in case)
+  const rootEnvPath = path.resolve(__dirname, '../../../../../.env');
+  if (fs.existsSync(rootEnvPath)) return rootEnvPath;
+
+  // Try standard install directory adjacent to executable
+  // This is harder to guess from node process, but usually 5 levels up in typical electron-builder structure
+
+  return null;
 }
 
 const envPath = findEnvFile();
-dotenv.config({ path: envPath });
+
+// Load .env if found
+if (envPath) {
+  dotenv.config({ path: envPath });
+}
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Debug: Log which .env file is being used (only in development)
+// Check if critical variables are present (either from .env or process)
+const hasDbConfig = !!(process.env.DATABASE_URL || process.env.DB_PASSWORD);
+
+// Debug: Log status
 if (!isProduction) {
-  logger.info(`📄 Loading .env from: ${envPath}`);
-  logger.debug(`📄 DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+  if (envPath) {
+    logger.info(`📄 Loading .env from: ${envPath}`);
+  } else if (hasDbConfig) {
+    logger.info('📄 No .env file found, but database configuration is present in environment');
+  } else {
+    logger.warn('⚠️  No .env file found and no database configuration in environment');
+  }
 }
 
 // Support both DATABASE_URL and individual variables
@@ -65,9 +94,10 @@ if (process.env.DATABASE_URL) {
     : '';
 
   if (!dbPassword && process.env.NODE_ENV !== 'test') {
-    logger.warn('⚠️  DB_PASSWORD is not set in .env file');
-    logger.warn('   Database connection will likely fail.');
-    logger.warn('   Please set DB_PASSWORD or DATABASE_URL in your .env file');
+    // Only warn if we really don't have a password AND logic expects one (i.e. not peer auth)
+    // But most use cases need password.
+    logger.warn('⚠️  DB_PASSWORD is not set');
+    logger.warn('   Database connection will likely fail unless using trust/peer authentication.');
   }
 
   dbConfig = {

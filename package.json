@@ -47,33 +47,15 @@
       "buildResources": "build"
     },
     "asar": true,
-    "asarUnpack": [
-      "backend/**/*"
-    ],
     "files": [
       "electron/dist/**/*",
       "frontend/dist/**/*",
-      "backend/dist/**/*",
-      "backend/node_modules/**/*",
-      "backend/package.json",
-      "!backend/node_modules/**/*.{md,ts,map}",
-      "!backend/node_modules/**/{test,__tests__,tests,powered-test,example,examples}",
-      "!backend/node_modules/.bin",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
-      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-      "!**/node_modules/*.d.ts",
-      "!**/node_modules/.bin",
-      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
-      "!.editorconfig",
-      "!**/._*",
-      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
-      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
-      "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
       "!**/.env",
       "!**/.env.local",
       "!**/.env.*.local",
-      "!**/src/**/*",
+      "!backend/**/*",
+      "!frontend/src/**/*",
+      "!electron/src/**/*",
       "!**/tsconfig.json",
       "!**/*.ts",
       "!**/*.tsx"
@@ -86,6 +68,18 @@
       {
         "from": "env.example",
         "to": ".env.example"
+      },
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!src",
+          "!test",
+          "!tsconfig.json",
+          "!*.map",
+          "!*.ts"
+        ]
       }
     ],
     "win": {
@@ -117,5 +111,8 @@
     "frontend",
     "backend",
     "electron"
-  ]
+  ],
+  "dependencies": {
+    "electron-log": "^5.4.3"
+  }
 }

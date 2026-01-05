@@ -40,12 +40,12 @@ function getBackendPaths() {
       backendDir: path.join(appPath, 'backend'),
     };
   } else {
-    // In actual production (packaged EXE), backend is unpacked from asar
-    const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked');
+    // In production, backend is in resources/backend
+    const backendRoot = path.join(process.resourcesPath, 'backend');
     return {
-      serverPath: path.join(unpackedPath, 'backend/dist/server.js'),
-      nodeModulesPath: path.join(unpackedPath, 'backend/node_modules'),
-      backendDir: path.join(unpackedPath, 'backend'),
+      serverPath: path.join(backendRoot, 'dist/server.js'),
+      nodeModulesPath: path.join(backendRoot, 'node_modules'),
+      backendDir: backendRoot,
     };
   }
 }
@@ -86,6 +86,24 @@ function startBackendServer(): void {
   // Check if node_modules exists
   if (!fs.existsSync(nodeModulesPath)) {
     log.error(`❌ Backend node_modules not found at: ${nodeModulesPath}`);
+
+    // Debug info: List contents of backend directory
+    if (fs.existsSync(backendDir)) {
+      try {
+        const contents = fs.readdirSync(backendDir);
+        log.info(`📂 Contents of ${backendDir}:`, contents);
+      } catch (e) {
+        log.error('Failed to list backend dir contents', e);
+      }
+    } else {
+      log.error(`❌ Backend directory does not exist at: ${backendDir}`);
+      // Check parent directory
+      const parentDir = path.dirname(backendDir);
+      if (fs.existsSync(parentDir)) {
+        log.info(`📂 Contents of ${parentDir}:`, fs.readdirSync(parentDir));
+      }
+    }
+
     return;
   }
 
@@ -100,6 +118,8 @@ function startBackendServer(): void {
     API_PORT: '3001',
     ELECTRON_IS_DEV: 'false',
     ELECTRON_RUN_AS_NODE: '1', // CRITICAL: Run as plain Node, not Electron
+    // Pass resources path explicitly so backend doesn't have to guess relative paths
+    RESOURCES_PATH: resourcesPath,
     // Set NODE_PATH so Node.js can find modules
     NODE_PATH: nodeModulesPath,
     // Add node_modules to PATH for native modules

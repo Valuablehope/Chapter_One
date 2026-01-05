@@ -30,8 +30,9 @@ import * as fs from 'fs';
 
 // Find root directory by looking for .env file
 // Go up from backend/src/ (2 levels) or backend/dist/ (2 levels)
-function findEnvFile(): string {
-  // 1. Check current directory and parents
+
+function findEnvFile(): string | null {
+  // 1. Check current directory and parents (for development)
   let currentDir = __dirname;
   const maxDepth = 5;
 
@@ -43,29 +44,48 @@ function findEnvFile(): string {
     currentDir = parentDir;
   }
 
-  // 2. Check production resources path (Electron)
-  // In production, __dirname is .../resources/app.asar.unpacked/backend/dist
-  const productionEnvPath = path.resolve(__dirname, '../../../../.env');
-  if (fs.existsSync(productionEnvPath)) return productionEnvPath;
+  // 2. Check explicitly provided RESOURCES_PATH
+  if (process.env.RESOURCES_PATH) {
+    const resourcesEnvPath = path.join(process.env.RESOURCES_PATH, '.env');
+    if (fs.existsSync(resourcesEnvPath)) return resourcesEnvPath;
+  }
 
-  // 3. Last resort fallback
-  return path.resolve(__dirname, '../../.env');
+  // 3. Check production resources path (Electron)
+  // In production, __dirname is .../resources/app.asar.unpacked/backend/dist
+  // We want .../resources/.env
+
+  // Try going up 3 levels to reach 'resources' from 'dist'
+  const resourcesEnvPath = path.resolve(__dirname, '../../../.env');
+  if (fs.existsSync(resourcesEnvPath)) return resourcesEnvPath;
+
+  // Try going up 4 levels (just in case)
+  const rootEnvPath = path.resolve(__dirname, '../../../../.env');
+  if (fs.existsSync(rootEnvPath)) return rootEnvPath;
+
+  return null;
 }
 
 const envPath = findEnvFile();
-dotenv.config({ path: envPath });
+if (envPath) {
+  dotenv.config({ path: envPath });
+}
 
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Validate required environment variables in production
 if (isProduction) {
-  const requiredVars = ['JWT_SECRET', 'LICENSE_ENCRYPTION_KEY'];
-  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  // Check if we have minimal config
+  const hasJwtSecret = !!process.env.JWT_SECRET;
 
-  if (missingVars.length > 0) {
-    logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
-    logger.error('Application cannot start in production without these variables.');
-    process.exit(1);
+  if (!hasJwtSecret) {
+    const requiredVars = ['JWT_SECRET', 'LICENSE_ENCRYPTION_KEY'];
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+    if (missingVars.length > 0) {
+      logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+      logger.error('Application cannot start in production without these variables.');
+      process.exit(1);
+    }
   }
 }
 
