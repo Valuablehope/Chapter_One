@@ -106,7 +106,7 @@ export default function Layout({ children }: LayoutProps) {
       console.error('Logout error:', error);
     }
     logout();
-    navigate('login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const handleTogglePin = () => {

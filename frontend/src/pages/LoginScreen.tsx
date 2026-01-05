@@ -25,7 +25,7 @@ export default function LoginScreen() {
       if (response.success) {
         // We store the token to use in Authorization header (Reliable for Electron file://)
         login(response.data.user, response.data.token);
-        navigate('dashboard', { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
       let errorMessage = 'Login failed. Please check your credentials.';

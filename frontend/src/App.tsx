@@ -140,7 +140,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="sales" replace />} />
+        <Route path="*" element={<Navigate to="/sales" replace />} />
       </Routes>
     </HashRouter>
   );

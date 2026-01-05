@@ -41,7 +41,7 @@ export default function SplashScreen() {
             setLoadingProgress(100);
             setLoadingStage('Welcome back!');
             await new Promise((resolve) => setTimeout(resolve, 300));
-            navigate('dashboard', { replace: true });
+            navigate('/dashboard', { replace: true });
             return;
           }
         } catch (error) {
@@ -53,7 +53,7 @@ export default function SplashScreen() {
       setLoadingProgress(100);
       setLoadingStage('Redirecting...');
       await new Promise((resolve) => setTimeout(resolve, 300));
-      navigate('login', { replace: true });
+      navigate('/login', { replace: true });
     };
 
     checkAuth();

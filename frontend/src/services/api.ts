@@ -52,7 +52,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Unauthorized - clear auth and redirect to login
       useAuthStore.getState().logout();
-      window.location.hash = '#/login';
+      window.location.hash = '/login';
     } else if (error.response?.status === 403 && error.response?.data?.error?.message?.includes('CSRF')) {
       // CSRF token error - clear token and retry might be needed
       csrfToken = null;
