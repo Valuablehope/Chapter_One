@@ -40,11 +40,11 @@ export interface ProductFilters {
 export class ProductModel extends BaseModel {
   static async findAll(filters: ProductFilters = {}): Promise<PaginatedResult<ProductWithDetails>> {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
-    
+
     // Get default store_id for stock movement aggregation
     const defaultStore = await SaleModel.getDefaultStore();
     const storeId = defaultStore?.store_id || null;
-    
+
     let query = `
       SELECT 
         p.*,
@@ -55,7 +55,7 @@ export class ProductModel extends BaseModel {
         pb.publish_year,
         pb.edition,
         pb.language`;
-    
+
     // Add stock movement aggregations only if store_id exists
     if (storeId) {
       query += `,
@@ -69,40 +69,51 @@ export class ProductModel extends BaseModel {
       0::integer as qty_out,
       0::integer as balance`;
     }
-    
+
     query += `
       FROM products p
       LEFT JOIN product_books pb ON pb.product_id = p.product_id`;
-    
+
     // Add stock_movements JOIN only if store_id exists
     if (storeId) {
       query += `
       LEFT JOIN stock_movements sm ON sm.product_id = p.product_id AND sm.store_id = $1`;
     }
-    
+
     query += `
       WHERE 1=1`;
-    
+
     const params: any[] = [];
     let paramCount = storeId ? 1 : 0;
-    
+
     // Add store_id as first parameter if it exists
     if (storeId) {
       params.push(storeId);
     }
 
     if (filters.search) {
-      paramCount++;
-      const searchTerm = filters.search.trim();
-      
-      // Use ILIKE for search (works without tsvector column)
-      query += ` AND (
-        p.name ILIKE $${paramCount} OR
-        p.sku ILIKE $${paramCount} OR
-        p.barcode ILIKE $${paramCount} OR
-        pb.isbn13 ILIKE $${paramCount}
-      )`;
-      params.push(`%${searchTerm}%`);
+      const searchTerms = filters.search.trim().split(/\s+/).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        query += ` AND (`;
+        const termConditions: string[] = [];
+
+        for (const term of searchTerms) {
+          paramCount++;
+          // For each term, it must match at least one of the fields
+          termConditions.push(`(
+            p.name ILIKE $${paramCount} OR
+            p.sku ILIKE $${paramCount} OR
+            p.barcode ILIKE $${paramCount} OR
+            pb.isbn13 ILIKE $${paramCount}
+          )`);
+          params.push(`%${term}%`);
+        }
+
+        // Combine term conditions with AND (all terms must be present)
+        query += termConditions.join(' AND ');
+        query += `)`;
+      }
     }
 
     if (filters.product_type) {
@@ -272,7 +283,7 @@ export class ProductModel extends BaseModel {
 
     // Add updated_at without incrementing paramCount since NOW() doesn't use a parameter
     fields.push(`updated_at = NOW()`);
-    
+
     paramCount++;
     values.push(productId);
 
@@ -322,12 +333,12 @@ export class ProductModel extends BaseModel {
   static async checkBarcodeUnique(barcode: string, excludeProductId?: string): Promise<boolean> {
     let query = 'SELECT COUNT(*) FROM products WHERE barcode = $1';
     const params: any[] = [barcode];
-    
+
     if (excludeProductId) {
       query += ' AND product_id != $2';
       params.push(excludeProductId);
     }
-    
+
     const result = await this.query(query, params);
     return parseInt(result.rows[0].count, 10) === 0;
   }

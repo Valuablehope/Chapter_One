@@ -62,6 +62,7 @@ export interface CreateSaleData {
 
 export interface UpdateSaleData {
   customer_id?: string;
+  discount_rate?: number;
   items?: {
     product_id: string;
     qty: number;
@@ -103,7 +104,7 @@ export class SaleModel extends BaseModel {
   // Cached for 10 minutes to reduce database load
   static async getDefaultStore(): Promise<{ store_id: string; code: string; name: string } | null> {
     const cacheKey = 'default_store';
-    
+
     // Check cache first
     const cached = cache.get<{ store_id: string; code: string; name: string }>(cacheKey);
     if (cached !== null) {
@@ -119,12 +120,12 @@ export class SaleModel extends BaseModel {
     `;
     const result = await this.query(query);
     const store = result.rows[0] || null;
-    
+
     // Cache result for 10 minutes
     if (store) {
       cache.set(cacheKey, store, 10 * 60 * 1000);
     }
-    
+
     return store;
   }
 
@@ -132,7 +133,7 @@ export class SaleModel extends BaseModel {
   // Cached for 10 minutes to reduce database load
   static async getDefaultTerminal(storeId: string): Promise<{ terminal_id: string; code: string; name: string } | null> {
     const cacheKey = `default_terminal_${storeId}`;
-    
+
     // Check cache first
     const cached = cache.get<{ terminal_id: string; code: string; name: string }>(cacheKey);
     if (cached !== null) {
@@ -148,12 +149,12 @@ export class SaleModel extends BaseModel {
     `;
     const result = await this.query(query, [storeId]);
     const terminal = result.rows[0] || null;
-    
+
     // Cache result for 10 minutes
     if (terminal) {
       cache.set(cacheKey, terminal, 10 * 60 * 1000);
     }
-    
+
     return terminal;
   }
 
@@ -162,7 +163,7 @@ export class SaleModel extends BaseModel {
   // Accepts optional client for use within transactions
   static async generateReceiptNo(storeId: string, client?: any): Promise<string> {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    
+
     // Single atomic operation: initialize if needed, then increment and return
     // This prevents race conditions by combining INSERT and UPDATE in one query
     const queryText = `INSERT INTO daily_receipt_counters (store_id, date, counter)
@@ -172,17 +173,17 @@ export class SaleModel extends BaseModel {
          counter = daily_receipt_counters.counter + 1,
          updated_at = NOW()
        RETURNING counter`;
-    
-    const result = client 
+
+    const result = client
       ? await client.query(queryText, [storeId, today])
       : await this.query(queryText, [storeId, today]);
-    
+
     if (result.rows.length === 0) {
       throw new Error('Failed to generate receipt number: counter operation failed');
     }
-    
+
     const count = parseInt(result.rows[0].counter, 10);
-    
+
     // Format: YYYYMMDD-XXXX (e.g., 20231205-0001)
     const date = today.replace(/-/g, '');
     const sequence = String(count).padStart(4, '0');
@@ -199,7 +200,7 @@ export class SaleModel extends BaseModel {
     return await withRetry(
       async () => {
         const client = await pool.connect();
-        
+
         try {
           await client.query('BEGIN');
           // Set transaction timeout (30 seconds) to prevent long-running transactions
@@ -210,40 +211,40 @@ export class SaleModel extends BaseModel {
           // Row-level locking (FOR UPDATE) provides sufficient protection against race conditions
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
-      // Check for duplicate sale (idempotency check) if client_sale_id is provided
-      // Gracefully handle if column doesn't exist yet
-      if (data.client_sale_id) {
-        try {
-          const duplicateCheck = await client.query(
-            'SELECT sale_id FROM sales WHERE client_sale_id = $1',
-            [data.client_sale_id]
-          );
-          if (duplicateCheck.rows.length > 0) {
-            // Sale already exists - rollback and return existing sale
-            await client.query('ROLLBACK');
-            logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
-            const existingSaleId = duplicateCheck.rows[0].sale_id;
-            const existingSale = await this.findById(existingSaleId);
-            if (existingSale) {
-              return existingSale;
+          // Check for duplicate sale (idempotency check) if client_sale_id is provided
+          // Gracefully handle if column doesn't exist yet
+          if (data.client_sale_id) {
+            try {
+              const duplicateCheck = await client.query(
+                'SELECT sale_id FROM sales WHERE client_sale_id = $1',
+                [data.client_sale_id]
+              );
+              if (duplicateCheck.rows.length > 0) {
+                // Sale already exists - rollback and return existing sale
+                await client.query('ROLLBACK');
+                logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
+                const existingSaleId = duplicateCheck.rows[0].sale_id;
+                const existingSale = await this.findById(existingSaleId);
+                if (existingSale) {
+                  return existingSale;
+                }
+                // If findById fails, throw error
+                throw new Error('Duplicate sale found but could not retrieve details');
+              }
+            } catch (error: any) {
+              // If column doesn't exist, skip duplicate check (graceful degradation)
+              if (error.message?.includes('column') && error.message?.includes('client_sale_id')) {
+                logger.warn('client_sale_id column does not exist, skipping duplicate check');
+                // Continue with sale creation
+              } else {
+                throw error;
+              }
             }
-            // If findById fails, throw error
-            throw new Error('Duplicate sale found but could not retrieve details');
           }
-        } catch (error: any) {
-          // If column doesn't exist, skip duplicate check (graceful degradation)
-          if (error.message?.includes('column') && error.message?.includes('client_sale_id')) {
-            logger.warn('client_sale_id column does not exist, skipping duplicate check');
-            // Continue with sale creation
-          } else {
-            throw error;
-          }
-        }
-      }
 
-      // Get store and terminal INSIDE transaction to prevent mid-transaction changes
-      // Query stores table with lock to ensure consistency
-      const storeQuery = await client.query(`
+          // Get store and terminal INSIDE transaction to prevent mid-transaction changes
+          // Query stores table with lock to ensure consistency
+          const storeQuery = await client.query(`
         SELECT store_id, code, name
         FROM stores
         WHERE is_active = true
@@ -251,17 +252,17 @@ export class SaleModel extends BaseModel {
         LIMIT 1
         FOR UPDATE
       `);
-      const store = storeQuery.rows[0];
-      if (!store) {
-        throw new Error('No active store found');
-      }
+          const store = storeQuery.rows[0];
+          if (!store) {
+            throw new Error('No active store found');
+          }
 
-      // Get store settings to check allow_negative flag
-      const storeSettings = await StoreSettingsModel.findByStoreId(store.store_id);
-      const allowNegative = storeSettings?.allow_negative ?? false;
+          // Get store settings to check allow_negative flag
+          const storeSettings = await StoreSettingsModel.findByStoreId(store.store_id);
+          const allowNegative = storeSettings?.allow_negative ?? false;
 
-      // Get terminal INSIDE transaction with lock
-      const terminalQuery = await client.query(`
+          // Get terminal INSIDE transaction with lock
+          const terminalQuery = await client.query(`
         SELECT terminal_id, code, name
         FROM terminals
         WHERE store_id = $1 AND is_active = true
@@ -269,96 +270,98 @@ export class SaleModel extends BaseModel {
         LIMIT 1
         FOR UPDATE
       `, [store.store_id]);
-      const terminal = terminalQuery.rows[0];
-      if (!terminal) {
-        throw new Error('No active terminal found for store');
-      }
+          const terminal = terminalQuery.rows[0];
+          if (!terminal) {
+            throw new Error('No active terminal found for store');
+          }
 
-      // Generate receipt number (within transaction for atomicity)
-      const receiptNo = await this.generateReceiptNo(store.store_id, client);
+          // Generate receipt number (within transaction for atomicity)
+          const receiptNo = await this.generateReceiptNo(store.store_id, client);
 
-      // Calculate totals
-      let subtotal = 0;
-      let taxTotal = 0;
+          // Calculate totals
+          let subtotal = 0;
+          let taxTotal = 0;
 
-      for (const item of data.items) {
-        const lineTotal = item.qty * item.unit_price;
-        subtotal += lineTotal;
-        const taxRate = item.tax_rate || 0;
-        taxTotal += lineTotal * (taxRate / 100);
-      }
+          for (const item of data.items) {
+            const lineTotal = item.qty * item.unit_price;
+            subtotal += lineTotal;
+            const taxRate = item.tax_rate || 0;
+            taxTotal += lineTotal * (taxRate / 100);
+          }
 
-      // Calculate discount_total from discount_rate if provided
-      const discountRate = data.discount_rate || 0;
-      const discountTotal = discountRate > 0 
-        ? (subtotal + taxTotal) * (discountRate / 100) 
-        : 0;
-      const grandTotal = subtotal + taxTotal - discountTotal;
-      const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
+          // Calculate discount_total from discount_rate if provided
+          const discountRate = data.discount_rate || 0;
+          const discountTotal = discountRate > 0
+            ? (subtotal + taxTotal) * (discountRate / 100)
+            : 0;
+          const grandTotalRaw = subtotal + taxTotal - discountTotal;
+          // Round to 2 decimal places to match currency precision
+          const grandTotal = Math.round(grandTotalRaw * 100) / 100;
+          const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
-      if (paidTotal < grandTotal) {
-        throw new Error('Payment amount is less than grand total');
-      }
+          if (paidTotal < grandTotal - 0.01) { // Allow for tiny epsilon differences
+            throw new Error('Payment amount is less than grand total');
+          }
 
-      // Create sale
-      // Check if client_sale_id and discount_rate columns exist before including them
-      let saleQuery: string;
-      let saleValues: any[];
-      
-      try {
-        // Check if columns exist
-        const columnCheck = await client.query(`
+          // Create sale
+          // Check if client_sale_id and discount_rate columns exist before including them
+          let saleQuery: string;
+          let saleValues: any[];
+
+          try {
+            // Check if columns exist
+            const columnCheck = await client.query(`
           SELECT column_name 
           FROM information_schema.columns 
           WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate')
         `);
-        
-        const hasClientSaleId = columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id');
-        const hasDiscountRate = columnCheck.rows.some((r: any) => r.column_name === 'discount_rate');
-        
-        let paramCount = 11; // Base parameters
-        const columns: string[] = [
-          'store_id', 'terminal_id', 'cashier_id', 'customer_id',
-          'receipt_no', 'subtotal', 'tax_total', 'discount_total',
-          'grand_total', 'paid_total', 'status'
-        ];
-        const values: any[] = [
-          store.store_id,
-          terminal.terminal_id,
-          cashierId,
-          data.customer_id || null,
-          receiptNo,
-          subtotal,
-          taxTotal,
-          discountTotal,
-          grandTotal,
-          paidTotal,
-          'paid',
-        ];
-        
-        if (hasDiscountRate) {
-          columns.push('discount_rate');
-          paramCount++;
-          values.push(discountRate);
-        }
-        
-        if (hasClientSaleId) {
-          columns.push('client_sale_id');
-          paramCount++;
-          values.push(data.client_sale_id || null);
-        }
-        
-        const placeholders = Array.from({ length: paramCount }, (_, i) => `$${i + 1}`).join(', ');
-        
-        saleQuery = `
+
+            const hasClientSaleId = columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id');
+            const hasDiscountRate = columnCheck.rows.some((r: any) => r.column_name === 'discount_rate');
+
+            let paramCount = 11; // Base parameters
+            const columns: string[] = [
+              'store_id', 'terminal_id', 'cashier_id', 'customer_id',
+              'receipt_no', 'subtotal', 'tax_total', 'discount_total',
+              'grand_total', 'paid_total', 'status'
+            ];
+            const values: any[] = [
+              store.store_id,
+              terminal.terminal_id,
+              cashierId,
+              data.customer_id || null,
+              receiptNo,
+              subtotal,
+              taxTotal,
+              discountTotal,
+              grandTotal,
+              paidTotal,
+              'paid',
+            ];
+
+            if (hasDiscountRate) {
+              columns.push('discount_rate');
+              paramCount++;
+              values.push(discountRate);
+            }
+
+            if (hasClientSaleId) {
+              columns.push('client_sale_id');
+              paramCount++;
+              values.push(data.client_sale_id || null);
+            }
+
+            const placeholders = Array.from({ length: paramCount }, (_, i) => `$${i + 1}`).join(', ');
+
+            saleQuery = `
           INSERT INTO sales (${columns.join(', ')})
           VALUES (${placeholders})
           RETURNING *
         `;
-        saleValues = values;
-      } catch (error) {
-        // Fallback: assume columns don't exist
-        saleQuery = `
+            saleValues = values;
+          } catch (error) {
+            // Fallback: assume columns don't exist
+            saleQuery = `
           INSERT INTO sales (
             store_id, terminal_id, cashier_id, customer_id,
             receipt_no, subtotal, tax_total, discount_total,
@@ -367,108 +370,108 @@ export class SaleModel extends BaseModel {
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING *
         `;
-        saleValues = [
-          store.store_id,
-          terminal.terminal_id,
-          cashierId,
-          data.customer_id || null,
-          receiptNo,
-          subtotal,
-          taxTotal,
-          discountTotal,
-          grandTotal,
-          paidTotal,
-          'paid',
-        ];
-      }
-      
-      const saleResult = await client.query(saleQuery, saleValues);
-      const sale = saleResult.rows[0];
+            saleValues = [
+              store.store_id,
+              terminal.terminal_id,
+              cashierId,
+              data.customer_id || null,
+              receiptNo,
+              subtotal,
+              taxTotal,
+              discountTotal,
+              grandTotal,
+              paidTotal,
+              'paid',
+            ];
+          }
 
-      // Create sale items
-      const items: SaleItem[] = [];
-      for (const item of data.items) {
-        const taxRate = item.tax_rate || 0;
-        const lineTotal = item.qty * item.unit_price * (1 + taxRate / 100);
-        
-        const itemQuery = `
+          const saleResult = await client.query(saleQuery, saleValues);
+          const sale = saleResult.rows[0];
+
+          // Create sale items
+          const items: SaleItem[] = [];
+          for (const item of data.items) {
+            const taxRate = item.tax_rate || 0;
+            const lineTotal = item.qty * item.unit_price * (1 + taxRate / 100);
+
+            const itemQuery = `
           INSERT INTO sale_items (
             sale_id, product_id, qty, unit_price, tax_rate, line_total
           )
           VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING *
         `;
-        const itemValues = [
-          sale.sale_id,
-          item.product_id,
-          item.qty,
-          item.unit_price,
-          taxRate,
-          lineTotal,
-        ];
-        const itemResult = await client.query(itemQuery, itemValues);
-        items.push(itemResult.rows[0]);
+            const itemValues = [
+              sale.sale_id,
+              item.product_id,
+              item.qty,
+              item.unit_price,
+              taxRate,
+              lineTotal,
+            ];
+            const itemResult = await client.query(itemQuery, itemValues);
+            items.push(itemResult.rows[0]);
 
-        // Update stock if product tracks inventory
-        // Lock stock balance row to prevent race conditions
-        const productQuery = `
+            // Update stock if product tracks inventory
+            // Lock stock balance row to prevent race conditions
+            const productQuery = `
           SELECT track_inventory FROM products WHERE product_id = $1
         `;
-        const productResult = await client.query(productQuery, [item.product_id]);
-        if (productResult.rows[0]?.track_inventory) {
-          // Lock stock balance row for update (prevents concurrent modifications)
-          const stockBalanceResult = await client.query(`
+            const productResult = await client.query(productQuery, [item.product_id]);
+            if (productResult.rows[0]?.track_inventory) {
+              // Lock stock balance row for update (prevents concurrent modifications)
+              const stockBalanceResult = await client.query(`
             SELECT qty_on_hand FROM stock_balances
             WHERE store_id = $1 AND product_id = $2
             FOR UPDATE
           `, [store.store_id, item.product_id]);
-          
-          // Validate stock availability ONLY if allow_negative is false
-          if (!allowNegative) {
-            const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
-            if (currentStock < item.qty) {
-              // Get product name for error message
-              const productInfo = await client.query(
-                'SELECT name FROM products WHERE product_id = $1',
-                [item.product_id]
-              );
-              const productName = productInfo.rows[0]?.name || 'Unknown product';
-              throw new Error(
-                `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
-              );
-            }
-          } else {
-            // Log when negative stock is allowed (for auditing/debugging)
-            const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
-            if (currentStock < item.qty) {
-              logger.info(`Negative stock allowed: Product ${item.product_id}, Current: ${currentStock}, Selling: ${item.qty}`, {
-                store_id: store.store_id,
-                product_id: item.product_id,
-                current_stock: currentStock,
-                qty_sold: item.qty,
-                receipt_no: sale.receipt_no
-              });
-            }
-          }
-          
-          // Create stock movement (outbound)
-          const stockQuery = `
+
+              // Validate stock availability ONLY if allow_negative is false
+              if (!allowNegative) {
+                const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+                if (currentStock < item.qty) {
+                  // Get product name for error message
+                  const productInfo = await client.query(
+                    'SELECT name FROM products WHERE product_id = $1',
+                    [item.product_id]
+                  );
+                  const productName = productInfo.rows[0]?.name || 'Unknown product';
+                  throw new Error(
+                    `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
+                  );
+                }
+              } else {
+                // Log when negative stock is allowed (for auditing/debugging)
+                const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+                if (currentStock < item.qty) {
+                  logger.info(`Negative stock allowed: Product ${item.product_id}, Current: ${currentStock}, Selling: ${item.qty}`, {
+                    store_id: store.store_id,
+                    product_id: item.product_id,
+                    current_stock: currentStock,
+                    qty_sold: item.qty,
+                    receipt_no: sale.receipt_no
+                  });
+                }
+              }
+
+              // Create stock movement (outbound)
+              const stockQuery = `
             INSERT INTO stock_movements (
               store_id, product_id, reason, qty, reference, created_by
             )
             VALUES ($1, $2, $3, $4, $5, $6)
           `;
-          await client.query(stockQuery, [
-            store.store_id,
-            item.product_id,
-            'sale',
-            -item.qty, // Negative for outbound
-            sale.receipt_no,
-            cashierId,
-          ]);
-          
-          // Update stock balance atomically (maintain O(1) query performance)
-          await client.query(`
+              await client.query(stockQuery, [
+                store.store_id,
+                item.product_id,
+                'sale',
+                -item.qty, // Negative for outbound
+                sale.receipt_no,
+                cashierId,
+              ]);
+
+              // Update stock balance atomically (maintain O(1) query performance)
+              await client.query(`
             INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
             VALUES ($1, $2, $3)
             ON CONFLICT (store_id, product_id)
@@ -476,24 +479,24 @@ export class SaleModel extends BaseModel {
               qty_on_hand = stock_balances.qty_on_hand + $3,
               updated_at = NOW()
           `, [store.store_id, item.product_id, -item.qty]); // Negative for sale (outbound)
-        }
-      }
+            }
+          }
 
-      // Create sale payments
-      const payments: SalePayment[] = [];
-      for (const payment of data.payments) {
-        const paymentQuery = `
+          // Create sale payments
+          const payments: SalePayment[] = [];
+          for (const payment of data.payments) {
+            const paymentQuery = `
           INSERT INTO sale_payments (sale_id, method, amount)
           VALUES ($1, $2, $3)
           RETURNING *
         `;
-        const paymentResult = await client.query(paymentQuery, [
-          sale.sale_id,
-          payment.method,
-          payment.amount,
-        ]);
-        payments.push(paymentResult.rows[0]);
-      }
+            const paymentResult = await client.query(paymentQuery, [
+              sale.sale_id,
+              payment.method,
+              payment.amount,
+            ]);
+            payments.push(paymentResult.rows[0]);
+          }
 
           await client.query('COMMIT');
 
@@ -543,7 +546,7 @@ export class SaleModel extends BaseModel {
     return await withRetry(
       async () => {
         const client = await pool.connect();
-        
+
         try {
           await client.query('BEGIN');
           await client.query('SET LOCAL statement_timeout = 30000');
@@ -576,12 +579,12 @@ export class SaleModel extends BaseModel {
 
             // Delete existing items
             await client.query('DELETE FROM sale_items WHERE sale_id = $1', [saleId]);
-            
+
             // Insert new items
             for (const item of data.items) {
               const taxRate = item.tax_rate || 0;
               const lineTotal = item.qty * item.unit_price * (1 + taxRate / 100);
-              
+
               await client.query(`
                 INSERT INTO sale_items (sale_id, product_id, qty, unit_price, tax_rate, line_total)
                 VALUES ($1, $2, $3, $4, $5, $6)
@@ -598,13 +601,31 @@ export class SaleModel extends BaseModel {
 
             // Delete existing payments
             await client.query('DELETE FROM sale_payments WHERE sale_id = $1', [saleId]);
-            
+
             // Insert new payments
             for (const payment of data.payments) {
               await client.query(`
                 INSERT INTO sale_payments (sale_id, method, amount)
                 VALUES ($1, $2, $3)
               `, [saleId, payment.method, payment.amount]);
+            }
+          }
+
+          // Update discount if provided
+          if (data.discount_rate !== undefined) {
+            try {
+              const updateQuery = `
+                  UPDATE sales 
+                  SET discount_rate = $1 
+                  WHERE sale_id = $2
+                `;
+              await client.query(updateQuery, [data.discount_rate, saleId]);
+            } catch (err: any) {
+              if (err.message?.includes('column') && err.message?.includes('discount_rate')) {
+                logger.warn('discount_rate column does not exist, skipping update');
+              } else {
+                throw err;
+              }
             }
           }
 
@@ -615,16 +636,33 @@ export class SaleModel extends BaseModel {
           );
           const items = itemsResult.rows;
 
+          // Determine discount rate
+          let currentDiscountRate = 0;
+          if (data.discount_rate !== undefined) {
+            currentDiscountRate = data.discount_rate;
+          } else {
+            try {
+              const saleQuery = await client.query('SELECT discount_rate FROM sales WHERE sale_id = $1', [saleId]);
+              currentDiscountRate = Number(saleQuery.rows[0]?.discount_rate || 0);
+            } catch (err) {
+              // Ignore if column doesn't exist
+            }
+          }
+
           let subtotal = 0;
           let taxTotal = 0;
           for (const item of items) {
             const lineTotal = item.qty * item.unit_price;
             subtotal += lineTotal;
-            taxTotal += lineTotal * (item.tax_rate / 100);
+            taxTotal += lineTotal * (Number(item.tax_rate) / 100);
           }
 
-          const discountTotal = 0;
-          const grandTotal = subtotal + taxTotal - discountTotal;
+          const discountTotal = currentDiscountRate > 0
+            ? (subtotal + taxTotal) * (currentDiscountRate / 100)
+            : 0;
+          const grandTotalRaw = subtotal + taxTotal - discountTotal;
+          // Round to 2 decimal places to match currency precision
+          const grandTotal = Math.round(grandTotalRaw * 100) / 100;
 
           const paymentsResult = await client.query(
             'SELECT * FROM sale_payments WHERE sale_id = $1',
@@ -632,7 +670,7 @@ export class SaleModel extends BaseModel {
           );
           const paidTotal = paymentsResult.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
 
-          if (paidTotal < grandTotal) {
+          if (paidTotal < grandTotal - 0.01) {
             await client.query('ROLLBACK');
             throw new Error('Payment amount is less than grand total');
           }
@@ -646,7 +684,7 @@ export class SaleModel extends BaseModel {
           `, [subtotal, taxTotal, discountTotal, grandTotal, paidTotal, saleId]);
 
           await client.query('COMMIT');
-          
+
           // Return updated sale
           const updatedSale = await this.findById(saleId);
           if (!updatedSale) {
@@ -733,7 +771,7 @@ export class SaleModel extends BaseModel {
       WHERE s.sale_id = $1
     `;
     const saleResult = await this.query(query, [saleId]);
-    
+
     if (saleResult.rows.length === 0) {
       return null;
     }
@@ -755,7 +793,7 @@ export class SaleModel extends BaseModel {
   // Get all sales with filters
   static async findAll(filters: SaleFilters = {}): Promise<PaginatedResult<SaleWithDetails>> {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
-    
+
     let query = `
       SELECT 
         s.*,
@@ -837,7 +875,7 @@ export class SaleModel extends BaseModel {
 
     // Get all items and payments for all sales in a single query (fixes N+1 problem)
     const saleIds = sales.map((s: any) => s.sale_id);
-    
+
     const itemsQuery = `
       SELECT 
         si.*, 

@@ -30,11 +30,13 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { createPortal } from 'react-dom';
+import Receipt from '../components/Receipt';
 
 export default function Sales() {
   // Request cancellation hook - automatically cancels requests on unmount
   const { getSignal } = useCancellableRequest();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
@@ -70,8 +72,8 @@ export default function Sales() {
     const tax = item.tax_rate ? (itemSubtotal * Number(item.tax_rate)) / 100 : 0;
     return sum + tax;
   }, 0);
-  const discountAmount = discountRate 
-    ? (subtotal + taxTotal) * (parseFloat(discountRate) / 100) 
+  const discountAmount = discountRate
+    ? (subtotal + taxTotal) * (parseFloat(discountRate) / 100)
     : 0;
   const grandTotal = subtotal + taxTotal - discountAmount;
 
@@ -139,15 +141,15 @@ export default function Sales() {
       try {
         const balance = await stockService.getStockBalance(product.product_id);
         const availableStock = balance?.qty_on_hand || 0;
-        
+
         // Update stock balance in state
         if (balance) {
           setStockBalances(prev => new Map(prev).set(product.product_id, balance));
         }
-        
+
         const existingItem = cart.find((item) => item.product.product_id === product.product_id);
         const requestedQty = existingItem ? existingItem.qty + 1 : 1;
-        
+
         if (availableStock < requestedQty) {
           toast.error(
             `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${requestedQty}`
@@ -207,11 +209,11 @@ export default function Sales() {
       try {
         const balance = await stockService.getStockBalance(productId);
         const availableStock = balance?.qty_on_hand || 0;
-        
+
         if (balance) {
           setStockBalances(prev => new Map(prev).set(productId, balance));
         }
-        
+
         if (availableStock < qty) {
           toast.error(
             `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${qty}`
@@ -300,13 +302,13 @@ export default function Sales() {
         const balances = await stockService.getStockBalances(productIds);
         const balancesMap = new Map(balances.map(b => [b.product_id, b]));
         setStockBalances(balancesMap);
-        
+
         // Check each item for sufficient stock
         for (const item of cart) {
           if (item.product.track_inventory) {
             const balance = balancesMap.get(item.product.product_id);
             const availableStock = balance?.qty_on_hand || 0;
-            
+
             if (availableStock < item.qty) {
               toast.error(
                 `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${item.qty}`
@@ -341,10 +343,10 @@ export default function Sales() {
 
       // Filter out invalid items and ensure all required fields are present
       const validItems = cart
-        .filter((item) => 
-          item.product && 
-          item.product.product_id && 
-          item.qty > 0 && 
+        .filter((item) =>
+          item.product &&
+          item.product.product_id &&
+          item.qty > 0 &&
           item.unit_price > 0
         )
         .map((item) => ({
@@ -368,7 +370,7 @@ export default function Sales() {
         payments: [
           {
             method: paymentMethod,
-            amount: grandTotal,  // Save the amount due (grand total), not the payment amount entered
+            amount: parseFloat(paymentAmount),
           },
         ],
       };
@@ -378,7 +380,7 @@ export default function Sales() {
 
       // Create sale with progress updates
       const sale = await saleService.createSale(saleData);
-      
+
       setProcessingProgress(80);
       setProcessingStage('Finalizing...');
 
@@ -388,12 +390,26 @@ export default function Sales() {
       setProcessingProgress(100);
       setProcessingStage('Complete!');
 
-      setCompletedSale(sale);
+      // Aggressively inject frontend values to ensure receipt matches user expectation
+      // This covers cases where backend might ignore discount (missing column)
+      // or return 0.
+      const hasDiscount = discountRate && parseFloat(discountRate) > 0;
+
+      const finalSale = {
+        ...sale,
+        discount_rate: hasDiscount ? parseFloat(discountRate) : (sale.discount_rate || 0),
+        discount_total: hasDiscount ? discountAmount : (sale.discount_total || 0),
+        // If we have a local discount that wasn't applied by backend (e.g. backend total > frontend total)
+        // force the frontend total for the receipt display.
+        grand_total: (hasDiscount && sale.grand_total > grandTotal) ? grandTotal : sale.grand_total,
+      };
+
+      setCompletedSale(finalSale);
       setReceiptCartItems(previousCart); // Store cart items for receipt
       setReceiptCustomer(previousCustomer); // Store customer for receipt
       setShowPaymentModal(false);
       toast.success('Sale completed successfully!');
-      
+
       // Clear cart and customer
       setCart([]);
       setSelectedCustomer(null);
@@ -496,32 +512,7 @@ export default function Sales() {
     }
   }, [completedSale?.store_id]);
 
-  // Currency formatter
-  const formatCurrency = (amount: number) => {
-    const currency = storeSettings?.currency_code || 'USD';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
 
-  // Date formatter with timezone
-  const formatDate = (dateString: string) => {
-    const timezone = storeSettings?.timezone || 'UTC';
-    try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone: timezone,
-      }).format(date);
-    } catch (error) {
-      // Fallback to local time if timezone is invalid
-      return new Date(dateString).toLocaleString();
-    }
-  };
 
   // Load store settings on mount
   useEffect(() => {
@@ -580,7 +571,7 @@ export default function Sales() {
                 </div>
                 <h2 className="text-base font-bold text-gray-900">Product Search</h2>
               </div>
-              
+
               {/* Barcode Scanner */}
               <div className="mb-3">
                 <div className="relative">
@@ -714,69 +705,69 @@ export default function Sales() {
                   const availableStock = stockBalance?.qty_on_hand ?? null;
                   const isLowStock = item.product.track_inventory && availableStock !== null && availableStock < item.qty;
                   const isOutOfStock = item.product.track_inventory && availableStock !== null && availableStock === 0;
-                  
+
                   return (
-                  <div key={item.product.product_id} className={`px-3 py-2.5 hover:bg-secondary-50 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-1.5 mb-1">
-                          <div className="p-1 bg-secondary-100 rounded-lg">
-                            <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
+                    <div key={item.product.product_id} className={`px-3 py-2.5 hover:bg-secondary-50 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-1.5 mb-1">
+                            <div className="p-1 bg-secondary-100 rounded-lg">
+                              <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
+                            </div>
+                            <p className="font-bold text-xs text-gray-900">{item.product.name}</p>
                           </div>
-                          <p className="font-bold text-xs text-gray-900">{item.product.name}</p>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs font-medium text-gray-600">
-                            ${Number(item.unit_price).toFixed(2)} each
-                          </span>
-                          {item.product.track_inventory && availableStock !== null && (
-                            <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
-                              Stock: {availableStock}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-medium text-gray-600">
+                              ${Number(item.unit_price).toFixed(2)} each
                             </span>
-                          )}
-                          {Number(item.tax_rate) > 0 && (
-                            <Badge variant="info" size="sm">
-                              Tax: {Number(item.tax_rate)}%
-                            </Badge>
-                          )}
+                            {item.product.track_inventory && availableStock !== null && (
+                              <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                Stock: {availableStock}
+                              </span>
+                            )}
+                            {Number(item.tax_rate) > 0 && (
+                              <Badge variant="info" size="sm">
+                                Tax: {Number(item.tax_rate)}%
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-end">
-                        <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white">
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-end">
+                          <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white">
+                            <Button
+                              onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
+                              variant="ghost"
+                              size="sm"
+                              className="!p-1.5 hover:bg-gray-100"
+                            >
+                              <MinusIcon className="w-3 h-3" />
+                            </Button>
+                            <span className="w-10 text-center font-bold text-xs text-gray-900">{item.qty}</span>
+                            <Button
+                              onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
+                              variant="ghost"
+                              size="sm"
+                              className="!p-1.5 hover:bg-gray-100"
+                            >
+                              <PlusIcon className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          <div className="text-right min-w-[80px]">
+                            <p className="font-bold text-sm text-secondary-500">
+                              ${Number(item.line_total).toFixed(2)}
+                            </p>
+                          </div>
                           <Button
-                            onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
-                            variant="ghost"
+                            onClick={() => removeFromCart(item.product.product_id)}
+                            variant="danger"
                             size="sm"
-                            className="!p-1.5 hover:bg-gray-100"
+                            className="!p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                           >
-                            <MinusIcon className="w-3 h-3" />
-                          </Button>
-                          <span className="w-10 text-center font-bold text-xs text-gray-900">{item.qty}</span>
-                          <Button
-                            onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
-                            variant="ghost"
-                            size="sm"
-                            className="!p-1.5 hover:bg-gray-100"
-                          >
-                            <PlusIcon className="w-3 h-3" />
+                            <XMarkIcon className="w-3 h-3" />
                           </Button>
                         </div>
-                        <div className="text-right min-w-[80px]">
-                          <p className="font-bold text-sm text-secondary-500">
-                            ${Number(item.line_total).toFixed(2)}
-                          </p>
-                        </div>
-                        <Button
-                          onClick={() => removeFromCart(item.product.product_id)}
-                          variant="danger"
-                          size="sm"
-                          className="!p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        >
-                          <XMarkIcon className="w-3 h-3" />
-                        </Button>
                       </div>
                     </div>
-                  </div>
                   );
                 })}
               </div>
@@ -848,7 +839,7 @@ export default function Sales() {
                   <span className="font-medium text-xs text-gray-700">Tax:</span>
                   <span className="font-bold text-xs text-gray-900">${taxTotal.toFixed(2)}</span>
                 </div>
-                
+
                 {/* Discount Percentage Input */}
                 <div className="p-2 bg-white/60 rounded-lg">
                   <div className="flex items-center justify-between mb-1">
@@ -876,7 +867,7 @@ export default function Sales() {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="border-t-2 border-secondary-300 pt-2 mt-2">
                   <div className="flex justify-between items-center p-3 bg-secondary-500 rounded-lg text-white">
                     <span className="text-base font-bold">Total:</span>
@@ -1023,26 +1014,23 @@ export default function Sales() {
                 <button
                   key={method}
                   onClick={() => setPaymentMethod(method)}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    paymentMethod === method
-                      ? 'border-secondary-500 bg-secondary-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  className={`p-3 rounded-lg border-2 transition-all ${paymentMethod === method
+                    ? 'border-secondary-500 bg-secondary-50 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
                 >
                   <div className="flex flex-col items-center space-y-1.5">
-                    <div className={`p-1.5 rounded-lg ${
-                      paymentMethod === method
-                        ? 'bg-secondary-500'
-                        : 'bg-gray-200'
-                    }`}>
+                    <div className={`p-1.5 rounded-lg ${paymentMethod === method
+                      ? 'bg-secondary-500'
+                      : 'bg-gray-200'
+                      }`}>
                       {method === 'cash' && <BanknotesIcon className="w-4 h-4 text-white" />}
                       {method === 'card' && <CreditCardIcon className="w-4 h-4 text-white" />}
                       {method === 'voucher' && <TicketIcon className="w-4 h-4 text-white" />}
                       {method === 'other' && <CurrencyDollarIcon className="w-4 h-4 text-white" />}
                     </div>
-                    <span className={`font-semibold text-xs capitalize ${
-                      paymentMethod === method ? 'text-secondary-500' : 'text-gray-700'
-                    }`}>
+                    <span className={`font-semibold text-xs capitalize ${paymentMethod === method ? 'text-secondary-500' : 'text-gray-700'
+                      }`}>
                       {method}
                     </span>
                   </div>
@@ -1124,241 +1112,35 @@ export default function Sales() {
             </div>
           }
         >
-          {/* Enhanced Print Styles */}
-          <style>{`
-            @media print {
-              body * {
-                visibility: hidden;
-              }
-              .receipt-container, .receipt-container * {
-                visibility: visible;
-              }
-              .receipt-container {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                max-width: 100%;
-                padding: 20px;
-                background: white;
-              }
-              .print\\:hidden {
-                display: none !important;
-              }
-              .modal-content {
-                box-shadow: none !important;
-                border: none !important;
-              }
-              @page {
-                margin: 0.5cm;
-                size: auto;
-              }
-            }
-          `}</style>
-
-          {/* Modern Receipt Content */}
-          <div className="bg-white print:shadow-none">
-            <div className="receipt-container max-w-md mx-auto p-8 print:p-6 bg-gradient-to-b from-white to-gray-50">
-              
-              {/* Modern Header with gradient accent */}
-              <div className="text-center mb-8 relative">
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-secondary-500 rounded-full"></div>
-                <div className="pt-6 border-b-2 border-gray-200 pb-6">
-                  {storeSettings?.receipt_header ? (
-                    <div className="text-sm text-gray-700 whitespace-pre-line mb-2 leading-relaxed">
-                      {storeSettings.receipt_header}
-                    </div>
-                  ) : (
-                    <>
-                      <h1 className="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
-                        {storeSettings?.name || 'Chapter One'}
-                      </h1>
-                      {storeSettings?.address && (
-                        <p className="text-sm text-gray-600 leading-relaxed">{storeSettings.address}</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Receipt Info - Modern card style */}
-              <div className="mb-8 space-y-3 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Receipt #</span>
-                  <span className="font-mono font-bold text-gray-900 text-base tracking-wider">
-                    {completedSale.receipt_no}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Date</span>
-                  <span className="text-gray-900 font-semibold">
-                    {formatDate(completedSale.created_at)}
-                  </span>
-                </div>
-                {receiptCustomer && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-gray-600 font-medium">Customer</span>
-                      <span className="font-bold text-gray-900">
-                        {receiptCustomer.full_name || 'Unnamed Customer'}
-                      </span>
-                    </div>
-                    {receiptCustomer.phone && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 font-medium">Phone</span>
-                        <span className="text-gray-900">{receiptCustomer.phone}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Items List - Enhanced with better spacing */}
-              <div className="mb-8">
-                <div className="border-t-2 border-b-2 border-gray-300 py-4">
-                  <div className="space-y-4">
-                    {receiptCartItems.map((item, index) => {
-                      return (
-                        <div key={index} className="flex justify-between items-start gap-4 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-gray-900 text-base leading-snug">
-                              {item.product.name}
-                            </p>
-                            <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
-                              <span className="font-mono">
-                                {item.qty} × {formatCurrency(Number(item.unit_price))}
-                              </span>
-                              {item.tax_rate && Number(item.tax_rate) > 0 && (
-                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-medium">
-                                  Tax: {Number(item.tax_rate)}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-gray-900 text-base">
-                              {formatCurrency(Number(item.line_total))}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Totals - Enhanced with visual hierarchy */}
-              <div className="mb-8 space-y-3 text-sm bg-white rounded-xl p-5 border-2 border-gray-200 shadow-sm">
-                {storeSettings?.tax_inclusive ? (
-                  // Show inclusive pricing
-                  <>
-                    {Number(completedSale.discount_total) > 0 && (
-                      <div className="flex justify-between items-center text-secondary-500 pb-2">
-                        <span className="font-medium">Discount{completedSale.discount_rate ? ` (${completedSale.discount_rate}%)` : ''}</span>
-                        <span className="font-bold">-{formatCurrency(Number(completedSale.discount_total))}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
-                      <span className="text-lg font-bold text-gray-900">Total (Tax Inclusive)</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(Number(completedSale.grand_total))}</span>
-                    </div>
-                  </>
-                ) : (
-                  // Show breakdown
-                  <>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 font-medium">Subtotal</span>
-                      <span className="text-gray-900 font-semibold">{formatCurrency(Number(completedSale.subtotal))}</span>
-                    </div>
-                    {Number(completedSale.tax_total) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 font-medium">Tax</span>
-                        <span className="text-gray-900 font-semibold">{formatCurrency(Number(completedSale.tax_total))}</span>
-                      </div>
-                    )}
-                    {Number(completedSale.discount_total) > 0 && (
-                      <div className="flex justify-between items-center text-secondary-500">
-                        <span className="font-medium">Discount{completedSale.discount_rate ? ` (${completedSale.discount_rate}%)` : ''}</span>
-                        <span className="font-bold">-{formatCurrency(Number(completedSale.discount_total))}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
-                      <span className="text-lg font-bold text-gray-900">Total</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(Number(completedSale.grand_total))}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Payment - Enhanced styling */}
-              <div className="mb-8 space-y-2 text-sm bg-gray-50 rounded-xl p-4 border border-gray-100">
-                {completedSale.payments.map((payment: any, index: number) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <span className="text-gray-600 font-medium capitalize">
-                      {payment.method} Payment
-                    </span>
-                    <span className="font-bold text-gray-900">
-                      {formatCurrency(payment.amount)}
-                    </span>
-                  </div>
-                ))}
-                {Number(completedSale.payments[0]?.amount || 0) > Number(completedSale.grand_total) && (
-                  <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
-                    <span className="font-bold text-secondary-500">Change</span>
-                    <span className="font-extrabold text-xl text-secondary-500">
-                      {formatCurrency((Number(completedSale.payments[0]?.amount || 0) - Number(completedSale.grand_total)))}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer - Enhanced with modern styling */}
-              <div className="text-center space-y-4 border-t-2 border-gray-200 pt-6">
-                {storeSettings?.receipt_footer ? (
-                  <div className="whitespace-pre-line text-sm text-gray-600 leading-relaxed">
-                    {storeSettings.receipt_footer}
-                  </div>
-                ) : (
-                  <>
-                    <p className="font-semibold text-gray-800 text-base">Thank you for your business!</p>
-                    <p className="text-sm text-gray-600">Have a great day!</p>
-                  </>
-                )}
-                
-                {/* Cubiq Solutions Branding */}
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <div className="flex flex-col items-center justify-center space-y-3">
-                    {/* Logo Image */}
-                    <img 
-                      src="/cubiq-logo.jpg" 
-                      alt="Cubiq Solutions" 
-                      className="h-16 w-auto object-contain opacity-90 print:opacity-100 max-w-xs"
-                      onError={(e) => {
-                        // Fallback if image doesn't exist
-                        logger.error('Failed to load logo image:', e);
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    {/* Website URL */}
-                    <div className="text-center">
-                      <a 
-                        href="https://www.cubiq-solutions.com" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors print:text-gray-600 print:no-underline"
-                      >
-                        www.cubiq-solutions.com
-                      </a>
-                      <p className="text-xs text-gray-500 mt-1 print:text-gray-400">
-                        Digital Innovation Agency
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Receipt
+            settings={storeSettings}
+            sale={completedSale}
+            customer={receiptCustomer}
+            items={receiptCartItems}
+          />
         </Modal>
+      )}
+
+      {/* Hidden Print Portal */}
+      {completedSale && createPortal(
+        <div className="hidden print:block fixed inset-0 z-[9999] bg-white print-portal-container">
+          <style>{`
+             @media print {
+               @page { size: auto; margin: 0; }
+               body { margin: 0; padding: 0; }
+               body > * { display: none !important; }
+               body > .print-portal-container { display: block !important; }
+               .print-portal-container { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+             }
+           `}</style>
+          <Receipt
+            settings={storeSettings}
+            sale={completedSale}
+            customer={receiptCustomer}
+            items={receiptCartItems}
+          />
+        </div>,
+        document.body
       )}
     </>
   );

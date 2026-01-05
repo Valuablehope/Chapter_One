@@ -21,15 +21,15 @@ export class OfflineError extends Error {
  */
 function isNetworkError(error: any): boolean {
   if (!error) return false;
-  
+
   // Network errors
   if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return true;
   if (error.message?.includes('Network Error')) return true;
   if (error.message?.includes('Failed to fetch')) return true;
-  
+
   // No response from server (offline)
   if (!error.response && error.request) return true;
-  
+
   return false;
 }
 
@@ -58,6 +58,7 @@ export interface CreateSalePayment {
 export interface CreateSaleData {
   customer_id?: string;
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
+  discount_rate?: number; // Discount percentage (0-100)
   items: {
     product_id: string;
     qty: number;
@@ -69,6 +70,7 @@ export interface CreateSaleData {
 
 export interface UpdateSaleData {
   customer_id?: string;
+  discount_rate?: number;
   items?: {
     product_id: string;
     qty: number;
@@ -91,6 +93,7 @@ export interface Sale {
   subtotal: number;
   tax_total: number;
   discount_total: number;
+  discount_rate?: number;
   grand_total: number;
   paid_total: number;
   status: string;
@@ -138,7 +141,7 @@ export const saleService = {
         params.append(key, String(value));
       }
     });
-    
+
     const response = await api.get<{ success: boolean; data: Sale[]; pagination: any }>(
       `/sales?${params.toString()}`
     );
@@ -163,7 +166,7 @@ export const saleService = {
   async createSale(data: CreateSaleData, clientSaleId?: string): Promise<Sale> {
     // Generate client sale ID if not provided
     const saleId = clientSaleId || data.client_sale_id || this.generateClientSaleId();
-    
+
     // Include client sale ID in request
     const saleDataWithId = {
       ...data,
