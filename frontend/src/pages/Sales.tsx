@@ -6,7 +6,7 @@ import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/
 import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
-import { useCancellableRequest } from '../hooks/useCancellableRequest';
+
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -34,9 +34,6 @@ import { createPortal } from 'react-dom';
 import Receipt from '../components/Receipt';
 
 export default function Sales() {
-  // Request cancellation hook - automatically cancels requests on unmount
-  const { getSignal } = useCancellableRequest();
-
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
@@ -61,6 +58,18 @@ export default function Sales() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+      }
+      if (customerAbortController.current) {
+        customerAbortController.current.abort();
+      }
+    };
+  }, []);
+
   // Calculate totals
   // line_total already includes tax, so we need to calculate subtotal and tax separately
   const subtotal = cart.reduce((sum, item) => {
@@ -77,21 +86,35 @@ export default function Sales() {
     : 0;
   const grandTotal = subtotal + taxTotal - discountAmount;
 
-  // Search products with debouncing (300ms delay)
-  const debouncedSearch = useDebouncedCallback(async (query: string) => {
+  // Search abort controller
+  const searchAbortController = useRef<AbortController | null>(null);
+
+  // Perform search
+  const performSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
+      setSearching(false);
       return;
     }
+
+    // Cancel previous request
+    if (searchAbortController.current) {
+      searchAbortController.current.abort();
+    }
+
+    // Create new controller
+    searchAbortController.current = new AbortController();
+    const signal = searchAbortController.current.signal;
 
     try {
       setSearching(true);
       const response = await productService.getProducts({
         search: query,
         limit: 10,
-      }, getSignal());
-      // Only update state if component is still mounted and request wasn't cancelled
-      if (!getSignal().aborted) {
+      }, signal);
+
+      // Only update state if request wasn't cancelled
+      if (!signal.aborted) {
         setSearchResults(response.data);
       }
     } catch (err: any) {
@@ -102,15 +125,28 @@ export default function Sales() {
       toast.error('Failed to search products');
       logger.error('Error searching products:', err);
     } finally {
-      if (!getSignal().aborted) {
+      if (!signal.aborted) {
         setSearching(false);
       }
     }
-  }, 300);
+  };
+
+  // Debounced search
+  const debouncedSearch = useDebouncedCallback(performSearch, 300);
 
   // Handle search input change
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearching(false);
+      // Cancel any pending search
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+      }
+      debouncedSearch.cancel(); // Cancel pending debounce
+      return;
+    }
     debouncedSearch(query);
   };
 
@@ -244,19 +280,33 @@ export default function Sales() {
   };
 
   // Search customers
-  const handleCustomerSearch = async (query: string) => {
+  // Customer search abort controller
+  const customerAbortController = useRef<AbortController | null>(null);
+
+  // Perform customer search
+  const performCustomerSearch = async (query: string) => {
     if (!query.trim()) {
       setCustomerResults([]);
       return;
     }
 
+    // Cancel previous request
+    if (customerAbortController.current) {
+      customerAbortController.current.abort();
+    }
+
+    // Create new controller
+    customerAbortController.current = new AbortController();
+    const signal = customerAbortController.current.signal;
+
     try {
       const response = await customerService.getCustomers({
         search: query,
         limit: 10,
-      }, getSignal());
-      // Only update state if component is still mounted and request wasn't cancelled
-      if (!getSignal().aborted) {
+      }, signal);
+
+      // Only update state if request wasn't cancelled
+      if (!signal.aborted) {
         setCustomerResults(response.data);
       }
     } catch (err: any) {
@@ -267,6 +317,24 @@ export default function Sales() {
       toast.error('Failed to search customers');
       logger.error('Error searching customers:', err);
     }
+  };
+
+  // Debounced customer search
+  const debouncedCustomerSearch = useDebouncedCallback(performCustomerSearch, 300);
+
+  // Handle customer search input (renamed to match usage, but wraps debouncer)
+  const handleCustomerSearch = (query: string) => {
+    // Note: State update for input value is handled by caller (setCustomerSearch)
+    if (!query.trim()) {
+      setCustomerResults([]);
+      // Cancel pending
+      if (customerAbortController.current) {
+        customerAbortController.current.abort();
+      }
+      debouncedCustomerSearch.cancel();
+      return;
+    }
+    debouncedCustomerSearch(query);
   };
 
   // Select customer
@@ -733,21 +801,36 @@ export default function Sales() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-end">
-                          <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white">
+                          <div className="flex items-center gap-0 border-2 border-gray-200 rounded-lg bg-white overflow-hidden">
                             <Button
                               onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
                               variant="ghost"
                               size="sm"
-                              className="!p-1.5 hover:bg-gray-100"
+                              className="!p-1.5 hover:bg-gray-100 rounded-none border-r border-gray-200"
                             >
                               <MinusIcon className="w-3 h-3" />
                             </Button>
-                            <span className="w-10 text-center font-bold text-xs text-gray-900">{item.qty}</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val > 0) {
+                                  updateCartItemQuantity(item.product.product_id, val);
+                                } else if (e.target.value === '') {
+                                  // Optional: allow empty temporary state if needed, 
+                                  // but usually safer to just ignore or set to 1 on blur.
+                                  // For now, let's just not update if invalid
+                                }
+                              }}
+                              className="w-12 text-center font-bold text-xs text-gray-900 py-1.5 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
                             <Button
                               onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
                               variant="ghost"
                               size="sm"
-                              className="!p-1.5 hover:bg-gray-100"
+                              className="!p-1.5 hover:bg-gray-100 rounded-none border-l border-gray-200"
                             >
                               <PlusIcon className="w-3 h-3" />
                             </Button>

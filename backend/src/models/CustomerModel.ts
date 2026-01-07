@@ -23,7 +23,7 @@ export interface CustomerFilters {
 export class CustomerModel extends BaseModel {
   static async findAll(filters: CustomerFilters = {}): Promise<PaginatedResult<Customer>> {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
-    
+
     let query = 'SELECT * FROM customers WHERE 1=1';
     const params: any[] = [];
     let paramCount = 0;
@@ -43,9 +43,32 @@ export class CustomerModel extends BaseModel {
     const countResult = await this.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count, 10);
 
-    // Add pagination
+    // Add sorting and pagination
+    if (filters.search && filters.search.trim().length > 0) {
+      const searchTerm = filters.search.trim();
+
+      paramCount++;
+      const exactParamIdx = paramCount;
+      params.push(searchTerm);
+
+      paramCount++;
+      const startsWithParamIdx = paramCount;
+      params.push(`${searchTerm}%`);
+
+      query += ` ORDER BY 
+        CASE 
+          WHEN full_name ILIKE $${exactParamIdx} THEN 1
+          WHEN phone ILIKE $${exactParamIdx} THEN 2
+          WHEN email ILIKE $${exactParamIdx} THEN 3
+          WHEN full_name ILIKE $${startsWithParamIdx} THEN 4
+          ELSE 5
+        END ASC, created_at DESC`;
+    } else {
+      query += ` ORDER BY created_at DESC`;
+    }
+
     paramCount++;
-    query += ` ORDER BY created_at DESC LIMIT $${paramCount}`;
+    query += ` LIMIT $${paramCount}`;
     params.push(limit);
     paramCount++;
     query += ` OFFSET $${paramCount}`;
@@ -109,7 +132,7 @@ export class CustomerModel extends BaseModel {
 
     // Add updated_at without incrementing paramCount since CURRENT_TIMESTAMP doesn't use a parameter
     fields.push(`updated_at = CURRENT_TIMESTAMP`);
-    
+
     paramCount++;
     values.push(customerId);
 

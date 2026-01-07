@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { customerService, Customer, CustomerFilters } from '../services/customerService';
-import { useCancellableRequest } from '../hooks/useCancellableRequest';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -46,15 +45,34 @@ export default function Customers() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { getSignal } = useCancellableRequest();
+  const customerAbortController = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (customerAbortController.current) {
+        customerAbortController.current.abort();
+      }
+    };
+  }, []);
 
   const loadCustomers = useCallback(async () => {
-    const signal = getSignal();
+    // Cancel previous request
+    if (customerAbortController.current) {
+      customerAbortController.current.abort();
+    }
+
+    // Create new controller
+    customerAbortController.current = new AbortController();
+    const signal = customerAbortController.current.signal;
+
     try {
       setLoading(true);
       const response = await customerService.getCustomers(filters, signal);
+
       // Check if request was cancelled
       if (signal.aborted) return;
+
       setCustomers(response.data);
       setPagination(response.pagination);
     } catch (err: any) {
@@ -253,7 +271,7 @@ export default function Customers() {
               <span>Refresh</span>
             </button>
           </div>
-          
+
           <div className="mt-3 flex items-center gap-1.5">
             <Badge variant="primary" size="sm">{pagination.total} Customers</Badge>
             {searchQuery && (
@@ -269,49 +287,49 @@ export default function Customers() {
       <div className="overflow-x-auto -mx-3 sm:mx-0">
         <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
           <div className="overflow-x-auto">
-          {loading ? (
-            <div className="px-4 py-6">
-              <TableSkeleton rows={10} columns={6} />
-            </div>
-          ) : customers.length === 0 ? (
-            <div className="px-4 py-12">
-              <EmptyState
-                icon={<UserGroupIcon className="w-12 h-12" />}
-                title="No customers found"
-                description={searchQuery ? "Try adjusting your search" : "Get started by adding your first customer"}
-                action={
-                  !searchQuery && (
-                    <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                      Add Customer
-                    </Button>
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                <tr>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Contact</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Email</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Created</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {customers.map((customer, index) => (
-                  <CustomerRow
-                    key={customer.customer_id}
-                    customer={customer}
-                    index={index}
-                    onEdit={openEditModal}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </tbody>
-            </table>
-          )}
+            {loading ? (
+              <div className="px-4 py-6">
+                <TableSkeleton rows={10} columns={6} />
+              </div>
+            ) : customers.length === 0 ? (
+              <div className="px-4 py-12">
+                <EmptyState
+                  icon={<UserGroupIcon className="w-12 h-12" />}
+                  title="No customers found"
+                  description={searchQuery ? "Try adjusting your search" : "Get started by adding your first customer"}
+                  action={
+                    !searchQuery && (
+                      <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
+                        Add Customer
+                      </Button>
+                    )
+                  }
+                />
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Contact</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Email</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Created</th>
+                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {customers.map((customer, index) => (
+                    <CustomerRow
+                      key={customer.customer_id}
+                      customer={customer}
+                      index={index}
+                      onEdit={openEditModal}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
       </div>
@@ -405,9 +423,8 @@ export default function Customers() {
                 placeholder="Enter full name"
                 required
                 maxLength={INPUT_LIMITS.CUSTOMER_NAME_MAX_LENGTH}
-                className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${
-                  formErrors.full_name ? 'border-red-300' : 'border-gray-200'
-                }`}
+                className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${formErrors.full_name ? 'border-red-300' : 'border-gray-200'
+                  }`}
               />
             </div>
             {formErrors.full_name && (
@@ -458,9 +475,8 @@ export default function Customers() {
                 }}
                 maxLength={INPUT_LIMITS.EMAIL_MAX_LENGTH}
                 placeholder="Enter email address"
-                className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${
-                  formErrors.email ? 'border-red-300' : 'border-gray-200'
-                }`}
+                className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${formErrors.email ? 'border-red-300' : 'border-gray-200'
+                  }`}
               />
             </div>
             {formErrors.email && (

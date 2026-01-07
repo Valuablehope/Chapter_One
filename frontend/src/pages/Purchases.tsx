@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { createPortal } from 'react-dom';
 import PurchaseReceipt from '../components/PurchaseReceipt';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -67,37 +68,72 @@ export default function Purchases() {
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const purchasesAbortController = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (purchasesAbortController.current) {
+        purchasesAbortController.current.abort();
+      }
+    };
+  }, []);
+
+  const loadPurchaseOrders = useCallback(async () => {
+    // Cancel previous request
+    if (purchasesAbortController.current) {
+      purchasesAbortController.current.abort();
+    }
+
+    // Create new controller
+    purchasesAbortController.current = new AbortController();
+    const signal = purchasesAbortController.current.signal;
+
+    try {
+      setLoading(true);
+      const response = await purchaseService.getPurchaseOrders(filters);
+
+      // Check if request was cancelled (though getPurchaseOrders might not accept signal yet? Need to check)
+      if (signal.aborted) return;
+
+      setPurchaseOrders(response.data);
+      setPagination(response.pagination);
+    } catch (err: any) {
+      // Don't show error if request was cancelled
+      if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
+        return;
+      }
+      toast.error(err.response?.data?.error?.message || 'Failed to load purchase orders');
+      logger.error('Error loading purchase orders:', err);
+    } finally {
+      if (!signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [filters]);
 
   // Load purchase orders
   useEffect(() => {
     loadPurchaseOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.supplier_id, filters.status, filters.search, filters.page, filters.limit]);
+  }, [loadPurchaseOrders]);
 
-  const loadPurchaseOrders = async () => {
-    try {
-      setLoading(true);
-      const response = await purchaseService.getPurchaseOrders(filters);
-      setPurchaseOrders(response.data);
-      setPagination(response.pagination);
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to load purchase orders');
-      logger.error('Error loading purchase orders:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Debounced search to reduce API calls
+  const debouncedSearch = useDebouncedCallback((search: string) => {
+    setFilters(prev => ({ ...prev, search, page: 1 }));
+  }, 300);
 
   const handleSearch = (search: string) => {
-    setFilters({ ...filters, search, page: 1 });
+    setSearchQuery(search);
+    debouncedSearch(search);
   };
 
   const handleFilterChange = (key: keyof PurchaseOrderFilters, value: any) => {
-    setFilters({ ...filters, [key]: value, page: 1 });
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const handlePageChange = (newPage: number) => {
-    setFilters({ ...filters, page: newPage });
+    setFilters(prev => ({ ...prev, page: newPage }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -460,7 +496,7 @@ export default function Purchases() {
                 <input
                   type="text"
                   placeholder="Search by PO number or supplier..."
-                  value={filters.search || ''}
+                  value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                 />

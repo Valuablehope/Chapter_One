@@ -73,7 +73,7 @@ export interface PaginatedResponse<T> {
 
 export const purchaseService = {
   // Get all purchase orders with filters
-  async getPurchaseOrders(filters: PurchaseOrderFilters = {}): Promise<PaginatedResponse<PurchaseOrder>> {
+  async getPurchaseOrders(filters: PurchaseOrderFilters = {}, signal?: AbortSignal): Promise<PaginatedResponse<PurchaseOrder>> {
     const params = new URLSearchParams();
     if (filters.supplier_id) params.append('supplier_id', filters.supplier_id);
     if (filters.status) params.append('status', filters.status);
@@ -82,7 +82,8 @@ export const purchaseService = {
     if (filters.limit) params.append('limit', filters.limit.toString());
 
     const response = await api.get<PaginatedResponse<PurchaseOrder>>(
-      `/purchases?${params.toString()}`
+      `/purchases?${params.toString()}`,
+      { signal }
     );
     return response.data;
   },

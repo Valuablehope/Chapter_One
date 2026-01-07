@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product, ProductFilters } from '../services/productService';
-import { useCancellableRequest } from '../hooks/useCancellableRequest';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import Button from '../components/ui/Button';
@@ -49,15 +48,35 @@ export default function Products() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const { getSignal } = useCancellableRequest();
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchAbortController = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+      }
+    };
+  }, []);
 
   const loadProducts = useCallback(async () => {
-    const signal = getSignal();
+    // Cancel previous request
+    if (searchAbortController.current) {
+      searchAbortController.current.abort();
+    }
+
+    // Create new controller
+    searchAbortController.current = new AbortController();
+    const signal = searchAbortController.current.signal;
+
     try {
       setLoading(true);
       const response = await productService.getProducts(filters, signal);
+
       // Check if request was cancelled
       if (signal.aborted) return;
+
       setProducts(response.data);
       setPagination(response.pagination);
     } catch (err: any) {
@@ -86,7 +105,7 @@ export default function Products() {
 
   const handleSearch = useCallback((search: string) => {
     // Update local state immediately for responsive UI
-    setFilters(prev => ({ ...prev, search, page: 1 }));
+    setSearchQuery(search);
     // Debounced update will trigger the actual API call
     debouncedSearch(search);
   }, [debouncedSearch]);
@@ -307,13 +326,13 @@ export default function Products() {
                 <input
                   type="text"
                   placeholder="Search products by name, SKU, or barcode..."
-                  value={filters.search || ''}
+                  value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                 />
               </div>
             </div>
-            
+
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <FunnelIcon className="w-4 h-4" />
@@ -328,7 +347,7 @@ export default function Products() {
                 <option value="OTHER">Other</option>
               </select>
             </div>
-            
+
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <QrCodeIcon className="w-4 h-4" />
@@ -351,7 +370,7 @@ export default function Products() {
               />
             </div>
           </div>
-          
+
           <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-1.5">
               <Badge variant="success" size="sm">{pagination.total} Products</Badge>
@@ -376,56 +395,56 @@ export default function Products() {
       <div className="overflow-x-auto -mx-3 sm:mx-0">
         <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
           <div className="overflow-x-auto">
-          {loading ? (
-            <div className="px-4 py-6">
-              <TableSkeleton rows={10} columns={7} />
-            </div>
-          ) : products.length === 0 ? (
-            <div className="px-4 py-12">
-              <EmptyState
-                icon={<CubeIcon className="w-12 h-12" />}
-                title="No products found"
-                description={filters.search ? "Try adjusting your search or filters" : "Get started by adding your first product"}
-                action={
-                  !filters.search && (
-                    <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                      Add Product
-                    </Button>
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                <tr>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">SKU</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Barcode</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Type</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">List Price</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Sale Price</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">Inventory</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty In</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty Out</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Balance</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product, index) => (
-                  <ProductRow
-                    key={product.product_id}
-                    product={product}
-                    index={index}
-                    onEdit={openEditModal}
-                    onDelete={handleDelete}
-                    formatCurrency={formatCurrency}
-                  />
-                ))}
-              </tbody>
-            </table>
-          )}
+            {loading ? (
+              <div className="px-4 py-6">
+                <TableSkeleton rows={10} columns={7} />
+              </div>
+            ) : products.length === 0 ? (
+              <div className="px-4 py-12">
+                <EmptyState
+                  icon={<CubeIcon className="w-12 h-12" />}
+                  title="No products found"
+                  description={filters.search ? "Try adjusting your search or filters" : "Get started by adding your first product"}
+                  action={
+                    !filters.search && (
+                      <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
+                        Add Product
+                      </Button>
+                    )
+                  }
+                />
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">SKU</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Barcode</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Type</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">List Price</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Sale Price</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">Inventory</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty In</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty Out</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Balance</th>
+                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {products.map((product, index) => (
+                    <ProductRow
+                      key={product.product_id}
+                      product={product}
+                      index={index}
+                      onEdit={openEditModal}
+                      onDelete={handleDelete}
+                      formatCurrency={formatCurrency}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
       </div>

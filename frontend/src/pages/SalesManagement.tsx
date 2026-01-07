@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { createPortal } from 'react-dom';
 import Receipt from '../components/Receipt';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -59,52 +60,126 @@ export default function SalesManagement() {
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEditPrintPreview, setShowEditPrintPreview] = useState(false);
 
-  // Load sales
-  useEffect(() => {
-    loadSales();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.search, filters.customer_id, filters.start_date, filters.end_date, filters.page, filters.limit]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const salesAbortController = useRef<AbortController | null>(null);
+  const customerSearchAbortController = useRef<AbortController | null>(null);
+  const productSearchAbortController = useRef<AbortController | null>(null);
 
-  const loadSales = async () => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (salesAbortController.current) {
+        salesAbortController.current.abort();
+      }
+      if (customerSearchAbortController.current) {
+        customerSearchAbortController.current.abort();
+      }
+      if (productSearchAbortController.current) {
+        productSearchAbortController.current.abort();
+      }
+      debouncedCustomerSearch.cancel();
+      debouncedProductSearch.cancel();
+    };
+  }, []);
+
+  const loadSales = useCallback(async () => {
+    // Cancel previous request
+    if (salesAbortController.current) {
+      salesAbortController.current.abort();
+    }
+
+    // Create new controller
+    salesAbortController.current = new AbortController();
+    const signal = salesAbortController.current.signal;
+
     try {
       setLoading(true);
-      const response = await saleService.getSales(filters);
+      const response = await saleService.getSales(filters, signal);
+
+      // Check if request was cancelled
+      if (signal.aborted) return;
+
       setSales(response.data);
       setPagination(response.pagination);
     } catch (err: any) {
+      // Don't show error if request was cancelled
+      if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
+        return;
+      }
       toast.error(err.response?.data?.error?.message || 'Failed to load sales');
       logger.error('Error loading sales:', err);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [filters]);
+
+  // Load sales when filters change
+  useEffect(() => {
+    loadSales();
+  }, [loadSales]);
+
+  // Debounced search to reduce API calls
+  const debouncedSearch = useDebouncedCallback((search: string) => {
+    setFilters(prev => ({ ...prev, search, page: 1 }));
+  }, 300);
 
   const handleSearch = (search: string) => {
-    setFilters({ ...filters, search, page: 1 });
+    setSearchQuery(search);
+    debouncedSearch(search);
   };
 
   const handleFilterChange = (key: keyof SaleFilters, value: any) => {
-    setFilters({ ...filters, [key]: value, page: 1 });
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const handlePageChange = (newPage: number) => {
-    setFilters({ ...filters, page: newPage });
+    setFilters(prev => ({ ...prev, page: newPage }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Search customers
-  const handleCustomerSearch = async (query: string) => {
+  const performCustomerSearch = async (query: string) => {
     if (!query.trim()) {
       setCustomerResults([]);
       return;
     }
 
+    // Cancel previous request
+    if (customerSearchAbortController.current) {
+      customerSearchAbortController.current.abort();
+    }
+
+    customerSearchAbortController.current = new AbortController();
+    const signal = customerSearchAbortController.current.signal;
+
     try {
-      const response = await customerService.getCustomers({ search: query, limit: 10 });
-      setCustomerResults(response.data);
+      const response = await customerService.getCustomers({ search: query, limit: 10 }, signal);
+      if (!signal.aborted) {
+        setCustomerResults(response.data);
+      }
     } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       logger.error('Error searching customers:', err);
     }
+  };
+
+  const debouncedCustomerSearch = useDebouncedCallback((query: string) => {
+    performCustomerSearch(query);
+  }, 300);
+
+  const handleCustomerSearch = (query: string) => {
+    setCustomerSearch(query);
+    if (!query.trim()) {
+      setCustomerResults([]);
+      debouncedCustomerSearch.cancel();
+      if (customerSearchAbortController.current) {
+        customerSearchAbortController.current.abort();
+      }
+      return;
+    }
+    debouncedCustomerSearch(query);
   };
 
   const selectCustomer = (customer: Customer) => {
@@ -226,17 +301,46 @@ export default function SalesManagement() {
     }
   };
 
-  const handleProductSearch = async (query: string) => {
+  const performProductSearch = async (query: string) => {
     if (!query.trim()) {
       setProductResults([]);
       return;
     }
+
+    // Cancel previous request
+    if (productSearchAbortController.current) {
+      productSearchAbortController.current.abort();
+    }
+
+    productSearchAbortController.current = new AbortController();
+    const signal = productSearchAbortController.current.signal;
+
     try {
-      const response = await productService.getProducts({ search: query, limit: 10 });
-      setProductResults(response.data);
+      const response = await productService.getProducts({ search: query, limit: 10 }, signal);
+      if (!signal.aborted) {
+        setProductResults(response.data);
+      }
     } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       logger.error('Error searching products:', err);
     }
+  };
+
+  const debouncedProductSearch = useDebouncedCallback((query: string) => {
+    performProductSearch(query);
+  }, 300);
+
+  const handleProductSearch = (query: string) => {
+    // Note: State update for input value is handled by caller or state binding
+    if (!query.trim()) {
+      setProductResults([]);
+      debouncedProductSearch.cancel();
+      if (productSearchAbortController.current) {
+        productSearchAbortController.current.abort();
+      }
+      return;
+    }
+    debouncedProductSearch(query);
   };
 
   const addProductToEdit = (product: Product) => {
@@ -385,7 +489,7 @@ export default function SalesManagement() {
               <Input
                 type="text"
                 placeholder="Receipt No, Customer, Cashier..."
-                value={filters.search || ''}
+                value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
               />
@@ -950,19 +1054,30 @@ export default function SalesManagement() {
                         <tr key={index}>
                           <td className="px-3 py-2 text-sm">{item.product_name || 'Product'}</td>
                           <td className="px-3 py-2 text-sm text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="inline-flex items-center justify-end gap-0 border border-gray-300 rounded overflow-hidden">
                               <button
                                 onClick={() => updateItemQuantity(index, item.qty - 1)}
-                                className="p-1 hover:bg-gray-100 rounded"
+                                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 border-r border-gray-300"
                               >
-                                <MinusIcon className="w-4 h-4" />
+                                <MinusIcon className="w-3 h-3" />
                               </button>
-                              <span>{item.qty}</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.qty}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value);
+                                  if (!isNaN(val) && val > 0) {
+                                    updateItemQuantity(index, val);
+                                  }
+                                }}
+                                className="w-12 text-center text-sm py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
                               <button
                                 onClick={() => updateItemQuantity(index, item.qty + 1)}
-                                className="p-1 hover:bg-gray-100 rounded"
+                                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 border-l border-gray-300"
                               >
-                                <PlusIcon className="w-4 h-4" />
+                                <PlusIcon className="w-3 h-3" />
                               </button>
                             </div>
                           </td>

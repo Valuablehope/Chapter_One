@@ -139,10 +139,39 @@ export class ProductModel extends BaseModel {
     const countResult = await this.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count, 10);
 
-    // Add pagination
+    // Add sorting and pagination
+    if (filters.search && filters.search.trim().length > 0) {
+      const searchTerm = filters.search.trim();
+
+      paramCount++;
+      const exactParamIdx = paramCount;
+      params.push(searchTerm);
+
+      paramCount++;
+      const startsWithParamIdx = paramCount;
+      params.push(`${searchTerm}%`);
+
+      // Prioritize: 
+      // 1. Exact Name Match
+      // 2. Exact SKU Match
+      // 3. Exact Barcode Match
+      // 4. Name Starts With
+      query += ` ORDER BY 
+        CASE 
+          WHEN p.name ILIKE $${exactParamIdx} THEN 1
+          WHEN p.sku ILIKE $${exactParamIdx} THEN 2
+          WHEN p.barcode ILIKE $${exactParamIdx} THEN 3
+          WHEN p.name ILIKE $${startsWithParamIdx} THEN 4
+          ELSE 5
+        END ASC, p.created_at DESC`;
+    } else {
+      query += ` ORDER BY p.created_at DESC`;
+    }
+
     paramCount++;
-    query += ` ORDER BY p.created_at DESC LIMIT $${paramCount}`;
+    query += ` LIMIT $${paramCount}`;
     params.push(limit);
+
     paramCount++;
     query += ` OFFSET $${paramCount}`;
     params.push(offset);

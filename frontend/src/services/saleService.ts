@@ -134,7 +134,7 @@ export interface SaleItem {
 
 export const saleService = {
   // Get all sales with filters
-  async getSales(filters: SaleFilters = {}): Promise<{ data: Sale[]; pagination: any }> {
+  async getSales(filters: SaleFilters = {}, signal?: AbortSignal): Promise<{ data: Sale[]; pagination: any }> {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -143,7 +143,8 @@ export const saleService = {
     });
 
     const response = await api.get<{ success: boolean; data: Sale[]; pagination: any }>(
-      `/sales?${params.toString()}`
+      `/sales?${params.toString()}`,
+      { signal }
     );
     return {
       data: response.data.data,
