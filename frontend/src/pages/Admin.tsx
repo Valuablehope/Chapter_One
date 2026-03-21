@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDebouncedCallback } from 'use-debounce';
 import { TableSkeleton } from '../components/ui/Skeleton';
+import PageBanner from '../components/ui/PageBanner';
 import { useAuthStore } from '../store/authStore';
 import { useLicenseStore } from '../store/licenseStore';
 import { logger } from '../utils/logger';
@@ -367,22 +368,11 @@ export default function Admin() {
 
   return (
     <>
-      {/* Enhanced Header */}
-      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
-                <ShieldCheckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold">Admin Panel</h1>
-                <p className="text-white/80 text-xs mt-0.5">Manage users, stores, and terminals</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageBanner
+        title="Admin Panel"
+        subtitle="Manage users, stores, and terminals"
+        icon={<ShieldCheckIcon className="w-5 h-5 text-white" />}
+      />
 
       <Card padding="none" className="border-2 border-gray-100 shadow-md">
         {/* Enhanced Tabs */}

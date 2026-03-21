@@ -1,28 +1,32 @@
+/* Premium Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  line-height: 1.55;
   font-weight: 400;
 
   color-scheme: light;
-  color: rgba(0, 0, 0, 0.87);
-  background-color: #ffffff;
+  color: #1C1B19;
+  background-color: #f0f4fa;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Design Tokens - Primary (White) */
-  --color-primary: #ffffff;
-  --color-primary-bg: #ffffff;
+  /* ── Brand Palette ── */
+  --color-brand:         #3582e2;
+  --color-brand-dark:    #0f1c2e;
+  --color-brand-light:   #e8f1fc;
 
-  /* Design Tokens - Secondary (Brand Blue #3582e2) */
-  --color-secondary: #3582e2;
-  --color-secondary-50: #e8f1fc;
+  /* ── Secondary (Brand Blue) ── */
+  --color-secondary:     #3582e2;
+  --color-secondary-50:  #e8f1fc;
   --color-secondary-100: #d1e3f9;
   --color-secondary-200: #a3c7f3;
   --color-secondary-300: #75abed;
@@ -33,105 +37,73 @@
   --color-secondary-800: #15345b;
   --color-secondary-900: #0a1a2e;
 
-  /* Design Tokens - Semantic Colors */
-  --color-success: #3582e2;
-  --color-error: #ef4444;
-  --color-warning: #f59e0b;
-  --color-info: #06b6d4;
+  /* ── Accent (Blue highlight) ── */
+  --color-accent:        #3582e2;
+  --color-accent-light:  #e8f1fc;
 
-  /* Design Tokens - Neutral Colors */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
+  /* ── Semantic ── */
+  --color-success:       #10B981;
+  --color-error:         #EF4444;
+  --color-warning:       #F59E0B;
+  --color-info:          #06B6D4;
+
+  /* ── Neutral ── */
+  --color-gray-50:  #F9FAFB;
+  --color-gray-100: #F3F4F6;
+  --color-gray-200: #E5E7EB;
+  --color-gray-300: #D1D5DB;
+  --color-gray-400: #9CA3AF;
+  --color-gray-500: #6B7280;
+  --color-gray-600: #4B5563;
   --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
+  --color-gray-800: #1F2937;
   --color-gray-900: #111827;
 
-  /* Design Tokens - Spacing */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 20px;
+  /* ── Surface & Background ── */
+  --color-bg:       #f0f4fa;
+  --color-surface:  #FFFFFF;
+  --color-border:   #e2e8f0;
+
+  /* ── Spacing ── */
+  --spacing-xs:  4px;
+  --spacing-sm:  8px;
+  --spacing-md:  12px;
+  --spacing-lg:  16px;
+  --spacing-xl:  20px;
   --spacing-2xl: 24px;
   --spacing-3xl: 32px;
   --spacing-4xl: 40px;
   --spacing-5xl: 48px;
   --spacing-6xl: 64px;
 
-  /* Design Tokens - Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* ── Border Radius ── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
   --radius-2xl: 20px;
 
-  /* Design Tokens - Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -4px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
 
-  /* Design Tokens - Transitions */
+  /* ── Transitions ── */
   --transition-fast: 150ms ease-in-out;
   --transition-base: 200ms ease-in-out;
   --transition-slow: 300ms ease-in-out;
 }
 
+/* ─────────────────────────────────────────────
+   Base Reset
+───────────────────────────────────────────── */
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #ffffff; /* White background */
-}
-
-/* Responsive font sizing */
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-/* Better touch targets for mobile */
-@media (hover: none) and (pointer: coarse) {
-  button, a, input, select, textarea {
-    min-height: 44px;
-  }
-  
-  button, a {
-    min-width: 44px;
-  }
-}
-
-/* Custom Scrollbar Styling */
-.scrollbar-thin::-webkit-scrollbar {
-  height: 6px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgb(209 213 219);
-  border-radius: 3px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(156 163 175);
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  background-color: var(--color-bg);
+  color: #0f172a;
 }
 
 #root {
@@ -139,62 +111,178 @@ body {
   min-height: 100vh;
 }
 
-/* Custom Scrollbar */
+/* ─────────────────────────────────────────────
+   Typography utilities
+───────────────────────────────────────────── */
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+h1, h2 {
+  letter-spacing: -0.015em;
+}
+
+/* ─────────────────────────────────────────────
+   Responsive font sizing
+───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  html { font-size: 14px; }
+}
+
+/* ─────────────────────────────────────────────
+   Touch targets
+───────────────────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  button, a, input, select, textarea { min-height: 44px; }
+  button, a { min-width: 44px; }
+}
+
+/* ─────────────────────────────────────────────
+   Premium Scrollbars
+───────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: var(--color-gray-100);
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300);
-  border-radius: 4px;
+  background: #C8BFB0;
+  border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gray-400);
+  background: #A89E90;
 }
 
-/* Focus Styles */
+.scrollbar-thin::-webkit-scrollbar { height: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #D5CFC5;
+  border-radius: 2px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #B8B0A5;
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+
+/* ─────────────────────────────────────────────
+   Focus & Selection
+───────────────────────────────────────────── */
 *:focus-visible {
   outline: 2px solid var(--color-secondary);
   outline-offset: 2px;
 }
 
-/* Selection Styles */
 ::selection {
-  background-color: var(--color-secondary);
-  color: white;
+  background-color: #A1D1C9;
+  color: #0E211D;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+/* ─────────────────────────────────────────────
+   Sidebar dark theme overrides
+───────────────────────────────────────────── */
+.sidebar-dark ::-webkit-scrollbar-thumb {
+  background: #1F3530;
+}
+.sidebar-dark ::-webkit-scrollbar-thumb:hover {
+  background: #2A4A44;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-  scroll-behavior: smooth;
-}
-
-/* Dropdown Menu Animation */
+/* ─────────────────────────────────────────────
+   Animations
+───────────────────────────────────────────── */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
 }
 
 .dropdown-menu {
-  animation: fadeIn 0.2s ease-in-out forwards;
+  animation: fadeIn 0.18s ease-out forwards;
 }
 
+.animate-card-in {
+  animation: card-in 0.5s ease-out both;
+}
+
+/* ─────────────────────────────────────────────
+   Card base
+───────────────────────────────────────────── */
+.card-premium {
+  background: #FFFFFF;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+/* ─────────────────────────────────────────────
+   Input base — borderless with blue glow on focus
+───────────────────────────────────────────── */
+.input-premium {
+  background: #f0f5ff;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  color: #0f172a;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+.input-premium:focus {
+  background: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 0 0 3px rgba(53,130,226,0.18), 0 0 18px rgba(53,130,226,0.07);
+  outline: none;
+}
+.input-premium::placeholder {
+  color: #b0b8c8;
+}
+.input-premium:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────
+   Global input glow — applies to ALL inputs
+   (overridden by .input-premium where used)
+───────────────────────────────────────────── */
+input[type="text"]:not(.input-premium):focus,
+input[type="password"]:not(.input-premium):focus,
+input[type="email"]:not(.input-premium):focus,
+input[type="number"]:not(.input-premium):focus,
+input[type="search"]:not(.input-premium):focus,
+input[type="tel"]:not(.input-premium):focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: transparent !important;
+  box-shadow: 0 0 0 3px rgba(53,130,226,0.18), 0 0 16px rgba(53,130,226,0.07) !important;
+}
+
+/* ─────────────────────────────────────────────
+   Sidebar nav active indicator
+───────────────────────────────────────────── */
+.nav-active-bar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: #C49A3C;
+  border-radius: 0 2px 2px 0;
+}

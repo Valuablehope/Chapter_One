@@ -4,6 +4,7 @@ import { customerService, Customer, CustomerFilters } from '../services/customer
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import { TableSkeleton } from '../components/ui/Skeleton';
+import PageBanner from '../components/ui/PageBanner';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -220,30 +221,21 @@ export default function Customers() {
 
   return (
     <>
-      {/* Enhanced Header */}
-      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
-                <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold">Customers</h1>
-                <p className="text-white/80 text-xs mt-0.5">Manage your customer database and relationships</p>
-              </div>
-            </div>
-          </div>
+      <PageBanner
+        title="Customers"
+        subtitle="Manage your customer database and relationships"
+        icon={<UserGroupIcon className="w-5 h-5 text-white" />}
+        action={
           <Button
             onClick={openAddModal}
             size="sm"
-            className="bg-white !text-secondary-500 hover:bg-gray-50 font-semibold shadow-md hover:shadow-lg transition-all"
-            leftIcon={<PlusIcon className="w-4 h-4 !text-secondary-500" />}
+            className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+            leftIcon={<PlusIcon className="w-4 h-4" />}
           >
             Add Customer
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Enhanced Filters */}
       <Card className="mb-3 border-2 border-gray-100 shadow-md">

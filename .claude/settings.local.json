@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\pshar\\\\Documents\\\\chapter-one\\\\Chapter_One\\\\frontend\\\\src' -Recurse -Include '*.tsx','*.ts','*.css' | ForEach-Object { \\\\$content = Get-Content -Path \\\\$_.FullName -Raw; \\\\$updated = \\\\$content -replace '#EAE6DF','#e2e8f0' -replace '#FDFCFA','#f8fafc' -replace '#F5F1EB','#f0f4fa'; if \\(\\\\$updated -ne \\\\$content\\) { Set-Content -Path \\\\$_.FullName -Value \\\\$updated -NoNewline } }\")"
+    ]
+  }
+}

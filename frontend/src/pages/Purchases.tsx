@@ -13,8 +13,10 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
+import PageBanner from '../components/ui/PageBanner';
 import {
   ShoppingCartIcon,
+  TruckIcon,
   PlusIcon,
   MagnifyingGlassIcon,
   QrCodeIcon,
@@ -459,30 +461,21 @@ export default function Purchases() {
 
   return (
     <>
-      {/* Enhanced Header */}
-      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
-                <ShoppingCartIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold">Purchase Orders</h1>
-                <p className="text-white/80 text-xs mt-0.5">Manage your inventory purchases and suppliers</p>
-              </div>
-            </div>
-          </div>
+      <PageBanner
+        title="Purchase Orders"
+        subtitle="Manage your inventory purchases and suppliers"
+        icon={<TruckIcon className="w-5 h-5 text-white" />}
+        action={
           <Button
             onClick={openAddModal}
             size="sm"
-            className="bg-white !text-secondary-500 hover:bg-gray-50 font-semibold shadow-md hover:shadow-lg transition-all"
-            leftIcon={<PlusIcon className="w-4 h-4 !text-secondary-500" />}
+            className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
+            leftIcon={<PlusIcon className="w-4 h-4" />}
           >
             New Purchase Order
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Enhanced Filters */}
       <Card className="mb-3 border-2 border-gray-100 shadow-md">

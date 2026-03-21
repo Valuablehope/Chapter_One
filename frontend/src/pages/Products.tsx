@@ -10,12 +10,14 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton } from '../components/ui/Skeleton';
+import PageBanner from '../components/ui/PageBanner';
 import { ProductRow } from './Products/components/ProductRow';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
   QrCodeIcon,
   CubeIcon,
+  BookOpenIcon,
   FunnelIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
@@ -290,29 +292,20 @@ export default function Products() {
 
   return (
     <>
-      {/* Enhanced Header */}
-      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
-                <CubeIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold">Products</h1>
-                <p className="text-white/80 text-xs mt-0.5">Manage your product inventory</p>
-              </div>
-            </div>
-          </div>
+      <PageBanner
+        title="Products"
+        subtitle="Manage your product catalogue and inventory"
+        icon={<BookOpenIcon className="w-5 h-5 text-white" />}
+        action={
           <Button
             onClick={openAddModal}
-            className="bg-white !text-secondary-500 hover:bg-gray-50 font-semibold shadow-lg hover:shadow-xl transition-all"
-            leftIcon={<PlusIcon className="w-5 h-5 !text-secondary-500" />}
+            className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+            leftIcon={<PlusIcon className="w-4 h-4" />}
           >
             Add Product
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Enhanced Filters */}
       <Card className="mb-3 border-2 border-gray-100 shadow-md">

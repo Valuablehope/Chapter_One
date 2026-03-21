@@ -17,8 +17,10 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, CardSkeleton } from '../components/ui/Skeleton';
+import PageBanner from '../components/ui/PageBanner';
 import {
   ChartBarIcon,
+  PresentationChartBarIcon,
   CurrencyDollarIcon,
   ShoppingCartIcon,
   CubeIcon,
@@ -168,31 +170,22 @@ export default function Reports() {
 
   return (
     <>
-      {/* Enhanced Header */}
-      <div className="bg-secondary-500 rounded-xl shadow-lg p-3 sm:p-4 mb-3 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg">
-                <ChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold">Reports & Analytics</h1>
-                <p className="text-white/80 text-xs mt-0.5">View sales, purchases, and inventory insights</p>
-              </div>
-            </div>
-          </div>
+      <PageBanner
+        title="Reports & Analytics"
+        subtitle="View sales, purchases, and inventory insights"
+        icon={<PresentationChartBarIcon className="w-5 h-5 text-white" />}
+        action={
           <Button
             onClick={loadReport}
             size="sm"
-            className="bg-white !text-secondary-500 hover:bg-gray-50 font-semibold shadow-md hover:shadow-lg transition-all"
-            leftIcon={<ArrowPathIcon className="w-4 h-4 !text-secondary-500" />}
+            className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
+            leftIcon={<ArrowPathIcon className="w-4 h-4" />}
             isLoading={loading}
           >
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card padding="none" className="border-2 border-gray-100 shadow-md">
 

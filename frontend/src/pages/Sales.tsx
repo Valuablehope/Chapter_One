@@ -658,17 +658,17 @@ export default function Sales() {
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
         {/* Left Column - Product Search & Cart */}
-        <div className="lg:col-span-2 space-y-3">
-          {/* Enhanced Product Search */}
-          <Card className="border-2 border-gray-100 shadow-md">
-            <div className="p-3">
-              <div className="flex items-center gap-2 mb-3">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Product Search */}
+          <Card className="border border-[#e2e8f0] shadow-soft bg-white">
+            <div className="p-4">
+              <div className="flex items-center gap-2.5 mb-4">
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
                   <MagnifyingGlassIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-base font-bold text-gray-900">Product Search</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Find Products</h2>
               </div>
 
               {/* Barcode Scanner */}
@@ -691,10 +691,10 @@ export default function Sales() {
                         }
                       }
                     }}
-                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+                    className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1 ml-3">Press Enter to scan</p>
+                <p className="text-[10px] text-gray-400 mt-1.5 ml-1">Press Enter to scan</p>
               </div>
 
               {/* Product Search */}
@@ -709,7 +709,7 @@ export default function Sales() {
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
                     placeholder="Search by name, SKU, or barcode..."
-                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+                    className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
                 </div>
               </div>
@@ -759,16 +759,16 @@ export default function Sales() {
 
               {searching && (
                 <div className="mt-3 text-center py-3">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-3 border-blue-200 border-t-blue-600"></div>
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-secondary-200 border-t-secondary-500"></div>
                   <p className="mt-1.5 text-xs text-gray-500 font-medium">Searching...</p>
                 </div>
               )}
             </div>
           </Card>
 
-          {/* Enhanced Shopping Cart */}
-          <Card padding="none" className="border-2 border-gray-100 shadow-md overflow-hidden">
-            <div className="px-3 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+          {/* Shopping Cart */}
+          <Card padding="none" className="border border-[#e2e8f0] shadow-soft bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#e2e8f0] bg-[#f8fafc]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-secondary-500 rounded-lg">
@@ -900,9 +900,9 @@ export default function Sales() {
         </div>
 
         {/* Right Column - Customer & Totals */}
-        <div className="space-y-3">
-          {/* Enhanced Customer Selection */}
-          <Card className="border-2 border-gray-100 shadow-md">
+        <div className="space-y-4">
+          {/* Customer Selection */}
+          <Card className="border border-[#e2e8f0] shadow-soft bg-white">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
@@ -945,8 +945,8 @@ export default function Sales() {
             </div>
           </Card>
 
-          {/* Enhanced Totals */}
-          <Card className="border-2 border-secondary-200 bg-white shadow-lg">
+          {/* Totals */}
+          <Card className="border border-[#e2e8f0] bg-white shadow-medium overflow-hidden">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
@@ -992,10 +992,10 @@ export default function Sales() {
                   </div>
                 </div>
 
-                <div className="border-t-2 border-secondary-300 pt-2 mt-2">
-                  <div className="flex justify-between items-center p-3 bg-secondary-500 rounded-lg text-white">
-                    <span className="text-base font-bold">Total:</span>
-                    <span className="text-xl font-extrabold">${grandTotal.toFixed(2)}</span>
+                <div className="border-t border-[#e2e8f0] pt-2 mt-2">
+                  <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)', boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
+                    <span className="text-sm font-semibold opacity-90">Total Due</span>
+                    <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -1003,7 +1003,8 @@ export default function Sales() {
               <Button
                 onClick={openPaymentModal}
                 disabled={cart.length === 0 || processing}
-                className="w-full bg-secondary-500 hover:bg-secondary-600 text-white font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm"
+                className="w-full text-white font-semibold shadow-brand hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-3 text-sm rounded-xl mt-1"
+              style={{ background: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)' }}
                 leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
                 isLoading={processing}
               >
@@ -1174,15 +1175,15 @@ export default function Sales() {
               helperText={`Total due: $${grandTotal.toFixed(2)}`}
             />
           </div>
-          <div className="p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
+          <div className="p-4 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)' }}>
             <div className="flex justify-between items-center">
-              <span className="font-bold text-xs text-gray-700">Grand Total:</span>
-              <span className="text-xl font-extrabold text-secondary-500">${grandTotal.toFixed(2)}</span>
+              <span className="font-medium text-sm opacity-80">Grand Total</span>
+              <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
             </div>
             {parseFloat(paymentAmount) > grandTotal && (
-              <div className="mt-2 pt-2 border-t border-secondary-300 flex justify-between items-center">
-                <span className="font-semibold text-xs text-secondary-700">Change:</span>
-                <span className="text-base font-bold text-secondary-500">
+              <div className="mt-2.5 pt-2.5 border-t border-white/20 flex justify-between items-center">
+                <span className="text-xs font-medium opacity-70">Change Due</span>
+                <span className="text-base font-bold tabular-nums opacity-90">
                   ${(parseFloat(paymentAmount) - grandTotal).toFixed(2)}
                 </span>
               </div>
@@ -1191,18 +1192,18 @@ export default function Sales() {
 
           {/* Progress indicator */}
           {processing && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-blue-900">{processingStage || 'Processing...'}</span>
-                <span className="text-sm font-bold text-blue-600">{processingProgress}%</span>
+            <div className="mt-4 p-4 bg-secondary-50 rounded-xl border border-secondary-200">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-sm font-semibold text-secondary-800">{processingStage || 'Processing…'}</span>
+                <span className="text-sm font-bold text-secondary-600 tabular-nums">{processingProgress}%</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2.5">
+              <div className="w-full bg-secondary-100 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                  className="bg-secondary-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${processingProgress}%` }}
-                ></div>
+                />
               </div>
-              <p className="text-xs text-blue-700 mt-2">Please wait while we process your sale...</p>
+              <p className="text-xs text-secondary-600 mt-2">Please wait while we process your sale…</p>
             </div>
           )}
         </div>

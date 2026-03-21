@@ -4,16 +4,18 @@ import { useAuthStore } from '../store/authStore';
 import { reportService } from '../services/reportService';
 import { logger } from '../utils/logger';
 import {
-  CubeIcon,
+  BookOpenIcon,
   CurrencyDollarIcon,
+  CreditCardIcon,
   ShoppingCartIcon,
+  TruckIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
-  ChartBarIcon,
+  PresentationChartBarIcon,
   ArrowTrendingUpIcon,
   ArrowRightIcon,
   ClockIcon,
-  SparklesIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { APP_BRAND_POS_LINE } from '../constants/branding';
@@ -42,23 +44,16 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const today = new Date().toISOString().split('T')[0];
-      
-      // Get today's sales summary
-      const salesSummary = await reportService.getSalesSummary({
-        start_date: today,
-        end_date: today,
-        limit: 1,
-      });
-
-      // Get low stock items
-      const lowStock = await reportService.getLowStockReport(undefined, 10);
-
+      const [salesSummary, lowStock] = await Promise.all([
+        reportService.getSalesSummary({ start_date: today, end_date: today, limit: 1 }),
+        reportService.getLowStockReport(undefined, 10),
+      ]);
       setStats({
-        todayRevenue: salesSummary[0]?.total_revenue || 0,
+        todayRevenue:     salesSummary[0]?.total_revenue   || 0,
         todayTransactions: salesSummary[0]?.transaction_count || 0,
-        totalProducts: 0,
-        totalCustomers: 0,
-        lowStockCount: lowStock.length,
+        totalProducts:    0,
+        totalCustomers:   0,
+        lowStockCount:    lowStock.length,
       });
     } catch (err: any) {
       logger.error('Error loading dashboard data:', err);
@@ -68,331 +63,247 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+  useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
-  const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  }, []);
+  const formatCurrency = useCallback((amount: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount), []);
 
   const getGreeting = useCallback(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 18) return 'Good afternoon';
     return 'Good evening';
   }, []);
 
   const statCards = useMemo(() => [
     {
       title: "Today's Revenue",
-      value: loading ? '...' : formatCurrency(stats.todayRevenue),
+      value: loading ? null : formatCurrency(stats.todayRevenue),
       icon: CurrencyDollarIcon,
-      iconBg: 'bg-secondary-100',
-      iconColor: 'text-secondary-500',
-      trend: '+12.5%',
-      trendColor: 'text-secondary-500',
+      accent: '#3582e2',
+      accentBg: '#e8f1fc',
+      sub: 'View full report →',
       link: '/reports',
     },
     {
       title: 'Transactions',
-      value: loading ? '...' : stats.todayTransactions,
+      value: loading ? null : String(stats.todayTransactions),
       icon: ShoppingCartIcon,
-      iconBg: 'bg-secondary-100',
-      iconColor: 'text-secondary-500',
-      trend: 'Today',
-      trendColor: 'text-secondary-500',
+      accent: '#2B6E63',
+      accentBg: '#EDF5F3',
+      sub: 'Today',
       link: '/sales',
     },
     {
       title: 'Low Stock Items',
-      value: loading ? '...' : stats.lowStockCount,
-      icon: CubeIcon,
-      iconBg: stats.lowStockCount > 0 ? 'bg-warning-100' : 'bg-secondary-100',
-      iconColor: stats.lowStockCount > 0 ? 'text-warning-600' : 'text-secondary-500',
-      trend: stats.lowStockCount > 0 ? 'Needs attention' : 'All good',
-      trendColor: stats.lowStockCount > 0 ? 'text-warning-600' : 'text-secondary-500',
+      value: loading ? null : String(stats.lowStockCount),
+      icon: stats.lowStockCount > 0 ? ExclamationTriangleIcon : BookOpenIcon,
+      accent: stats.lowStockCount > 0 ? '#D97706' : '#2B6E63',
+      accentBg: stats.lowStockCount > 0 ? '#FFFBEB' : '#EDF5F3',
+      sub: stats.lowStockCount > 0 ? 'Needs attention' : 'Stock is healthy',
       link: '/products',
       alert: stats.lowStockCount > 0,
     },
     {
-      title: 'Quick Actions',
-      value: '6',
-      icon: SparklesIcon,
-      iconBg: 'bg-secondary-100',
-      iconColor: 'text-secondary-500',
-      trend: 'Available',
-      trendColor: 'text-secondary-500',
-      link: '/sales',
+      title: 'Avg. Order Value',
+      value: loading ? null : (stats.todayTransactions > 0
+        ? formatCurrency(stats.todayRevenue / stats.todayTransactions)
+        : '—'),
+      icon: ArrowTrendingUpIcon,
+      accent: '#2B6E63',
+      accentBg: '#EDF5F3',
+      sub: 'Today',
+      link: '/reports',
     },
-  ], [loading, stats.todayRevenue, stats.todayTransactions, stats.lowStockCount, formatCurrency]);
+  ], [loading, stats, formatCurrency]);
 
   const quickLinks = useMemo(() => [
-    {
-      to: '/products',
-      label: 'Products',
-      icon: CubeIcon,
-      description: 'Manage inventory',
-      count: stats.totalProducts,
-    },
-    {
-      to: '/sales',
-      label: 'POS Sales',
-      icon: CurrencyDollarIcon,
-      description: 'Process sales',
-      highlight: true,
-    },
-    {
-      to: '/purchases',
-      label: 'Purchases',
-      icon: ShoppingCartIcon,
-      description: 'Manage orders',
-    },
-    {
-      to: '/customers',
-      label: 'Customers',
-      icon: UserGroupIcon,
-      description: 'View customers',
-      count: stats.totalCustomers,
-    },
-    {
-      to: '/suppliers',
-      label: 'Suppliers',
-      icon: BuildingOfficeIcon,
-      description: 'Manage suppliers',
-    },
-    {
-      to: '/reports',
-      label: 'Reports',
-      icon: ChartBarIcon,
-      description: 'View analytics',
-    },
-  ], [stats.totalProducts, stats.totalCustomers]);
+    { to: '/products',   label: 'Products',         icon: BookOpenIcon,           description: 'Manage your catalogue' },
+    { to: '/sales',      label: 'POS — New Sale',   icon: CreditCardIcon,         description: 'Process a transaction', highlight: true },
+    { to: '/purchases',  label: 'Purchases',        icon: TruckIcon,              description: 'Purchase orders' },
+    { to: '/customers',  label: 'Customers',        icon: UserGroupIcon,          description: 'Customer accounts' },
+    { to: '/suppliers',  label: 'Suppliers',        icon: BuildingOfficeIcon,     description: 'Supplier directory' },
+    { to: '/reports',    label: 'Reports',          icon: PresentationChartBarIcon, description: 'Analytics & insights' },
+  ], []);
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const firstName = user?.fullName?.split(' ')[0] || 'there';
 
   return (
-    <div className="space-y-4">
-      {/* Enhanced Welcome Section */}
-      <div className="relative overflow-hidden bg-secondary-500 rounded-xl shadow-xl p-3 sm:p-4 md:p-5 text-white">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-            backgroundSize: '40px 40px'
-          }}></div>
-        </div>
-        
-        {/* Floating Elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <p className="text-white/90 text-sm md:text-base font-medium mb-1">
-                {getGreeting()}, {user?.fullName?.split(' ')[0] || 'User'} 👋
-              </p>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold mb-1">
-                Welcome to {APP_BRAND_POS_LINE}
-              </h1>
-              <p className="text-white/80 text-xs sm:text-sm">
-                You are logged in as <span className="font-bold capitalize bg-white/20 px-2 py-0.5 rounded-md backdrop-blur-sm">{user?.role}</span>
-              </p>
-            </div>
-            <div className="hidden md:flex items-center space-x-1.5 bg-white/20 backdrop-blur-sm rounded-xl px-3 py-1.5">
-              <ClockIcon className="w-4 h-4" />
-              <span className="font-semibold text-sm">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+    <div className="space-y-6 max-w-7xl mx-auto">
+
+      {/* ── Welcome Banner ── */}
+      <div
+        className="relative overflow-hidden rounded-2xl text-white px-6 py-7"
+        style={{ background: 'linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%)' }}
+      >
+        {/* Decorative circles */}
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-10" style={{ background: '#93c5fd' }} />
+        <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full opacity-[0.06]" style={{ background: '#93c5fd' }} />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-green-300/80 text-sm font-medium mb-1">
+              {getGreeting()}, {firstName}
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+              Welcome to {APP_BRAND_POS_LINE}
+            </h1>
+            <div className="mt-2 flex items-center space-x-2">
+              <span className="text-white/60 text-sm">Signed in as</span>
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'rgba(147,197,253,0.20)', color: '#bfdbfe' }}>
+                {user?.role}
               </span>
             </div>
+          </div>
+          <div className="flex items-center space-x-2 self-start sm:self-auto shrink-0 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/10">
+            <ClockIcon className="w-4 h-4 text-green-300/70" />
+            <span className="text-sm font-medium text-white/80">{today}</span>
           </div>
         </div>
       </div>
 
-      {/* Statistics Cards - Enhanced */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => (
-            <StatCardSkeleton key={index} />
-          ))
-        ) : (
-          statCards.map((card, index) => {
-          const Icon = card.icon;
-          return (
-            <Link
-              key={index}
-              to={card.link}
-              className="group relative overflow-hidden bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.01] border border-gray-100 animate-card-in"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              {/* Subtle Background Overlay */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-secondary-100 opacity-5 group-hover:opacity-10 transition-opacity rounded-full blur-2xl -mr-12 -mt-12"></div>
-              
-              <div className="relative p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`p-2 rounded-lg ${card.iconBg} shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon className={`w-5 h-5 ${card.iconColor}`} />
-                  </div>
-                  {card.alert && (
-                    <span className="px-1.5 py-0.5 bg-warning-100 text-warning-600 text-[10px] font-bold rounded-full animate-pulse">
-                      !
-                    </span>
-                  )}
-                </div>
-                
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1">{card.title}</p>
-                  <p className={`text-2xl font-extrabold ${card.iconColor} mb-2`}>
-                    {card.value}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-semibold ${card.trendColor}`}>
-                      {card.trend}
-                    </span>
-                    <ArrowRightIcon className={`w-3 h-3 ${card.trendColor} opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all`} />
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })
-        )}
-      </div>
-
-      {/* Quick Links - Enhanced */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-2.5 border-b border-gray-200">
-          <h2 className="text-base font-bold text-gray-900 flex items-center space-x-1.5">
-            <SparklesIcon className="w-4 h-4 text-secondary-500" />
-            <span>Quick Access</span>
-          </h2>
-          <p className="text-xs text-gray-600 mt-0.5">Navigate to key features instantly</p>
-        </div>
-        
-        <div className="p-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {quickLinks.map((link, index) => {
-              const Icon = link.icon;
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+          : statCards.map((card, i) => {
+              const Icon = card.icon;
               return (
                 <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`group relative overflow-hidden rounded-lg border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] animate-card-in ${
-                    link.highlight
-                      ? 'border-2 border-orange-400/60 bg-orange-200/70'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
-                  style={{ animationDelay: `${(index + 4) * 0.1}s` }}
+                  key={i}
+                  to={card.link}
+                  className="group bg-white rounded-xl border border-[#e2e8f0] hover:border-secondary-200 hover:shadow-medium transition-all duration-200 overflow-hidden animate-card-in"
+                  style={{ animationDelay: `${i * 0.07}s` }}
                 >
-                  {/* Subtle Background on Hover */}
-                  <div className="absolute inset-0 bg-secondary-50 opacity-0 group-hover:opacity-5 transition-opacity"></div>
-                  
-                  <div className="relative p-3">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="p-2 rounded-lg bg-secondary-500 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                        <Icon className="w-4 h-4 text-white" />
+                  {/* Top accent bar */}
+                  <div className="h-1 w-full" style={{ background: card.accent }} />
+                  <div className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-2.5 rounded-lg" style={{ background: card.accentBg }}>
+                        <Icon className="w-5 h-5" style={{ color: card.accent }} />
                       </div>
-                      {link.count !== undefined && (
-                        <span className="px-1.5 py-0.5 bg-secondary-500 text-white text-[10px] font-bold rounded-full">
-                          {link.count}
-                        </span>
-                      )}
-                      {link.highlight && (
-                        <span className="px-1.5 py-0.5 bg-secondary-500 text-white text-[10px] font-bold rounded-full animate-pulse">
-                          Popular
-                        </span>
+                      {card.alert && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 animate-pulse flex-shrink-0" />
                       )}
                     </div>
-                    
-                    <h3 className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-gray-700">
-                      {link.label}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-2">{link.description}</p>
-                    
-                    <div className="flex items-center text-xs font-semibold text-gray-700 group-hover:text-gray-900">
-                      <span>Open</span>
-                      <ArrowRightIcon className="w-3 h-3 ml-1.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <p className="text-xs font-medium text-gray-500 mb-1">{card.title}</p>
+                    <p className="text-2xl font-bold text-gray-900 mb-3 tabular-nums">
+                      {card.value ?? '—'}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium" style={{ color: card.accent }}>{card.sub}</span>
+                      <ArrowRightIcon className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </div>
                 </Link>
               );
             })}
+      </div>
+
+      {/* ── Quick Access ── */}
+      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+              Quick Access
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Jump to any module</p>
           </div>
+        </div>
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {quickLinks.map((link, i) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`group flex items-center space-x-4 p-4 rounded-xl border transition-all duration-200 animate-card-in ${
+                  link.highlight
+                    ? 'border-secondary-300 bg-secondary-50 hover:bg-secondary-100 hover:border-secondary-400'
+                    : 'border-[#e2e8f0] bg-[#f8fafc] hover:bg-gray-50 hover:border-gray-300'
+                }`}
+                style={{ animationDelay: `${(i + 4) * 0.06}s` }}
+              >
+                <div className={`p-2.5 rounded-lg flex-shrink-0 ${link.highlight ? 'bg-secondary-500' : 'bg-gray-100 group-hover:bg-gray-200'} transition-colors`}>
+                  <Icon className={`w-5 h-5 ${link.highlight ? 'text-white' : 'text-gray-600'}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${link.highlight ? 'text-secondary-700' : 'text-gray-800'}`}>
+                    {link.label}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{link.description}</p>
+                </div>
+                <ArrowRightIcon className={`w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all ${link.highlight ? 'text-secondary-500' : 'text-gray-400'}`} />
+              </Link>
+            );
+          })}
         </div>
       </div>
 
-      {/* Activity Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Recent Activity Placeholder */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-2.5 border-b border-gray-200">
-            <h2 className="text-base font-bold text-gray-900 flex items-center space-x-1.5">
-              <ClockIcon className="w-4 h-4 text-orange-500" />
-              <span>Recent Activity</span>
-            </h2>
+      {/* ── Performance Summary ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Today's performance */}
+        <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#e2e8f0]">
+            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Today's Performance</h2>
           </div>
-          <div className="p-4">
-            <div className="text-center py-8 text-gray-500">
-              <ClockIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p className="font-medium text-sm">No recent activity</p>
-              <p className="text-xs">Activity will appear here</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Summary */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-2.5 border-b border-gray-200">
-            <h2 className="text-base font-bold text-gray-900 flex items-center space-x-1.5">
-              <ChartBarIcon className="w-4 h-4 text-blue-500" />
-              <span>Performance Summary</span>
-            </h2>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg border border-secondary-200">
-                <div>
-                  <p className="text-xs font-medium text-gray-600">Today's Performance</p>
-                  <p className="text-xl font-bold text-secondary-500 mt-0.5">
-                    {loading ? '...' : formatCurrency(stats.todayRevenue)}
-                  </p>
-                </div>
+          <div className="p-5 space-y-3">
+            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: '#e8f1fc' }}>
+              <div>
+                <p className="text-xs font-medium text-gray-500">Revenue</p>
+                <p className="text-2xl font-bold text-secondary-600 mt-0.5 tabular-nums">
+                  {loading ? '—' : formatCurrency(stats.todayRevenue)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-secondary-100">
                 <ArrowTrendingUpIcon className="w-6 h-6 text-secondary-500" />
               </div>
-              
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div>
-                  <p className="text-xs font-medium text-gray-600">Transactions Today</p>
-                  <p className="text-xl font-bold text-blue-600 mt-0.5">
-                    {loading ? '...' : stats.todayTransactions}
-                  </p>
-                </div>
-                <ShoppingCartIcon className="w-6 h-6 text-blue-500" />
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0]">
+              <div>
+                <p className="text-xs font-medium text-gray-500">Transactions</p>
+                <p className="text-2xl font-bold text-gray-800 mt-0.5 tabular-nums">
+                  {loading ? '—' : stats.todayTransactions}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-gray-100">
+                <ShoppingCartIcon className="w-6 h-6 text-gray-500" />
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Custom CSS for animations */}
-      <style>{`
-        @keyframes card-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-card-in {
-          animation: card-in 0.6s ease-out both;
-        }
-      `}</style>
+        {/* Stock alert */}
+        <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#e2e8f0]">
+            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Inventory Status</h2>
+          </div>
+          <div className="p-5 flex flex-col items-center justify-center h-[calc(100%-57px)] min-h-[140px]">
+            {loading ? (
+              <div className="text-gray-400 text-sm">Loading…</div>
+            ) : stats.lowStockCount === 0 ? (
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center mx-auto mb-3">
+                  <BookOpenIcon className="w-6 h-6 text-success-500" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700">All stock levels healthy</p>
+                <p className="text-xs text-gray-400 mt-1">No items below threshold</p>
+              </div>
+            ) : (
+              <Link to="/products" className="text-center group">
+                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-amber-500" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700">
+                  <span className="text-amber-600 font-bold">{stats.lowStockCount}</span> item{stats.lowStockCount > 1 ? 's' : ''} running low
+                </p>
+                <p className="text-xs text-secondary-500 mt-1.5 group-hover:underline underline-offset-2">Review inventory →</p>
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

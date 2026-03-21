@@ -30,27 +30,24 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input({
       )}
       <div className="relative">
         {leftIcon && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
             {leftIcon}
           </div>
         )}
         <input
           ref={ref}
           className={clsx(
-            'w-full px-4 py-2.5 border rounded-lg transition-all duration-200',
-            'focus:outline-none focus:ring-2 focus:ring-offset-0',
-            'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
-            leftIcon && 'pl-10',
+            'input-premium w-full px-4 py-2.5',
+            'disabled:opacity-60 disabled:cursor-not-allowed',
+            leftIcon  && 'pl-10',
             rightIcon && 'pr-10',
-            error
-              ? 'border-error-300 focus:border-error-500 focus:ring-error-500'
-              : 'border-gray-300 focus:border-secondary-500 focus:ring-secondary-500',
+            error && '!bg-red-50 !shadow-[0_0_0_3px_rgba(239,68,68,0.15)]',
             className
           )}
           {...props}
         />
         {rightIcon && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
             {rightIcon}
           </div>
         )}
@@ -66,4 +63,3 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input({
 });
 
 export default Input;
-
