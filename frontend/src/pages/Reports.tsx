@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   reportService,
   SalesSummary,
@@ -158,10 +158,10 @@ export default function Reports() {
   };
 
   // Calculate summary totals for cards
-  const totalRevenue = salesSummary.reduce((sum, item) => sum + Number(item.total_revenue || 0), 0);
-  const totalTransactions = salesSummary.reduce((sum, item) => sum + Number(item.transaction_count || 0), 0);
-  const totalCost = purchaseSummary.reduce((sum, item) => sum + Number(item.total_cost || 0), 0);
-  const totalPOs = purchaseSummary.reduce((sum, item) => sum + Number(item.po_count || 0), 0);
+  const totalRevenue = useMemo(() => salesSummary.reduce((sum, item) => sum + Number(item.total_revenue || 0), 0), [salesSummary]);
+  const totalTransactions = useMemo(() => salesSummary.reduce((sum, item) => sum + Number(item.transaction_count || 0), 0), [salesSummary]);
+  const totalCost = useMemo(() => purchaseSummary.reduce((sum, item) => sum + Number(item.total_cost || 0), 0), [purchaseSummary]);
+  const totalPOs = useMemo(() => purchaseSummary.reduce((sum, item) => sum + Number(item.po_count || 0), 0), [purchaseSummary]);
 
   // Chart colors - using secondary color variations and semantic colors
   const CHART_COLORS = ['#3582e2', '#2a68b5', '#3582e2', '#f59e0b', '#ef4444', '#06b6d4'];

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
 import { customerService, Customer } from '../services/customerService';
@@ -57,6 +58,8 @@ export default function Sales() {
   const [stockBalances, setStockBalances] = useState<Map<string, StockBalance>>(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const cartListContainerRef = useRef<HTMLDivElement>(null);
+  const [cartListWidth, setCartListWidth] = useState(400);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -71,20 +74,45 @@ export default function Sales() {
   }, []);
 
   // Calculate totals
-  // line_total already includes tax, so we need to calculate subtotal and tax separately
-  const subtotal = cart.reduce((sum, item) => {
+  const subtotal = useMemo(() => cart.reduce((sum, item) => {
     const itemSubtotal = Number(item.unit_price) * item.qty;
     return sum + itemSubtotal;
-  }, 0);
-  const taxTotal = cart.reduce((sum, item) => {
+  }, 0), [cart]);
+
+  const taxTotal = useMemo(() => cart.reduce((sum, item) => {
     const itemSubtotal = Number(item.unit_price) * item.qty;
     const tax = item.tax_rate ? (itemSubtotal * Number(item.tax_rate)) / 100 : 0;
     return sum + tax;
-  }, 0);
-  const discountAmount = discountRate
+  }, 0), [cart]);
+
+  const discountAmount = useMemo(() => discountRate
     ? (subtotal + taxTotal) * (parseFloat(discountRate) / 100)
-    : 0;
-  const grandTotal = subtotal + taxTotal - discountAmount;
+    : 0, [discountRate, subtotal, taxTotal]);
+
+  const grandTotal = useMemo(() => subtotal + taxTotal - discountAmount, [subtotal, taxTotal, discountAmount]);
+
+  const CART_ROW_HEIGHT = 90;
+  const CART_LIST_MAX_HEIGHT = 450;
+
+  useEffect(() => {
+    const el = cartListContainerRef.current;
+    if (!el || cart.length === 0) return;
+
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setCartListWidth(Math.floor(w));
+    };
+
+    measure();
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        if (w > 0) setCartListWidth(Math.floor(w));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [cart.length]);
 
   // Search abort controller
   const searchAbortController = useRef<AbortController | null>(null);
@@ -438,7 +466,8 @@ export default function Sales() {
         payments: [
           {
             method: paymentMethod,
-            amount: parseFloat(paymentAmount),
+            // Amount applied to the sale (matches grand_total), not cash tendered — tender is for UX/change only.
+            amount: Math.round(grandTotal * 100) / 100,
           },
         ],
       };
@@ -767,16 +796,24 @@ export default function Sales() {
                 />
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
-                {cart.map((item) => {
-                  const stockBalance = stockBalances.get(item.product.product_id);
-                  const availableStock = stockBalance?.qty_on_hand ?? null;
-                  const isLowStock = item.product.track_inventory && availableStock !== null && availableStock < item.qty;
-                  const isOutOfStock = item.product.track_inventory && availableStock !== null && availableStock === 0;
+              <div ref={cartListContainerRef} className="bg-white w-full min-w-0">
+                <FixedSizeList
+                  height={Math.min(cart.length * CART_ROW_HEIGHT, CART_LIST_MAX_HEIGHT)}
+                  width={cartListWidth}
+                  itemCount={cart.length}
+                  itemSize={CART_ROW_HEIGHT}
+                >
+                  {({ index, style }: ListChildComponentProps) => {
+                    const item = cart[index];
+                    const stockBalance = stockBalances.get(item.product.product_id);
+                    const availableStock = stockBalance?.qty_on_hand ?? null;
+                    const isLowStock = item.product.track_inventory && availableStock !== null && availableStock < item.qty;
+                    const isOutOfStock = item.product.track_inventory && availableStock !== null && availableStock === 0;
 
-                  return (
-                    <div key={item.product.product_id} className={`px-3 py-2.5 hover:bg-secondary-50 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
-                      <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+                    return (
+                      <div style={style}>
+                        <div className={`h-full border-b border-gray-100 px-3 py-2.5 hover:bg-secondary-50 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
+                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-1.5 mb-1">
                             <div className="p-1 bg-secondary-100 rounded-lg">
@@ -851,8 +888,10 @@ export default function Sales() {
                         </div>
                       </div>
                     </div>
+                  </div>
                   );
-                })}
+                }}
+                </FixedSizeList>
               </div>
             )}
           </Card>

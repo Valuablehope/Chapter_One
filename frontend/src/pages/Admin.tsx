@@ -32,10 +32,8 @@ import {
   UserIcon,
   KeyIcon,
   IdentificationIcon,
-  MapPinIcon,
   CurrencyDollarIcon,
   ClockIcon,
-  CogIcon,
   LockClosedIcon,
   ExclamationTriangleIcon,
   ChartBarIcon,
@@ -43,6 +41,7 @@ import {
   ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { StoreModal } from './Admin/components/StoreModal';
 
 type AdminTab = 'users' | 'stores' | 'terminals' | 'license';
 
@@ -73,30 +72,6 @@ export default function Admin() {
   const [storePagination, setStorePagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
-  const [storeFormData, setStoreFormData] = useState({
-    code: '',
-    name: '',
-    address: '',
-    is_active: true,
-    timezone: 'UTC',
-    // Store Settings Fields
-    currency_code: 'USD',
-    tax_inclusive: false,
-    theme: 'classic',
-    tax_rate: 0,
-    receipt_footer: '',
-    auto_backup: false,
-    backup_frequency: 'daily',
-    low_stock_threshold: 3,
-    show_stock: true,
-    auto_add_qty: true,
-    allow_negative: false,
-    paper_size: '80mm',
-    auto_print: true,
-    receipt_header: '',
-  });
-  const [storeFormErrors, setStoreFormErrors] = useState<Record<string, string>>({});
-  const [submittingStore, setSubmittingStore] = useState(false);
 
   // Terminals state
   const [terminals, setTerminals] = useState<Terminal[]>([]);
@@ -271,89 +246,6 @@ export default function Admin() {
       toast.error(error.response?.data?.error?.message || 'Failed to load stores');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleStoreSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStoreFormErrors({});
-    const errors: Record<string, string> = {};
-    if (!storeFormData.code.trim()) errors.code = 'Code is required';
-    if (!storeFormData.name.trim()) errors.name = 'Name is required';
-    if (Object.keys(errors).length > 0) {
-      setStoreFormErrors(errors);
-      return;
-    }
-
-    setSubmittingStore(true);
-    try {
-      // Send all store and settings fields
-      const storeData: {
-        code: string;
-        name: string;
-        address?: string;
-        timezone?: string;
-        is_active: boolean;
-        currency_code?: string;
-        tax_inclusive: boolean;
-        theme?: string;
-        tax_rate?: number;
-        receipt_footer?: string;
-        receipt_header?: string;
-        auto_backup: boolean;
-        backup_frequency?: string;
-        low_stock_threshold?: number;
-        show_stock: boolean;
-        auto_add_qty: boolean;
-        allow_negative: boolean;
-        paper_size?: string;
-        auto_print: boolean;
-      } = {
-        code: storeFormData.code.trim(),
-        name: storeFormData.name.trim(),
-        address: storeFormData.address?.trim() || undefined,
-        timezone: storeFormData.timezone?.trim() || 'UTC',
-        is_active: storeFormData.is_active,
-        // Store Settings
-        currency_code: storeFormData.currency_code?.trim() || undefined,
-        tax_inclusive: storeFormData.tax_inclusive,
-        theme: storeFormData.theme || undefined,
-        tax_rate: storeFormData.tax_rate !== undefined ? storeFormData.tax_rate : undefined,
-        receipt_footer: storeFormData.receipt_footer?.trim() || undefined,
-        receipt_header: storeFormData.receipt_header?.trim() || undefined,
-        auto_backup: storeFormData.auto_backup,
-        backup_frequency: storeFormData.backup_frequency || undefined,
-        low_stock_threshold: storeFormData.low_stock_threshold !== undefined ? storeFormData.low_stock_threshold : undefined,
-        show_stock: storeFormData.show_stock,
-        auto_add_qty: storeFormData.auto_add_qty,
-        allow_negative: storeFormData.allow_negative,
-        paper_size: storeFormData.paper_size || undefined,
-        auto_print: storeFormData.auto_print,
-      };
-
-      if (editingStore) {
-        await adminService.updateStore(editingStore.store_id, storeData);
-      } else {
-        await adminService.createStore(storeData);
-      }
-      setShowStoreModal(false);
-      toast.success(editingStore ? 'Store updated successfully' : 'Store created successfully');
-      loadStores();
-      if (activeTab === 'terminals') loadStoresForDropdown();
-    } catch (err: unknown) {
-      const error = err as { 
-        response?: { data?: { error?: { message?: string } } }; 
-        isTimeout?: boolean;
-        message?: string;
-      };
-      
-      if (error.isTimeout || error.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
-      } else {
-        toast.error(error.response?.data?.error?.message || 'Failed to save store');
-      }
-    } finally {
-      setSubmittingStore(false);
     }
   };
 
@@ -761,28 +653,6 @@ export default function Admin() {
                   <Button
                     onClick={() => {
                       setEditingStore(null);
-                      setStoreFormData({
-                        code: '',
-                        name: '',
-                        address: '',
-                        is_active: true,
-                        timezone: 'UTC',
-                        currency_code: 'USD',
-                        tax_inclusive: false,
-                        theme: 'classic',
-                        tax_rate: 0,
-                        receipt_footer: '',
-                        receipt_header: '',
-                        auto_backup: false,
-                        backup_frequency: 'daily',
-                        low_stock_threshold: 3,
-                        show_stock: true,
-                        auto_add_qty: true,
-                        allow_negative: false,
-                        paper_size: '80mm',
-                        auto_print: true,
-                      });
-                      setStoreFormErrors({});
                       setShowStoreModal(true);
                     }}
                     size="sm"
@@ -817,28 +687,6 @@ export default function Admin() {
                     <Button
                       onClick={() => {
                         setEditingStore(null);
-                        setStoreFormData({
-                          code: '',
-                          name: '',
-                          address: '',
-                          is_active: true,
-                          timezone: 'UTC',
-                          currency_code: 'USD',
-                          tax_inclusive: false,
-                          theme: 'classic',
-                          tax_rate: 0,
-                          receipt_footer: '',
-                          receipt_header: '',
-                          auto_backup: false,
-                          backup_frequency: 'daily',
-                          low_stock_threshold: 3,
-                          show_stock: true,
-                          auto_add_qty: true,
-                          allow_negative: false,
-                          paper_size: '80mm',
-                          auto_print: true,
-                        });
-                        setStoreFormErrors({});
                         setShowStoreModal(true);
                       }}
                       variant="primary"
@@ -903,28 +751,6 @@ export default function Admin() {
                                 <Button
                                   onClick={() => {
                                     setEditingStore(s);
-                                    setStoreFormData({
-                                      code: s.code || '',
-                                      name: s.name || '',
-                                      address: s.address || '',
-                                      is_active: s.is_active ?? true,
-                                      timezone: s.timezone || 'UTC',
-                                      currency_code: s.currency_code || 'USD',
-                                      tax_inclusive: s.tax_inclusive ?? false,
-                                      theme: s.theme || 'classic',
-                                      tax_rate: s.tax_rate ?? 0,
-                                      receipt_footer: s.receipt_footer || '',
-                                      receipt_header: s.receipt_header || '',
-                                      auto_backup: s.auto_backup ?? false,
-                                      backup_frequency: s.backup_frequency || 'daily',
-                                      low_stock_threshold: s.low_stock_threshold ?? 3,
-                                      show_stock: s.show_stock ?? true,
-                                      auto_add_qty: s.auto_add_qty ?? true,
-                                      allow_negative: s.allow_negative ?? false,
-                                      paper_size: s.paper_size || '80mm',
-                                      auto_print: s.auto_print ?? true,
-                                    });
-                                    setStoreFormErrors({});
                                     setShowStoreModal(true);
                                   }}
                                   variant="ghost"
@@ -1557,332 +1383,18 @@ export default function Admin() {
         </form>
       </Modal>
 
-      {/* Enhanced Store Modal */}
-      <Modal
+      <StoreModal
         isOpen={showStoreModal}
-        onClose={() => setShowStoreModal(false)}
-        title={
-          <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-secondary-500 rounded-lg">
-              <BuildingStorefrontIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-base">{editingStore ? 'Edit Store' : 'Add Store'}</span>
-          </div>
-        }
-        size="lg"
-        footer={
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              onClick={() => setShowStoreModal(false)}
-              variant="outline"
-              disabled={submittingStore}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="store-form"
-              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-              isLoading={submittingStore}
-            >
-              {editingStore ? 'Update' : 'Create'}
-            </Button>
-          </div>
-        }
-      >
-        <form id="store-form" onSubmit={handleStoreSubmit} className="space-y-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Code <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <BuildingStorefrontIcon className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={storeFormData.code}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, code: e.target.value })}
-                required
-                className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  storeFormErrors.code ? 'border-red-300' : 'border-gray-200'
-                }`}
-              />
-            </div>
-            {storeFormErrors.code && (
-              <p className="mt-1 text-xs text-red-600">{storeFormErrors.code}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Name <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <BuildingStorefrontIcon className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={storeFormData.name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, name: e.target.value })}
-                required
-                className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  storeFormErrors.name ? 'border-red-300' : 'border-gray-200'
-                }`}
-              />
-            </div>
-            {storeFormErrors.name && (
-              <p className="mt-1 text-xs text-red-600">{storeFormErrors.name}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Address</label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <MapPinIcon className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={storeFormData.address}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, address: e.target.value })}
-                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-              />
-            </div>
-          </div>
-          
-          <div className="flex items-center p-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group">
-            <input
-              type="checkbox"
-              checked={storeFormData.is_active}
-              onChange={(e) => setStoreFormData({ ...storeFormData, is_active: e.target.checked })}
-              className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-            />
-            <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer">Active</label>
-          </div>
-
-          {/* Enhanced Store Settings Section */}
-          <div className="pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <div className="p-1.5 bg-secondary-500 rounded-lg">
-                <CogIcon className="w-4 h-4 text-white" />
-              </div>
-              Store Settings
-            </h3>
-            
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Currency Code</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <CurrencyDollarIcon className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      value={storeFormData.currency_code}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, currency_code: e.target.value.toUpperCase() })}
-                      placeholder="USD"
-                      maxLength={3}
-                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                    />
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-500">ISO currency code (e.g., USD, EUR, LBP)</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Timezone</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <ClockIcon className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      value={storeFormData.timezone}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, timezone: e.target.value })}
-                      placeholder="Asia/Beirut"
-                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                    />
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-500">IANA timezone (e.g., America/New_York, Asia/Beirut)</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Default Tax Rate (%)</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <CurrencyDollarIcon className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={storeFormData.tax_rate}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, tax_rate: parseFloat(e.target.value) || 0 })}
-                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                    />
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-500">Default tax rate for products</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Low Stock Threshold</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <CogIcon className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={storeFormData.low_stock_threshold}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStoreFormData({ ...storeFormData, low_stock_threshold: parseInt(e.target.value) || 0 })}
-                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                    />
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-500">Alert when stock falls below this number</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Theme</label>
-                  <select
-                    value={storeFormData.theme}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, theme: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium h-[56px]"
-                  >
-                    <option value="classic">Classic</option>
-                    <option value="modern">Modern</option>
-                    <option value="minimal">Minimal</option>
-                    <option value="quantum">Quantum</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Paper Size</label>
-                  <select
-                    value={storeFormData.paper_size}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, paper_size: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium h-[56px]"
-                  >
-                    <option value="80mm">80mm</option>
-                    <option value="58mm">58mm</option>
-                    <option value="A4">A4</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-start px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                  <input
-                    type="checkbox"
-                    checked={storeFormData.tax_inclusive}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, tax_inclusive: e.target.checked })}
-                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0 mt-0.5"
-                  />
-                  <div className="ml-2.5 flex-1 min-w-0">
-                    <label className="text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer block">Tax Inclusive Pricing</label>
-                    <p className="text-xs text-gray-500 mt-0.5">(Prices include tax)</p>
-                  </div>
-                </div>
-                <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                  <input
-                    type="checkbox"
-                    checked={storeFormData.show_stock}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, show_stock: e.target.checked })}
-                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                  />
-                  <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">Show Stock Levels</label>
-                </div>
-                <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                  <input
-                    type="checkbox"
-                    checked={storeFormData.auto_add_qty}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, auto_add_qty: e.target.checked })}
-                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                  />
-                  <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">Auto Add Quantity</label>
-                </div>
-                <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                  <input
-                    type="checkbox"
-                    checked={storeFormData.allow_negative}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, allow_negative: e.target.checked })}
-                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                  />
-                  <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">Allow Negative Stock</label>
-                </div>
-                <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                  <input
-                    type="checkbox"
-                    checked={storeFormData.auto_print}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, auto_print: e.target.checked })}
-                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                  />
-                  <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">Auto Print Receipts</label>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Receipt Header</label>
-                  <textarea
-                    value={storeFormData.receipt_header}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, receipt_header: e.target.value })}
-                    rows={2}
-                    placeholder="Store Header Text"
-                    className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition-all bg-white font-medium"
-                  />
-                  <p className="mt-0.5 text-xs text-gray-500">Custom text to display at the top of receipts</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Receipt Footer</label>
-                  <textarea
-                    value={storeFormData.receipt_footer}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, receipt_footer: e.target.value })}
-                    rows={2}
-                    placeholder="Thank you for your business!"
-                    className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition-all bg-white font-medium"
-                  />
-                  <p className="mt-0.5 text-xs text-gray-500">Custom text to display at the bottom of receipts</p>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-gray-200">
-                <h4 className="text-xs font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <CogIcon className="w-3.5 h-3.5 text-indigo-600" />
-                  Backup Settings
-                </h4>
-                <div className="flex items-center p-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group mb-3">
-                  <input
-                    type="checkbox"
-                    checked={storeFormData.auto_backup}
-                    onChange={(e) => setStoreFormData({ ...storeFormData, auto_backup: e.target.checked })}
-                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-                  />
-                  <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer">Enable Auto Backup</label>
-                </div>
-                {storeFormData.auto_backup && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Backup Frequency</label>
-                    <select
-                      value={storeFormData.backup_frequency}
-                      onChange={(e) => setStoreFormData({ ...storeFormData, backup_frequency: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </form>
-      </Modal>
+        editingStore={editingStore}
+        onClose={() => {
+          setShowStoreModal(false);
+          setEditingStore(null);
+        }}
+        onSaved={() => {
+          loadStores();
+          if (activeTab === 'terminals') loadStoresForDropdown();
+        }}
+      />
 
       {/* Enhanced Terminal Modal */}
       <Modal

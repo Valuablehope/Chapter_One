@@ -61,7 +61,7 @@ export default function Receipt({
                         ) : (
                             <>
                                 <h1 className="text-4xl font-extrabold text-black mb-3 tracking-tight">
-                                    {settings?.name || 'Chapter One'}
+                                    {settings?.name || 'Supermarket'}
                                 </h1>
                                 {settings?.address && (
                                     <p className="text-sm text-black leading-relaxed">{settings.address}</p>

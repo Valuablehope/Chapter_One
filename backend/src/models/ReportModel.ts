@@ -122,7 +122,7 @@ export class ReportModel extends BaseModel {
     const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
-        DATE(created_at) as date,
+        created_date as date,
         COUNT(*) as transaction_count,
         SUM(grand_total) as total_revenue,
         SUM(tax_total) as total_tax,
@@ -135,13 +135,13 @@ export class ReportModel extends BaseModel {
 
     if (validatedFilters.start_date) {
       paramCount++;
-      query += ` AND DATE(created_at) >= $${paramCount}`;
+      query += ` AND created_date >= $${paramCount}`;
       params.push(validatedFilters.start_date);
     }
 
     if (validatedFilters.end_date) {
       paramCount++;
-      query += ` AND DATE(created_at) <= $${paramCount}`;
+      query += ` AND created_date <= $${paramCount}`;
       params.push(validatedFilters.end_date);
     }
 
@@ -151,7 +151,7 @@ export class ReportModel extends BaseModel {
       params.push(validatedFilters.store_id);
     }
 
-    query += ` GROUP BY DATE(created_at) ORDER BY date DESC`;
+    query += ` GROUP BY created_date ORDER BY date DESC`;
 
     // Always apply limit (default or specified)
     paramCount++;
@@ -183,13 +183,13 @@ export class ReportModel extends BaseModel {
 
     if (validatedFilters.start_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) >= $${paramCount}`;
+      query += ` AND s.created_date >= $${paramCount}`;
       params.push(validatedFilters.start_date);
     }
 
     if (validatedFilters.end_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) <= $${paramCount}`;
+      query += ` AND s.created_date <= $${paramCount}`;
       params.push(validatedFilters.end_date);
     }
 
@@ -233,13 +233,13 @@ export class ReportModel extends BaseModel {
 
     if (validatedFilters.start_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) >= $${paramCount}`;
+      query += ` AND s.created_date >= $${paramCount}`;
       params.push(validatedFilters.start_date);
     }
 
     if (validatedFilters.end_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) <= $${paramCount}`;
+      query += ` AND s.created_date <= $${paramCount}`;
       params.push(validatedFilters.end_date);
     }
 
@@ -281,13 +281,13 @@ export class ReportModel extends BaseModel {
 
     if (validatedFilters.start_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) >= $${paramCount}`;
+      query += ` AND s.created_date >= $${paramCount}`;
       params.push(validatedFilters.start_date);
     }
 
     if (validatedFilters.end_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) <= $${paramCount}`;
+      query += ` AND s.created_date <= $${paramCount}`;
       params.push(validatedFilters.end_date);
     }
 
@@ -312,7 +312,7 @@ export class ReportModel extends BaseModel {
     const validatedFilters = this.validateReportFilters(filters);
     let query = `
       SELECT 
-        DATE(po.ordered_at) as date,
+        po.ordered_date as date,
         COUNT(DISTINCT po.po_id) as po_count,
         COALESCE(SUM(poi.qty_ordered * poi.unit_cost), 0) as total_cost,
         COUNT(DISTINCT po.po_id) as total_purchases
@@ -325,13 +325,13 @@ export class ReportModel extends BaseModel {
 
     if (validatedFilters.start_date) {
       paramCount++;
-      query += ` AND DATE(po.ordered_at) >= $${paramCount}`;
+      query += ` AND po.ordered_date >= $${paramCount}`;
       params.push(validatedFilters.start_date);
     }
 
     if (validatedFilters.end_date) {
       paramCount++;
-      query += ` AND DATE(po.ordered_at) <= $${paramCount}`;
+      query += ` AND po.ordered_date <= $${paramCount}`;
       params.push(validatedFilters.end_date);
     }
 
@@ -341,7 +341,7 @@ export class ReportModel extends BaseModel {
       params.push(validatedFilters.store_id);
     }
 
-    query += ` GROUP BY DATE(po.ordered_at) ORDER BY date DESC`;
+    query += ` GROUP BY po.ordered_date ORDER BY date DESC`;
 
     // Always apply limit (default or specified)
     paramCount++;
@@ -373,13 +373,13 @@ export class ReportModel extends BaseModel {
 
     if (validatedFilters.start_date) {
       paramCount++;
-      query += ` AND DATE(po.ordered_at) >= $${paramCount}`;
+      query += ` AND po.ordered_date >= $${paramCount}`;
       params.push(validatedFilters.start_date);
     }
 
     if (validatedFilters.end_date) {
       paramCount++;
-      query += ` AND DATE(po.ordered_at) <= $${paramCount}`;
+      query += ` AND po.ordered_date <= $${paramCount}`;
       params.push(validatedFilters.end_date);
     }
 

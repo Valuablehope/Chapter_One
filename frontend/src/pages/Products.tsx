@@ -40,7 +40,7 @@ export default function Products() {
     name: '',
     sku: '',
     barcode: '',
-    product_type: 'BOOK',
+    product_type: '',
     list_price: '',
     sale_price: '',
     tax_rate: '',
@@ -125,7 +125,7 @@ export default function Products() {
       name: '',
       sku: '',
       barcode: '',
-      product_type: 'BOOK',
+      product_type: '',
       list_price: '',
       sale_price: '',
       tax_rate: '',
@@ -158,7 +158,7 @@ export default function Products() {
       name: '',
       sku: '',
       barcode: '',
-      product_type: 'BOOK',
+      product_type: '',
       list_price: '',
       sale_price: '',
       tax_rate: '',
@@ -337,15 +337,13 @@ export default function Products() {
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <FunnelIcon className="w-4 h-4" />
               </div>
-              <select
+              <input
+                type="text"
+                placeholder="Filter by type..."
                 value={filters.product_type || ''}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('product_type', e.target.value || undefined)}
-                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium"
-              >
-                <option value="">All Types</option>
-                <option value="BOOK">Book</option>
-                <option value="OTHER">Other</option>
-              </select>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('product_type', e.target.value.toUpperCase() || undefined)}
+                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-white font-medium uppercase"
+              />
             </div>
 
             <div className="relative">
@@ -575,14 +573,20 @@ export default function Products() {
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Product Type
               </label>
-              <select
+              <input
+                type="text"
+                list="product-types-list"
                 value={formData.product_type}
-                onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
-                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
-              >
-                <option value="BOOK">Book</option>
-                <option value="OTHER">Other</option>
-              </select>
+                onChange={(e) => setFormData({ ...formData, product_type: e.target.value.toUpperCase() })}
+                placeholder="e.g. GROCERY, MEAT, DAIRY"
+                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all uppercase"
+                required
+              />
+              <datalist id="product-types-list">
+                {Array.from(new Set(products.map(p => p.product_type).filter(Boolean))).map(type => (
+                  <option key={type} value={type} />
+                ))}
+              </datalist>
             </div>
 
             <div>

@@ -36,7 +36,7 @@ function getBackendPaths() {
   if (!app.isPackaged) {
     return {
       serverPath: path.join(appPath, 'backend/dist/server.js'),
-      nodeModulesPath: path.join(appPath, 'backend/node_modules'),
+      nodeModulesPath: path.join(appPath, 'node_modules'),
       backendDir: path.join(appPath, 'backend'),
     };
   } else {

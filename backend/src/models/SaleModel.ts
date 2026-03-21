@@ -832,13 +832,13 @@ export class SaleModel extends BaseModel {
 
     if (filters.start_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) >= $${paramCount}`;
+      query += ` AND s.created_date >= $${paramCount}`;
       params.push(filters.start_date);
     }
 
     if (filters.end_date) {
       paramCount++;
-      query += ` AND DATE(s.created_at) <= $${paramCount}`;
+      query += ` AND s.created_date <= $${paramCount}`;
       params.push(filters.end_date);
     }
 

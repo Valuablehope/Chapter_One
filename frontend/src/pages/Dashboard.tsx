@@ -194,7 +194,7 @@ export default function Dashboard() {
                 {getGreeting()}, {user?.fullName?.split(' ')[0] || 'User'} 👋
               </p>
               <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold mb-1">
-                Welcome to Chapter One POS
+                Welcome to {localStorage.getItem('store-name') || 'Supermarket'} POS
               </h1>
               <p className="text-white/80 text-xs sm:text-sm">
                 You are logged in as <span className="font-bold capitalize bg-white/20 px-2 py-0.5 rounded-md backdrop-blur-sm">{user?.role}</span>

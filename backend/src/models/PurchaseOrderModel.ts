@@ -90,7 +90,7 @@ export class PurchaseOrderModel extends BaseModel {
     const query = `
       SELECT COUNT(*) as count
       FROM purchase_orders
-      WHERE store_id = $1 AND DATE(ordered_at) = CURRENT_DATE
+      WHERE store_id = $1 AND ordered_date = CURRENT_DATE
     `;
     const result = await this.query(query, [storeId]);
     const count = parseInt(result.rows[0].count, 10);

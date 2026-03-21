@@ -16,19 +16,20 @@ export interface ProductRowProps {
 // Map product types to badge variants for color differentiation
 // Each type has a clearly distinct color for easy visual identification
 const getProductTypeVariant = (productType: string): 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'gray' => {
-  const typeMap: Record<string, 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'gray'> = {
-    'BOOK': 'primary',        // Blue/purple - distinct primary color
-    'STATIONERY': 'error',    // Red/pink - error color (clearly distinct)
-    'ACCESSORY': 'info',      // Light blue - info color (different from primary blue)
-    'GIFT': 'warning',       // Yellow/orange - warning color
-    'OFFICE_SUPPLY': 'success', // Green - success color
-    'OTHER': 'secondary',    // Gray - neutral secondary color
-    // Less common types - will use fallback gray if not in main list
-    'MAGAZINE': 'warning',   // Yellow/orange (shares with GIFT if both exist)
-    'NEWSPAPER': 'success',  // Green (shares with OFFICE_SUPPLY if both exist)
-  };
+  if (!productType) return 'gray';
   
-  return typeMap[productType.toUpperCase()] || 'gray';
+  // Assign a consistent deterministic color based on the string value
+  const variants: Array<'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'> = [
+    'primary', 'success', 'warning', 'info', 'error', 'secondary'
+  ];
+  
+  let hash = 0;
+  for (let i = 0; i < productType.length; i++) {
+    hash = productType.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  const index = Math.abs(hash) % variants.length;
+  return variants[index];
 };
 
 export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, formatCurrency }) => {

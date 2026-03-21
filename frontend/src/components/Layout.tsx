@@ -269,14 +269,14 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 p-1.5">
                   <img
                     src="icon.png"
-                    alt="Chapter One POS Logo"
+                    alt="Supermarket POS Logo"
                     className="w-full h-full object-contain"
                   />
                 </div>
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg font-extrabold text-secondary-500 truncate">
-                  Chapter One POS
+                  {localStorage.getItem('store-name') || 'Supermarket'} POS
                 </h1>
                 <p className="text-xs text-gray-500 truncate">Point of Sale</p>
               </div>
@@ -293,7 +293,7 @@ export default function Layout({ children }: LayoutProps) {
                   <div className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 p-1.5">
                     <img
                       src="icon.png"
-                      alt="Chapter One POS Logo"
+                      alt="Supermarket POS Logo"
                       className="w-full h-full object-contain"
                     />
                   </div>
