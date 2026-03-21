@@ -2,28 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
-import { storeService } from '../services/storeService';
+import { APP_BRAND_NAME } from '../constants/branding';
 
 export default function SplashScreen() {
   const navigate = useNavigate();
   const { isAuthenticated, setLoading } = useAuthStore();
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStage, setLoadingStage] = useState('Initializing...');
-  const [storeName, setStoreName] = useState(localStorage.getItem('store-name') || 'Supermarket');
 
   useEffect(() => {
     const checkAuth = async () => {
       setLoading(true);
-      
-      try {
-        const settings = await storeService.getDefaultStore();
-        if (settings && settings.name) {
-          setStoreName(settings.name);
-          localStorage.setItem('store-name', settings.name);
-        }
-      } catch (e) {
-        // Fallback handled
-      }
 
       // Progressive loading stages
       const stages = [
@@ -92,7 +81,7 @@ export default function SplashScreen() {
               {/* Logo Icon */}
               <img
                 src="icon.png"
-                alt="Supermarket POS Logo"
+                alt="Chapter One POS Logo"
                 className="w-full h-full object-contain animate-float"
               />
             </div>
@@ -108,7 +97,7 @@ export default function SplashScreen() {
         {/* App Name */}
         <div className="mb-4 animate-slide-up">
           <h1 className="text-6xl md:text-7xl font-extrabold text-secondary-500 mb-3 tracking-tight">
-            {storeName}
+            {APP_BRAND_NAME}
           </h1>
           <div className="h-1 w-32 mx-auto bg-secondary-500 rounded-full mb-4"></div>
           <p className="text-xl md:text-2xl text-gray-600 font-semibold tracking-wide">

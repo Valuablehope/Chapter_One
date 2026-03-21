@@ -2,6 +2,7 @@ import { StoreSettings } from '../services/storeService';
 import { Supplier } from '../services/supplierService';
 import { PurchaseOrder } from '../services/purchaseService';
 import { logger } from '../utils/logger';
+import { receiptPrimaryLine } from '../constants/branding';
 
 interface PurchaseReceiptProps {
     settings: StoreSettings | null;
@@ -53,7 +54,7 @@ export default function PurchaseReceipt({
                         ) : (
                             <>
                                 <h1 className="text-4xl font-extrabold text-black mb-3 tracking-tight">
-                                    {(settings?.name && settings.name.trim()) ? settings.name : (settings?.code ? settings.code : 'Store')}
+                                    {receiptPrimaryLine(settings?.name, settings?.code)}
                                 </h1>
                                 {settings?.address && (
                                     <p className="text-sm text-black leading-relaxed">{settings.address}</p>

@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
+import { APP_BRAND_POS_LINE } from '../constants/branding';
 
 export default function LoginScreen() {
   const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function LoginScreen() {
           <div className="flex items-center gap-3 bg-white/20 backdrop-blur-2xl rounded-3xl px-5 py-3.5 shadow-2xl border border-white/30" style={{ boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)' }}>
             <img
               src="icon.png"
-              alt="Supermarket POS Logo"
+              alt="Chapter One POS Logo"
               className="w-10 h-10 object-contain rounded-[7px]"
               onError={(e) => {
                 // Hide image if it doesn't exist
@@ -79,7 +80,7 @@ export default function LoginScreen() {
               }}
             />
             <div className="flex items-baseline gap-2">
-              <h2 className="text-lg font-semibold text-white" style={{ textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)' }}>{localStorage.getItem('store-name') || 'Supermarket'} POS</h2>
+              <h2 className="text-lg font-semibold text-white" style={{ textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)' }}>{APP_BRAND_POS_LINE}</h2>
               <span className="text-xs font-medium text-white/90" style={{ textShadow: '0 1px 5px rgba(0, 0, 0, 0.3)' }}>V4.0</span>
             </div>
           </div>
@@ -96,13 +97,13 @@ export default function LoginScreen() {
               <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center p-2">
                 <img
                   src="icon.png"
-                  alt="Supermarket POS Logo"
+                  alt="Chapter One POS Logo"
                   className="w-full h-full object-contain"
                 />
               </div>
             </div>
             <h1 className="text-3xl font-extrabold text-secondary-500 mb-2 tracking-tight">
-              {localStorage.getItem('store-name') || 'Supermarket'} POS
+              {APP_BRAND_POS_LINE}
             </h1>
             <p className="text-base text-gray-600 font-semibold">Sign in to your account</p>
           </div>

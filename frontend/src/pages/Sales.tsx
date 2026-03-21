@@ -7,6 +7,7 @@ import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/
 import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
+import { receiptHeaderStoreName } from '../constants/branding';
 
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -580,7 +581,7 @@ export default function Sales() {
           setStoreSettings({
             store_id: settings.store_id,
             code: settings.code || '',
-            name: settings.name || 'Chapter One',
+            name: receiptHeaderStoreName(settings.name),
             address: settings.address,
             // Use defaults for settings that don't exist in DB
             currency_code: settings.currency_code || 'USD',
@@ -619,6 +620,7 @@ export default function Sales() {
         const settings = await storeService.getDefaultStore();
         setStoreSettings({
           ...settings,
+          name: receiptHeaderStoreName(settings.name),
           // Preserve allow_negative value from API (don't default to false)
           allow_negative: settings.allow_negative,
         });
