@@ -9,6 +9,8 @@ import {
   CurrencyDollarIcon,
   ClockIcon,
   CogIcon,
+  ArchiveBoxIcon,
+  PrinterIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -87,13 +89,100 @@ export interface StoreModalProps {
   onSaved: () => void;
 }
 
+type Tab = 'identity' | 'regional' | 'pos' | 'inventory' | 'backup';
+
+const TABS: { id: Tab; label: string; icon: typeof BuildingStorefrontIcon }[] = [
+  { id: 'identity', label: 'Identity', icon: BuildingStorefrontIcon },
+  { id: 'regional', label: 'Regional', icon: ClockIcon },
+  { id: 'pos', label: 'POS & Receipts', icon: PrinterIcon },
+  { id: 'inventory', label: 'Inventory', icon: ArchiveBoxIcon },
+  { id: 'backup', label: 'Backup', icon: CogIcon },
+];
+
+// Shared input class
+const inputCls = (hasError?: boolean) =>
+  `w-full px-3 py-2.5 text-sm rounded-lg border transition-all bg-white outline-none
+   focus:ring-2 focus:ring-secondary-500/30 focus:border-secondary-500
+   placeholder:text-gray-300 font-medium text-gray-800
+   ${hasError ? 'border-red-300' : 'border-gray-200 hover:border-gray-300'}`;
+
+const selectCls =
+  `w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 hover:border-gray-300 transition-all bg-white outline-none
+   focus:ring-2 focus:ring-secondary-500/30 focus:border-secondary-500 font-medium text-gray-800 cursor-pointer`;
+
+// Field label
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+      {children}
+      {required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+  );
+}
+
+// Toggle switch
+function Toggle({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description?: string;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-4 cursor-pointer group py-3">
+      <div className="flex-1 min-w-0">
+        <span className="block text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+          {label}
+        </span>
+        {description && (
+          <span className="block text-xs text-gray-400 mt-0.5">{description}</span>
+        )}
+      </div>
+      <div className="relative flex-shrink-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="sr-only peer"
+        />
+        <div
+          className="w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-secondary-500
+                     after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                     after:bg-white after:rounded-full after:h-5 after:w-5
+                     after:transition-all after:shadow-sm
+                     peer-checked:after:translate-x-5
+                     transition-colors duration-200"
+        />
+      </div>
+    </label>
+  );
+}
+
+// Section divider with label
+function SectionDivider({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mt-5 mb-4">
+      <span className="text-[10px] font-bold text-secondary-600 uppercase tracking-widest whitespace-nowrap">
+        {children}
+      </span>
+      <div className="flex-1 h-px bg-secondary-200" />
+    </div>
+  );
+}
+
 function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreModalProps) {
   const [formData, setFormData] = useState<StoreFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('identity');
 
   useEffect(() => {
     if (!isOpen) return;
+    setActiveTab('identity');
     if (editingStore) {
       setFormData(storeToFormData(editingStore));
     } else {
@@ -101,6 +190,9 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
     }
     setFormErrors({});
   }, [isOpen, editingStore]);
+
+  const set = <K extends keyof StoreFormData>(key: K, value: StoreFormData[K]) =>
+    setFormData((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -110,6 +202,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
     if (!formData.name.trim()) errors.name = 'Name is required';
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      setActiveTab('identity');
       return;
     }
 
@@ -152,7 +245,6 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
         isTimeout?: boolean;
         message?: string;
       };
-
       if (error.isTimeout || error.message?.includes('timeout')) {
         toast.error('Request timed out. Please try again.');
       } else {
@@ -169,212 +261,205 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 bg-secondary-500 rounded-lg">
-            <BuildingStorefrontIcon className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-base">{editingStore ? 'Edit Store' : 'Add Store'}</span>
+        <div>
+          <p className="text-base font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+            {editingStore ? 'Edit Store' : 'Add Store'}
+          </p>
+          {editingStore && (
+            <p className="text-xs text-gray-400 font-normal mt-0.5">{editingStore.name}</p>
+          )}
         </div>
       }
       size="xl"
       footer={
-        <div className="flex justify-end gap-3">
-          <Button type="button" onClick={onClose} variant="outline" disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form="store-form"
-            className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-            isLoading={submitting}
-          >
-            {editingStore ? 'Update' : 'Create'}
-          </Button>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">
+            {editingStore ? `Store ID: ${editingStore.store_id}` : 'All fields marked * are required'}
+          </p>
+          <div className="flex gap-3">
+            <Button type="button" onClick={onClose} variant="outline" disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="store-form"
+              isLoading={submitting}
+              className="!bg-secondary-500 hover:!bg-secondary-600 !text-white font-semibold !shadow-none border-0"
+            >
+              {editingStore ? 'Save Changes' : 'Create Store'}
+            </Button>
+          </div>
         </div>
       }
     >
-      <form id="store-form" onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-            Code <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <BuildingStorefrontIcon className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setFormData((prev) => ({ ...prev, code: e.target.value }))
-              }
-              required
-              className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                formErrors.code ? 'border-red-300' : 'border-gray-200'
-              }`}
-            />
-          </div>
-          {formErrors.code && <p className="mt-1 text-xs text-red-600">{formErrors.code}</p>}
-        </div>
+      {/* Tab bar */}
+      <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-xl p-1 mb-5">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-semibold transition-all duration-150
+                ${active
+                  ? 'bg-white text-secondary-600 shadow-sm border border-gray-200'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
+                }`}
+            >
+              <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-secondary-600' : ''}`} />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-            Name <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <BuildingStorefrontIcon className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-              required
-              className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                formErrors.name ? 'border-red-300' : 'border-gray-200'
-              }`}
-            />
-          </div>
-          {formErrors.name && <p className="mt-1 text-xs text-red-600">{formErrors.name}</p>}
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Address</label>
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <MapPinIcon className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setFormData((prev) => ({ ...prev, address: e.target.value }))
-              }
-              className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center p-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group">
-          <input
-            type="checkbox"
-            checked={formData.is_active}
-            onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-            className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-          />
-          <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer">
-            Active
-          </label>
-        </div>
-
-        <div className="pt-4 border-t border-gray-200">
-          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <div className="p-1.5 bg-secondary-500 rounded-lg">
-              <CogIcon className="w-4 h-4 text-white" />
-            </div>
-            Store Settings
-          </h3>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <form id="store-form" onSubmit={handleSubmit}>
+        {/* ── IDENTITY ── */}
+        {activeTab === 'identity' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Currency Code</label>
+                <FieldLabel required>Store Code</FieldLabel>
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CurrencyDollarIcon className="w-4 h-4" />
-                  </div>
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => set('code', e.target.value)}
+                    required
+                    placeholder="e.g. STORE-01"
+                    className={inputCls(!!formErrors.code)}
+                  />
+                </div>
+                {formErrors.code && (
+                  <p className="mt-1 text-xs text-red-500">{formErrors.code}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-400">Unique identifier for this store</p>
+              </div>
+
+              <div>
+                <FieldLabel required>Store Name</FieldLabel>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => set('name', e.target.value)}
+                  required
+                  placeholder="e.g. Chapter One — Downtown"
+                  className={inputCls(!!formErrors.name)}
+                />
+                {formErrors.name && (
+                  <p className="mt-1 text-xs text-red-500">{formErrors.name}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <FieldLabel>Address</FieldLabel>
+              <div className="relative">
+                <MapPinIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => set('address', e.target.value)}
+                  placeholder="123 Main Street, City, Country"
+                  className={`${inputCls()} pl-9`}
+                />
+              </div>
+            </div>
+
+            <SectionDivider>Status</SectionDivider>
+
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.is_active}
+                onChange={(v) => set('is_active', v)}
+                label="Store Active"
+                description="Inactive stores are hidden from the POS and reports"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── REGIONAL ── */}
+        {activeTab === 'regional' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel>Currency Code</FieldLabel>
+                <div className="relative">
+                  <CurrencyDollarIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={formData.currency_code}
                     onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        currency_code: e.target.value.toUpperCase(),
-                      }))
+                      set('currency_code', e.target.value.toUpperCase())
                     }
                     placeholder="USD"
                     maxLength={3}
-                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
+                    className={`${inputCls()} pl-9`}
                   />
                 </div>
-                <p className="mt-0.5 text-xs text-gray-500">ISO currency code (e.g., USD, EUR, LBP)</p>
+                <p className="mt-1 text-xs text-gray-400">ISO 4217 code — USD, EUR, LBP…</p>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Timezone</label>
+                <FieldLabel>Timezone</FieldLabel>
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <ClockIcon className="w-4 h-4" />
-                  </div>
+                  <ClockIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={formData.timezone}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev) => ({ ...prev, timezone: e.target.value }))
-                    }
-                    placeholder="Asia/Beirut"
-                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => set('timezone', e.target.value)}
+                    placeholder="America/New_York"
+                    className={`${inputCls()} pl-9`}
                   />
                 </div>
-                <p className="mt-0.5 text-xs text-gray-500">IANA timezone (e.g., America/New_York, Asia/Beirut)</p>
+                <p className="mt-1 text-xs text-gray-400">IANA timezone identifier</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Default Tax Rate (%)</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CurrencyDollarIcon className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.tax_rate}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        tax_rate: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                  />
-                </div>
-                <p className="mt-0.5 text-xs text-gray-500">Default tax rate for products</p>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Low Stock Threshold</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CogIcon className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.low_stock_threshold}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        low_stock_threshold: parseInt(e.target.value, 10) || 0,
-                      }))
-                    }
-                    className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                  />
-                </div>
-                <p className="mt-0.5 text-xs text-gray-500">Alert when stock falls below this number</p>
+                <FieldLabel>Default Tax Rate (%)</FieldLabel>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formData.tax_rate}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    set('tax_rate', parseFloat(e.target.value) || 0)
+                  }
+                  className={inputCls()}
+                />
+                <p className="mt-1 text-xs text-gray-400">Applied to all new products by default</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <SectionDivider>Pricing</SectionDivider>
+
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.tax_inclusive}
+                onChange={(v) => set('tax_inclusive', v)}
+                label="Tax-Inclusive Pricing"
+                description="Product prices already include tax"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── POS & RECEIPTS ── */}
+        {activeTab === 'pos' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Theme</label>
+                <FieldLabel>POS Theme</FieldLabel>
                 <select
                   value={formData.theme}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, theme: e.target.value }))}
-                  className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium h-[56px]"
+                  onChange={(e) => set('theme', e.target.value)}
+                  className={selectCls}
                 >
                   <option value="classic">Classic</option>
                   <option value="modern">Modern</option>
@@ -382,157 +467,149 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   <option value="quantum">Quantum</option>
                 </select>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Paper Size</label>
+                <FieldLabel>Receipt Paper Size</FieldLabel>
                 <select
                   value={formData.paper_size}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, paper_size: e.target.value }))}
-                  className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium h-[56px]"
+                  onChange={(e) => set('paper_size', e.target.value)}
+                  className={selectCls}
                 >
-                  <option value="80mm">80mm</option>
-                  <option value="58mm">58mm</option>
+                  <option value="80mm">80 mm</option>
+                  <option value="58mm">58 mm</option>
                   <option value="A4">A4</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="flex items-start px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                <input
-                  type="checkbox"
-                  checked={formData.tax_inclusive}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, tax_inclusive: e.target.checked }))
-                  }
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0 mt-0.5"
-                />
-                <div className="ml-2.5 flex-1 min-w-0">
-                  <label className="text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer block">
-                    Tax Inclusive Pricing
-                  </label>
-                  <p className="text-xs text-gray-500 mt-0.5">(Prices include tax)</p>
-                </div>
-              </div>
-              <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                <input
-                  type="checkbox"
-                  checked={formData.show_stock}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, show_stock: e.target.checked }))
-                  }
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                />
-                <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">
-                  Show Stock Levels
-                </label>
-              </div>
-              <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                <input
-                  type="checkbox"
-                  checked={formData.auto_add_qty}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, auto_add_qty: e.target.checked }))
-                  }
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                />
-                <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">
-                  Auto Add Quantity
-                </label>
-              </div>
-              <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                <input
-                  type="checkbox"
-                  checked={formData.allow_negative}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, allow_negative: e.target.checked }))
-                  }
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                />
-                <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">
-                  Allow Negative Stock
-                </label>
-              </div>
-              <div className="flex items-center px-3 py-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group h-[56px]">
-                <input
-                  type="checkbox"
-                  checked={formData.auto_print}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, auto_print: e.target.checked }))
-                  }
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer flex-shrink-0"
-                />
-                <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer flex-1">
-                  Auto Print Receipts
-                </label>
-              </div>
-            </div>
+            <SectionDivider>Receipt Content</SectionDivider>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Receipt Header</label>
+                <FieldLabel>Header Text</FieldLabel>
                 <textarea
                   value={formData.receipt_header}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, receipt_header: e.target.value }))
-                  }
-                  rows={2}
-                  placeholder="Store Header Text"
-                  className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition-all bg-white font-medium"
+                  onChange={(e) => set('receipt_header', e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Welcome to Chapter One"
+                  className={`${inputCls()} resize-none`}
                 />
-                <p className="mt-0.5 text-xs text-gray-500">Custom text to display at the top of receipts</p>
+                <p className="mt-1 text-xs text-gray-400">Printed at the top of every receipt</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Receipt Footer</label>
+                <FieldLabel>Footer Text</FieldLabel>
                 <textarea
                   value={formData.receipt_footer}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, receipt_footer: e.target.value }))
-                  }
-                  rows={2}
-                  placeholder="Thank you for your business!"
-                  className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition-all bg-white font-medium"
+                  onChange={(e) => set('receipt_footer', e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Thank you for your purchase!"
+                  className={`${inputCls()} resize-none`}
                 />
-                <p className="mt-0.5 text-xs text-gray-500">Custom text to display at the bottom of receipts</p>
+                <p className="mt-1 text-xs text-gray-400">Printed at the bottom of every receipt</p>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-200">
-              <h4 className="text-xs font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <CogIcon className="w-3.5 h-3.5 text-indigo-600" />
-                Backup Settings
-              </h4>
-              <div className="flex items-center p-2.5 border-2 border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group mb-3">
-                <input
-                  type="checkbox"
-                  checked={formData.auto_backup}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, auto_backup: e.target.checked }))
-                  }
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-                />
-                <label className="ml-2.5 text-xs font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer">
-                  Enable Auto Backup
-                </label>
-              </div>
-              {formData.auto_backup && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Backup Frequency</label>
-                  <select
-                    value={formData.backup_frequency}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, backup_frequency: e.target.value }))
-                    }
-                    className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                </div>
-              )}
+            <SectionDivider>Printing</SectionDivider>
+
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.auto_print}
+                onChange={(v) => set('auto_print', v)}
+                label="Auto-Print Receipts"
+                description="Automatically send receipt to printer after each sale"
+              />
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ── INVENTORY ── */}
+        {activeTab === 'inventory' && (
+          <div className="space-y-4">
+            <div>
+              <FieldLabel>Low Stock Threshold</FieldLabel>
+              <input
+                type="number"
+                min="0"
+                value={formData.low_stock_threshold}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  set('low_stock_threshold', parseInt(e.target.value, 10) || 0)
+                }
+                className={inputCls()}
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Trigger a low-stock alert when quantity falls below this number
+              </p>
+            </div>
+
+            <SectionDivider>Stock Behaviour</SectionDivider>
+
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.show_stock}
+                onChange={(v) => set('show_stock', v)}
+                label="Show Stock Levels"
+                description="Display available quantities on the POS screen"
+              />
+              <Toggle
+                checked={formData.auto_add_qty}
+                onChange={(v) => set('auto_add_qty', v)}
+                label="Auto-Add Quantity"
+                description="Increase quantity automatically when a product is scanned again"
+              />
+              <Toggle
+                checked={formData.allow_negative}
+                onChange={(v) => set('allow_negative', v)}
+                label="Allow Negative Stock"
+                description="Permit sales even when stock reaches zero"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── BACKUP ── */}
+        {activeTab === 'backup' && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.auto_backup}
+                onChange={(v) => set('auto_backup', v)}
+                label="Enable Auto Backup"
+                description="Automatically back up store data on a schedule"
+              />
+            </div>
+
+            {formData.auto_backup && (
+              <div>
+                <SectionDivider>Schedule</SectionDivider>
+                <FieldLabel>Backup Frequency</FieldLabel>
+                <select
+                  value={formData.backup_frequency}
+                  onChange={(e) => set('backup_frequency', e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  How often the backup job runs automatically
+                </p>
+              </div>
+            )}
+
+            {!formData.auto_backup && (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <ArchiveBoxIcon className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="text-sm font-medium text-gray-500">Auto Backup is disabled</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Enable the toggle above to configure a backup schedule
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </Modal>
   );
