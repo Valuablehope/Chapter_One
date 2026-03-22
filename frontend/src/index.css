@@ -89,6 +89,31 @@
   --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -4px rgba(0,0,0,0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
 
+  /* ── Typography ── */
+  --font-sans:    'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Font Size Scale ── */
+  --text-2xs:  10px;
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   14px;
+  --text-lg:   15px;
+  --text-xl:   16px;
+  --text-2xl:  18px;
+  --text-3xl:  20px;
+  --text-4xl:  24px;
+  --text-5xl:  30px;
+
+  /* ── Gradients ── */
+  --gradient-brand: linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%);
+
+  /* ── Shadows ── */
+  --shadow-sidebar:        4px 0 20px rgba(15,28,46,0.25);
+  --shadow-sidebar-mobile: 4px 0 20px rgba(15,28,46,0.35);
+
   /* ── Transitions ── */
   --transition-fast: 150ms ease-in-out;
   --transition-base: 200ms ease-in-out;
@@ -181,18 +206,18 @@ h1, h2 {
 }
 
 ::selection {
-  background-color: #A1D1C9;
-  color: #0E211D;
+  background-color: var(--color-secondary-200); /* #a3c7f3 */
+  color: var(--color-secondary-900);            /* #0a1a2e */
 }
 
 /* ─────────────────────────────────────────────
    Sidebar dark theme overrides
 ───────────────────────────────────────────── */
 .sidebar-dark ::-webkit-scrollbar-thumb {
-  background: #1F3530;
+  background: #1a2f4a; /* sidebar-active tint */
 }
 .sidebar-dark ::-webkit-scrollbar-thumb:hover {
-  background: #2A4A44;
+  background: #243d5e;
 }
 
 /* ─────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { memo, useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import { fonts } from '../../../styles/tokens';
 import { adminService, Store } from '../../../services/adminService';
 import { logger } from '../../../utils/logger';
 import Button from '../../../components/ui/Button';
@@ -262,7 +263,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       onClose={onClose}
       title={
         <div>
-          <p className="text-base font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <p className="text-base font-bold text-gray-900" style={{ fontFamily: fonts.display }}>
             {editingStore ? 'Edit Store' : 'Add Store'}
           </p>
           {editingStore && (

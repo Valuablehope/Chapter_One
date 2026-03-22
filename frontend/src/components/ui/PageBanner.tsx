@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { gradients, colors } from '../../styles/tokens';
 
 interface PageBannerProps {
   /** Page title shown in large text */
@@ -19,16 +20,16 @@ export default function PageBanner({ title, subtitle, icon, action }: PageBanner
   return (
     <div
       className="relative overflow-hidden rounded-2xl text-white px-5 sm:px-6 py-5 sm:py-6 mb-5"
-      style={{ background: 'linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%)' }}
+      style={{ background: gradients.brand }}
     >
       {/* Decorative circles — same as Dashboard */}
       <div
         className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none"
-        style={{ background: '#93c5fd', opacity: 0.10 }}
+        style={{ background: colors.brandAccent, opacity: 0.10 }}
       />
       <div
         className="absolute -bottom-12 -left-8 w-36 h-36 rounded-full pointer-events-none"
-        style={{ background: '#93c5fd', opacity: 0.06 }}
+        style={{ background: colors.brandAccent, opacity: 0.06 }}
       />
 
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

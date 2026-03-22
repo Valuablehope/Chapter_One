@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 import { APP_BRAND_POS_LINE } from '../constants/branding';
+import { colors, fonts } from '../styles/tokens';
 
-const BLUE          = '#3582e2';
+const BLUE          = colors.brand;
 const BLUE_GLOW     = 'rgba(53, 130, 226, 0.18)';
 const BLUE_GLOW_OUT = 'rgba(53, 130, 226, 0.07)';
 
@@ -68,7 +69,7 @@ export default function LoginScreen() {
       <div style={{
         minHeight: '100vh',
         display: 'flex',
-        fontFamily: "'DM Sans', system-ui, sans-serif",
+        fontFamily: fonts.sans,
       }}>
 
         {/* ── LEFT — POS image panel ── */}
@@ -201,7 +202,7 @@ export default function LoginScreen() {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '40px 32px',
-          background: '#f5f8ff',
+          background: colors.surfaceDim,
           position: 'relative',
           overflowY: 'auto',
         }}>
@@ -244,7 +245,7 @@ export default function LoginScreen() {
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: '10px',
                 padding: '12px 14px', marginBottom: '20px',
-                background: '#fff5f5', border: '1px solid rgba(239,68,68,0.2)',
+                background: colors.errorLight, border: '1px solid rgba(239,68,68,0.2)',
                 borderRadius: '10px', fontSize: '13px', color: '#dc2626', fontWeight: 500,
               }}>
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ flexShrink: 0, marginTop: '1px' }}>
@@ -341,7 +342,7 @@ export default function LoginScreen() {
                 style={{
                   width: '100%',
                   padding: '13px',
-                  background: isLoading || !username || !password ? '#93b8ef' : BLUE,
+                  background: isLoading || !username || !password ? colors.brandDisabled : BLUE,
                   border: 'none',
                   borderRadius: '10px',
                   color: '#ffffff',
@@ -360,7 +361,7 @@ export default function LoginScreen() {
                 }}
                 onMouseEnter={e => {
                   if (!isLoading && username && password) {
-                    e.currentTarget.style.background = '#2570ce';
+                    e.currentTarget.style.background = colors.brandDark;
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(53,130,226,0.3), 0 6px 16px rgba(53,130,226,0.28)';
                   }
                 }}

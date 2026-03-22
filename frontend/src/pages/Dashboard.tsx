@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { colors, gradients, fonts } from '../styles/tokens';
 import { useAuthStore } from '../store/authStore';
 import { reportService } from '../services/reportService';
 import { logger } from '../utils/logger';
@@ -80,8 +81,8 @@ export default function Dashboard() {
       title: "Today's Revenue",
       value: loading ? null : formatCurrency(stats.todayRevenue),
       icon: CurrencyDollarIcon,
-      accent: '#3582e2',
-      accentBg: '#e8f1fc',
+      accent: colors.brand,
+      accentBg: colors.brandLight,
       sub: 'View full report →',
       link: '/reports',
     },
@@ -89,8 +90,8 @@ export default function Dashboard() {
       title: 'Transactions',
       value: loading ? null : String(stats.todayTransactions),
       icon: ShoppingCartIcon,
-      accent: '#2B6E63',
-      accentBg: '#EDF5F3',
+      accent: colors.brand,
+      accentBg: colors.brandLight,
       sub: 'Today',
       link: '/sales',
     },
@@ -98,8 +99,8 @@ export default function Dashboard() {
       title: 'Low Stock Items',
       value: loading ? null : String(stats.lowStockCount),
       icon: stats.lowStockCount > 0 ? ExclamationTriangleIcon : BookOpenIcon,
-      accent: stats.lowStockCount > 0 ? '#D97706' : '#2B6E63',
-      accentBg: stats.lowStockCount > 0 ? '#FFFBEB' : '#EDF5F3',
+      accent: stats.lowStockCount > 0 ? colors.warning : colors.brand,
+      accentBg: stats.lowStockCount > 0 ? colors.warningLight : colors.brandLight,
       sub: stats.lowStockCount > 0 ? 'Needs attention' : 'Stock is healthy',
       link: '/products',
       alert: stats.lowStockCount > 0,
@@ -110,8 +111,8 @@ export default function Dashboard() {
         ? formatCurrency(stats.todayRevenue / stats.todayTransactions)
         : '—'),
       icon: ArrowTrendingUpIcon,
-      accent: '#2B6E63',
-      accentBg: '#EDF5F3',
+      accent: colors.brand,
+      accentBg: colors.brandLight,
       sub: 'Today',
       link: '/reports',
     },
@@ -135,23 +136,23 @@ export default function Dashboard() {
       {/* ── Welcome Banner ── */}
       <div
         className="relative overflow-hidden rounded-2xl text-white px-6 py-7"
-        style={{ background: 'linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%)' }}
+        style={{ background: gradients.brand }}
       >
         {/* Decorative circles */}
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-10" style={{ background: '#93c5fd' }} />
-        <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full opacity-[0.06]" style={{ background: '#93c5fd' }} />
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-10" style={{ background: colors.brandAccent }} />
+        <div className="absolute -bottom-16 -left-8 w-40 h-40 rounded-full opacity-[0.06]" style={{ background: colors.brandAccent }} />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-green-300/80 text-sm font-medium mb-1">
               {getGreeting()}, {firstName}
             </p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight" style={{ fontFamily: fonts.display }}>
               Welcome to {APP_BRAND_POS_LINE}
             </h1>
             <div className="mt-2 flex items-center space-x-2">
               <span className="text-white/60 text-sm">Signed in as</span>
-              <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'rgba(147,197,253,0.20)', color: '#bfdbfe' }}>
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'rgba(147,197,253,0.20)', color: colors.brandAccentText }}>
                 {user?.role}
               </span>
             </div>
@@ -205,7 +206,7 @@ export default function Dashboard() {
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
         <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <h2 className="text-base font-semibold text-gray-900" style={{ fontFamily: fonts.display }}>
               Quick Access
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">Jump to any module</p>
@@ -246,10 +247,10 @@ export default function Dashboard() {
         {/* Today's performance */}
         <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#e2e8f0]">
-            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Today's Performance</h2>
+            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: fonts.display }}>Today's Performance</h2>
           </div>
           <div className="p-5 space-y-3">
-            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: '#e8f1fc' }}>
+            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: colors.brandLight }}>
               <div>
                 <p className="text-xs font-medium text-gray-500">Revenue</p>
                 <p className="text-2xl font-bold text-secondary-600 mt-0.5 tabular-nums">
@@ -277,7 +278,7 @@ export default function Dashboard() {
         {/* Stock alert */}
         <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#e2e8f0]">
-            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>Inventory Status</h2>
+            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: fonts.display }}>Inventory Status</h2>
           </div>
           <div className="p-5 flex flex-col items-center justify-center h-[calc(100%-57px)] min-h-[140px]">
             {loading ? (

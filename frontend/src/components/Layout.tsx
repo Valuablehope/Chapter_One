@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect, useRef } from 'react';
+import { fonts, shadows } from '../styles/tokens';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HomeIcon,
@@ -178,7 +179,7 @@ export default function Layout({ children }: LayoutProps) {
           ${sidebarExpanded ? 'w-60' : 'w-[68px]'}
           fixed left-0 top-0 bottom-0 z-40
         `}
-        style={{ boxShadow: '4px 0 20px rgba(15,28,46,0.25)' }}
+        style={{ boxShadow: shadows.sidebar }}
       >
         {/* Logo */}
         <div className={`h-16 flex items-center border-b border-sidebar-border flex-shrink-0 ${sidebarExpanded ? 'px-4 justify-between' : 'justify-center px-2'}`}>
@@ -189,7 +190,7 @@ export default function Layout({ children }: LayoutProps) {
                   <img src="icon.png" alt="Logo" className="w-6 h-6 object-contain" onError={e => (e.currentTarget.style.display='none')} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-white text-sm font-semibold leading-tight truncate" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <p className="text-white text-sm font-semibold leading-tight truncate" style={{ fontFamily: fonts.display }}>
                     {APP_BRAND_POS_LINE}
                   </p>
                   <p className="text-sidebar-muted text-[10px] leading-tight">Point of Sale</p>
@@ -316,7 +317,7 @@ export default function Layout({ children }: LayoutProps) {
           <div
             ref={sidebarRef}
             className="fixed top-0 left-0 bottom-0 w-64 flex flex-col overflow-y-auto"
-            style={{ background: '#0f1c2e', boxShadow: '4px 0 20px rgba(15,28,46,0.35)', animation: 'slideInLeft 0.25s ease-out' }}
+            style={{ background: 'var(--sidebar-bg, #0f1c2e)', boxShadow: shadows.sidebarMobile, animation: 'slideInLeft 0.25s ease-out' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -325,7 +326,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
                   <img src="icon.png" alt="Logo" className="w-6 h-6 object-contain" onError={e => (e.currentTarget.style.display='none')} />
                 </div>
-                <p className="text-white text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>{APP_BRAND_POS_LINE}</p>
+                <p className="text-white text-sm font-semibold" style={{ fontFamily: fonts.display }}>{APP_BRAND_POS_LINE}</p>
               </div>
               <button onClick={() => setIsMobileMenuOpen(false)} className="w-7 h-7 rounded-md flex items-center justify-center text-sidebar-muted hover:text-white hover:bg-white/10 transition-colors">
                 <XMarkIcon className="w-4 h-4" />
