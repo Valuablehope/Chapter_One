@@ -8,6 +8,7 @@ import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
 import { receiptHeaderStoreName } from '../constants/branding';
+import { gradients } from '../styles/tokens';
 
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -29,7 +30,7 @@ import {
   TicketIcon,
   PrinterIcon,
   ArrowRightIcon,
-  SparklesIcon,
+  BookOpenIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -673,34 +674,45 @@ export default function Sales() {
 
               {/* Barcode Scanner */}
               <div className="mb-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <QrCodeIcon className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Barcode Scan</span>
+                </div>
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <QrCodeIcon className="w-4 h-4" />
-                  </div>
                   <input
                     ref={barcodeInputRef}
                     type="text"
-                    placeholder="Scan or enter barcode..."
+                    placeholder="Scan barcode and press Enter…"
                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === 'Enter') {
-                        e.preventDefault(); // Prevent form submission
-                        e.stopPropagation(); // Stop event from bubbling
+                        e.preventDefault();
+                        e.stopPropagation();
                         const barcode = (e.target as HTMLInputElement).value.trim();
                         if (barcode) {
                           handleBarcodeScan(barcode);
                         }
                       }
                     }}
-                    className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
+                    className="input-premium w-full px-3 py-2.5 text-sm font-medium"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1.5 ml-1">Press Enter to scan</p>
+              </div>
+
+              {/* OR divider */}
+              <div className="flex items-center gap-3 my-3">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-widest">or</span>
+                <div className="flex-1 h-px bg-gray-100" />
               </div>
 
               {/* Product Search */}
               <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Search by name or SKU</span>
+                </div>
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
                     <MagnifyingGlassIcon className="w-4 h-4" />
                   </div>
                   <input
@@ -708,49 +720,49 @@ export default function Sales() {
                     type="text"
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
-                    placeholder="Search by name, SKU, or barcode..."
+                    placeholder="e.g. The Alchemist, 978-0…"
                     className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
                 </div>
               </div>
 
-              {/* Enhanced Search Results */}
+              {/* Search Results */}
               {searchResults.length > 0 && (
-                <div className="mt-3 border-2 border-gray-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100 bg-white shadow-inner">
+                <div className="mt-3 border border-gray-200 rounded-xl max-h-52 overflow-y-auto divide-y divide-gray-50 bg-white shadow-sm">
                   {searchResults.map((product) => (
                     <button
                       key={product.product_id}
                       onClick={() => addToCart(product)}
                       className="w-full px-3 py-2.5 text-left hover:bg-secondary-50 transition-all duration-150 group"
                     >
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-1.5 mb-1">
-                            <div className="p-1 bg-secondary-100 rounded-lg">
-                              <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
-                            </div>
-                            <p className="font-bold text-xs text-gray-900 group-hover:text-secondary-500 transition-colors">{product.name}</p>
+                      <div className="flex justify-between items-center gap-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="p-1.5 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
+                            <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            {product.barcode && (
-                              <Badge variant="gray" size="sm" className="font-mono text-[10px]">
-                                {product.barcode}
-                              </Badge>
-                            )}
-                            {product.sku && (
-                              <span className="text-[10px] text-gray-500 font-mono">SKU: {product.sku}</span>
-                            )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-xs text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {product.sku && (
+                                <span className="text-[10px] text-gray-400 font-mono">SKU {product.sku}</span>
+                              )}
+                              {product.barcode && (
+                                <Badge variant="gray" size="sm" className="font-mono text-[10px]">
+                                  {product.barcode}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right ml-3">
+                        <div className="text-right flex-shrink-0">
                           <p className="font-bold text-sm text-secondary-500">
                             ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
                           </p>
                           {product.track_inventory && (
-                            <p className="text-[10px] text-gray-500 mt-0.5">In Stock</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">In stock</p>
                           )}
-                          <ArrowRightIcon className="w-3 h-3 text-gray-400 group-hover:text-secondary-500 mt-1 ml-auto transition-colors" />
                         </div>
+                        <ArrowRightIcon className="w-3 h-3 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
                       </div>
                     </button>
                   ))}
@@ -775,26 +787,23 @@ export default function Sales() {
                     <ShoppingCartIcon className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-gray-900">Shopping Cart</h2>
+                    <h2 className="text-base font-bold text-gray-900">Cart</h2>
                     {cart.length > 0 && (
-                      <p className="text-xs text-gray-600">{cart.length} {cart.length === 1 ? 'item' : 'items'}</p>
+                      <p className="text-xs text-gray-500">
+                        {cart.length} {cart.length === 1 ? 'title' : 'titles'} · {cart.reduce((sum, item) => sum + item.qty, 0)} {cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? 'copy' : 'copies'}
+                      </p>
                     )}
                   </div>
                 </div>
-                {cart.length > 0 && (
-                  <Badge variant="success" size="sm" className="font-bold">
-                    {cart.reduce((sum, item) => sum + item.qty, 0)} items
-                  </Badge>
-                )}
               </div>
             </div>
 
             {cart.length === 0 ? (
               <div className="p-8">
                 <EmptyState
-                  icon={<ShoppingCartIcon className="w-12 h-12" />}
-                  title="Cart is empty"
-                  description="Search and add products to get started"
+                  icon={<BookOpenIcon className="w-12 h-12" />}
+                  title="No books yet"
+                  description="Scan a barcode or search by title to add books"
                 />
               </div>
             ) : (
@@ -818,10 +827,10 @@ export default function Sales() {
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-1.5 mb-1">
-                            <div className="p-1 bg-secondary-100 rounded-lg">
-                              <SparklesIcon className="w-3.5 h-3.5 text-secondary-500" />
+                            <div className="p-1 bg-secondary-50 rounded-lg">
+                              <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400" />
                             </div>
-                            <p className="font-bold text-xs text-gray-900">{item.product.name}</p>
+                            <p className="font-semibold text-xs text-gray-900">{item.product.name}</p>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs font-medium text-gray-600">
@@ -911,21 +920,26 @@ export default function Sales() {
                 <h2 className="text-sm font-bold text-gray-900">Customer</h2>
               </div>
               {selectedCustomer ? (
-                <div className="p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="font-bold text-xs text-gray-900">
+                <div className="p-3 bg-secondary-50 rounded-xl border border-secondary-200">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-secondary-500 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-white">
+                        {(selectedCustomer.full_name || 'U').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-xs text-gray-900 truncate">
                         {selectedCustomer.full_name || 'Unnamed Customer'}
                       </p>
                       {selectedCustomer.phone && (
-                        <p className="text-xs text-gray-600 mt-0.5">{selectedCustomer.phone}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{selectedCustomer.phone}</p>
                       )}
                     </div>
                     <Button
                       onClick={() => setSelectedCustomer(null)}
                       variant="ghost"
                       size="sm"
-                      className="!p-1 hover:bg-white"
+                      className="!p-1 hover:bg-white flex-shrink-0"
                     >
                       <XMarkIcon className="w-3 h-3" />
                     </Button>
@@ -993,7 +1007,7 @@ export default function Sales() {
                 </div>
 
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
-                  <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)', boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
+                  <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
                     <span className="text-sm font-semibold opacity-90">Total Due</span>
                     <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
                   </div>
@@ -1023,14 +1037,7 @@ export default function Sales() {
           setCustomerSearch('');
           setCustomerResults([]);
         }}
-        title={
-          <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-secondary-500 rounded-lg">
-              <UserIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-base">Select Customer</span>
-          </div>
-        }
+        title="Select Customer"
         size="md"
       >
         <div>
@@ -1093,14 +1100,7 @@ export default function Sales() {
       <Modal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        title={
-          <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-secondary-500 rounded-lg">
-              <CurrencyDollarIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-base">Process Payment</span>
-          </div>
-        }
+        title="Process Payment"
         size="md"
         footer={
           <div className="flex justify-end gap-3">
@@ -1120,7 +1120,7 @@ export default function Sales() {
             <Button
               onClick={processPayment}
               disabled={processing}
-              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              variant="primary"
               isLoading={processing}
               leftIcon={getPaymentIcon(paymentMethod)}
             >
@@ -1135,32 +1135,31 @@ export default function Sales() {
               Payment Method
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).map((method) => (
-                <button
-                  key={method}
-                  onClick={() => setPaymentMethod(method)}
-                  className={`p-3 rounded-lg border-2 transition-all ${paymentMethod === method
-                    ? 'border-secondary-500 bg-secondary-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                >
-                  <div className="flex flex-col items-center space-y-1.5">
-                    <div className={`p-1.5 rounded-lg ${paymentMethod === method
-                      ? 'bg-secondary-500'
-                      : 'bg-gray-200'
-                      }`}>
-                      {method === 'cash' && <BanknotesIcon className="w-4 h-4 text-white" />}
-                      {method === 'card' && <CreditCardIcon className="w-4 h-4 text-white" />}
-                      {method === 'voucher' && <TicketIcon className="w-4 h-4 text-white" />}
-                      {method === 'other' && <CurrencyDollarIcon className="w-4 h-4 text-white" />}
+              {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).map((method) => {
+                const active = paymentMethod === method;
+                return (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethod(method)}
+                    className={`p-3 rounded-xl border-2 transition-all duration-150 ${active
+                      ? 'border-secondary-500 bg-secondary-50 shadow-sm'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    <div className="flex flex-col items-center space-y-1.5">
+                      <div className={`p-1.5 rounded-lg ${active ? 'bg-secondary-500' : 'bg-gray-100'}`}>
+                        {method === 'cash' && <BanknotesIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
+                        {method === 'card' && <CreditCardIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
+                        {method === 'voucher' && <TicketIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
+                        {method === 'other' && <CurrencyDollarIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
+                      </div>
+                      <span className={`font-semibold text-xs capitalize ${active ? 'text-secondary-600' : 'text-gray-600'}`}>
+                        {method}
+                      </span>
                     </div>
-                    <span className={`font-semibold text-xs capitalize ${paymentMethod === method ? 'text-secondary-500' : 'text-gray-700'
-                      }`}>
-                      {method}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>
@@ -1175,7 +1174,7 @@ export default function Sales() {
               helperText={`Total due: $${grandTotal.toFixed(2)}`}
             />
           </div>
-          <div className="p-4 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)' }}>
+          <div className="p-4 rounded-xl text-white" style={{ background: gradients.brandBlue }}>
             <div className="flex justify-between items-center">
               <span className="font-medium text-sm opacity-80">Grand Total</span>
               <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>

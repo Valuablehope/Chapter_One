@@ -57,6 +57,8 @@ export const colors = {
 export const gradients = {
   /** Primary brand gradient — page banners, dashboard welcome card */
   brand: 'linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%)',
+  /** Blue-only gradient — totals panels, payment summary cards */
+  brandBlue: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)',
 } as const;
 
 // ── Typography ────────────────────────────────────────────────────────────────
