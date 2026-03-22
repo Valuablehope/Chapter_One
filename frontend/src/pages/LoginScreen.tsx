@@ -76,19 +76,22 @@ export default function LoginScreen() {
           display: 'none',          /* hidden on small screens via media query override */
           position: 'relative',
           overflow: 'hidden',
-          flex: '0 0 55%',
+          height: '100vh',
+          aspectRatio: '9 / 16',
+          flexShrink: 0,
+          background: '#0a1432',
         }} className="login-left-panel">
 
           {/* Full-cover POS photo */}
           <img
-            src="pos-promo.png"
+            src="pos-promo.jpg"
             alt="Chapter One POS"
             style={{
               position: 'absolute',
               inset: 0,
               width: '100%',
               height: '100%',
-              objectFit: 'cover',
+              objectFit: 'contain',
               objectPosition: 'center',
             }}
             onError={e => {

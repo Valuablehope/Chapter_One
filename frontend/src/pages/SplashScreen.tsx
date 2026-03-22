@@ -74,22 +74,16 @@ export default function SplashScreen() {
         <div className="mb-12 animate-scale-in">
           <div className="relative mx-auto w-32 h-32 mb-6">
             {/* Outer Glow Ring */}
-            <div className="absolute inset-0 rounded-3xl bg-secondary-500 opacity-20 blur-xl animate-pulse-slow"></div>
+            <div className="absolute inset-0 rounded-3xl bg-secondary-500 opacity-20 blur-xl"></div>
 
             {/* Logo Container */}
             <div className="relative w-full h-full bg-white rounded-3xl shadow-2xl border-2 border-gray-200 flex items-center justify-center transform transition-all duration-500 hover:scale-105 hover:rotate-3 p-3">
               {/* Logo Icon */}
               <img
-                src="icon.png"
+                src="icon1.png"
                 alt="Chapter One POS Logo"
-                className="w-full h-full object-contain animate-float"
+                className="w-full h-full object-contain"
               />
-            </div>
-
-            {/* Orbiting Particles */}
-            <div className="absolute inset-0 animate-spin-slow">
-              <div className="absolute top-0 left-1/2 w-2 h-2 bg-secondary-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
-              <div className="absolute bottom-0 left-1/2 w-2 h-2 bg-secondary-400 rounded-full transform -translate-x-1/2 translate-y-1/2"></div>
             </div>
           </div>
         </div>
