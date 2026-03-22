@@ -1,4 +1,5 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
+import type { PosModuleType, RestaurantMenu } from './StoreSettingsModel';
 
 export interface Store {
   store_id: string;
@@ -23,6 +24,10 @@ export interface Store {
   paper_size?: string;
   auto_print?: boolean;
   receipt_header?: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  restaurant_menus?: RestaurantMenu[];
 }
 
 export interface StoreFilters {
@@ -81,6 +86,10 @@ export class StoreModel extends BaseModel {
       paper_size: 'ss.paper_size',
       auto_print: 'ss.auto_print',
       receipt_header: 'ss.receipt_header',
+      pos_module_type: 'ss.pos_module_type',
+      restaurant_table_count: 'ss.restaurant_table_count',
+      restaurant_track_guests_per_table: 'ss.restaurant_track_guests_per_table',
+      restaurant_menus: 'ss.restaurant_menus',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {
@@ -232,9 +241,13 @@ export class StoreModel extends BaseModel {
     // Skip all other fields as they don't exist in the database
 
     if (fields.length === 0) {
-      throw new Error('No fields to update');
+      const row = await this.findById(storeId);
+      if (!row) {
+        throw new Error('Store not found');
+      }
+      return row;
     }
-    
+
     paramCount++;
     values.push(storeId);
 

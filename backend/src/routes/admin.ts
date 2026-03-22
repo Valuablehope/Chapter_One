@@ -136,6 +136,20 @@ router.post(
     body('paper_size').optional({ nullable: true, checkFalsy: true }).isString(),
     body('auto_print').optional().isBoolean(),
     body('receipt_header').optional({ nullable: true, checkFalsy: true }).isString(),
+    body('pos_module_type').optional().isIn(['store', 'retail_store', 'restaurant']),
+    body('restaurant_table_count')
+      .optional({ nullable: true })
+      .custom((value) => {
+        if (value === null || value === undefined) return true;
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+        return Number.isInteger(n) && n >= 1;
+      })
+      .withMessage('restaurant_table_count must be a positive integer'),
+    body('restaurant_track_guests_per_table').optional().isBoolean(),
+    body('restaurant_menus')
+      .optional({ nullable: true })
+      .custom((value) => value === null || Array.isArray(value))
+      .withMessage('restaurant_menus must be an array'),
   ],
   validateRequest,
   createStore
@@ -172,6 +186,20 @@ router.put(
     body('paper_size').optional({ nullable: true, checkFalsy: true }).isString(),
     body('auto_print').optional().isBoolean(),
     body('receipt_header').optional({ nullable: true, checkFalsy: true }).isString(),
+    body('pos_module_type').optional().isIn(['store', 'retail_store', 'restaurant']),
+    body('restaurant_table_count')
+      .optional({ nullable: true })
+      .custom((value) => {
+        if (value === null || value === undefined) return true;
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+        return Number.isInteger(n) && n >= 1;
+      })
+      .withMessage('restaurant_table_count must be a positive integer'),
+    body('restaurant_track_guests_per_table').optional().isBoolean(),
+    body('restaurant_menus')
+      .optional({ nullable: true })
+      .custom((value) => value === null || Array.isArray(value))
+      .withMessage('restaurant_menus must be an array'),
   ],
   validateRequest,
   updateStore

@@ -51,6 +51,10 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     paper_size,
     auto_print,
     receipt_header,
+    pos_module_type,
+    restaurant_table_count,
+    restaurant_track_guests_per_table,
+    restaurant_menus,
     ...storeData
   } = req.body;
 
@@ -73,6 +77,10 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     paper_size,
     auto_print,
     receipt_header,
+    pos_module_type,
+    restaurant_table_count,
+    restaurant_track_guests_per_table,
+    restaurant_menus,
   };
 
   // Only create settings if at least one setting field is provided
@@ -116,12 +124,35 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     paper_size,
     auto_print,
     receipt_header,
+    pos_module_type,
+    restaurant_table_count,
+    restaurant_track_guests_per_table,
+    restaurant_menus,
     ...storeData
   } = req.body;
 
+  const rawStore = storeData as Partial<{
+    code: string;
+    name: string;
+    address?: string;
+    timezone?: string;
+    is_active: boolean;
+  }>;
+
+  logger.info(
+    `[StoreController] Store body keys present: code=${rawStore.code !== undefined}, name=${rawStore.name !== undefined}, address=${rawStore.address !== undefined}, timezone=${rawStore.timezone !== undefined}, is_active=${rawStore.is_active !== undefined}`
+  );
+
+  const mergedStorePayload = {
+    code: rawStore.code !== undefined ? rawStore.code : existing.code,
+    name: rawStore.name !== undefined ? rawStore.name : existing.name,
+    address: rawStore.address !== undefined ? rawStore.address : existing.address,
+    timezone: rawStore.timezone !== undefined ? rawStore.timezone : existing.timezone ?? 'UTC',
+    is_active: rawStore.is_active !== undefined ? rawStore.is_active : existing.is_active,
+  };
+
   logger.info(`[StoreController] Updating store fields for ${id}`);
-  // Update store (only existing columns)
-  const store = await StoreModel.update(id, storeData);
+  const store = await StoreModel.update(id, mergedStorePayload);
   logger.info(`[StoreController] Store fields updated for ${id}`);
 
   // Update store settings if provided
@@ -140,13 +171,27 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     paper_size,
     auto_print,
     receipt_header,
+    pos_module_type,
+    restaurant_table_count,
+    restaurant_track_guests_per_table,
+    restaurant_menus,
   };
 
   // Only update settings if at least one setting field is provided
   const hasSettings = Object.values(settings).some(value => value !== undefined);
   if (hasSettings) {
     logger.info(`[StoreController] Updating store settings for ${id}`);
-    await StoreSettingsModel.createOrUpdate(id, settings);
+    try {
+      await StoreSettingsModel.createOrUpdate(id, settings);
+    } catch (err: unknown) {
+      const pg = err as { code?: string; detail?: string; message?: string };
+      logger.error(`[StoreController] Store settings update failed for ${id}`, {
+        pgCode: pg.code,
+        pgDetail: pg.detail,
+        message: pg.message,
+      });
+      throw err;
+    }
     logger.info(`[StoreController] Store settings updated for ${id}`);
   }
 

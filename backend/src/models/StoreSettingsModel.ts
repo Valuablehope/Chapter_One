@@ -1,5 +1,22 @@
 import { BaseModel } from './BaseModel';
 
+export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
+
+export interface RestaurantMenuItem {
+  name: string;
+  price: number;
+}
+
+export interface RestaurantMenuCategory {
+  name: string;
+  items: RestaurantMenuItem[];
+}
+
+export interface RestaurantMenu {
+  name: string;
+  categories: RestaurantMenuCategory[];
+}
+
 export interface StoreSettings {
   store_id: string;
   currency_code: string;
@@ -19,6 +36,10 @@ export interface StoreSettings {
   paper_size: string;
   auto_print: boolean;
   receipt_header: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  restaurant_menus?: RestaurantMenu[];
 }
 
 export interface StoreSettingsInput {
@@ -37,6 +58,10 @@ export interface StoreSettingsInput {
   paper_size?: string;
   auto_print?: boolean;
   receipt_header?: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  restaurant_menus?: RestaurantMenu[];
 }
 
 export class StoreSettingsModel extends BaseModel {
@@ -165,8 +190,33 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('receipt_header');
       values.push(settings.receipt_header);
     }
+    if (settings.pos_module_type !== undefined && availableColumns.has('pos_module_type')) {
+      paramCount++;
+      fields.push('pos_module_type');
+      values.push(settings.pos_module_type);
+    }
+    if (settings.restaurant_table_count !== undefined && availableColumns.has('restaurant_table_count')) {
+      paramCount++;
+      fields.push('restaurant_table_count');
+      values.push(settings.restaurant_table_count);
+    }
+    if (settings.restaurant_track_guests_per_table !== undefined && availableColumns.has('restaurant_track_guests_per_table')) {
+      paramCount++;
+      fields.push('restaurant_track_guests_per_table');
+      values.push(settings.restaurant_track_guests_per_table);
+    }
+    if (settings.restaurant_menus !== undefined && availableColumns.has('restaurant_menus')) {
+      paramCount++;
+      fields.push('restaurant_menus');
+      // Stringify so pg does not encode arrays as Postgres ARRAY literals (invalid for jsonb).
+      values.push(JSON.stringify(settings.restaurant_menus ?? []));
+    }
 
-    const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
+    const placeholders = fields
+      .map((col, index) =>
+        col === 'restaurant_menus' ? `$${index + 1}::jsonb` : `$${index + 1}`
+      )
+      .join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
       VALUES (${placeholders})
@@ -256,6 +306,26 @@ export class StoreSettingsModel extends BaseModel {
       fields.push(`receipt_header = $${paramCount}`);
       values.push(settings.receipt_header);
     }
+    if (settings.pos_module_type !== undefined && availableColumns.has('pos_module_type')) {
+      paramCount++;
+      fields.push(`pos_module_type = $${paramCount}`);
+      values.push(settings.pos_module_type);
+    }
+    if (settings.restaurant_table_count !== undefined && availableColumns.has('restaurant_table_count')) {
+      paramCount++;
+      fields.push(`restaurant_table_count = $${paramCount}`);
+      values.push(settings.restaurant_table_count);
+    }
+    if (settings.restaurant_track_guests_per_table !== undefined && availableColumns.has('restaurant_track_guests_per_table')) {
+      paramCount++;
+      fields.push(`restaurant_track_guests_per_table = $${paramCount}`);
+      values.push(settings.restaurant_track_guests_per_table);
+    }
+    if (settings.restaurant_menus !== undefined && availableColumns.has('restaurant_menus')) {
+      paramCount++;
+      fields.push(`restaurant_menus = $${paramCount}::jsonb`);
+      values.push(JSON.stringify(settings.restaurant_menus ?? []));
+    }
 
     if (fields.length === 0) {
       // No fields to update, just return existing
@@ -283,18 +353,25 @@ export class StoreSettingsModel extends BaseModel {
     if (result.rows.length === 0) {
       throw new Error('Store settings not found');
     }
-    
+
     return result.rows[0];
   }
 
   static async createOrUpdate(storeId: string, settings: StoreSettingsInput): Promise<StoreSettings> {
     const existing = await this.findByStoreId(storeId);
-    
+
     if (existing) {
-      return this.update(storeId, settings);
-    } else {
-      return this.create(storeId, settings);
+      try {
+        return await this.update(storeId, settings);
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Store settings not found') {
+          return this.create(storeId, settings);
+        }
+        throw err;
+      }
     }
+
+    return this.create(storeId, settings);
   }
 
   static async delete(storeId: string): Promise<boolean> {

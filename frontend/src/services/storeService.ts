@@ -1,4 +1,5 @@
 import api from './api';
+import type { PosModuleType, RestaurantMenu } from './adminService';
 
 export interface StoreSettings {
   store_id: string;
@@ -20,6 +21,10 @@ export interface StoreSettings {
   allow_negative?: boolean;
   paper_size?: string;
   auto_print?: boolean;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  restaurant_menus?: RestaurantMenu[];
 }
 
 export const storeService = {

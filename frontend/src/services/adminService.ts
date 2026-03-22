@@ -1,5 +1,22 @@
 import api from './api';
 
+export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
+
+export interface RestaurantMenuItem {
+  name: string;
+  price: number;
+}
+
+export interface RestaurantMenuCategory {
+  name: string;
+  items: RestaurantMenuItem[];
+}
+
+export interface RestaurantMenu {
+  name: string;
+  categories: RestaurantMenuCategory[];
+}
+
 export interface AppUser {
   user_id: string;
   username: string;
@@ -32,6 +49,10 @@ export interface Store {
   paper_size?: string;
   auto_print?: boolean;
   receipt_header?: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  restaurant_menus?: RestaurantMenu[];
 }
 
 export interface Terminal {

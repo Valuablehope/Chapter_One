@@ -1,5 +1,12 @@
 import { memo, useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { adminService, Store } from '../../../services/adminService';
+import {
+  adminService,
+  Store,
+  PosModuleType,
+  RestaurantMenu,
+  RestaurantMenuCategory,
+  RestaurantMenuItem,
+} from '../../../services/adminService';
 import { logger } from '../../../utils/logger';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
@@ -11,6 +18,9 @@ import {
   CogIcon,
   ArchiveBoxIcon,
   PrinterIcon,
+  AdjustmentsHorizontalIcon,
+  PlusIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -34,6 +44,91 @@ export interface StoreFormData {
   allow_negative: boolean;
   paper_size: string;
   auto_print: boolean;
+  pos_module_type: PosModuleType;
+  restaurant_table_count: number | null;
+  restaurant_track_guests_per_table: boolean;
+  restaurant_menus: RestaurantMenu[];
+}
+
+function emptyMenuItem(): RestaurantMenuItem {
+  return { name: '', price: 0 };
+}
+
+function emptyMenuCategory(): RestaurantMenuCategory {
+  return { name: '', items: [emptyMenuItem()] };
+}
+
+function emptyRestaurantMenu(): RestaurantMenu {
+  return { name: '', categories: [emptyMenuCategory()] };
+}
+
+function parseRestaurantMenus(raw: unknown): RestaurantMenu[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((m) => {
+    const menu = m as Record<string, unknown>;
+    const name = typeof menu.name === 'string' ? menu.name : '';
+    const catsRaw = Array.isArray(menu.categories) ? menu.categories : [];
+    const categories = catsRaw.map((c) => {
+      const cat = c as Record<string, unknown>;
+      const cn = typeof cat.name === 'string' ? cat.name : '';
+      const itemsRaw = Array.isArray(cat.items) ? cat.items : [];
+      const items = itemsRaw.map((it) => {
+        const i = it as Record<string, unknown>;
+        const n = typeof i.name === 'string' ? i.name : '';
+        const p =
+          typeof i.price === 'number' && Number.isFinite(i.price)
+            ? i.price
+            : parseFloat(String(i.price ?? 0)) || 0;
+        return { name: n, price: p };
+      });
+      return { name: cn, items: items.length ? items : [emptyMenuItem()] };
+    });
+    return { name, categories: categories.length ? categories : [emptyMenuCategory()] };
+  });
+}
+
+function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
+  const err: Record<string, string> = {};
+  const tables = formData.restaurant_table_count;
+  if (tables === null || tables === undefined || !Number.isFinite(tables) || tables < 1) {
+    err.restaurant_table_count = 'Enter at least one table';
+  }
+  const menus = formData.restaurant_menus;
+  if (!menus.length) {
+    err.restaurant_menus = 'Add at least one menu with categories and priced items';
+    return err;
+  }
+  for (const menu of menus) {
+    if (!menu.name.trim()) {
+      err.restaurant_menus = 'Each menu needs a name';
+      return err;
+    }
+    if (!menu.categories.length) {
+      err.restaurant_menus = 'Each menu needs at least one category';
+      return err;
+    }
+    for (const cat of menu.categories) {
+      if (!cat.name.trim()) {
+        err.restaurant_menus = 'Each category needs a name';
+        return err;
+      }
+      if (!cat.items.length) {
+        err.restaurant_menus = 'Each category needs at least one item';
+        return err;
+      }
+      for (const item of cat.items) {
+        if (!item.name.trim()) {
+          err.restaurant_menus = 'Each item needs a name';
+          return err;
+        }
+        if (!Number.isFinite(item.price) || item.price < 0) {
+          err.restaurant_menus = 'Each item needs a valid price (0 or greater)';
+          return err;
+        }
+      }
+    }
+  }
+  return err;
 }
 
 const initialFormData: StoreFormData = {
@@ -56,9 +151,22 @@ const initialFormData: StoreFormData = {
   allow_negative: false,
   paper_size: '80mm',
   auto_print: true,
+  pos_module_type: 'store',
+  restaurant_table_count: null,
+  restaurant_track_guests_per_table: false,
+  restaurant_menus: [],
 };
 
 function storeToFormData(s: Store): StoreFormData {
+  const pos = s.pos_module_type ?? 'store';
+  const menus = parseRestaurantMenus(s.restaurant_menus);
+  const tableCount =
+    s.restaurant_table_count !== undefined && s.restaurant_table_count !== null
+      ? s.restaurant_table_count
+      : pos === 'restaurant'
+        ? 1
+        : null;
+
   return {
     code: s.code || '',
     name: s.name || '',
@@ -79,6 +187,11 @@ function storeToFormData(s: Store): StoreFormData {
     allow_negative: s.allow_negative ?? false,
     paper_size: s.paper_size || '80mm',
     auto_print: s.auto_print ?? true,
+    pos_module_type: pos,
+    restaurant_table_count: tableCount,
+    restaurant_track_guests_per_table: s.restaurant_track_guests_per_table ?? false,
+    restaurant_menus:
+      pos === 'restaurant' && menus.length === 0 ? [emptyRestaurantMenu()] : menus,
   };
 }
 
@@ -89,13 +202,14 @@ export interface StoreModalProps {
   onSaved: () => void;
 }
 
-type Tab = 'identity' | 'regional' | 'pos' | 'inventory' | 'backup';
+type Tab = 'identity' | 'regional' | 'pos' | 'inventory' | 'settings' | 'backup';
 
 const TABS: { id: Tab; label: string; icon: typeof BuildingStorefrontIcon }[] = [
   { id: 'identity', label: 'Identity', icon: BuildingStorefrontIcon },
   { id: 'regional', label: 'Regional', icon: ClockIcon },
   { id: 'pos', label: 'POS & Receipts', icon: PrinterIcon },
   { id: 'inventory', label: 'Inventory', icon: ArchiveBoxIcon },
+  { id: 'settings', label: 'Settings', icon: AdjustmentsHorizontalIcon },
   { id: 'backup', label: 'Backup', icon: CogIcon },
 ];
 
@@ -206,6 +320,16 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       return;
     }
 
+    if (formData.pos_module_type === 'restaurant') {
+      const rErr = validateRestaurantForm(formData);
+      if (Object.keys(rErr).length > 0) {
+        setFormErrors(rErr);
+        setActiveTab('settings');
+        return;
+      }
+    }
+
+    const isRestaurant = formData.pos_module_type === 'restaurant';
     const storeData = {
       code: formData.code.trim(),
       name: formData.name.trim(),
@@ -227,6 +351,12 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       allow_negative: formData.allow_negative,
       paper_size: formData.paper_size || undefined,
       auto_print: formData.auto_print,
+      pos_module_type: formData.pos_module_type,
+      restaurant_table_count: isRestaurant ? formData.restaurant_table_count : null,
+      restaurant_track_guests_per_table: isRestaurant
+        ? formData.restaurant_track_guests_per_table
+        : false,
+      restaurant_menus: isRestaurant ? formData.restaurant_menus : [],
     };
 
     setSubmitting(true);
@@ -554,6 +684,396 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 description="Permit sales even when stock reaches zero"
               />
             </div>
+          </div>
+        )}
+
+        {/* ── SETTINGS (POS module / restaurant) ── */}
+        {activeTab === 'settings' && (
+          <div className="space-y-4">
+            <div>
+              <FieldLabel>POS module type</FieldLabel>
+              <select
+                value={formData.pos_module_type}
+                onChange={(e) => {
+                  const v = e.target.value as PosModuleType;
+                  setFormData((prev) => ({
+                    ...prev,
+                    pos_module_type: v,
+                    ...(v !== 'restaurant'
+                      ? {
+                          restaurant_table_count: null,
+                          restaurant_track_guests_per_table: false,
+                          restaurant_menus: [],
+                        }
+                      : prev.restaurant_menus.length === 0
+                        ? {
+                            restaurant_table_count:
+                              prev.restaurant_table_count !== null &&
+                              prev.restaurant_table_count >= 1
+                                ? prev.restaurant_table_count
+                                : 1,
+                            restaurant_menus: [emptyRestaurantMenu()],
+                          }
+                        : {
+                            restaurant_table_count:
+                              prev.restaurant_table_count !== null &&
+                              prev.restaurant_table_count >= 1
+                                ? prev.restaurant_table_count
+                                : 1,
+                          }),
+                  }));
+                }}
+                className={selectCls}
+              >
+                <option value="store">Store</option>
+                <option value="retail_store">Retail store</option>
+                <option value="restaurant">Restaurant</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                Chooses how this location runs on the POS (restaurant enables tables and menus).
+              </p>
+            </div>
+
+            {formData.pos_module_type === 'restaurant' && (
+              <>
+                <SectionDivider>Restaurant layout</SectionDivider>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <FieldLabel required>Number of tables</FieldLabel>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={formData.restaurant_table_count ?? ''}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const raw = e.target.value;
+                        set(
+                          'restaurant_table_count',
+                          raw === '' ? null : Math.max(1, parseInt(raw, 10) || 1)
+                        );
+                      }}
+                      className={inputCls(!!formErrors.restaurant_table_count)}
+                    />
+                    {formErrors.restaurant_table_count && (
+                      <p className="mt-1 text-xs text-red-500">{formErrors.restaurant_table_count}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+                  <Toggle
+                    checked={formData.restaurant_track_guests_per_table}
+                    onChange={(v) => set('restaurant_track_guests_per_table', v)}
+                    label="Track guest count per table"
+                    description="When enabled, staff can record how many guests are seated at each table"
+                  />
+                </div>
+
+                <SectionDivider>Menu pricing (tax)</SectionDivider>
+                <div
+                  className={`rounded-xl border px-4 py-3 text-sm ${
+                    formData.tax_inclusive
+                      ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                      : 'bg-amber-50/80 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  <p className="font-medium">
+                    {formData.tax_inclusive
+                      ? 'Menu prices are tax-inclusive (matches Regional → Tax-Inclusive Pricing).'
+                      : 'Menu prices are shown before tax; tax is applied per your store tax settings.'}
+                  </p>
+                  <p className="text-xs mt-1.5 opacity-90">
+                    Change this under the Regional tab → Pricing → Tax-Inclusive Pricing.
+                  </p>
+                </div>
+
+                <SectionDivider>Menus</SectionDivider>
+                {formErrors.restaurant_menus && (
+                  <p className="text-xs text-red-500">{formErrors.restaurant_menus}</p>
+                )}
+
+                <div className="space-y-4 max-h-[min(420px,50vh)] overflow-y-auto pr-1">
+                  {formData.restaurant_menus.map((menu, mi) => (
+                    <div
+                      key={mi}
+                      className="border border-gray-200 rounded-xl p-3 bg-white shadow-sm space-y-3"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <FieldLabel required>Menu name</FieldLabel>
+                          <input
+                            type="text"
+                            value={menu.name}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                  i === mi ? { ...m, name: v } : m
+                                ),
+                              }));
+                            }}
+                            placeholder="e.g. Lunch, Dinner, Bar"
+                            className={inputCls()}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-6 text-red-600 shrink-0"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              restaurant_menus: prev.restaurant_menus.filter((_, i) => i !== mi),
+                            }))
+                          }
+                          disabled={formData.restaurant_menus.length <= 1}
+                          aria-label="Remove menu"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {menu.categories.map((cat, ci) => (
+                        <div
+                          key={ci}
+                          className="ml-0 sm:ml-3 pl-0 sm:pl-3 border-l-0 sm:border-l-2 border-secondary-200 space-y-2"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <FieldLabel required>Category</FieldLabel>
+                              <input
+                                type="text"
+                                value={cat.name}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                      i === mi
+                                        ? {
+                                            ...m,
+                                            categories: m.categories.map((c, j) =>
+                                              j === ci ? { ...c, name: v } : c
+                                            ),
+                                          }
+                                        : m
+                                    ),
+                                  }));
+                                }}
+                                placeholder="e.g. Starters, Mains"
+                                className={inputCls()}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-6 text-red-600 shrink-0"
+                              onClick={() =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                    i === mi
+                                      ? {
+                                          ...m,
+                                          categories: m.categories.filter((_, j) => j !== ci),
+                                        }
+                                      : m
+                                  ),
+                                }))
+                              }
+                              disabled={menu.categories.length <= 1}
+                              aria-label="Remove category"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <div className="space-y-2">
+                            {cat.items.map((item, ii) => (
+                              <div
+                                key={ii}
+                                className="flex flex-wrap gap-2 items-end"
+                              >
+                                <div className="flex-1 min-w-[140px]">
+                                  <FieldLabel>Item</FieldLabel>
+                                  <input
+                                    type="text"
+                                    value={item.name}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                          i === mi
+                                            ? {
+                                                ...m,
+                                                categories: m.categories.map((c, j) =>
+                                                  j === ci
+                                                    ? {
+                                                        ...c,
+                                                        items: c.items.map((it, k) =>
+                                                          k === ii ? { ...it, name: v } : it
+                                                        ),
+                                                      }
+                                                    : c
+                                                ),
+                                              }
+                                            : m
+                                        ),
+                                      }));
+                                    }}
+                                    placeholder="Item name"
+                                    className={inputCls()}
+                                  />
+                                </div>
+                                <div className="w-28">
+                                  <FieldLabel>Price</FieldLabel>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={item.price}
+                                    onChange={(e) => {
+                                      const n = parseFloat(e.target.value);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                          i === mi
+                                            ? {
+                                                ...m,
+                                                categories: m.categories.map((c, j) =>
+                                                  j === ci
+                                                    ? {
+                                                        ...c,
+                                                        items: c.items.map((it, k) =>
+                                                          k === ii
+                                                            ? {
+                                                                ...it,
+                                                                price: Number.isFinite(n)
+                                                                  ? n
+                                                                  : 0,
+                                                              }
+                                                            : it
+                                                        ),
+                                                      }
+                                                    : c
+                                                ),
+                                              }
+                                            : m
+                                        ),
+                                      }));
+                                    }}
+                                    className={inputCls()}
+                                  />
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 mb-0.5"
+                                  onClick={() =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                        i === mi
+                                          ? {
+                                              ...m,
+                                              categories: m.categories.map((c, j) =>
+                                                j === ci
+                                                  ? {
+                                                      ...c,
+                                                      items: c.items.filter((_, k) => k !== ii),
+                                                    }
+                                                  : c
+                                              ),
+                                            }
+                                          : m
+                                      ),
+                                    }))
+                                  }
+                                  disabled={cat.items.length <= 1}
+                                  aria-label="Remove item"
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
+                              onClick={() =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                                    i === mi
+                                      ? {
+                                          ...m,
+                                          categories: m.categories.map((c, j) =>
+                                            j === ci
+                                              ? { ...c, items: [...c.items, emptyMenuItem()] }
+                                              : c
+                                          ),
+                                        }
+                                      : m
+                                  ),
+                                }))
+                              }
+                            >
+                              Add item
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            restaurant_menus: prev.restaurant_menus.map((m, i) =>
+                              i === mi
+                                ? { ...m, categories: [...m.categories, emptyMenuCategory()] }
+                                : m
+                            ),
+                          }))
+                        }
+                      >
+                        Add category
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      restaurant_menus: [...prev.restaurant_menus, emptyRestaurantMenu()],
+                    }))
+                  }
+                >
+                  Add menu
+                </Button>
+              </>
+            )}
+
+            {formData.pos_module_type !== 'restaurant' && (
+              <p className="text-sm text-gray-500 py-4">
+                Restaurant tables and menus appear when you choose <strong>Restaurant</strong> above.
+              </p>
+            )}
           </div>
         )}
 
