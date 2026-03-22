@@ -1,5 +1,4 @@
 import { memo, useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { fonts } from '../../../styles/tokens';
 import { adminService, Store } from '../../../services/adminService';
 import { logger } from '../../../utils/logger';
 import Button from '../../../components/ui/Button';
@@ -261,38 +260,29 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div>
-          <p className="text-base font-bold text-gray-900" style={{ fontFamily: fonts.display }}>
-            {editingStore ? 'Edit Store' : 'Add Store'}
-          </p>
-          {editingStore && (
-            <p className="text-xs text-gray-400 font-normal mt-0.5">{editingStore.name}</p>
-          )}
-        </div>
-      }
+      title={editingStore ? 'Edit Store' : 'Add Store'}
       size="xl"
       footer={
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-gray-400">
-            {editingStore ? `Store ID: ${editingStore.store_id}` : 'All fields marked * are required'}
+            {editingStore ? `ID: ${editingStore.store_id}` : 'Fields marked * are required'}
           </p>
-          <div className="flex gap-3">
-            <Button type="button" onClick={onClose} variant="outline" disabled={submitting}>
+          <div className="flex gap-2">
+            <Button type="button" onClick={onClose} variant="outline" disabled={submitting} size="sm">
               Cancel
             </Button>
-            <Button
-              type="submit"
-              form="store-form"
-              isLoading={submitting}
-              className="!bg-secondary-500 hover:!bg-secondary-600 !text-white font-semibold !shadow-none border-0"
-            >
+            <Button type="submit" form="store-form" variant="primary" isLoading={submitting} size="sm">
               {editingStore ? 'Save Changes' : 'Create Store'}
             </Button>
           </div>
         </div>
       }
     >
+      {/* Store name subtitle when editing */}
+      {editingStore && (
+        <p className="text-xs text-gray-400 -mt-1 mb-4">{editingStore.name}</p>
+      )}
+
       {/* Tab bar */}
       <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-xl p-1 mb-5">
         {TABS.map((tab) => {

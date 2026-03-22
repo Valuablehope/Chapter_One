@@ -32,7 +32,6 @@ import {
   XCircleIcon,
   UserIcon,
   KeyIcon,
-  IdentificationIcon,
   CurrencyDollarIcon,
   ClockIcon,
   LockClosedIcon,
@@ -43,6 +42,8 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { StoreModal } from './Admin/components/StoreModal';
+import TerminalModal from './Admin/components/TerminalModal';
+import UserModal from './Admin/components/UserModal';
 
 type AdminTab = 'users' | 'stores' | 'terminals' | 'license';
 
@@ -1242,136 +1243,17 @@ export default function Admin() {
         />
       </Modal>
 
-      {/* Enhanced User Modal */}
-      <Modal
+      {/* User Modal */}
+      <UserModal
         isOpen={showUserModal}
         onClose={() => setShowUserModal(false)}
-        title={
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-secondary-500 rounded-lg">
-              <UserGroupIcon className="w-5 h-5 text-white" />
-            </div>
-            <span>{editingUser ? 'Edit User' : 'Add User'}</span>
-          </div>
-        }
-        size="md"
-        footer={
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              onClick={() => setShowUserModal(false)}
-              variant="outline"
-              disabled={submittingUser}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="user-form"
-              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-              isLoading={submittingUser}
-            >
-              {editingUser ? 'Update' : 'Create'}
-            </Button>
-          </div>
-        }
-      >
-        <form id="user-form" onSubmit={handleUserSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Username {!editingUser && <span className="text-red-500">*</span>}
-            </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <UserIcon className="w-5 h-5" />
-              </div>
-              <input
-                type="text"
-                value={userFormData.username}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserFormData({ ...userFormData, username: e.target.value })}
-                disabled={!!editingUser}
-                required={!editingUser}
-                className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  userFormErrors.username ? 'border-red-300' : 'border-gray-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              />
-            </div>
-            {userFormErrors.username && (
-              <p className="mt-1 text-sm text-red-600">{userFormErrors.username}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <IdentificationIcon className="w-5 h-5" />
-              </div>
-              <input
-                type="text"
-                value={userFormData.full_name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserFormData({ ...userFormData, full_name: e.target.value })}
-                required
-                className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  userFormErrors.full_name ? 'border-red-300' : 'border-gray-200'
-                }`}
-              />
-            </div>
-            {userFormErrors.full_name && (
-              <p className="mt-1 text-sm text-red-600">{userFormErrors.full_name}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Password {!editingUser && <span className="text-red-500">*</span>}
-            </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <KeyIcon className="w-5 h-5" />
-              </div>
-              <input
-                type="password"
-                value={userFormData.password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserFormData({ ...userFormData, password: e.target.value })}
-                placeholder={editingUser ? 'Leave blank to keep current' : ''}
-                required={!editingUser}
-                className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  userFormErrors.password ? 'border-red-300' : 'border-gray-200'
-                }`}
-              />
-            </div>
-            {userFormErrors.password && (
-              <p className="mt-1 text-sm text-red-600">{userFormErrors.password}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
-            <select
-              value={userFormData.role}
-              onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value as 'cashier' | 'manager' | 'admin' })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium"
-            >
-              <option value="cashier">Cashier</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          
-          <div className="flex items-center p-4 border-2 border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group">
-            <input
-              type="checkbox"
-              checked={userFormData.is_active}
-              onChange={(e) => setUserFormData({ ...userFormData, is_active: e.target.checked })}
-              className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-            />
-            <label className="ml-3 text-sm font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer">Active</label>
-          </div>
-        </form>
-      </Modal>
+        editingUser={editingUser}
+        formData={userFormData}
+        formErrors={userFormErrors}
+        submitting={submittingUser}
+        setFormData={setUserFormData}
+        onSubmit={handleUserSubmit}
+      />
 
       <StoreModal
         isOpen={showStoreModal}
@@ -1386,119 +1268,18 @@ export default function Admin() {
         }}
       />
 
-      {/* Enhanced Terminal Modal */}
-      <Modal
+      {/* Terminal Modal */}
+      <TerminalModal
         isOpen={showTerminalModal}
         onClose={() => setShowTerminalModal(false)}
-        title={
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-secondary-500 rounded-lg">
-              <ComputerDesktopIcon className="w-5 h-5 text-white" />
-            </div>
-            <span>{editingTerminal ? 'Edit Terminal' : 'Add Terminal'}</span>
-          </div>
-        }
-        size="md"
-        footer={
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              onClick={() => setShowTerminalModal(false)}
-              variant="outline"
-              disabled={submittingTerminal}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="terminal-form"
-              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-              isLoading={submittingTerminal}
-            >
-              {editingTerminal ? 'Update' : 'Create'}
-            </Button>
-          </div>
-        }
-      >
-        <form id="terminal-form" onSubmit={handleTerminalSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Store <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={terminalFormData.store_id}
-              onChange={(e) => setTerminalFormData({ ...terminalFormData, store_id: e.target.value })}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                terminalFormErrors.store_id ? 'border-red-300' : 'border-gray-200'
-              }`}
-            >
-              <option value="">Select Store</option>
-              {storesForDropdown.map((s) => (
-                <option key={s.store_id} value={s.store_id}>{s.name}</option>
-              ))}
-            </select>
-            {terminalFormErrors.store_id && (
-              <p className="mt-1 text-sm text-red-600">{terminalFormErrors.store_id}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Code <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <ComputerDesktopIcon className="w-5 h-5" />
-              </div>
-              <input
-                type="text"
-                value={terminalFormData.code}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTerminalFormData({ ...terminalFormData, code: e.target.value })}
-                required
-                className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  terminalFormErrors.code ? 'border-red-300' : 'border-gray-200'
-                }`}
-              />
-            </div>
-            {terminalFormErrors.code && (
-              <p className="mt-1 text-sm text-red-600">{terminalFormErrors.code}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Name <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <ComputerDesktopIcon className="w-5 h-5" />
-              </div>
-              <input
-                type="text"
-                value={terminalFormData.name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTerminalFormData({ ...terminalFormData, name: e.target.value })}
-                required
-                className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all bg-white font-medium ${
-                  terminalFormErrors.name ? 'border-red-300' : 'border-gray-200'
-                }`}
-              />
-            </div>
-            {terminalFormErrors.name && (
-              <p className="mt-1 text-sm text-red-600">{terminalFormErrors.name}</p>
-            )}
-          </div>
-          
-          <div className="flex items-center p-4 border-2 border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50/50 cursor-pointer transition-all group">
-            <input
-              type="checkbox"
-              checked={terminalFormData.is_active}
-              onChange={(e) => setTerminalFormData({ ...terminalFormData, is_active: e.target.checked })}
-              className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-            />
-            <label className="ml-3 text-sm font-semibold text-gray-700 group-hover:text-red-700 cursor-pointer">Active</label>
-          </div>
-        </form>
-      </Modal>
+        editingTerminal={editingTerminal}
+        formData={terminalFormData}
+        formErrors={terminalFormErrors}
+        submitting={submittingTerminal}
+        storesForDropdown={storesForDropdown}
+        setFormData={setTerminalFormData}
+        onSubmit={handleTerminalSubmit}
+      />
     </>
   );
 }
