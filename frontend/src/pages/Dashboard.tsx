@@ -144,21 +144,21 @@ export default function Dashboard() {
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-green-300/80 text-sm font-medium mb-1">
+            <p className="text-white/60 text-sm font-medium mb-1">
               {getGreeting()}, {firstName}
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight" style={{ fontFamily: fonts.display }}>
               Welcome to {APP_BRAND_POS_LINE}
             </h1>
             <div className="mt-2 flex items-center space-x-2">
-              <span className="text-white/60 text-sm">Signed in as</span>
+              <span className="text-white/50 text-sm">Signed in as</span>
               <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'rgba(147,197,253,0.20)', color: colors.brandAccentText }}>
                 {user?.role}
               </span>
             </div>
           </div>
           <div className="flex items-center space-x-2 self-start sm:self-auto shrink-0 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/10">
-            <ClockIcon className="w-4 h-4 text-green-300/70" />
+            <ClockIcon className="w-4 h-4 text-white/50" />
             <span className="text-sm font-medium text-white/80">{today}</span>
           </div>
         </div>
@@ -178,23 +178,23 @@ export default function Dashboard() {
                   style={{ animationDelay: `${i * 0.07}s` }}
                 >
                   {/* Top accent bar */}
-                  <div className="h-1 w-full" style={{ background: card.accent }} />
+                  <div className="h-0.5 w-full" style={{ background: card.accent }} />
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-4">
-                      <div className="p-2.5 rounded-lg" style={{ background: card.accentBg }}>
+                      <div className="p-2.5 rounded-xl" style={{ background: card.accentBg }}>
                         <Icon className="w-5 h-5" style={{ color: card.accent }} />
                       </div>
                       {card.alert && (
                         <span className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 animate-pulse flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">{card.title}</p>
-                    <p className="text-2xl font-bold text-gray-900 mb-3 tabular-nums">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">{card.title}</p>
+                    <p className="text-2xl font-bold text-gray-900 mb-3 tabular-nums leading-none">
                       {card.value ?? '—'}
                     </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium" style={{ color: card.accent }}>{card.sub}</span>
-                      <ArrowRightIcon className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all" />
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                      <span className="text-[11px] font-medium" style={{ color: card.accent }}>{card.sub}</span>
+                      <ArrowRightIcon className="w-3.5 h-3.5 text-gray-200 group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </div>
                 </Link>
@@ -204,13 +204,9 @@ export default function Dashboard() {
 
       {/* ── Quick Access ── */}
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900" style={{ fontFamily: fonts.display }}>
-              Quick Access
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Jump to any module</p>
-          </div>
+        <div className="px-6 py-4 border-b border-[#e2e8f0]">
+          <h2 className="text-sm font-semibold text-gray-900 tracking-tight">Quick Access</h2>
+          <p className="text-[11px] text-gray-400 mt-0.5 uppercase tracking-wider font-medium">Jump to any module</p>
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {quickLinks.map((link, i) => {
@@ -219,23 +215,27 @@ export default function Dashboard() {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`group flex items-center space-x-4 p-4 rounded-xl border transition-all duration-200 animate-card-in ${
+                className={`group flex items-center gap-3.5 p-4 rounded-xl border transition-all duration-200 animate-card-in ${
                   link.highlight
-                    ? 'border-secondary-300 bg-secondary-50 hover:bg-secondary-100 hover:border-secondary-400'
-                    : 'border-[#e2e8f0] bg-[#f8fafc] hover:bg-gray-50 hover:border-gray-300'
+                    ? 'border-secondary-200 bg-gradient-to-br from-secondary-50 to-blue-50 hover:border-secondary-300 hover:shadow-sm'
+                    : 'border-[#e8ecf0] bg-[#f8fafc] hover:bg-white hover:border-gray-300 hover:shadow-sm'
                 }`}
                 style={{ animationDelay: `${(i + 4) * 0.06}s` }}
               >
-                <div className={`p-2.5 rounded-lg flex-shrink-0 ${link.highlight ? 'bg-secondary-500' : 'bg-gray-100 group-hover:bg-gray-200'} transition-colors`}>
-                  <Icon className={`w-5 h-5 ${link.highlight ? 'text-white' : 'text-gray-600'}`} />
+                <div className={`p-2.5 rounded-xl flex-shrink-0 transition-all duration-150 ${
+                  link.highlight
+                    ? 'bg-secondary-500 group-hover:bg-secondary-600 shadow-sm'
+                    : 'bg-white border border-gray-200 group-hover:border-gray-300 group-hover:shadow-sm'
+                }`}>
+                  <Icon className={`w-4.5 h-4.5 w-[18px] h-[18px] ${link.highlight ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold truncate ${link.highlight ? 'text-secondary-700' : 'text-gray-800'}`}>
+                  <p className={`text-sm font-semibold truncate leading-tight ${link.highlight ? 'text-secondary-700' : 'text-gray-800'}`}>
                     {link.label}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">{link.description}</p>
+                  <p className={`text-[11px] truncate mt-0.5 ${link.highlight ? 'text-secondary-500' : 'text-gray-400'}`}>{link.description}</p>
                 </div>
-                <ArrowRightIcon className={`w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all ${link.highlight ? 'text-secondary-500' : 'text-gray-400'}`} />
+                <ArrowRightIcon className={`w-3.5 h-3.5 flex-shrink-0 -translate-x-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 ${link.highlight ? 'text-secondary-400' : 'text-gray-300'}`} />
               </Link>
             );
           })}
@@ -247,60 +247,99 @@ export default function Dashboard() {
         {/* Today's performance */}
         <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#e2e8f0]">
-            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: fonts.display }}>Today's Performance</h2>
+            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">Today's Performance</h2>
+            <p className="text-[11px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
           </div>
           <div className="p-5 space-y-3">
+            {/* Revenue row */}
             <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: colors.brandLight }}>
               <div>
-                <p className="text-xs font-medium text-gray-500">Revenue</p>
-                <p className="text-2xl font-bold text-secondary-600 mt-0.5 tabular-nums">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-secondary-400 mb-1">Revenue</p>
+                <p className="text-2xl font-bold text-secondary-700 tabular-nums leading-none">
                   {loading ? '—' : formatCurrency(stats.todayRevenue)}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-secondary-100">
-                <ArrowTrendingUpIcon className="w-6 h-6 text-secondary-500" />
+              <div className="p-2.5 rounded-xl bg-secondary-100">
+                <ArrowTrendingUpIcon className="w-5 h-5 text-secondary-500" />
               </div>
             </div>
-            <div className="flex items-center justify-between p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0]">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Transactions</p>
-                <p className="text-2xl font-bold text-gray-800 mt-0.5 tabular-nums">
+            {/* Transactions + AOV row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col p-4 rounded-xl bg-[#f8fafc] border border-[#e8ecf0]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Transactions</p>
+                <p className="text-2xl font-bold text-gray-800 tabular-nums leading-none">
                   {loading ? '—' : stats.todayTransactions}
                 </p>
+                <div className="mt-2">
+                  <ShoppingCartIcon className="w-4 h-4 text-gray-300" />
+                </div>
               </div>
-              <div className="p-3 rounded-xl bg-gray-100">
-                <ShoppingCartIcon className="w-6 h-6 text-gray-500" />
+              <div className="flex flex-col p-4 rounded-xl bg-[#f8fafc] border border-[#e8ecf0]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Avg. Order</p>
+                <p className="text-2xl font-bold text-gray-800 tabular-nums leading-none">
+                  {loading ? '—' : (stats.todayTransactions > 0
+                    ? formatCurrency(stats.todayRevenue / stats.todayTransactions)
+                    : '—')}
+                </p>
+                <div className="mt-2">
+                  <CurrencyDollarIcon className="w-4 h-4 text-gray-300" />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Stock alert */}
+        {/* Inventory Status */}
         <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#e2e8f0]">
-            <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: fonts.display }}>Inventory Status</h2>
+            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">Inventory Status</h2>
+            <p className="text-[11px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">Stock health overview</p>
           </div>
-          <div className="p-5 flex flex-col items-center justify-center h-[calc(100%-57px)] min-h-[140px]">
+          <div className="p-5">
             {loading ? (
-              <div className="text-gray-400 text-sm">Loading…</div>
+              <div className="flex items-center justify-center h-[140px]">
+                <div className="text-gray-400 text-sm">Loading…</div>
+              </div>
             ) : stats.lowStockCount === 0 ? (
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-success-50 flex items-center justify-center mx-auto mb-3">
-                  <BookOpenIcon className="w-6 h-6 text-success-500" />
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <BookOpenIcon className="w-6 h-6 text-emerald-500" />
                 </div>
-                <p className="text-sm font-semibold text-gray-700">All stock levels healthy</p>
-                <p className="text-xs text-gray-400 mt-1">No items below threshold</p>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">All stock levels healthy</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">No items below reorder threshold</p>
+                </div>
               </div>
             ) : (
-              <Link to="/products" className="text-center group">
-                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
+              <Link to="/products" className="group flex items-center gap-4 p-4 rounded-xl bg-amber-50 border border-amber-100 hover:border-amber-300 transition-all">
+                <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                   <ExclamationTriangleIcon className="w-6 h-6 text-amber-500" />
                 </div>
-                <p className="text-sm font-semibold text-gray-700">
-                  <span className="text-amber-600 font-bold">{stats.lowStockCount}</span> item{stats.lowStockCount > 1 ? 's' : ''} running low
-                </p>
-                <p className="text-xs text-secondary-500 mt-1.5 group-hover:underline underline-offset-2">Review inventory →</p>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-900">
+                    <span className="text-amber-600">{stats.lowStockCount}</span> item{stats.lowStockCount > 1 ? 's' : ''} running low
+                  </p>
+                  <p className="text-xs text-amber-600 mt-0.5 group-hover:underline underline-offset-2">Review inventory →</p>
+                </div>
+                <ArrowRightIcon className="w-4 h-4 text-amber-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
               </Link>
+            )}
+            {/* Stock health bar */}
+            {!loading && (
+              <div className="mt-4 pt-4 border-t border-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Stock Health</span>
+                  <span className="text-[11px] font-semibold text-gray-500">
+                    {stats.lowStockCount === 0 ? '100%' : `${Math.max(0, 100 - stats.lowStockCount * 10)}%`}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${stats.lowStockCount === 0 ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                    style={{ width: stats.lowStockCount === 0 ? '100%' : `${Math.max(10, 100 - stats.lowStockCount * 10)}%` }}
+                  />
+                </div>
+              </div>
             )}
           </div>
         </div>
