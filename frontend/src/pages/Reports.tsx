@@ -27,6 +27,9 @@ import {
   CalendarIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
+  MinusIcon,
 } from '@heroicons/react/24/outline';
 import {
   BarChart,
@@ -50,6 +53,47 @@ type ReportTab = 'sales' | 'purchases' | 'inventory';
 type SalesReportType = 'summary' | 'products' | 'customers' | 'payment-methods';
 type PurchaseReportType = 'summary' | 'suppliers';
 type InventoryReportType = 'stock' | 'low-stock';
+type DatePreset = 'week' | 'month' | 'quarter' | 'custom';
+
+const DATE_PRESETS: { id: DatePreset; label: string; days?: number }[] = [
+  { id: 'week',    label: 'Last Week',    days: 7  },
+  { id: 'month',   label: 'Last Month',   days: 30 },
+  { id: 'quarter', label: 'Last Quarter', days: 90 },
+  { id: 'custom',  label: 'Custom Dates'           },
+];
+
+function toDateStr(d: Date) {
+  return d.toISOString().split('T')[0];
+}
+
+function presetRange(preset: DatePreset): { start: string; end: string } {
+  const today = new Date();
+  const entry = DATE_PRESETS.find((p) => p.id === preset);
+  if (!entry?.days) return { start: toDateStr(today), end: toDateStr(today) };
+  const from = new Date(today);
+  from.setDate(today.getDate() - entry.days);
+  return { start: toDateStr(from), end: toDateStr(today) };
+}
+
+function TrendBadge({ pct }: { pct: number }) {
+  if (pct === 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 text-gray-500 bg-gray-100">
+        <MinusIcon className="w-2.5 h-2.5" /> 0%
+      </span>
+    );
+  }
+  const isPos = pct > 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5
+      ${isPos ? 'text-emerald-700 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+      {isPos
+        ? <ArrowTrendingUpIcon className="w-2.5 h-2.5" />
+        : <ArrowTrendingDownIcon className="w-2.5 h-2.5" />}
+      {isPos ? '+' : ''}{pct.toFixed(1)}%
+    </span>
+  );
+}
 
 export default function Reports() {
   const { user } = useAuthStore();
@@ -60,13 +104,19 @@ export default function Reports() {
   const [inventoryReportType, setInventoryReportType] = useState<InventoryReportType>('stock');
   const [loading, setLoading] = useState(false);
 
-  // Date filters
-  const [startDate, setStartDate] = useState<string>(
-    new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0]
-  );
-  const [endDate, setEndDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  // Date preset + custom range
+  const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const [startDate, setStartDate] = useState<string>(presetRange('month').start);
+  const [endDate,   setEndDate]   = useState<string>(presetRange('month').end);
+
+  const handlePreset = (preset: DatePreset) => {
+    setDatePreset(preset);
+    if (preset !== 'custom') {
+      const { start, end } = presetRange(preset);
+      setStartDate(start);
+      setEndDate(end);
+    }
+  };
 
   // Report data
   const [salesSummary, setSalesSummary] = useState<SalesSummary[]>([]);
@@ -165,6 +215,22 @@ export default function Reports() {
   const totalCost = useMemo(() => purchaseSummary.reduce((sum, item) => sum + Number(item.total_cost || 0), 0), [purchaseSummary]);
   const totalPOs = useMemo(() => purchaseSummary.reduce((sum, item) => sum + Number(item.po_count || 0), 0), [purchaseSummary]);
 
+  // Trend: compare second half of period vs first half
+  const trend = useMemo(() => {
+    if (salesSummary.length < 2) return { revenue: 0, transactions: 0, avgOrder: 0 };
+    const mid = Math.floor(salesSummary.length / 2);
+    const first  = salesSummary.slice(0, mid);
+    const second = salesSummary.slice(mid);
+    const rev1 = first.reduce((s, d)  => s + Number(d.total_revenue   || 0), 0);
+    const rev2 = second.reduce((s, d) => s + Number(d.total_revenue   || 0), 0);
+    const tx1  = first.reduce((s, d)  => s + Number(d.transaction_count || 0), 0);
+    const tx2  = second.reduce((s, d) => s + Number(d.transaction_count || 0), 0);
+    const avg1 = tx1 > 0 ? rev1 / tx1 : 0;
+    const avg2 = tx2 > 0 ? rev2 / tx2 : 0;
+    const pct  = (a: number, b: number) => (a > 0 ? ((b - a) / a) * 100 : 0);
+    return { revenue: pct(rev1, rev2), transactions: pct(tx1, tx2), avgOrder: pct(avg1, avg2) };
+  }, [salesSummary]);
+
   // Chart colors - using secondary color variations and semantic colors
   const CHART_COLORS = ['#3582e2', '#2a68b5', '#3582e2', '#f59e0b', '#ef4444', '#06b6d4'];
 
@@ -229,38 +295,62 @@ export default function Reports() {
           </nav>
         </div>
 
-        {/* Enhanced Filters */}
+        {/* Date Range Filter */}
         {(activeTab === 'sales' || activeTab === 'purchases') && (
-          <div className="px-3 py-3 border-b-2 border-gray-200 bg-white">
-            <div className="flex flex-col sm:flex-row gap-3 items-end">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Start Date</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CalendarIcon className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
-                    className="w-56 pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
-                  />
-                </div>
+          <div className="px-4 py-2.5 border-b border-gray-100 bg-white">
+            <div className="flex flex-wrap items-center gap-3">
+
+              {/* Preset pills */}
+              <div className="flex gap-1.5 flex-wrap">
+                {DATE_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handlePreset(p.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 whitespace-nowrap
+                      ${datePreset === p.id
+                        ? 'bg-secondary-500 text-white shadow-sm'
+                        : 'bg-gray-50 border border-gray-200 text-gray-600 hover:border-secondary-300 hover:text-secondary-600 hover:bg-secondary-50'
+                      }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">End Date</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <CalendarIcon className="w-4 h-4" />
+
+              {/* Divider */}
+              <div className="w-px h-5 bg-gray-200 hidden sm:block" />
+
+              {/* Custom date pickers */}
+              {datePreset === 'custom' ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative">
+                    <CalendarIcon className="w-3.5 h-3.5 text-gray-300 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => { setStartDate(e.target.value); setDatePreset('custom'); }}
+                      className="pl-8 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-secondary-500/30 focus:border-secondary-500 bg-white w-36 font-medium text-gray-700"
+                    />
                   </div>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
-                    className="w-56 pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
-                  />
+                  <span className="text-xs text-gray-400 font-medium">→</span>
+                  <div className="relative">
+                    <CalendarIcon className="w-3.5 h-3.5 text-gray-300 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => { setEndDate(e.target.value); setDatePreset('custom'); }}
+                      className="pl-8 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-secondary-500/30 focus:border-secondary-500 bg-white w-36 font-medium text-gray-700"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Active range label */
+                <span className="text-xs text-gray-400 font-medium hidden sm:inline">
+                  {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {' — '}
+                  {new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -281,54 +371,62 @@ export default function Reports() {
               {/* Sales Reports */}
               {activeTab === 'sales' && (
                 <div className="space-y-4">
-                  {/* Enhanced Summary Cards */}
+                  {/* Premium Summary Cards */}
                   {salesReportType === 'summary' && salesSummary.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Revenue */}
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                        <div className="h-1 w-full bg-secondary-500" />
                         <div className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-semibold text-gray-600 mb-1">Total Revenue</p>
-                              <p className="text-xl font-extrabold text-secondary-500">
-                                {formatCurrency(totalRevenue)}
-                              </p>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="p-2 rounded-lg bg-secondary-50">
+                              <CurrencyDollarIcon className="w-4 h-4 text-secondary-500" />
                             </div>
-                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
-                              <CurrencyDollarIcon className="w-5 h-5 text-white" />
-                            </div>
+                            <TrendBadge pct={trend.revenue} />
                           </div>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Revenue</p>
+                          <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
+                            {formatCurrency(totalRevenue)}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">vs prior half of period</p>
                         </div>
-                      </Card>
-                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                      </div>
+
+                      {/* Transactions */}
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                        <div className="h-1 w-full bg-indigo-500" />
                         <div className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-semibold text-gray-600 mb-1">Total Transactions</p>
-                              <p className="text-xl font-extrabold text-secondary-500">
-                                {totalTransactions}
-                              </p>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="p-2 rounded-lg bg-indigo-50">
+                              <ShoppingCartIcon className="w-4 h-4 text-indigo-500" />
                             </div>
-                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
-                              <ShoppingCartIcon className="w-5 h-5 text-white" />
-                            </div>
+                            <TrendBadge pct={trend.transactions} />
                           </div>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Transactions</p>
+                          <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
+                            {totalTransactions.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">vs prior half of period</p>
                         </div>
-                      </Card>
-                      <Card className="border-2 border-secondary-200 bg-white shadow-md hover:shadow-lg transition-all" padding="none">
+                      </div>
+
+                      {/* Avg Order Value */}
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                        <div className="h-1 w-full bg-amber-400" />
                         <div className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-semibold text-gray-600 mb-1">Average per Transaction</p>
-                              <p className="text-xl font-extrabold text-secondary-500">
-                                {totalTransactions > 0 ? formatCurrency(totalRevenue / totalTransactions) : formatCurrency(0)}
-                              </p>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="p-2 rounded-lg bg-amber-50">
+                              <ChartBarIcon className="w-4 h-4 text-amber-500" />
                             </div>
-                            <div className="p-2 bg-secondary-500 rounded-lg shadow-md">
-                              <ChartBarIcon className="w-5 h-5 text-white" />
-                            </div>
+                            <TrendBadge pct={trend.avgOrder} />
                           </div>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Avg. Order Value</p>
+                          <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
+                            {totalTransactions > 0 ? formatCurrency(totalRevenue / totalTransactions) : '—'}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">vs prior half of period</p>
                         </div>
-                      </Card>
+                      </div>
                     </div>
                   )}
 
