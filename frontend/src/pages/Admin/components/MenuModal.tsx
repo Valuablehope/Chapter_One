@@ -7,7 +7,7 @@ import {
   menuService,
   MenuInput,
 } from '../../../services/adminService';
-import { productService, type Product } from '../../../services/productService';
+
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
@@ -114,21 +114,12 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
     setErrors({});
     setForm(editingMenu ? menuToForm(editingMenu) : DEFAULT_FORM);
   }, [isOpen, editingMenu]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    productService
-      .getProducts({ limit: 500 })
-      .then((response) => setProducts(response.data))
-      .catch(() => setProducts([]));
-  }, [isOpen]);
 
   // ── category mutations ─────────────────────────────────────────────────
   const addCategory = () =>
@@ -174,33 +165,7 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
       ),
     }));
 
-  const setItemProduct = (ci: number, ii: number, productId: string) => {
-    const selectedProduct = products.find((p) => p.product_id === productId);
-    setForm((p) => ({
-      ...p,
-      categories: p.categories.map((c, i) =>
-        i === ci
-          ? {
-              ...c,
-              items: c.items.map((it, k) =>
-                k === ii
-                  ? {
-                      ...it,
-                      product_id: productId || undefined,
-                      ...(selectedProduct
-                        ? {
-                            name: selectedProduct.name,
-                            price: selectedProduct.sale_price ?? selectedProduct.list_price ?? it.price,
-                          }
-                        : {}),
-                    }
-                  : it
-              ),
-            }
-          : c
-      ),
-    }));
-  };
+
 
   // ── submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -404,21 +369,7 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
                 <div className="p-3 space-y-2">
                   {cat.items.map((item, ii) => (
                     <div key={ii} className="flex gap-2 items-end group">
-                      <div className="w-56 flex-shrink-0">
-                        {ii === 0 && <FieldLabel>Linked Product</FieldLabel>}
-                        <select
-                          value={item.product_id ?? ''}
-                          onChange={e => setItemProduct(ci, ii, e.target.value)}
-                          className={inputCls()}
-                        >
-                          <option value="">Select product (optional)</option>
-                          {products.map((product) => (
-                            <option key={product.product_id} value={product.product_id}>
-                              {product.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+
                       <div className="flex-1 min-w-0">
                         {ii === 0 && <FieldLabel>Item Name</FieldLabel>}
                         <input

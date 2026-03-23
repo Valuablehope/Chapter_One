@@ -130,6 +130,37 @@ export class MenuModel extends BaseModel {
     return row ? normalise(row) : null;
   }
 
+  private static async syncProducts(categories: MenuCategoryRow[]): Promise<MenuCategoryRow[]> {
+    if (!categories || !Array.isArray(categories)) return categories;
+    for (const cat of categories) {
+      if (!cat.items || !Array.isArray(cat.items)) continue;
+      for (const item of cat.items) {
+        if (!item.name) continue;
+        const name = item.name.trim();
+
+        const res = await this.query<{ product_id: string }>(
+          'SELECT product_id FROM products WHERE LOWER(name) = LOWER($1) LIMIT 1',
+          [name]
+        );
+
+        let productId = res.rows[0]?.product_id;
+
+        if (!productId) {
+          const insertRes = await this.query<{ product_id: string }>(
+            `INSERT INTO products (name, sale_price, product_type, track_inventory)
+             VALUES ($1, $2, 'OTHER', false)
+             RETURNING product_id`,
+            [name, item.price || 0]
+          );
+          productId = insertRes.rows[0].product_id;
+        }
+
+        item.product_id = productId;
+      }
+    }
+    return categories;
+  }
+
   static async create(storeId: string, input: MenuInput): Promise<Menu> {
     const {
       name,
@@ -140,13 +171,15 @@ export class MenuModel extends BaseModel {
       categories = [],
     } = input;
 
+    const syncedCategories = await this.syncProducts(categories);
+
     const result = await this.query<RawMenu>(
       `INSERT INTO restaurant_menus
          (store_id, name, description, menu_type, is_active, display_order, categories)
        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
        RETURNING *`,
       [storeId, name, description, menu_type, is_active, display_order,
-       JSON.stringify(categories)]
+       JSON.stringify(syncedCategories)]
     );
     return normalise(result.rows[0]);
   }
@@ -162,7 +195,8 @@ export class MenuModel extends BaseModel {
     if (input.is_active !== undefined) { p++; fields.push(`is_active = $${p}`); values.push(input.is_active); }
     if (input.display_order !== undefined) { p++; fields.push(`display_order = $${p}`); values.push(input.display_order); }
     if (input.categories !== undefined) {
-      p++; fields.push(`categories = $${p}::jsonb`); values.push(JSON.stringify(input.categories));
+      const syncedCategories = await this.syncProducts(input.categories);
+      p++; fields.push(`categories = $${p}::jsonb`); values.push(JSON.stringify(syncedCategories));
     }
 
     if (fields.length === 0) {

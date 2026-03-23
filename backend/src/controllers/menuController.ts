@@ -12,7 +12,7 @@ export async function getMenus(req: Request, res: Response, next: NextFunction) 
 
     const filters: MenuFilters = {};
     if (search) filters.search = String(search);
-    if (is_active !== undefined) filters.is_active = is_active === 'true';
+    if (is_active !== undefined) filters.is_active = String(is_active) === 'true';
     if (menu_type) filters.menu_type = String(menu_type) as MenuType;
     if (page) filters.page = parseInt(String(page), 10);
     if (limit) filters.limit = parseInt(String(limit), 10);

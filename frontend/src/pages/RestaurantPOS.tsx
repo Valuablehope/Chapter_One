@@ -359,7 +359,7 @@ export default function RestaurantPOS() {
       return orderItem.productId;
     }
     throw new Error(
-      `Menu item "${orderItem.itemName}" is missing a linked product. Edit this menu item in Admin -> Menus and select a product.`
+      `Menu item "${orderItem.itemName}" hasn't been synced to the database yet. Please edit and re-save this menu in Admin -> Menus to automatically sync it, then add the item to the table again.`
     );
   };
 
