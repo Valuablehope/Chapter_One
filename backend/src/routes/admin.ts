@@ -146,10 +146,6 @@ router.post(
       })
       .withMessage('restaurant_table_count must be a positive integer'),
     body('restaurant_track_guests_per_table').optional().isBoolean(),
-    body('restaurant_menus')
-      .optional({ nullable: true })
-      .custom((value) => value === null || Array.isArray(value))
-      .withMessage('restaurant_menus must be an array'),
   ],
   validateRequest,
   createStore
@@ -196,10 +192,6 @@ router.put(
       })
       .withMessage('restaurant_table_count must be a positive integer'),
     body('restaurant_track_guests_per_table').optional().isBoolean(),
-    body('restaurant_menus')
-      .optional({ nullable: true })
-      .custom((value) => value === null || Array.isArray(value))
-      .withMessage('restaurant_menus must be an array'),
   ],
   validateRequest,
   updateStore

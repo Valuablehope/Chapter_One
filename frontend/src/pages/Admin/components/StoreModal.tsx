@@ -3,10 +3,8 @@ import {
   adminService,
   Store,
   PosModuleType,
-  RestaurantMenu,
-  RestaurantMenuCategory,
-  RestaurantMenuItem,
 } from '../../../services/adminService';
+import { storeService } from '../../../services/storeService';
 import { logger } from '../../../utils/logger';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
@@ -19,8 +17,6 @@ import {
   ArchiveBoxIcon,
   PrinterIcon,
   AdjustmentsHorizontalIcon,
-  PlusIcon,
-  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -47,44 +43,6 @@ export interface StoreFormData {
   pos_module_type: PosModuleType;
   restaurant_table_count: number | null;
   restaurant_track_guests_per_table: boolean;
-  restaurant_menus: RestaurantMenu[];
-}
-
-function emptyMenuItem(): RestaurantMenuItem {
-  return { name: '', price: 0 };
-}
-
-function emptyMenuCategory(): RestaurantMenuCategory {
-  return { name: '', items: [emptyMenuItem()] };
-}
-
-function emptyRestaurantMenu(): RestaurantMenu {
-  return { name: '', categories: [emptyMenuCategory()] };
-}
-
-function parseRestaurantMenus(raw: unknown): RestaurantMenu[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((m) => {
-    const menu = m as Record<string, unknown>;
-    const name = typeof menu.name === 'string' ? menu.name : '';
-    const catsRaw = Array.isArray(menu.categories) ? menu.categories : [];
-    const categories = catsRaw.map((c) => {
-      const cat = c as Record<string, unknown>;
-      const cn = typeof cat.name === 'string' ? cat.name : '';
-      const itemsRaw = Array.isArray(cat.items) ? cat.items : [];
-      const items = itemsRaw.map((it) => {
-        const i = it as Record<string, unknown>;
-        const n = typeof i.name === 'string' ? i.name : '';
-        const p =
-          typeof i.price === 'number' && Number.isFinite(i.price)
-            ? i.price
-            : parseFloat(String(i.price ?? 0)) || 0;
-        return { name: n, price: p };
-      });
-      return { name: cn, items: items.length ? items : [emptyMenuItem()] };
-    });
-    return { name, categories: categories.length ? categories : [emptyMenuCategory()] };
-  });
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -92,41 +50,6 @@ function validateRestaurantForm(formData: StoreFormData): Record<string, string>
   const tables = formData.restaurant_table_count;
   if (tables === null || tables === undefined || !Number.isFinite(tables) || tables < 1) {
     err.restaurant_table_count = 'Enter at least one table';
-  }
-  const menus = formData.restaurant_menus;
-  if (!menus.length) {
-    err.restaurant_menus = 'Add at least one menu with categories and priced items';
-    return err;
-  }
-  for (const menu of menus) {
-    if (!menu.name.trim()) {
-      err.restaurant_menus = 'Each menu needs a name';
-      return err;
-    }
-    if (!menu.categories.length) {
-      err.restaurant_menus = 'Each menu needs at least one category';
-      return err;
-    }
-    for (const cat of menu.categories) {
-      if (!cat.name.trim()) {
-        err.restaurant_menus = 'Each category needs a name';
-        return err;
-      }
-      if (!cat.items.length) {
-        err.restaurant_menus = 'Each category needs at least one item';
-        return err;
-      }
-      for (const item of cat.items) {
-        if (!item.name.trim()) {
-          err.restaurant_menus = 'Each item needs a name';
-          return err;
-        }
-        if (!Number.isFinite(item.price) || item.price < 0) {
-          err.restaurant_menus = 'Each item needs a valid price (0 or greater)';
-          return err;
-        }
-      }
-    }
   }
   return err;
 }
@@ -154,12 +77,10 @@ const initialFormData: StoreFormData = {
   pos_module_type: 'store',
   restaurant_table_count: null,
   restaurant_track_guests_per_table: false,
-  restaurant_menus: [],
 };
 
 function storeToFormData(s: Store): StoreFormData {
   const pos = s.pos_module_type ?? 'store';
-  const menus = parseRestaurantMenus(s.restaurant_menus);
   const tableCount =
     s.restaurant_table_count !== undefined && s.restaurant_table_count !== null
       ? s.restaurant_table_count
@@ -190,8 +111,6 @@ function storeToFormData(s: Store): StoreFormData {
     pos_module_type: pos,
     restaurant_table_count: tableCount,
     restaurant_track_guests_per_table: s.restaurant_track_guests_per_table ?? false,
-    restaurant_menus:
-      pos === 'restaurant' && menus.length === 0 ? [emptyRestaurantMenu()] : menus,
   };
 }
 
@@ -356,7 +275,6 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       restaurant_track_guests_per_table: isRestaurant
         ? formData.restaurant_track_guests_per_table
         : false,
-      restaurant_menus: isRestaurant ? formData.restaurant_menus : [],
     };
 
     setSubmitting(true);
@@ -366,6 +284,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       } else {
         await adminService.createStore(storeData);
       }
+      storeService.notifyStoreModuleChanged();
       onClose();
       toast.success(editingStore ? 'Store updated successfully' : 'Store created successfully');
       onSaved();
@@ -703,18 +622,8 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                       ? {
                           restaurant_table_count: null,
                           restaurant_track_guests_per_table: false,
-                          restaurant_menus: [],
                         }
-                      : prev.restaurant_menus.length === 0
-                        ? {
-                            restaurant_table_count:
-                              prev.restaurant_table_count !== null &&
-                              prev.restaurant_table_count >= 1
-                                ? prev.restaurant_table_count
-                                : 1,
-                            restaurant_menus: [emptyRestaurantMenu()],
-                          }
-                        : {
+                      : {
                             restaurant_table_count:
                               prev.restaurant_table_count !== null &&
                               prev.restaurant_table_count >= 1
@@ -788,284 +697,9 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 </div>
 
                 <SectionDivider>Menus</SectionDivider>
-                {formErrors.restaurant_menus && (
-                  <p className="text-xs text-red-500">{formErrors.restaurant_menus}</p>
-                )}
-
-                <div className="space-y-4 max-h-[min(420px,50vh)] overflow-y-auto pr-1">
-                  {formData.restaurant_menus.map((menu, mi) => (
-                    <div
-                      key={mi}
-                      className="border border-gray-200 rounded-xl p-3 bg-white shadow-sm space-y-3"
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <FieldLabel required>Menu name</FieldLabel>
-                          <input
-                            type="text"
-                            value={menu.name}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setFormData((prev) => ({
-                                ...prev,
-                                restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                  i === mi ? { ...m, name: v } : m
-                                ),
-                              }));
-                            }}
-                            placeholder="e.g. Lunch, Dinner, Bar"
-                            className={inputCls()}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="mt-6 text-red-600 shrink-0"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              restaurant_menus: prev.restaurant_menus.filter((_, i) => i !== mi),
-                            }))
-                          }
-                          disabled={formData.restaurant_menus.length <= 1}
-                          aria-label="Remove menu"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      {menu.categories.map((cat, ci) => (
-                        <div
-                          key={ci}
-                          className="ml-0 sm:ml-3 pl-0 sm:pl-3 border-l-0 sm:border-l-2 border-secondary-200 space-y-2"
-                        >
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <FieldLabel required>Category</FieldLabel>
-                              <input
-                                type="text"
-                                value={cat.name}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                      i === mi
-                                        ? {
-                                            ...m,
-                                            categories: m.categories.map((c, j) =>
-                                              j === ci ? { ...c, name: v } : c
-                                            ),
-                                          }
-                                        : m
-                                    ),
-                                  }));
-                                }}
-                                placeholder="e.g. Starters, Mains"
-                                className={inputCls()}
-                              />
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="mt-6 text-red-600 shrink-0"
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                    i === mi
-                                      ? {
-                                          ...m,
-                                          categories: m.categories.filter((_, j) => j !== ci),
-                                        }
-                                      : m
-                                  ),
-                                }))
-                              }
-                              disabled={menu.categories.length <= 1}
-                              aria-label="Remove category"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </Button>
-                          </div>
-
-                          <div className="space-y-2">
-                            {cat.items.map((item, ii) => (
-                              <div
-                                key={ii}
-                                className="flex flex-wrap gap-2 items-end"
-                              >
-                                <div className="flex-1 min-w-[140px]">
-                                  <FieldLabel>Item</FieldLabel>
-                                  <input
-                                    type="text"
-                                    value={item.name}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                          i === mi
-                                            ? {
-                                                ...m,
-                                                categories: m.categories.map((c, j) =>
-                                                  j === ci
-                                                    ? {
-                                                        ...c,
-                                                        items: c.items.map((it, k) =>
-                                                          k === ii ? { ...it, name: v } : it
-                                                        ),
-                                                      }
-                                                    : c
-                                                ),
-                                              }
-                                            : m
-                                        ),
-                                      }));
-                                    }}
-                                    placeholder="Item name"
-                                    className={inputCls()}
-                                  />
-                                </div>
-                                <div className="w-28">
-                                  <FieldLabel>Price</FieldLabel>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={item.price}
-                                    onChange={(e) => {
-                                      const n = parseFloat(e.target.value);
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                          i === mi
-                                            ? {
-                                                ...m,
-                                                categories: m.categories.map((c, j) =>
-                                                  j === ci
-                                                    ? {
-                                                        ...c,
-                                                        items: c.items.map((it, k) =>
-                                                          k === ii
-                                                            ? {
-                                                                ...it,
-                                                                price: Number.isFinite(n)
-                                                                  ? n
-                                                                  : 0,
-                                                              }
-                                                            : it
-                                                        ),
-                                                      }
-                                                    : c
-                                                ),
-                                              }
-                                            : m
-                                        ),
-                                      }));
-                                    }}
-                                    className={inputCls()}
-                                  />
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-600 mb-0.5"
-                                  onClick={() =>
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                        i === mi
-                                          ? {
-                                              ...m,
-                                              categories: m.categories.map((c, j) =>
-                                                j === ci
-                                                  ? {
-                                                      ...c,
-                                                      items: c.items.filter((_, k) => k !== ii),
-                                                    }
-                                                  : c
-                                              ),
-                                            }
-                                          : m
-                                      ),
-                                    }))
-                                  }
-                                  disabled={cat.items.length <= 1}
-                                  aria-label="Remove item"
-                                >
-                                  <TrashIcon className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ))}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
-                              onClick={() =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                                    i === mi
-                                      ? {
-                                          ...m,
-                                          categories: m.categories.map((c, j) =>
-                                            j === ci
-                                              ? { ...c, items: [...c.items, emptyMenuItem()] }
-                                              : c
-                                          ),
-                                        }
-                                      : m
-                                  ),
-                                }))
-                              }
-                            >
-                              Add item
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            restaurant_menus: prev.restaurant_menus.map((m, i) =>
-                              i === mi
-                                ? { ...m, categories: [...m.categories, emptyMenuCategory()] }
-                                : m
-                            ),
-                          }))
-                        }
-                      >
-                        Add category
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      restaurant_menus: [...prev.restaurant_menus, emptyRestaurantMenu()],
-                    }))
-                  }
-                >
-                  Add menu
-                </Button>
+                <p className="text-sm text-gray-500">
+                  Manage menus from the Admin <strong>Menus</strong> tab.
+                </p>
               </>
             )}
 

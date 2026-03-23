@@ -54,7 +54,6 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
-    restaurant_menus,
     ...storeData
   } = req.body;
 
@@ -80,13 +79,22 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
-    restaurant_menus,
   };
 
   // Only create settings if at least one setting field is provided
   const hasSettings = Object.values(settings).some(value => value !== undefined);
   if (hasSettings) {
-    await StoreSettingsModel.createOrUpdate(store.store_id, settings);
+    try {
+      await StoreSettingsModel.createOrUpdate(store.store_id, settings);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('store_settings schema mismatch')) {
+        throw new CustomError(message, 500, {
+          suggestion: 'Run database migration for restaurant store_settings columns and restart backend.',
+        });
+      }
+      throw err;
+    }
   }
 
   // Fetch complete store with settings
@@ -127,7 +135,6 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
-    restaurant_menus,
     ...storeData
   } = req.body;
 
@@ -174,7 +181,6 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
-    restaurant_menus,
   };
 
   // Only update settings if at least one setting field is provided
@@ -185,6 +191,11 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
       await StoreSettingsModel.createOrUpdate(id, settings);
     } catch (err: unknown) {
       const pg = err as { code?: string; detail?: string; message?: string };
+      if (pg.message?.includes('store_settings schema mismatch')) {
+        throw new CustomError(pg.message, 500, {
+          suggestion: 'Run database migration for restaurant store_settings columns and restart backend.',
+        });
+      }
       logger.error(`[StoreController] Store settings update failed for ${id}`, {
         pgCode: pg.code,
         pgDetail: pg.detail,

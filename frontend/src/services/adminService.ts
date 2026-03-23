@@ -1,22 +1,45 @@
 import api from './api';
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
+export type MenuType = 'regular' | 'holiday' | 'seasonal' | 'event' | 'special';
 
-export interface RestaurantMenuItem {
+// ── Dedicated Menu entity ────────────────────────────────────────────────
+export interface MenuItemDef {
   name: string;
   price: number;
+  description?: string;
+  product_id?: string;
 }
 
-export interface RestaurantMenuCategory {
+export interface MenuCategoryDef {
   name: string;
-  items: RestaurantMenuItem[];
+  items: MenuItemDef[];
 }
 
-export interface RestaurantMenu {
+export interface Menu {
+  menu_id: string;
+  store_id: string;
   name: string;
-  categories: RestaurantMenuCategory[];
+  description: string | null;
+  menu_type: MenuType;
+  is_active: boolean;
+  display_order: number;
+  categories: MenuCategoryDef[];
+  created_at: string;
+  updated_at: string;
 }
 
+export interface MenuInput {
+  store_id: string;
+  name: string;
+  description?: string | null;
+  menu_type?: MenuType;
+  is_active?: boolean;
+  display_order?: number;
+  categories?: MenuCategoryDef[];
+}
+
+// ── Existing entity types ────────────────────────────────────────────────
 export interface AppUser {
   user_id: string;
   username: string;
@@ -33,8 +56,7 @@ export interface Store {
   address?: string;
   is_active: boolean;
   created_at: string;
-  timezone?: string; // From stores table
-  // Store Settings Fields (from store_settings table)
+  timezone?: string;
   currency_code?: string;
   tax_inclusive?: boolean;
   theme?: string;
@@ -52,7 +74,6 @@ export interface Store {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
-  restaurant_menus?: RestaurantMenu[];
 }
 
 export interface Terminal {
@@ -76,6 +97,7 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// ── Admin Service ────────────────────────────────────────────────────────
 export const adminService = {
   // User Management
   async getUsers(filters: {
@@ -215,6 +237,38 @@ export const adminService = {
   },
 };
 
+// ── Menu Service ──────────────────────────────────────────────────────────
+export const menuService = {
+  async getMenus(filters: {
+    store_id: string;
+    search?: string;
+    is_active?: boolean;
+    menu_type?: MenuType;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Menu>> {
+    const params = new URLSearchParams();
+    params.append('store_id', filters.store_id);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.menu_type) params.append('menu_type', filters.menu_type);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.limit) params.append('limit', String(filters.limit));
+    const response = await api.get<PaginatedResponse<Menu>>(`/menus?${params.toString()}`);
+    return response.data;
+  },
 
+  async createMenu(input: MenuInput): Promise<Menu> {
+    const response = await api.post<{ success: boolean; data: Menu }>('/menus', input);
+    return response.data.data;
+  },
 
+  async updateMenu(id: string, updates: Partial<MenuInput>): Promise<Menu> {
+    const response = await api.put<{ success: boolean; data: Menu }>(`/menus/${id}`, updates);
+    return response.data.data;
+  },
 
+  async deleteMenu(id: string): Promise<void> {
+    await api.delete(`/menus/${id}`);
+  },
+};

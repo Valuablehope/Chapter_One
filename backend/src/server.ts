@@ -18,6 +18,8 @@ import adminRoutes from './routes/admin';
 import licenseRoutes from './routes/license';
 import stockRoutes from './routes/stock';
 import storesRoutes from './routes/stores';
+import menusRoutes from './routes/menus';
+import { StoreSettingsModel } from './models/StoreSettingsModel';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
 import { requestLogger } from './middleware/requestLogger';
@@ -176,6 +178,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/license', licenseRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/stores', storesRoutes);
+app.use('/api/menus', menusRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req: Request, res: Response) => {
@@ -194,6 +197,18 @@ async function startServer(): Promise<void> {
     // Test database connection
     await pool.query('SELECT NOW()');
     logger.info('✅ Database connection validated');
+
+    const storeSettingsAudit = await StoreSettingsModel.auditRestaurantSchema();
+    if (!storeSettingsAudit.ok) {
+      logger.warn('⚠️  store_settings restaurant schema mismatch detected', {
+        schema: storeSettingsAudit.schema,
+        missingColumns: storeSettingsAudit.missingColumns,
+        invalidTypes: storeSettingsAudit.invalidTypes,
+      });
+      logger.warn('Apply database/migrations/008_ensure_public_store_settings_restaurant_columns.sql and restart backend.');
+    } else {
+      logger.info(`✅ store_settings restaurant schema validated in schema "${storeSettingsAudit.schema}"`);
+    }
   } catch (error) {
     logger.warn('⚠️  Database connection failed during startup:', {
       error: error instanceof Error ? error.message : 'Unknown error',

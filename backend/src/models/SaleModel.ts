@@ -58,6 +58,18 @@ export interface CreateSaleData {
     method: PaymentMethod;
     amount: number;
   }[];
+  restaurant_context?: {
+    table_number: number;
+    guest_count: number;
+    waiter_name?: string;
+    seated_at: string;
+    checkout_at: string;
+    service_fee_enabled: boolean;
+    service_fee_rate: number;
+    service_fee_amount: number;
+    subtotal_before_service: number;
+    notes?: string;
+  };
 }
 
 export interface UpdateSaleData {
@@ -100,6 +112,69 @@ export interface SaleFilters {
 }
 
 export class SaleModel extends BaseModel {
+  private static async persistRestaurantContext(
+    client: any,
+    sale: { sale_id: string; store_id: string; terminal_id: string },
+    cashierId: string,
+    context: NonNullable<CreateSaleData['restaurant_context']>
+  ): Promise<void> {
+    const sessionResult = await client.query(
+      `
+        INSERT INTO restaurant_table_sessions (
+          store_id,
+          terminal_id,
+          cashier_id,
+          table_number,
+          guest_count,
+          waiter_name,
+          seated_at,
+          closed_at,
+          status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, 'closed')
+        RETURNING session_id
+      `,
+      [
+        sale.store_id,
+        sale.terminal_id,
+        cashierId,
+        context.table_number,
+        context.guest_count,
+        context.waiter_name || null,
+        context.seated_at,
+        context.checkout_at,
+      ]
+    );
+
+    const sessionId = sessionResult.rows[0]?.session_id || null;
+
+    await client.query(
+      `
+        INSERT INTO restaurant_sale_context (
+          sale_id,
+          session_id,
+          service_fee_enabled,
+          service_fee_rate,
+          service_fee_amount,
+          subtotal_before_service,
+          checkout_at,
+          notes
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8)
+      `,
+      [
+        sale.sale_id,
+        sessionId,
+        context.service_fee_enabled,
+        context.service_fee_rate,
+        context.service_fee_amount,
+        context.subtotal_before_service,
+        context.checkout_at,
+        context.notes || null,
+      ]
+    );
+  }
+
   // Get default store (first active store) with settings
   // Cached for 10 minutes to reduce database load
   static async getDefaultStore(): Promise<{ store_id: string; code: string; name: string } | null> {
@@ -115,7 +190,7 @@ export class SaleModel extends BaseModel {
       SELECT store_id, code, name
       FROM stores
       WHERE is_active = true
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
       LIMIT 1
     `;
     const result = await this.query(query);
@@ -248,7 +323,7 @@ export class SaleModel extends BaseModel {
         SELECT store_id, code, name
         FROM stores
         WHERE is_active = true
-        ORDER BY created_at ASC
+        ORDER BY created_at DESC
         LIMIT 1
         FOR UPDATE
       `);
@@ -496,6 +571,10 @@ export class SaleModel extends BaseModel {
               payment.amount,
             ]);
             payments.push(paymentResult.rows[0]);
+          }
+
+          if (data.restaurant_context) {
+            await this.persistRestaurantContext(client, sale, cashierId, data.restaurant_context);
           }
 
           await client.query('COMMIT');

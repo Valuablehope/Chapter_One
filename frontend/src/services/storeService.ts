@@ -1,5 +1,5 @@
 import api from './api';
-import type { PosModuleType, RestaurantMenu } from './adminService';
+import type { PosModuleType } from './adminService';
 
 export interface StoreSettings {
   store_id: string;
@@ -24,8 +24,10 @@ export interface StoreSettings {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
-  restaurant_menus?: RestaurantMenu[];
 }
+
+type StoreModuleChangeListener = () => void;
+const storeModuleChangeListeners = new Set<StoreModuleChangeListener>();
 
 export const storeService = {
   async getStoreSettings(storeId: string): Promise<StoreSettings> {
@@ -42,6 +44,17 @@ export const storeService = {
       `/stores/default`
     );
     return response.data.data;
+  },
+
+  notifyStoreModuleChanged(): void {
+    storeModuleChangeListeners.forEach((listener) => listener());
+  },
+
+  subscribeStoreModuleChanged(listener: StoreModuleChangeListener): () => void {
+    storeModuleChangeListeners.add(listener);
+    return () => {
+      storeModuleChangeListeners.delete(listener);
+    };
   },
 };
 

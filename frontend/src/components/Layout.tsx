@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useRef } from 'react';
+import { ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { fonts, shadows } from '../styles/tokens';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import {
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
+  TableCellsIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -25,6 +26,7 @@ import {
   BuildingOfficeIcon as BuildingOfficeIconSolid,
   PresentationChartBarIcon as PresentationChartBarIconSolid,
   ShieldCheckIcon as ShieldCheckIconSolid,
+  TableCellsIcon as TableCellsIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
@@ -34,6 +36,8 @@ import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import { CloudArrowUpIcon, WifiIcon } from '@heroicons/react/24/outline';
 import { APP_BRAND_POS_LINE } from '../constants/branding';
+import { storeService } from '../services/storeService';
+import type { PosModuleType } from '../services/adminService';
 
 /** Thumbtack pin — outline (sidebar not pinned) */
 const PinIcon = ({ className }: { className?: string }) => (
@@ -69,9 +73,32 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [posModuleType, setPosModuleType] = useState<PosModuleType>('store');
 
   useTokenRefresh();
   const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
+
+  const refreshPosModuleType = useCallback(async () => {
+    try {
+      const s = await storeService.getDefaultStore();
+      if (s.pos_module_type) {
+        setPosModuleType(s.pos_module_type);
+      }
+    } catch {
+      // Keep current value on fetch failure.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPosModuleType();
+  }, [refreshPosModuleType]);
+
+  useEffect(() => {
+    const unsubscribe = storeService.subscribeStoreModuleChanged(() => {
+      void refreshPosModuleType();
+    });
+    return unsubscribe;
+  }, [refreshPosModuleType]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen]   = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
@@ -108,16 +135,30 @@ export default function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const isRestaurant = posModuleType === 'restaurant';
+
+  useEffect(() => {
+    if (isRestaurant && location.pathname === '/sales') {
+      navigate('/restaurant', { replace: true });
+      return;
+    }
+    if (!isRestaurant && location.pathname === '/restaurant') {
+      navigate('/sales', { replace: true });
+    }
+  }, [isRestaurant, location.pathname, navigate]);
+
   const navItems = [
-    { path: '/dashboard',        label: 'Dashboard',        icon: HomeIcon,                    iconSolid: HomeIconSolid,                    blockedRoles: ['cashier'] },
+    { path: '/dashboard',        label: 'Dashboard',        icon: HomeIcon,                    iconSolid: HomeIconSolid,                    blockedRoles: ['cashier'] as string[] },
     { path: '/products',         label: 'Products',         icon: BookOpenIcon,                iconSolid: BookOpenIconSolid },
-    { path: '/sales',            label: 'POS Sales',        icon: CreditCardIcon,              iconSolid: CreditCardIconSolid },
-    { path: '/sales-management', label: 'Sales',            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid,   blockedRoles: ['cashier'] },
+    ...(isRestaurant
+      ? [{ path: '/restaurant', label: 'Restaurant',  icon: TableCellsIcon, iconSolid: TableCellsIconSolid }]
+      : [{ path: '/sales',      label: 'POS Sales',   icon: CreditCardIcon, iconSolid: CreditCardIconSolid }]),
+    { path: '/sales-management', label: 'Sales',            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid,   blockedRoles: ['cashier'] as string[] },
     { path: '/purchases',        label: 'Purchases',        icon: TruckIcon,                   iconSolid: TruckIconSolid },
     { path: '/customers',        label: 'Customers',        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
     { path: '/suppliers',        label: 'Suppliers',        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },
     { path: '/reports',          label: 'Reports',          icon: PresentationChartBarIcon,    iconSolid: PresentationChartBarIconSolid },
-    { path: '/admin',            label: 'Admin',            icon: ShieldCheckIcon,             iconSolid: ShieldCheckIconSolid,             role: 'admin' },
+    { path: '/admin',            label: 'Admin',            icon: ShieldCheckIcon,             iconSolid: ShieldCheckIconSolid,             role: 'admin' as const },
   ];
 
   const filteredNavItems = navItems.filter(item => {

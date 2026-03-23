@@ -1,5 +1,5 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
-import type { PosModuleType, RestaurantMenu } from './StoreSettingsModel';
+import type { PosModuleType } from './StoreSettingsModel';
 
 export interface Store {
   store_id: string;
@@ -27,7 +27,6 @@ export interface Store {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
-  restaurant_menus?: RestaurantMenu[];
 }
 
 export interface StoreFilters {
@@ -52,6 +51,7 @@ export class StoreModel extends BaseModel {
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'store_settings'
+          AND table_schema = current_schema()
       `;
       const result = await this.query<{ column_name: string }>(query);
       this.availableSettingsColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
@@ -89,7 +89,6 @@ export class StoreModel extends BaseModel {
       pos_module_type: 'ss.pos_module_type',
       restaurant_table_count: 'ss.restaurant_table_count',
       restaurant_track_guests_per_table: 'ss.restaurant_track_guests_per_table',
-      restaurant_menus: 'ss.restaurant_menus',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

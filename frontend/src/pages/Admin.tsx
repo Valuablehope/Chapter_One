@@ -12,6 +12,7 @@ import {
   Store,
   Terminal,
 } from '../services/adminService';
+import { storeService } from '../services/storeService';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -39,13 +40,15 @@ import {
   ChartBarIcon,
   CubeIcon,
   ShoppingCartIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { StoreModal } from './Admin/components/StoreModal';
 import TerminalModal from './Admin/components/TerminalModal';
 import UserModal from './Admin/components/UserModal';
+import MenusTab from './Admin/components/MenusTab';
 
-type AdminTab = 'users' | 'stores' | 'terminals' | 'license';
+type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus';
 
 export default function Admin() {
   const { user } = useAuthStore();
@@ -53,7 +56,7 @@ export default function Admin() {
   const { licenseStatus, recordCounts, limits, checkLicense, isLoading: licenseLoading } = useLicenseStore();
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const tab = searchParams.get('tab');
-    return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals') ? tab as AdminTab : 'users';
+    return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus') ? tab as AdminTab : 'users';
   });
   const [loading, setLoading] = useState(true);
   const [showActivationModal, setShowActivationModal] = useState(false);
@@ -74,6 +77,7 @@ export default function Admin() {
   const [storePagination, setStorePagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
+  const [storesForDropdown, setStoresForDropdown] = useState<Store[]>([]);
 
   // Terminals state
   const [terminals, setTerminals] = useState<Terminal[]>([]);
@@ -98,6 +102,11 @@ export default function Admin() {
     setTerminalFilters(prev => ({ ...prev, search, page: 1 }));
   }, 300);
 
+  const mergedStoreMap = new Map<string, Store>();
+  [...storesForDropdown, ...stores].forEach((s) => mergedStoreMap.set(s.store_id, s));
+  const allKnownStores = Array.from(mergedStoreMap.values());
+  const showMenusTab = allKnownStores.some((s) => s.pos_module_type === 'restaurant');
+
   // Load data based on active tab
   useEffect(() => {
     if (activeTab === 'users') loadUsers();
@@ -110,13 +119,22 @@ export default function Admin() {
   // Handle tab change from URL
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals') {
+    if (tab === 'menus' && !showMenusTab) {
+      setActiveTab('stores');
+      return;
+    }
+    if (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus') {
       setActiveTab(tab as AdminTab);
     }
-  }, [searchParams]);
+  }, [searchParams, showMenusTab]);
 
   // Update URL when tab changes
   const handleTabChange = (tab: AdminTab) => {
+    if (tab === 'menus' && !showMenusTab) {
+      setActiveTab('stores');
+      setSearchParams({ tab: 'stores' });
+      return;
+    }
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -128,7 +146,12 @@ export default function Admin() {
     }
   }, [activeTab]);
 
-  const [storesForDropdown, setStoresForDropdown] = useState<Store[]>([]);
+  useEffect(() => {
+    if (activeTab === 'menus' && !showMenusTab) {
+      handleTabChange('stores');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, showMenusTab]);
 
   const loadStoresForDropdown = async () => {
     try {
@@ -138,6 +161,21 @@ export default function Admin() {
       logger.error('Error loading stores:', err);
     }
   };
+
+  useEffect(() => {
+    loadStoresForDropdown();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = storeService.subscribeStoreModuleChanged(() => {
+      loadStoresForDropdown();
+      if (activeTab === 'stores') {
+        loadStores();
+      }
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Users functions
   const loadUsers = async () => {
@@ -384,6 +422,7 @@ export default function Admin() {
               { key: 'stores', label: 'Stores', icon: BuildingStorefrontIcon },
               { key: 'terminals', label: 'Terminals', icon: ComputerDesktopIcon },
               { key: 'license', label: 'License', icon: KeyIcon },
+              ...(showMenusTab ? [{ key: 'menus', label: 'Menus', icon: ClipboardDocumentListIcon }] : []),
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -1019,6 +1058,9 @@ export default function Admin() {
           </div>
         )}
 
+        {/* Menus Tab */}
+        {activeTab === 'menus' && <MenusTab />}
+
         {/* License Tab */}
         {activeTab === 'license' && (
           <div className="p-3 space-y-3">
@@ -1264,7 +1306,7 @@ export default function Admin() {
         }}
         onSaved={() => {
           loadStores();
-          if (activeTab === 'terminals') loadStoresForDropdown();
+          loadStoresForDropdown();
         }}
       />
 

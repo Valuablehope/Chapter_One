@@ -55,6 +55,19 @@ export interface CreateSalePayment {
   amount: number;
 }
 
+export interface RestaurantContextInput {
+  table_number: number;
+  guest_count: number;
+  waiter_name?: string;
+  seated_at: string;
+  checkout_at: string;
+  service_fee_enabled: boolean;
+  service_fee_rate: number;
+  service_fee_amount: number;
+  subtotal_before_service: number;
+  notes?: string;
+}
+
 export interface CreateSaleData {
   customer_id?: string;
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
@@ -66,6 +79,7 @@ export interface CreateSaleData {
     tax_rate?: number;
   }[];
   payments: CreateSalePayment[];
+  restaurant_context?: RestaurantContextInput;
 }
 
 export interface UpdateSaleData {

@@ -11,7 +11,7 @@ export const createSale = asyncHandler(
       throw new CustomError('User not authenticated', 401);
     }
 
-    const { customer_id, items, payments, discount_rate, client_sale_id } = req.body;
+    const { customer_id, items, payments, discount_rate, client_sale_id, restaurant_context } = req.body;
 
     // Validate input
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -58,6 +58,7 @@ export const createSale = asyncHandler(
       payments,
       discount_rate,
       client_sale_id,
+      restaurant_context,
     };
 
     const sale = await SaleModel.create(userId, saleData);

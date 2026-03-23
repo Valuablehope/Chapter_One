@@ -2,21 +2,6 @@ import { BaseModel } from './BaseModel';
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
-export interface RestaurantMenuItem {
-  name: string;
-  price: number;
-}
-
-export interface RestaurantMenuCategory {
-  name: string;
-  items: RestaurantMenuItem[];
-}
-
-export interface RestaurantMenu {
-  name: string;
-  categories: RestaurantMenuCategory[];
-}
-
 export interface StoreSettings {
   store_id: string;
   currency_code: string;
@@ -39,7 +24,6 @@ export interface StoreSettings {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
-  restaurant_menus?: RestaurantMenu[];
 }
 
 export interface StoreSettingsInput {
@@ -61,13 +45,37 @@ export interface StoreSettingsInput {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
-  restaurant_menus?: RestaurantMenu[];
+}
+
+interface StoreSettingsSchemaAudit {
+  ok: boolean;
+  schema: string;
+  missingColumns: string[];
+  invalidTypes: Array<{
+    column: string;
+    expected: string[];
+    actual: string;
+  }>;
 }
 
 export class StoreSettingsModel extends BaseModel {
   // Cache for available columns
   private static availableColumns: Set<string> | null = null;
+  private static availableColumnTypes: Map<string, string> | null = null;
   private static columnsCheckPromise: Promise<Set<string>> | null = null;
+  private static readonly requiredRestaurantColumns: Record<string, string[]> = {
+    pos_module_type: ['text', 'character varying'],
+    restaurant_table_count: ['integer', 'bigint', 'smallint'],
+    restaurant_track_guests_per_table: ['boolean'],
+  };
+
+  private static hasRestaurantPayload(settings: StoreSettingsInput): boolean {
+    return (
+      settings.pos_module_type !== undefined ||
+      settings.restaurant_table_count !== undefined ||
+      settings.restaurant_track_guests_per_table !== undefined
+    );
+  }
 
   // Get available columns from store_settings table
   private static async getAvailableColumns(): Promise<Set<string>> {
@@ -85,23 +93,89 @@ export class StoreSettingsModel extends BaseModel {
     this.columnsCheckPromise = (async () => {
       try {
         const query = `
-          SELECT column_name 
+          SELECT column_name, data_type
           FROM information_schema.columns 
           WHERE table_name = 'store_settings'
+            AND table_schema = current_schema()
         `;
-        const result = await this.query<{ column_name: string }>(query);
+        const result = await this.query<{ column_name: string; data_type: string }>(query);
         this.availableColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
+        this.availableColumnTypes = new Map(
+          result.rows.map((row: { column_name: string; data_type: string }) => [row.column_name, row.data_type])
+        );
         this.columnsCheckPromise = null; // Clear promise after completion
         return this.availableColumns;
       } catch (error) {
         this.columnsCheckPromise = null; // Clear promise on error
         console.warn('Could not fetch store_settings columns, using defaults', error);
         this.availableColumns = new Set();
+        this.availableColumnTypes = new Map();
         return this.availableColumns;
       }
     })();
 
     return this.columnsCheckPromise;
+  }
+
+  static async auditRestaurantSchema(): Promise<StoreSettingsSchemaAudit> {
+    const availableColumns = await this.getAvailableColumns();
+    const schemaResult = await this.query<{ schema_name: string }>('SELECT current_schema() AS schema_name');
+    const schema = schemaResult.rows[0]?.schema_name || 'public';
+
+    const missingColumns: string[] = [];
+    const invalidTypes: Array<{
+      column: string;
+      expected: string[];
+      actual: string;
+    }> = [];
+
+    for (const [column, expectedTypes] of Object.entries(this.requiredRestaurantColumns)) {
+      if (!availableColumns.has(column)) {
+        missingColumns.push(column);
+        continue;
+      }
+
+      const actualType = this.availableColumnTypes?.get(column);
+      if (actualType && !expectedTypes.includes(actualType)) {
+        invalidTypes.push({
+          column,
+          expected: expectedTypes,
+          actual: actualType,
+        });
+      }
+    }
+
+    return {
+      ok: missingColumns.length === 0 && invalidTypes.length === 0,
+      schema,
+      missingColumns,
+      invalidTypes,
+    };
+  }
+
+  private static async ensureRestaurantSchemaCompatible(settings: StoreSettingsInput): Promise<void> {
+    if (!this.hasRestaurantPayload(settings)) {
+      return;
+    }
+
+    const audit = await this.auditRestaurantSchema();
+    if (audit.ok) {
+      return;
+    }
+
+    const typeIssues =
+      audit.invalidTypes.length > 0
+        ? ` Invalid types: ${audit.invalidTypes
+            .map(issue => `${issue.column}=${issue.actual} (expected ${issue.expected.join('/')})`)
+            .join(', ')}.`
+        : '';
+
+    throw new Error(
+      `store_settings schema mismatch for restaurant fields in schema "${audit.schema}".` +
+        (audit.missingColumns.length > 0 ? ` Missing columns: ${audit.missingColumns.join(', ')}.` : '') +
+        typeIssues +
+        ' Apply database/migrations/008_ensure_public_store_settings_restaurant_columns.sql (or equivalent) and retry.'
+    );
   }
 
   static async findByStoreId(storeId: string): Promise<StoreSettings | null> {
@@ -116,6 +190,7 @@ export class StoreSettingsModel extends BaseModel {
     let paramCount = 1;
 
     const availableColumns = await this.getAvailableColumns();
+    await this.ensureRestaurantSchemaCompatible(settings);
 
     // Only add fields that exist in the database
     if (settings.currency_code !== undefined && availableColumns.has('currency_code')) {
@@ -205,18 +280,7 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('restaurant_track_guests_per_table');
       values.push(settings.restaurant_track_guests_per_table);
     }
-    if (settings.restaurant_menus !== undefined && availableColumns.has('restaurant_menus')) {
-      paramCount++;
-      fields.push('restaurant_menus');
-      // Stringify so pg does not encode arrays as Postgres ARRAY literals (invalid for jsonb).
-      values.push(JSON.stringify(settings.restaurant_menus ?? []));
-    }
-
-    const placeholders = fields
-      .map((col, index) =>
-        col === 'restaurant_menus' ? `$${index + 1}::jsonb` : `$${index + 1}`
-      )
-      .join(', ');
+    const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
       VALUES (${placeholders})
@@ -232,6 +296,7 @@ export class StoreSettingsModel extends BaseModel {
     let paramCount = 0;
 
     const availableColumns = await this.getAvailableColumns();
+    await this.ensureRestaurantSchemaCompatible(settings);
 
     // Only add fields that exist in the database
     if (settings.currency_code !== undefined && availableColumns.has('currency_code')) {
@@ -320,11 +385,6 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`restaurant_track_guests_per_table = $${paramCount}`);
       values.push(settings.restaurant_track_guests_per_table);
-    }
-    if (settings.restaurant_menus !== undefined && availableColumns.has('restaurant_menus')) {
-      paramCount++;
-      fields.push(`restaurant_menus = $${paramCount}::jsonb`);
-      values.push(JSON.stringify(settings.restaurant_menus ?? []));
     }
 
     if (fields.length === 0) {
