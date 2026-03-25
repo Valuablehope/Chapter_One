@@ -74,11 +74,23 @@
         "to": "backend",
         "filter": [
           "**/*",
-          "!src",
-          "!test",
+          "!src/**",
+          "!test/**",
           "!tsconfig.json",
-          "!*.map",
-          "!*.ts"
+          "!**/*.map",
+          "!**/*.ts",
+          "!backend/**",
+          "!frontend/**",
+          "!node_modules/**"
+        ]
+      },
+      {
+        "from": "backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!backend/**",
+          "!frontend/**"
         ]
       }
     ],
