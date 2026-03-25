@@ -7,7 +7,6 @@ import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/
 import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
-import { receiptHeaderStoreName } from '../constants/branding';
 import { gradients } from '../styles/tokens';
 
 import Button from '../components/ui/Button';
@@ -35,6 +34,13 @@ import {
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import Receipt from '../components/Receipt';
+import {
+  computeLineAmounts,
+  discountAndGrand,
+  effectiveProductTaxRate,
+  roundMoney,
+  type SaleTaxMode,
+} from '../utils/saleTotals';
 
 export default function Sales() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,23 +81,64 @@ export default function Sales() {
     };
   }, []);
 
-  // Calculate totals
-  const subtotal = useMemo(() => cart.reduce((sum, item) => {
-    const itemSubtotal = Number(item.unit_price) * item.qty;
-    return sum + itemSubtotal;
-  }, 0), [cart]);
+  // Recalculate cart lines when store tax mode or default rate changes (catalog price unchanged)
+  useEffect(() => {
+    if (!storeSettings) return;
+    const taxInclusive = !!(storeSettings.tax_inclusive);
+    const defaultTax = Number(storeSettings.tax_rate ?? 0);
+    const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
+    setCart((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.map((item) => {
+        const price = Number(item.product.sale_price || item.product.list_price || 0);
+        const eff = taxInclusive
+          ? effectiveProductTaxRate(item.product.tax_rate, defaultTax)
+          : 0;
+        const amounts = computeLineAmounts(item.qty, price, eff, mode);
+        return {
+          ...item,
+          unit_price: amounts.unit_price,
+          tax_rate: amounts.tax_rate,
+          line_total: amounts.line_total,
+        };
+      });
+    });
+  }, [storeSettings?.tax_inclusive, storeSettings?.tax_rate]);
 
-  const taxTotal = useMemo(() => cart.reduce((sum, item) => {
-    const itemSubtotal = Number(item.unit_price) * item.qty;
-    const tax = item.tax_rate ? (itemSubtotal * Number(item.tax_rate)) / 100 : 0;
-    return sum + tax;
-  }, 0), [cart]);
+  const taxMode: SaleTaxMode = storeSettings?.tax_inclusive ? 'inclusive' : 'exclusive';
 
-  const discountAmount = useMemo(() => discountRate
-    ? (subtotal + taxTotal) * (parseFloat(discountRate) / 100)
-    : 0, [discountRate, subtotal, taxTotal]);
+  const cartAmounts = useMemo(
+    () =>
+      cart.map((item) =>
+        computeLineAmounts(
+          item.qty,
+          Number(item.unit_price),
+          Number(item.tax_rate ?? 0),
+          taxMode
+        )
+      ),
+    [cart, taxMode]
+  );
 
-  const grandTotal = useMemo(() => subtotal + taxTotal - discountAmount, [subtotal, taxTotal, discountAmount]);
+  const merchandiseGross = useMemo(
+    () => roundMoney(cartAmounts.reduce((s, a) => s + a.line_total, 0)),
+    [cartAmounts]
+  );
+
+  const subtotalNet = useMemo(
+    () => roundMoney(cartAmounts.reduce((s, a) => s + a.line_net, 0)),
+    [cartAmounts]
+  );
+
+  const taxExtracted = useMemo(
+    () => roundMoney(cartAmounts.reduce((s, a) => s + a.line_tax, 0)),
+    [cartAmounts]
+  );
+
+  const { discountAmount, grandTotal } = useMemo(() => {
+    const dr = discountRate ? parseFloat(discountRate) : 0;
+    return discountAndGrand(merchandiseGross, dr);
+  }, [merchandiseGross, discountRate]);
 
   const CART_ROW_HEIGHT = 90;
   const CART_LIST_MAX_HEIGHT = 450;
@@ -234,20 +281,23 @@ export default function Sales() {
       // Increase quantity
       updateCartItemQuantity(existingItem.product.product_id, existingItem.qty + 1);
     } else {
-      // Add new item
       const price = Number(product.sale_price || product.list_price || 0);
-      const taxRate = Number(product.tax_rate || 0);
-      // line_total is the total including tax for the current quantity
-      const lineTotal = price * (1 + taxRate / 100);
+      const taxInclusive = !!(storeSettings?.tax_inclusive);
+      const defaultTax = Number(storeSettings?.tax_rate ?? 0);
+      const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
+      const eff = taxInclusive
+        ? effectiveProductTaxRate(product.tax_rate, defaultTax)
+        : 0;
+      const amounts = computeLineAmounts(1, price, eff, mode);
 
       setCart([
         ...cart,
         {
           product,
           qty: 1,
-          unit_price: price,
-          tax_rate: taxRate,
-          line_total: lineTotal,
+          unit_price: amounts.unit_price,
+          tax_rate: amounts.tax_rate,
+          line_total: amounts.line_total,
         },
       ]);
     }
@@ -292,12 +342,25 @@ export default function Sales() {
       }
     }
 
+    const taxInclusive = !!(storeSettings?.tax_inclusive);
+    const defaultTax = Number(storeSettings?.tax_rate ?? 0);
+    const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
+
     setCart(
       cart.map((item) => {
         if (item.product.product_id === productId) {
-          // Calculate line total: unit_price * qty * (1 + tax_rate/100)
-          const lineTotal = Number(item.unit_price) * qty * (1 + (Number(item.tax_rate) || 0) / 100);
-          return { ...item, qty, line_total: lineTotal };
+          const price = Number(item.product.sale_price || item.product.list_price || 0);
+          const eff = taxInclusive
+            ? effectiveProductTaxRate(item.product.tax_rate, defaultTax)
+            : 0;
+          const amounts = computeLineAmounts(qty, price, eff, mode);
+          return {
+            ...item,
+            qty,
+            unit_price: amounts.unit_price,
+            tax_rate: amounts.tax_rate,
+            line_total: amounts.line_total,
+          };
         }
         return item;
       })
@@ -582,7 +645,7 @@ export default function Sales() {
           setStoreSettings({
             store_id: settings.store_id,
             code: settings.code || '',
-            name: receiptHeaderStoreName(settings.name),
+            name: settings.name ?? '',
             address: settings.address,
             // Use defaults for settings that don't exist in DB
             currency_code: settings.currency_code || 'USD',
@@ -602,7 +665,7 @@ export default function Sales() {
           setStoreSettings({
             store_id: completedSale.store_id,
             code: '',
-            name: 'Chapter One',
+            name: '',
             currency_code: 'USD',
             tax_inclusive: false,
             timezone: 'UTC',
@@ -621,7 +684,6 @@ export default function Sales() {
         const settings = await storeService.getDefaultStore();
         setStoreSettings({
           ...settings,
-          name: receiptHeaderStoreName(settings.name),
           // Preserve allow_negative value from API (don't default to false)
           allow_negative: settings.allow_negative,
         });
@@ -970,13 +1032,24 @@ export default function Sales() {
               </div>
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
-                  <span className="font-medium text-xs text-gray-700">Subtotal:</span>
-                  <span className="font-bold text-xs text-gray-900">${subtotal.toFixed(2)}</span>
+                  <span className="font-medium text-xs text-gray-700">
+                    {storeSettings?.tax_inclusive ? 'Subtotal (tax included in prices):' : 'Subtotal:'}
+                  </span>
+                  <span className="font-bold text-xs text-gray-900">${merchandiseGross.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
-                  <span className="font-medium text-xs text-gray-700">Tax:</span>
-                  <span className="font-bold text-xs text-gray-900">${taxTotal.toFixed(2)}</span>
+                  <span className="font-medium text-xs text-gray-700">
+                    {storeSettings?.tax_inclusive ? 'Tax (included in prices):' : 'Tax:'}
+                  </span>
+                  <span className="font-bold text-xs text-gray-900">
+                    ${(storeSettings?.tax_inclusive ? taxExtracted : 0).toFixed(2)}
+                  </span>
                 </div>
+                {storeSettings?.tax_inclusive && taxExtracted > 0 && (
+                  <p className="text-[10px] text-gray-500 px-2">
+                    Net merchandise ${subtotalNet.toFixed(2)} + tax ${taxExtracted.toFixed(2)} = ${merchandiseGross.toFixed(2)}
+                  </p>
+                )}
 
                 {/* Discount Percentage Input */}
                 <div className="p-2 bg-white/60 rounded-lg">

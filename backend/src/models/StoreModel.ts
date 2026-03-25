@@ -1,5 +1,6 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
 import type { PosModuleType } from './StoreSettingsModel';
+import { repairHtmlEntityOverEncoding } from '../utils/sanitize';
 
 export interface Store {
   store_id: string;
@@ -37,6 +38,12 @@ export interface StoreFilters {
 }
 
 export class StoreModel extends BaseModel {
+  private static normalizeStoreRow(store: Store): Store {
+    if (store.timezone == null) return store;
+    const repaired = repairHtmlEntityOverEncoding(String(store.timezone));
+    return { ...store, timezone: repaired };
+  }
+
   // Cache for available store_settings columns
   private static availableSettingsColumns: Set<string> | null = null;
 
@@ -153,7 +160,8 @@ export class StoreModel extends BaseModel {
     params.push(offset);
 
     const result = await this.query<Store>(query, params);
-    return this.buildPaginatedResult(result.rows, total, page, limit);
+    const rows = result.rows.map((row) => this.normalizeStoreRow(row));
+    return this.buildPaginatedResult(rows, total, page, limit);
   }
 
   static async findById(storeId: string): Promise<Store | null> {
@@ -175,7 +183,8 @@ export class StoreModel extends BaseModel {
       WHERE s.store_id = $1
     `;
     const result = await this.query<Store>(query, [storeId]);
-    return result.rows[0] || null;
+    const row = result.rows[0];
+    return row ? this.normalizeStoreRow(row) : null;
   }
 
   // Get store settings (alias for findById, but explicit for clarity)
@@ -198,7 +207,7 @@ export class StoreModel extends BaseModel {
       store.is_active !== undefined ? store.is_active : true,
     ];
     const result = await this.query<Store>(query, values);
-    return result.rows[0];
+    return this.normalizeStoreRow(result.rows[0]);
   }
 
   static async update(storeId: string, updates: Partial<Store>): Promise<Store> {
@@ -257,7 +266,7 @@ export class StoreModel extends BaseModel {
       RETURNING *
     `;
     const result = await this.query<Store>(query, values);
-    return result.rows[0];
+    return this.normalizeStoreRow(result.rows[0]);
   }
 
   static async delete(storeId: string): Promise<boolean> {

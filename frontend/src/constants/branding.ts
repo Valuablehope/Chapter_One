@@ -18,6 +18,15 @@ export function receiptHeaderStoreName(name?: string | null): string {
   return t;
 }
 
+/** Printed receipt title: raw store name then code; no legacy-name substitution. */
+export function receiptPrintTitle(name?: string | null, code?: string | null): string {
+  const n = name?.trim();
+  if (n) return n;
+  const c = code?.trim();
+  if (c) return c;
+  return APP_BRAND_NAME;
+}
+
 /** Purchase receipt: prefer non-legacy name, else code, else brand. */
 export function receiptPrimaryLine(name?: string | null, code?: string | null): string {
   const t = name?.trim();

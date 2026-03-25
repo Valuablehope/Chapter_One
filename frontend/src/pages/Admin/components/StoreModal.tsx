@@ -473,7 +473,10 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   }
                   className={inputCls()}
                 />
-                <p className="mt-1 text-xs text-gray-400">Applied to all new products by default</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Default VAT/tax % for new products. When Tax-Inclusive Pricing is on, this rate is also used at checkout for
+                  products that have no tax set, and to split shelf prices into net + tax on receipts.
+                </p>
               </div>
             </div>
 
@@ -484,7 +487,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 checked={formData.tax_inclusive}
                 onChange={(v) => set('tax_inclusive', v)}
                 label="Tax-Inclusive Pricing"
-                description="Product prices already include tax"
+                description="Shelf prices include tax; checkout uses each product’s tax % or the default above. Turn off to charge no tax on sales."
               />
             </div>
           </div>

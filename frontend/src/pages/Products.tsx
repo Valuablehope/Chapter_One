@@ -51,11 +51,14 @@ export default function Products() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productTypeInput, setProductTypeInput] = useState('');
   const searchAbortController = useRef<AbortController | null>(null);
+  const loadRequestIdRef = useRef(0);
 
-  // Cleanup on unmount
+  // Abort list requests and invalidate in-flight handlers on unmount (avoids stale setState / stuck loading)
   useEffect(() => {
     return () => {
+      loadRequestIdRef.current += 1;
       if (searchAbortController.current) {
         searchAbortController.current.abort();
       }
@@ -63,6 +66,7 @@ export default function Products() {
   }, []);
 
   const loadProducts = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     // Cancel previous request
     if (searchAbortController.current) {
       searchAbortController.current.abort();
@@ -76,8 +80,7 @@ export default function Products() {
       setLoading(true);
       const response = await productService.getProducts(filters, signal);
 
-      // Check if request was cancelled
-      if (signal.aborted) return;
+      if (signal.aborted || requestId !== loadRequestIdRef.current) return;
 
       setProducts(response.data);
       setPagination(response.pagination);
@@ -86,10 +89,11 @@ export default function Products() {
       if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
         return;
       }
+      if (requestId !== loadRequestIdRef.current) return;
       toast.error(err.response?.data?.error?.message || 'Failed to load products');
       logger.error('Error loading products:', err);
     } finally {
-      if (!signal.aborted) {
+      if (requestId === loadRequestIdRef.current) {
         setLoading(false);
       }
     }
@@ -105,6 +109,11 @@ export default function Products() {
     setFilters(prev => ({ ...prev, search, page: 1 }));
   }, 300);
 
+  const debouncedProductTypeFilter = useDebouncedCallback((value: string) => {
+    const normalized = value.trim().toUpperCase();
+    setFilters(prev => ({ ...prev, product_type: normalized || undefined, page: 1 }));
+  }, 300);
+
   const handleSearch = useCallback((search: string) => {
     // Update local state immediately for responsive UI
     setSearchQuery(search);
@@ -112,9 +121,14 @@ export default function Products() {
     debouncedSearch(search);
   }, [debouncedSearch]);
 
-  const handleFilterChange = useCallback((key: keyof ProductFilters, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
-  }, []);
+  const handleProductTypeChange = useCallback(
+    (raw: string) => {
+      const upper = raw.toUpperCase();
+      setProductTypeInput(upper);
+      debouncedProductTypeFilter(upper);
+    },
+    [debouncedProductTypeFilter]
+  );
 
   const handlePageChange = useCallback((newPage: number) => {
     setFilters(prev => ({ ...prev, page: newPage }));
@@ -283,12 +297,12 @@ export default function Products() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-  };
+  }, []);
 
   return (
     <>
@@ -333,8 +347,8 @@ export default function Products() {
               <input
                 type="text"
                 placeholder="Filter by type..."
-                value={filters.product_type || ''}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('product_type', e.target.value.toUpperCase() || undefined)}
+                value={productTypeInput}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductTypeChange(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-white font-medium uppercase"
               />
             </div>

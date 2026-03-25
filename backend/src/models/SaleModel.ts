@@ -4,6 +4,14 @@ import { withRetry } from '../utils/retry';
 import { logger } from '../utils/logger';
 import { cache } from '../utils/cache';
 import { StoreSettingsModel } from './StoreSettingsModel';
+import {
+  aggregateLines,
+  computeLineAmounts,
+  roundMoney,
+  saleDiscountAndGrand,
+  totalsFromPersistedItems,
+  type SaleTaxMode,
+} from '../utils/saleTaxTotals';
 
 export type SaleStatus = 'open' | 'paid' | 'void';
 export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
@@ -332,9 +340,12 @@ export class SaleModel extends BaseModel {
             throw new Error('No active store found');
           }
 
-          // Get store settings to check allow_negative flag
+          // Get store settings to check allow_negative and tax mode
           const storeSettings = await StoreSettingsModel.findByStoreId(store.store_id);
           const allowNegative = storeSettings?.allow_negative ?? false;
+          const taxInclusive = !!(storeSettings?.tax_inclusive ?? false);
+          const defaultTaxRate = roundMoney(Number(storeSettings?.tax_rate ?? 0));
+          const taxMode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
 
           // Get terminal INSIDE transaction with lock
           const terminalQuery = await client.query(`
@@ -353,25 +364,37 @@ export class SaleModel extends BaseModel {
           // Generate receipt number (within transaction for atomicity)
           const receiptNo = await this.generateReceiptNo(store.store_id, client);
 
-          // Calculate totals
-          let subtotal = 0;
-          let taxTotal = 0;
-
+          // Calculate totals (tax-inclusive: gross shelf prices + extracted tax; tax-off: no tax)
+          const computedLines: ReturnType<typeof computeLineAmounts>[] = [];
           for (const item of data.items) {
-            const lineTotal = item.qty * item.unit_price;
-            subtotal += lineTotal;
-            const taxRate = item.tax_rate || 0;
-            taxTotal += lineTotal * (taxRate / 100);
+            let effRate = 0;
+            if (taxInclusive) {
+              if (item.tax_rate !== undefined && item.tax_rate !== null) {
+                effRate = Number(item.tax_rate);
+              } else {
+                const pr = await client.query('SELECT tax_rate FROM products WHERE product_id = $1', [
+                  item.product_id,
+                ]);
+                const pt = pr.rows[0]?.tax_rate;
+                if (pt != null && pt !== '') {
+                  effRate = Number(pt);
+                } else {
+                  effRate = defaultTaxRate;
+                }
+              }
+              effRate = Math.min(100, Math.max(0, effRate));
+            }
+            computedLines.push(
+              computeLineAmounts(
+                { qty: item.qty, unit_price: item.unit_price, tax_rate: effRate },
+                taxMode
+              )
+            );
           }
 
-          // Calculate discount_total from discount_rate if provided
+          const { subtotal, taxTotal, merchandiseGross } = aggregateLines(computedLines);
           const discountRate = data.discount_rate || 0;
-          const discountTotal = discountRate > 0
-            ? (subtotal + taxTotal) * (discountRate / 100)
-            : 0;
-          const grandTotalRaw = subtotal + taxTotal - discountTotal;
-          // Round to 2 decimal places to match currency precision
-          const grandTotal = Math.round(grandTotalRaw * 100) / 100;
+          const { discountTotal, grandTotal } = saleDiscountAndGrand(merchandiseGross, discountRate);
           const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
           if (paidTotal < grandTotal - 0.01) { // Allow for tiny epsilon differences
@@ -465,9 +488,9 @@ export class SaleModel extends BaseModel {
 
           // Create sale items
           const items: SaleItem[] = [];
-          for (const item of data.items) {
-            const taxRate = item.tax_rate || 0;
-            const lineTotal = item.qty * item.unit_price * (1 + taxRate / 100);
+          for (let i = 0; i < data.items.length; i++) {
+            const item = data.items[i];
+            const amounts = computedLines[i];
 
             const itemQuery = `
           INSERT INTO sale_items (
@@ -480,9 +503,9 @@ export class SaleModel extends BaseModel {
               sale.sale_id,
               item.product_id,
               item.qty,
-              item.unit_price,
-              taxRate,
-              lineTotal,
+              amounts.unit_price,
+              amounts.tax_rate,
+              amounts.line_total,
             ];
             const itemResult = await client.query(itemQuery, itemValues);
             items.push(itemResult.rows[0]);
@@ -639,6 +662,11 @@ export class SaleModel extends BaseModel {
             throw new Error('Sale not found');
           }
 
+          const editStoreSettings = await StoreSettingsModel.findByStoreId(existingSale.store_id);
+          const editTaxInclusive = !!(editStoreSettings?.tax_inclusive ?? false);
+          const editDefaultTax = roundMoney(Number(editStoreSettings?.tax_rate ?? 0));
+          const editTaxMode: SaleTaxMode = editTaxInclusive ? 'inclusive' : 'exclusive';
+
           // Update customer if provided
           if (data.customer_id !== undefined) {
             const updateQuery = `
@@ -659,15 +687,43 @@ export class SaleModel extends BaseModel {
             // Delete existing items
             await client.query('DELETE FROM sale_items WHERE sale_id = $1', [saleId]);
 
-            // Insert new items
+            const editComputedLines: ReturnType<typeof computeLineAmounts>[] = [];
             for (const item of data.items) {
-              const taxRate = item.tax_rate || 0;
-              const lineTotal = item.qty * item.unit_price * (1 + taxRate / 100);
+              let effRate = 0;
+              if (editTaxInclusive) {
+                if (item.tax_rate !== undefined && item.tax_rate !== null) {
+                  effRate = Number(item.tax_rate);
+                } else {
+                  const pr = await client.query('SELECT tax_rate FROM products WHERE product_id = $1', [
+                    item.product_id,
+                  ]);
+                  const pt = pr.rows[0]?.tax_rate;
+                  if (pt != null && pt !== '') {
+                    effRate = Number(pt);
+                  } else {
+                    effRate = editDefaultTax;
+                  }
+                }
+                effRate = Math.min(100, Math.max(0, effRate));
+              }
+              editComputedLines.push(
+                computeLineAmounts(
+                  { qty: item.qty, unit_price: item.unit_price, tax_rate: effRate },
+                  editTaxMode
+                )
+              );
+            }
 
-              await client.query(`
+            for (let i = 0; i < data.items.length; i++) {
+              const item = data.items[i];
+              const amounts = editComputedLines[i];
+              await client.query(
+                `
                 INSERT INTO sale_items (sale_id, product_id, qty, unit_price, tax_rate, line_total)
                 VALUES ($1, $2, $3, $4, $5, $6)
-              `, [saleId, item.product_id, item.qty, item.unit_price, taxRate, lineTotal]);
+              `,
+                [saleId, item.product_id, item.qty, amounts.unit_price, amounts.tax_rate, amounts.line_total]
+              );
             }
           }
 
@@ -728,20 +784,19 @@ export class SaleModel extends BaseModel {
             }
           }
 
-          let subtotal = 0;
-          let taxTotal = 0;
-          for (const item of items) {
-            const lineTotal = item.qty * item.unit_price;
-            subtotal += lineTotal;
-            taxTotal += lineTotal * (Number(item.tax_rate) / 100);
-          }
-
-          const discountTotal = currentDiscountRate > 0
-            ? (subtotal + taxTotal) * (currentDiscountRate / 100)
-            : 0;
-          const grandTotalRaw = subtotal + taxTotal - discountTotal;
-          // Round to 2 decimal places to match currency precision
-          const grandTotal = Math.round(grandTotalRaw * 100) / 100;
+          const persistedRows = items.map((row: any) => ({
+            qty: Number(row.qty),
+            unit_price: Number(row.unit_price),
+            tax_rate: Number(row.tax_rate) || 0,
+          }));
+          const { subtotal, taxTotal, merchandiseGross } = totalsFromPersistedItems(
+            persistedRows,
+            editTaxInclusive
+          );
+          const { discountTotal, grandTotal } = saleDiscountAndGrand(
+            merchandiseGross,
+            currentDiscountRate
+          );
 
           const paymentsResult = await client.query(
             'SELECT * FROM sale_payments WHERE sale_id = $1',

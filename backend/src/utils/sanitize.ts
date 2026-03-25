@@ -1,26 +1,15 @@
 /**
- * Sanitize user input to prevent XSS attacks
- * Removes potentially dangerous HTML/JavaScript while preserving safe text
- * 
- * This is a basic sanitizer that:
- * - Escapes HTML entities
- * - Removes script tags and event handlers
- * - Strips dangerous characters
+ * Sanitize user input for JSON APIs: strip null bytes and obvious script/injection
+ * patterns. We do not HTML-entity-encode here — stored values must remain plain
+ * text; escaping belongs at render time (e.g. React). Entity-encoding request
+ * bodies broke identifiers like IANA timezones (`Asia/Dubai` → `&#x2F;` →
+ * compounded `&amp;` on each save).
  */
 export function sanitizeInput(input: string | null | undefined): string {
   if (!input) return '';
   
   // Remove null bytes
   let sanitized = input.replace(/\0/g, '');
-  
-  // Escape HTML entities
-  sanitized = sanitized
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
   
   // Remove script tags and event handlers (case-insensitive)
   sanitized = sanitized
@@ -31,6 +20,29 @@ export function sanitizeInput(input: string | null | undefined): string {
     .replace(/data:text\/html/gi, '');
   
   return sanitized.trim();
+}
+
+/**
+ * Undo legacy HTML-entity encoding applied to plain text (e.g. stores.timezone).
+ * Iterates until stable so compounded `&amp;` chains decode fully.
+ */
+export function repairHtmlEntityOverEncoding(input: string): string {
+  if (!input) return input;
+  let s = input;
+  const maxPasses = 32;
+  for (let i = 0; i < maxPasses; i++) {
+    const next = s
+      .replace(/&amp;/gi, '&')
+      .replace(/&#x2F;/gi, '/')
+      .replace(/&#47;/g, '/')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'");
+    if (next === s) break;
+    s = next;
+  }
+  return s.trim();
 }
 
 /**

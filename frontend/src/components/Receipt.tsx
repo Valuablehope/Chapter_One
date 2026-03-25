@@ -1,5 +1,5 @@
 import { StoreSettings } from '../services/storeService';
-import { receiptHeaderStoreName } from '../constants/branding';
+import { receiptPrintTitle } from '../constants/branding';
 import { Customer } from '../services/customerService';
 import { CartItem } from '../services/saleService';
 import { logger } from '../utils/logger';
@@ -61,7 +61,7 @@ export default function Receipt({
                         ) : (
                             <>
                                 <h1 className="text-4xl font-extrabold text-black mb-3 tracking-tight">
-                                    {receiptHeaderStoreName(settings?.name)}
+                                    {receiptPrintTitle(settings?.name, settings?.code)}
                                 </h1>
                                 {settings?.address && (
                                     <p className="text-sm text-black leading-relaxed">{settings.address}</p>
@@ -140,8 +140,19 @@ export default function Receipt({
                 {/* Totals - Enhanced with visual hierarchy */}
                 <div className="mb-8 space-y-3 text-sm bg-white rounded-xl p-5 border-2 border-black shadow-sm">
                     {settings?.tax_inclusive ? (
-                        // Show inclusive pricing
                         <>
+                            <div className="flex justify-between items-center">
+                                <span className="text-black font-medium">Merchandise (tax included in prices)</span>
+                                <span className="text-black font-semibold">
+                                    {formatCurrency(Number(sale.subtotal) + Number(sale.tax_total))}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-gray-700">
+                                <span>Net / Tax breakdown</span>
+                                <span className="text-right font-mono">
+                                    {formatCurrency(Number(sale.subtotal))} + {formatCurrency(Number(sale.tax_total))}
+                                </span>
+                            </div>
                             {Number(sale.discount_total) > 0 && (
                                 <div className="flex justify-between items-center text-black pb-2">
                                     <span className="font-medium">Discount{sale.discount_rate ? ` (${sale.discount_rate}%)` : ''}</span>
@@ -149,12 +160,11 @@ export default function Receipt({
                                 </div>
                             )}
                             <div className="flex justify-between items-center pt-3 border-t-2 border-black">
-                                <span className="text-lg font-bold text-black">Total (Tax Inclusive)</span>
+                                <span className="text-lg font-bold text-black">Total (tax inclusive)</span>
                                 <span className="text-2xl font-extrabold text-black">{formatCurrency(Number(sale.grand_total))}</span>
                             </div>
                         </>
                     ) : (
-                        // Show breakdown
                         <>
                             <div className="flex justify-between items-center">
                                 <span className="text-black font-medium">Subtotal</span>

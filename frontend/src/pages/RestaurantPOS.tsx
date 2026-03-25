@@ -6,7 +6,7 @@ import type { Menu } from '../services/adminService';
 import { saleService } from '../services/saleService';
 import { useAuthStore } from '../store/authStore';
 import { gradients, fonts } from '../styles/tokens';
-import { receiptHeaderStoreName } from '../constants/branding';
+import { receiptPrintTitle } from '../constants/branding';
 import {
   UsersIcon,
   ClockIcon,
@@ -176,12 +176,22 @@ export default function RestaurantPOS() {
   const billCount      = tableNumbers.filter(n => getTableStatus(n) === 'bill_requested').length;
 
   const computeTotals = (order: TableOrder) => {
-    const subtotal         = order.items.reduce((s, i) => s + i.price * i.qty, 0);
-    const taxRate          = settings?.tax_rate ?? 0;
-    const taxAmount        = (settings?.tax_inclusive || !taxRate) ? 0 : subtotal * (taxRate / 100);
-    const sfRate           = order.serviceFeeEnabled ? (order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE) : 0;
-    const serviceFeeAmount = order.serviceFeeEnabled ? subtotal * (sfRate / 100) : 0;
-    return { subtotal, taxAmount, serviceFeeAmount, total: subtotal + taxAmount + serviceFeeAmount, taxRate };
+    const subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+    const taxInclusive = !!(settings?.tax_inclusive);
+    const taxRate = Number(settings?.tax_rate ?? 0);
+    let taxAmount = 0;
+    if (taxInclusive && taxRate > 0) {
+      const gross = subtotal;
+      const net = Math.round((gross / (1 + taxRate / 100)) * 100) / 100;
+      taxAmount = Math.round((gross - net) * 100) / 100;
+    } else {
+      taxAmount = 0;
+    }
+    const sfBase = subtotal;
+    const sfRate = order.serviceFeeEnabled ? (order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE) : 0;
+    const serviceFeeAmount = order.serviceFeeEnabled ? sfBase * (sfRate / 100) : 0;
+    const total = subtotal + serviceFeeAmount;
+    return { subtotal, taxAmount, serviceFeeAmount, total, taxRate };
   };
 
   const formatCurrency = (amount: number) => {
@@ -381,7 +391,7 @@ export default function RestaurantPOS() {
           product_id: productId,
           qty: orderItem.qty,
           unit_price: orderItem.price,
-          tax_rate: settings?.tax_rate ?? 0,
+          tax_rate: settings?.tax_inclusive ? Number(settings?.tax_rate ?? 0) : 0,
         });
       }
 
@@ -1165,7 +1175,7 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
           <div className="text-sm text-black whitespace-pre-line">{settings.receipt_header}</div>
         ) : (
           <>
-            <h1 className="text-2xl font-extrabold text-black tracking-tight">{receiptHeaderStoreName(settings?.name)}</h1>
+            <h1 className="text-2xl font-extrabold text-black tracking-tight">{receiptPrintTitle(settings?.name, settings?.code)}</h1>
             {settings?.address && <p className="text-xs text-black mt-1">{settings.address}</p>}
           </>
         )}
@@ -1251,7 +1261,7 @@ function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
           <div className="text-sm text-black whitespace-pre-line">{settings.receipt_header}</div>
         ) : (
           <>
-            <h1 className="text-2xl font-extrabold text-black">{receiptHeaderStoreName(settings?.name)}</h1>
+            <h1 className="text-2xl font-extrabold text-black">{receiptPrintTitle(settings?.name, settings?.code)}</h1>
             {settings?.address && <p className="text-xs text-black mt-1">{settings.address}</p>}
           </>
         )}
