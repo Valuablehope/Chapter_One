@@ -34,6 +34,7 @@ import {
   TagIcon,
   ArrowLeftIcon,
   ScaleIcon,
+  BackspaceIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -77,6 +78,7 @@ export default function Sales() {
   const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
   const [quickAddQty, setQuickAddQty] = useState<string>('1');
   const [quickAddTotal, setQuickAddTotal] = useState<string>('');
+  const [quickAddFocus, setQuickAddFocus] = useState<'qty' | 'total'>('qty');
 
   const [posProducts, setPosProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -270,6 +272,7 @@ export default function Sales() {
     setQuickAddProduct(null);
     setQuickAddQty('1');
     setQuickAddTotal('');
+    setQuickAddFocus('qty');
   }, []);
 
   const handleQuickQtyChange = useCallback((val: string) => {
@@ -307,6 +310,28 @@ export default function Sales() {
     }
     addToCart(quickAddProduct, qty);
     closeQuickAddModal();
+  };
+
+  const handleNumpadInput = (char: string) => {
+    if (quickAddFocus === 'qty') {
+      if (char === '.' && quickAddQty.includes('.')) return;
+      const newVal = quickAddQty === '0' && char !== '.' ? char : quickAddQty + char;
+      handleQuickQtyChange(newVal);
+    } else {
+      if (char === '.' && quickAddTotal.includes('.')) return;
+      const newVal = quickAddTotal === '0' && char !== '.' ? char : quickAddTotal + char;
+      handleQuickTotalChange(newVal);
+    }
+  };
+
+  const handleNumpadBackspace = () => {
+    if (quickAddFocus === 'qty') {
+      const newVal = quickAddQty.length > 1 ? quickAddQty.slice(0, -1) : '0';
+      handleQuickQtyChange(newVal);
+    } else {
+      const newVal = quickAddTotal.length > 1 ? quickAddTotal.slice(0, -1) : '0';
+      handleQuickTotalChange(newVal);
+    }
   };
 
   // Add product to cart
@@ -1314,27 +1339,27 @@ export default function Sales() {
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div onClick={() => setQuickAddFocus('qty')}>
                 <Input
                   label={`Quantity (${quickAddProduct.unit_of_measure?.toLowerCase() || 'units'})`}
-                  type="number"
-                  step="0.001"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={quickAddQty}
                   onChange={(e) => handleQuickQtyChange(e.target.value)}
-                  className="text-lg font-bold text-center h-12"
+                  onFocus={() => setQuickAddFocus('qty')}
+                  className={`text-lg font-bold text-center h-12 transition-all ${quickAddFocus === 'qty' ? 'ring-2 ring-secondary-500 border-secondary-500 bg-secondary-50 shadow-sm outline-none' : ''}`}
                   autoFocus
                 />
               </div>
-              <div>
+              <div onClick={() => setQuickAddFocus('total')}>
                 <Input
                   label="Total Price ($)"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={quickAddTotal}
                   onChange={(e) => handleQuickTotalChange(e.target.value)}
-                  className="text-lg font-bold text-center h-12"
+                  onFocus={() => setQuickAddFocus('total')}
+                  className={`text-lg font-bold text-center h-12 transition-all ${quickAddFocus === 'total' ? 'ring-2 ring-secondary-500 border-secondary-500 bg-secondary-50 shadow-sm outline-none' : ''}`}
                 />
               </div>
             </div>
@@ -1344,6 +1369,27 @@ export default function Sales() {
               <span className="text-secondary-600">
                 {parseFloat(quickAddQty || '0').toFixed(3).replace(/\.?0+$/, '') || '0'} {quickAddProduct.unit_of_measure?.toLowerCase() || 'units'}
               </span>
+            </div>
+
+            {/* Touch Screen Numpad */}
+            <div className="pt-4 mt-2 border-t border-gray-200">
+              <div className="grid grid-cols-3 gap-2">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((btn) => (
+                  <button
+                    key={btn}
+                    onClick={() => handleNumpadInput(btn)}
+                    className="h-14 bg-white border-2 border-gray-200 rounded-xl text-2xl font-black text-gray-800 hover:border-secondary-500 hover:bg-secondary-50 hover:text-secondary-600 transition-colors shadow-sm active:scale-[0.97]"
+                  >
+                    {btn}
+                  </button>
+                ))}
+                <button
+                  onClick={handleNumpadBackspace}
+                  className="h-14 bg-red-50 border-2 border-red-100 rounded-xl text-xl font-bold text-red-600 hover:border-red-500 hover:bg-red-100 hover:text-red-700 transition-colors shadow-sm flex items-center justify-center active:scale-[0.97]"
+                >
+                  <BackspaceIcon className="w-8 h-8 opacity-90" />
+                </button>
+              </div>
             </div>
           </div>
         )}
