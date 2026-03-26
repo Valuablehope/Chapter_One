@@ -25,8 +25,9 @@ router.get(
     query('search').optional().isString(),
     query('product_type').optional().isString(),
     query('track_inventory').optional().isBoolean(),
+    query('pos_category_only').optional().isBoolean(),
     query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('limit').optional().isInt({ min: 1, max: 2000 }),
   ],
   validateRequest,
   getProducts

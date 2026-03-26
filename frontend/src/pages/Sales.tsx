@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
+import { productTypeService } from '../services/productTypeService';
 import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
@@ -30,6 +31,9 @@ import {
   PrinterIcon,
   ArrowRightIcon,
   BookOpenIcon,
+  TagIcon,
+  ArrowLeftIcon,
+  ScaleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -68,6 +72,14 @@ export default function Sales() {
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const cartListContainerRef = useRef<HTMLDivElement>(null);
   const [cartListWidth, setCartListWidth] = useState(400);
+
+  // Quick Add / Weigh Item Modal State
+  const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
+  const [quickAddQty, setQuickAddQty] = useState<string>('1');
+  const [quickAddTotal, setQuickAddTotal] = useState<string>('');
+
+  const [posProducts, setPosProducts] = useState<Product[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -246,8 +258,59 @@ export default function Sales() {
     }
   };
 
+  // Quick Add Modal Handlers
+  const handlePosItemClick = useCallback((product: Product) => {
+    setQuickAddProduct(product);
+    setQuickAddQty('1');
+    const unitPrice = Number(product.sale_price || product.list_price || 0);
+    setQuickAddTotal(unitPrice.toFixed(2));
+  }, []);
+
+  const closeQuickAddModal = useCallback(() => {
+    setQuickAddProduct(null);
+    setQuickAddQty('1');
+    setQuickAddTotal('');
+  }, []);
+
+  const handleQuickQtyChange = useCallback((val: string) => {
+    setQuickAddQty(val);
+    if (!quickAddProduct) return;
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed) && parsed >= 0) {
+      const unitPrice = Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0);
+      setQuickAddTotal((parsed * unitPrice).toFixed(2));
+    } else {
+      setQuickAddTotal('');
+    }
+  }, [quickAddProduct]);
+
+  const handleQuickTotalChange = useCallback((val: string) => {
+    setQuickAddTotal(val);
+    if (!quickAddProduct) return;
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed) && parsed >= 0) {
+      const unitPrice = Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0);
+      if (unitPrice > 0) {
+        setQuickAddQty((parsed / unitPrice).toFixed(3).replace(/\.?0+$/, ''));
+      }
+    } else {
+      setQuickAddQty('');
+    }
+  }, [quickAddProduct]);
+
+  const handleQuickConfirm = () => {
+    if (!quickAddProduct) return;
+    const qty = parseFloat(quickAddQty);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error('Please enter a valid quantity.');
+      return;
+    }
+    addToCart(quickAddProduct, qty);
+    closeQuickAddModal();
+  };
+
   // Add product to cart
-  const addToCart = async (product: Product) => {
+  const addToCart = async (product: Product, quantity: number = 1) => {
     // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false
     // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
     if (product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
@@ -261,7 +324,7 @@ export default function Sales() {
         }
 
         const existingItem = cart.find((item) => item.product.product_id === product.product_id);
-        const requestedQty = existingItem ? existingItem.qty + 1 : 1;
+        const requestedQty = existingItem ? existingItem.qty + quantity : quantity;
 
         if (availableStock < requestedQty) {
           toast.error(
@@ -279,7 +342,7 @@ export default function Sales() {
 
     if (existingItem) {
       // Increase quantity
-      updateCartItemQuantity(existingItem.product.product_id, existingItem.qty + 1);
+      updateCartItemQuantity(existingItem.product.product_id, existingItem.qty + quantity);
     } else {
       const price = Number(product.sale_price || product.list_price || 0);
       const taxInclusive = !!(storeSettings?.tax_inclusive);
@@ -288,13 +351,13 @@ export default function Sales() {
       const eff = taxInclusive
         ? effectiveProductTaxRate(product.tax_rate, defaultTax)
         : 0;
-      const amounts = computeLineAmounts(1, price, eff, mode);
+      const amounts = computeLineAmounts(quantity, price, eff, mode);
 
       setCart([
         ...cart,
         {
           product,
-          qty: 1,
+          qty: quantity,
           unit_price: amounts.unit_price,
           tax_rate: amounts.tax_rate,
           line_total: amounts.line_total,
@@ -618,7 +681,7 @@ export default function Sales() {
   };
 
   // Start new sale
-  const startNewSale = () => {
+  const startNewSale = useCallback(() => {
     setCompletedSale(null);
     setReceiptCartItems([]);
     setReceiptCustomer(null);
@@ -629,7 +692,7 @@ export default function Sales() {
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
-  };
+  }, []);
 
   // Print receipt
   const handlePrint = () => {
@@ -697,6 +760,32 @@ export default function Sales() {
     fetchStoreSettings();
   }, []);
 
+  // Fetch products and categories designated for POS quick add
+  const [posCategories, setPosCategories] = useState<string[]>([]);
+  useEffect(() => {
+    const fetchPosData = async () => {
+      try {
+        const [productsRes, typesRes] = await Promise.all([
+          productService.getProducts({ pos_category_only: true, limit: 1000 }),
+          productTypeService.getProductTypes()
+        ]);
+        setPosProducts(productsRes.data);
+        const visibleTypes = typesRes.data.filter((t: any) => t.display_on_pos).map((t: any) => t.name).sort();
+        setPosCategories(visibleTypes);
+      } catch (err) {
+        logger.error('Failed to fetch POS data', err);
+      }
+    };
+    fetchPosData();
+  }, []);
+
+  // removed default setActiveCategory
+
+  const displayedPosProducts = useMemo(() => {
+    if (!activeCategory) return [];
+    return posProducts.filter(p => p.product_type === activeCategory);
+  }, [posProducts, activeCategory]);
+
   // Focus barcode input on mount (not search - user chooses when to search)
   useEffect(() => {
     if (barcodeInputRef.current) {
@@ -719,11 +808,86 @@ export default function Sales() {
     }
   };
 
+  const closeCustomerModal = useCallback(() => {
+    setShowCustomerModal(false);
+    setCustomerSearch('');
+    setCustomerResults([]);
+  }, []);
+
+  const closePaymentModal = useCallback(() => {
+    setShowPaymentModal(false);
+  }, []);
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
         {/* Left Column - Product Search & Cart */}
         <div className="lg:col-span-2 space-y-4">
+          {/* Quick Add POS Categories/Grid */}
+          {posCategories.length > 0 && (
+            <Card className="border border-[#e2e8f0] shadow-soft bg-white">
+              <div className="p-4">
+                {!activeCategory ? (
+                  <>
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <div className="p-1.5 bg-secondary-500 rounded-lg">
+                         <BookOpenIcon className="w-4 h-4 text-white" />
+                      </div>
+                      <h2 className="text-sm font-semibold text-gray-900">Quick Add Categories</h2>
+                    </div>
+                    {/* Categories Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {posCategories.map(category => (
+                        <button
+                          key={category}
+                          onClick={() => setActiveCategory(category)}
+                          className="aspect-square bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border-2 border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-4 transition-all shadow-sm hover:shadow-md group"
+                        >
+                          <TagIcon className="w-8 h-8 text-secondary-500 mb-2 group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-secondary-900 text-sm text-center line-clamp-2">{category}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 mb-4">
+                      <button 
+                        onClick={() => setActiveCategory(null)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                      >
+                        <ArrowLeftIcon className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} Items</h2>
+                    </div>
+                    {/* Products Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 cursor-pointer">
+                      {displayedPosProducts.map(product => (
+                        <button
+                          key={product.product_id}
+                          onClick={() => handlePosItemClick(product)}
+                          className="flex flex-col h-full bg-white border-2 border-gray-100 hover:border-secondary-500 hover:shadow-md rounded-xl p-3 items-center text-center transition-all group"
+                        >
+                          <div className="w-10 h-10 mb-2 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
+                            <span className="text-sm font-bold text-secondary-500">
+                              {product.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-1">
+                            {product.name}
+                          </span>
+                          <span className="text-xs font-bold text-secondary-500 mt-auto">
+                            ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+          )}
+
           {/* Product Search */}
           <Card className="border border-[#e2e8f0] shadow-soft bg-white">
             <div className="p-4">
@@ -840,6 +1004,7 @@ export default function Sales() {
             </div>
           </Card>
 
+
           {/* Shopping Cart */}
           <Card padding="none" className="border border-[#e2e8f0] shadow-soft bg-white overflow-hidden">
             <div className="px-4 py-3 border-b border-[#e2e8f0] bg-[#f8fafc]">
@@ -852,7 +1017,7 @@ export default function Sales() {
                     <h2 className="text-base font-bold text-gray-900">Cart</h2>
                     {cart.length > 0 && (
                       <p className="text-xs text-gray-500">
-                        {cart.length} {cart.length === 1 ? 'title' : 'titles'} · {cart.reduce((sum, item) => sum + item.qty, 0)} {cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? 'copy' : 'copies'}
+                        {cart.length} {cart.length === 1 ? 'item' : 'items'} · {cart.reduce((sum, item) => sum + item.qty, 0).toFixed(3).replace(/\.?0+$/, '')} {cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? 'unit' : 'units'}
                       </p>
                     )}
                   </div>
@@ -925,10 +1090,11 @@ export default function Sales() {
                             </Button>
                             <input
                               type="number"
-                              min="1"
+                              min="0"
+                              step="any"
                               value={item.qty}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value);
+                                const val = parseFloat(e.target.value);
                                 if (!isNaN(val) && val > 0) {
                                   updateCartItemQuantity(item.product.product_id, val);
                                 } else if (e.target.value === '') {
@@ -937,7 +1103,7 @@ export default function Sales() {
                                   // For now, let's just not update if invalid
                                 }
                               }}
-                              className="w-12 text-center font-bold text-xs text-gray-900 py-1.5 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-14 text-center font-bold text-xs text-gray-900 py-1.5 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <Button
                               onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
@@ -1105,14 +1271,88 @@ export default function Sales() {
         </div>
       </div>
 
+      {/* Quick Add Weigh / Quantity Modal */}
+      <Modal
+        isOpen={!!quickAddProduct}
+        onClose={closeQuickAddModal}
+        title={
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <ScaleIcon className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-gray-900">Add Item</span>
+          </div>
+        }
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            <Button
+              onClick={closeQuickAddModal}
+              variant="outline"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleQuickConfirm}
+              variant="primary"
+              className="flex-1"
+              leftIcon={<PlusIcon className="w-5 h-5" />}
+            >
+              Add to Cart
+            </Button>
+          </div>
+        }
+      >
+        {quickAddProduct && (
+          <div className="space-y-5">
+            <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-center">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">{quickAddProduct.name}</h3>
+              <p className="text-secondary-600 font-semibold mb-3">
+                ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Input
+                  label={`Quantity (${quickAddProduct.unit_of_measure?.toLowerCase() || 'units'})`}
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={quickAddQty}
+                  onChange={(e) => handleQuickQtyChange(e.target.value)}
+                  className="text-lg font-bold text-center h-12"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Input
+                  label="Total Price ($)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={quickAddTotal}
+                  onChange={(e) => handleQuickTotalChange(e.target.value)}
+                  className="text-lg font-bold text-center h-12"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 flex justify-between items-center text-sm font-bold text-gray-900">
+              <span>Selected Amount:</span>
+              <span className="text-secondary-600">
+                {parseFloat(quickAddQty || '0').toFixed(3).replace(/\.?0+$/, '') || '0'} {quickAddProduct.unit_of_measure?.toLowerCase() || 'units'}
+              </span>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Enhanced Customer Selection Modal */}
       <Modal
         isOpen={showCustomerModal}
-        onClose={() => {
-          setShowCustomerModal(false);
-          setCustomerSearch('');
-          setCustomerResults([]);
-        }}
+        onClose={closeCustomerModal}
         title="Select Customer"
         size="md"
       >
@@ -1175,7 +1415,7 @@ export default function Sales() {
       {/* Enhanced Payment Modal */}
       <Modal
         isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
+        onClose={closePaymentModal}
         title="Process Payment"
         size="md"
         footer={

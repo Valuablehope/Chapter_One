@@ -34,6 +34,7 @@ export interface ProductFilters {
   search?: string;
   product_type?: string;
   track_inventory?: boolean;
+  pos_category_only?: boolean;
   page?: number;
   limit?: number;
 }
@@ -127,6 +128,10 @@ export class ProductModel extends BaseModel {
       paramCount++;
       query += ` AND p.track_inventory = $${paramCount}`;
       params.push(filters.track_inventory);
+    }
+
+    if (filters.pos_category_only) {
+      query += ` AND p.product_type IN (SELECT name FROM product_types WHERE display_on_pos = true)`;
     }
 
     // Add GROUP BY clause if we're aggregating stock movements

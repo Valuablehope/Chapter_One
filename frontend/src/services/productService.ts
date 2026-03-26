@@ -26,6 +26,7 @@ export interface ProductFilters {
   search?: string;
   product_type?: string;
   track_inventory?: boolean;
+  pos_category_only?: boolean;
   page?: number;
   limit?: number;
 }
@@ -63,6 +64,9 @@ export const productService = {
     if (filters.product_type) params.append('product_type', filters.product_type);
     if (filters.track_inventory !== undefined) {
       params.append('track_inventory', filters.track_inventory.toString());
+    }
+    if (filters.pos_category_only) {
+      params.append('pos_category_only', 'true');
     }
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());

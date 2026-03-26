@@ -8,6 +8,7 @@ import { pool, stopHealthMonitoring } from './config/database';
 import apiRoutes from './routes';
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
+import productTypesRoutes from './routes/productTypes';
 import customerRoutes from './routes/customers';
 import supplierRoutes from './routes/suppliers';
 import barcodeRoutes from './routes/barcode';
@@ -168,6 +169,7 @@ app.get('/health', async (req: Request, res: Response) => {
 app.use('/api', apiRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/product-types', productTypesRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/barcode', barcodeRoutes);

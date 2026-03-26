@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product, ProductFilters } from '../services/productService';
+import { productTypeService, ProductType } from '../services/productTypeService';
+import { storeService, StoreSettings } from '../services/storeService';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import Button from '../components/ui/Button';
@@ -20,6 +22,9 @@ import {
   BookOpenIcon,
   FunnelIcon,
   ArrowPathIcon,
+  TagIcon,
+  TrashIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -49,6 +54,12 @@ export default function Products() {
     tax_rate: '',
     track_inventory: true,
   });
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false });
+  const [editingProductType, setEditingProductType] = useState<ProductType | null>(null);
+  const [typeSubmitting, setTypeSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,10 +111,27 @@ export default function Products() {
     }
   }, [filters]);
 
+  const loadConfigData = useCallback(async () => {
+    try {
+      const [{ data: typesData }, settingsData] = await Promise.all([
+        productTypeService.getProductTypes(),
+        storeService.getDefaultStore().catch(() => null),
+      ]);
+      setProductTypes(typesData || []);
+      setStoreSettings(settingsData);
+    } catch (err) {
+      logger.error('Failed to load types or settings', err);
+    }
+  }, []);
+
   // Load products when filters change
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    loadConfigData();
+  }, [loadConfigData]);
 
   // Debounced search to reduce API calls
   const debouncedSearch = useDebouncedCallback((search: string) => {
@@ -148,6 +176,7 @@ export default function Products() {
       sale_price: '',
       tax_rate: '',
       track_inventory: true,
+
     });
     setFormErrors({});
     setShowModal(true);
@@ -183,8 +212,13 @@ export default function Products() {
       sale_price: '',
       tax_rate: '',
       track_inventory: true,
+
     });
     setFormErrors({});
+  }, []);
+
+  const closeTypeModal = useCallback(() => {
+    setShowTypeModal(false);
   }, []);
 
   const validateForm = useCallback((): boolean => {
@@ -309,6 +343,50 @@ export default function Products() {
     }).format(amount);
   }, []);
 
+  const handleTypeSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!typeFormData.name.trim()) return;
+    try {
+      setTypeSubmitting(true);
+      if (editingProductType) {
+        await productTypeService.updateProductType(editingProductType.id, { 
+          name: typeFormData.name.trim(),
+          display_on_pos: typeFormData.display_on_pos 
+        });
+        toast.success('Product type updated successfully');
+      } else {
+        await productTypeService.createProductType({ 
+          name: typeFormData.name.trim(),
+          display_on_pos: typeFormData.display_on_pos
+        });
+        toast.success('Product type created successfully');
+      }
+      setTypeFormData({ name: '', display_on_pos: false });
+      setEditingProductType(null);
+      loadConfigData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to finish action');
+    } finally {
+      setTypeSubmitting(false);
+    }
+  }, [typeFormData, editingProductType, loadConfigData]);
+
+  const handleDeleteProductType = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this product type?')) return;
+    try {
+      await productTypeService.deleteProductType(id);
+      toast.success('Product type deleted');
+      loadConfigData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to delete product type');
+    }
+  };
+
+  const handleEditProductType = (type: ProductType) => {
+    setEditingProductType(type);
+    setTypeFormData({ name: type.name, display_on_pos: type.display_on_pos });
+  };
+
   return (
     <>
       <PageBanner
@@ -316,13 +394,26 @@ export default function Products() {
         subtitle="Manage your product catalogue and inventory"
         icon={<BookOpenIcon className="w-5 h-5 text-white" />}
         action={
-          <Button
-            onClick={openAddModal}
-            className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
-            leftIcon={<PlusIcon className="w-4 h-4" />}
-          >
-            Add Product
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                setShowTypeModal(true);
+                setEditingProductType(null);
+                setTypeFormData({ name: '', display_on_pos: false });
+              }}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+              leftIcon={<TagIcon className="w-4 h-4" />}
+            >
+              Manage Product Types
+            </Button>
+            <Button
+              onClick={openAddModal}
+              className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+              leftIcon={<PlusIcon className="w-4 h-4" />}
+            >
+              Add Product
+            </Button>
+          </div>
         }
       />
 
@@ -586,20 +677,17 @@ export default function Products() {
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Product Type
               </label>
-              <input
-                type="text"
-                list="product-types-list"
+              <select
                 value={formData.product_type}
-                onChange={(e) => setFormData({ ...formData, product_type: e.target.value.toUpperCase() })}
-                placeholder="e.g. GROCERY, MEAT, DAIRY"
-                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all uppercase"
+                onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
+                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
                 required
-              />
-              <datalist id="product-types-list">
-                {Array.from(new Set(products.map(p => p.product_type).filter(Boolean))).map(type => (
-                  <option key={type} value={type} />
+              >
+                <option value="" disabled>Select a type</option>
+                {productTypes.map(type => (
+                  <option key={type.id} value={type.name}>{type.name}</option>
                 ))}
-              </datalist>
+              </select>
             </div>
 
             <div>
@@ -697,6 +785,114 @@ export default function Products() {
             </div>
           </div>
         </form>
+      </Modal>
+
+      {/* Manage Product Type Modal */}
+      <Modal
+        isOpen={showTypeModal}
+        onClose={closeTypeModal}
+        title={
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <TagIcon className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base">Manage Product Types</span>
+          </div>
+        }
+        size="md"
+        footer={null}
+      >
+        <div className="space-y-6">
+          {productTypes.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl max-h-48 overflow-y-auto w-full">
+              <ul className="divide-y divide-gray-200">
+                {productTypes.map(type => (
+                  <li key={type.id} className="p-3 flex items-center justify-between hover:bg-white transition-colors">
+                    <div>
+                      <span className="font-semibold text-gray-900 text-sm">{type.name}</span>
+                      {type.display_on_pos && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                          POS Visible
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleEditProductType(type)}
+                        className="p-1.5 text-gray-400 hover:text-secondary-500 hover:bg-secondary-50 rounded-lg transition-colors"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProductType(type.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="border-t border-gray-200 pt-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">{editingProductType ? 'Edit Product Type' : 'Add New Category'}</h3>
+            <form id="product-type-form" onSubmit={handleTypeSubmit} className="space-y-4">
+              <Input
+                label="Product Type Name"
+                type="text"
+                value={typeFormData.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setTypeFormData({ ...typeFormData, name: e.target.value.toUpperCase() });
+                }}
+                required
+                placeholder="e.g. ELECTRONICS, GROCERIES"
+                className="uppercase"
+              />
+
+              {storeSettings?.pos_module_type === 'store' && (
+                <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg hover:border-secondary-500 hover:bg-secondary-50/50 cursor-pointer transition-all group">
+                  <input
+                    type="checkbox"
+                    checked={typeFormData.display_on_pos}
+                    onChange={(e) => setTypeFormData({ ...typeFormData, display_on_pos: e.target.checked })}
+                    className="mr-2.5 h-4 w-4 text-secondary-500 focus:ring-secondary-500 border-gray-300 rounded cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
+                      Display on POS Sales
+                    </span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Show this category on Quick Add grid</p>
+                  </div>
+                </label>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                {editingProductType && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingProductType(null);
+                      setTypeFormData({ name: '', display_on_pos: false });
+                    }}
+                    disabled={typeSubmitting}
+                  >
+                    Cancel Edit
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold transition-all"
+                  isLoading={typeSubmitting}
+                >
+                  {editingProductType ? 'Save Changes' : 'Create Category'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       </Modal>
     </>
   );
