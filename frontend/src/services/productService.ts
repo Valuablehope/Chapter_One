@@ -10,6 +10,7 @@ export interface Product {
   barcode?: string;
   name: string;
   product_type: string;
+  unit_of_measure: string;
   list_price?: number;
   sale_price?: number;
   tax_rate?: number;
@@ -45,6 +46,7 @@ export interface CreateProductData {
   barcode?: string;
   name: string;
   product_type?: string;
+  unit_of_measure?: string;
   list_price?: number;
   sale_price?: number;
   tax_rate?: number;

@@ -39,6 +39,7 @@ export interface SaleItem {
   product_id: string;
   product_name?: string;
   book_id?: string;
+  unit_of_measure?: string;
   qty: number;
   unit_price: number;
   tax_rate: number;
@@ -871,6 +872,7 @@ export class SaleModel extends BaseModel {
                 'product_id', si.product_id,
                 'product_name', p.name,
                 'book_id', si.book_id,
+                'unit_of_measure', p.unit_of_measure,
                 'qty', si.qty,
                 'unit_price', si.unit_price,
                 'tax_rate', si.tax_rate,
@@ -1014,7 +1016,8 @@ export class SaleModel extends BaseModel {
       SELECT 
         si.*, 
         p.name as product_name, 
-        p.barcode
+        p.barcode,
+        p.unit_of_measure
       FROM sale_items si
       LEFT JOIN products p ON p.product_id = si.product_id
       WHERE si.sale_id = ANY($1)
@@ -1046,6 +1049,7 @@ export class SaleModel extends BaseModel {
         product_id: item.product_id,
         product_name: item.product_name,
         book_id: item.book_id,
+        unit_of_measure: item.unit_of_measure,
         qty: item.qty,
         unit_price: item.unit_price,
         tax_rate: item.tax_rate,

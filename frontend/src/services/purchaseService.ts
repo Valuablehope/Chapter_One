@@ -11,6 +11,7 @@ export interface PurchaseOrderItem {
   unit_cost: number;
   product_name?: string;
   barcode?: string;
+  unit_of_measure?: string;
 }
 
 export interface PurchaseOrder {

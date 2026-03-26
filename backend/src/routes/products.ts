@@ -55,6 +55,7 @@ router.post(
   [
     body('name').trim().notEmpty().withMessage('Product name is required'),
     body('product_type').optional().isString(),
+    body('unit_of_measure').optional().isString(),
     body('sku').optional().isString(),
     body('barcode').optional().isString(),
     body('list_price').optional().isFloat({ min: 0 }),
@@ -73,6 +74,7 @@ router.put(
     param('id').isUUID(),
     body('name').optional().trim().notEmpty(),
     body('product_type').optional().isString(),
+    body('unit_of_measure').optional().isString(),
     body('sku').optional().isString(),
     body('barcode').optional().isString(),
     body('list_price').optional().isFloat({ min: 0 }),

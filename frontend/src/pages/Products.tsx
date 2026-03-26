@@ -43,6 +43,7 @@ export default function Products() {
     sku: '',
     barcode: '',
     product_type: '',
+    unit_of_measure: 'each',
     list_price: '',
     sale_price: '',
     tax_rate: '',
@@ -142,6 +143,7 @@ export default function Products() {
       sku: '',
       barcode: '',
       product_type: '',
+      unit_of_measure: 'each',
       list_price: '',
       sale_price: '',
       tax_rate: '',
@@ -158,6 +160,7 @@ export default function Products() {
       sku: product.sku || '',
       barcode: product.barcode || '',
       product_type: product.product_type,
+      unit_of_measure: product.unit_of_measure || 'each',
       list_price: product.list_price?.toString() || '',
       sale_price: product.sale_price?.toString() || '',
       tax_rate: product.tax_rate?.toString() || '',
@@ -175,6 +178,7 @@ export default function Products() {
       sku: '',
       barcode: '',
       product_type: '',
+      unit_of_measure: 'each',
       list_price: '',
       sale_price: '',
       tax_rate: '',
@@ -231,6 +235,7 @@ export default function Products() {
         sku: formData.sku.trim() || undefined,
         barcode: formData.barcode.trim() || undefined,
         product_type: formData.product_type,
+        unit_of_measure: formData.unit_of_measure || 'each',
         list_price: formData.list_price ? parseFloat(formData.list_price) : undefined,
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
@@ -427,6 +432,7 @@ export default function Products() {
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">SKU</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Barcode</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Type</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Unit</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">List Price</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Sale Price</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">Inventory</th>
@@ -594,6 +600,41 @@ export default function Products() {
                   <option key={type} value={type} />
                 ))}
               </datalist>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Unit of Measure
+              </label>
+              <select
+                value={formData.unit_of_measure}
+                onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
+                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
+              >
+                <optgroup label="Count">
+                  <option value="each">each</option>
+                  <option value="pair">pair</option>
+                  <option value="dozen">dozen</option>
+                  <option value="pack">pack</option>
+                  <option value="box">box</option>
+                  <option value="carton">carton</option>
+                </optgroup>
+                <optgroup label="Weight">
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
+                  <option value="lb">lb</option>
+                  <option value="oz">oz</option>
+                </optgroup>
+                <optgroup label="Volume">
+                  <option value="L">L</option>
+                  <option value="mL">mL</option>
+                </optgroup>
+                <optgroup label="Length">
+                  <option value="m">m</option>
+                  <option value="cm">cm</option>
+                </optgroup>
+              </select>
+              <p className="text-[10px] text-gray-500 mt-1">How this product is measured when buying/selling</p>
             </div>
 
             <div>

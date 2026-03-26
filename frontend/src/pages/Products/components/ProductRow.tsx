@@ -56,6 +56,11 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
       <td className="px-3 py-2 whitespace-nowrap hidden lg:table-cell">
         <Badge variant={getProductTypeVariant(product.product_type)} size="sm">{product.product_type}</Badge>
       </td>
+      <td className="px-3 py-2 whitespace-nowrap hidden lg:table-cell">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200">
+          {product.unit_of_measure || 'each'}
+        </span>
+      </td>
       <td className="px-3 py-2 whitespace-nowrap">
         <div className="text-xs font-semibold text-gray-900">
           {product.list_price ? formatCurrency(Number(product.list_price)) : <span className="text-gray-400">-</span>}

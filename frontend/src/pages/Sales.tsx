@@ -896,7 +896,10 @@ export default function Sales() {
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs font-medium text-gray-600">
-                              ${Number(item.unit_price).toFixed(2)} each
+                              ${Number(item.unit_price).toFixed(2)}{' '}
+                              <span className="font-semibold text-blue-500">
+                                {item.product.unit_of_measure || 'each'}
+                              </span>
                             </span>
                             {item.product.track_inventory && availableStock !== null && (
                               <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>

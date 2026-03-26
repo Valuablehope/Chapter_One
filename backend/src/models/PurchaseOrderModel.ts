@@ -20,6 +20,9 @@ export interface PurchaseOrderItem {
   po_item_id: string;
   po_id: string;
   product_id: string;
+  product_name?: string;
+  barcode?: string;
+  unit_of_measure?: string;
   qty_ordered: number;
   qty_received: number;
   unit_cost: number;
@@ -272,7 +275,7 @@ export class PurchaseOrderModel extends BaseModel {
     // Get all items for all purchase orders in a single query (fixes N+1 problem)
     const poIds = purchaseOrders.map((po: PurchaseOrderWithSupplierFields) => po.po_id);
     const itemsQuery = `
-      SELECT poi.*, p.name as product_name, p.barcode
+      SELECT poi.*, p.name as product_name, p.barcode, p.unit_of_measure
       FROM purchase_order_items poi
       LEFT JOIN products p ON p.product_id = poi.product_id
       WHERE poi.po_id = ANY($1)
@@ -335,12 +338,12 @@ export class PurchaseOrderModel extends BaseModel {
 
     // Get items
     const itemsQuery = `
-      SELECT poi.*, p.name as product_name, p.barcode
+      SELECT poi.*, p.name as product_name, p.barcode, p.unit_of_measure
       FROM purchase_order_items poi
       LEFT JOIN products p ON p.product_id = poi.product_id
       WHERE poi.po_id = $1
     `;
-    const itemsResult = await this.query<PurchaseOrderItem & { product_name?: string; barcode?: string }>(itemsQuery, [poId]);
+    const itemsResult = await this.query<PurchaseOrderItem & { product_name?: string; barcode?: string; unit_of_measure?: string }>(itemsQuery, [poId]);
     const items = itemsResult.rows;
 
     const totalCost = items.reduce((sum: number, item: PurchaseOrderItem & { product_name?: string; barcode?: string }) => {

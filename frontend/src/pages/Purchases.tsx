@@ -40,6 +40,7 @@ interface PurchaseOrderItem {
   product: Product;
   qty_ordered: number;
   unit_cost: number;
+  unit_of_measure?: string;
 }
 
 export default function Purchases() {
@@ -217,6 +218,7 @@ export default function Purchases() {
           product,
           qty_ordered: 1,
           unit_cost: Number(product.list_price || 0),
+          unit_of_measure: product.unit_of_measure || 'each',
         },
       ]);
     }
@@ -277,6 +279,7 @@ export default function Purchases() {
         } as Product,
         qty_ordered: item.qty_ordered,
         unit_cost: item.unit_cost,
+        unit_of_measure: item.unit_of_measure || 'each',
       }));
       setItems(formItems);
       setExpectedAt(fullPO.expected_at ? fullPO.expected_at.split('T')[0] : '');
@@ -940,32 +943,39 @@ export default function Purchases() {
                               </div>
                             </td>
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white w-20">
-                                <Button
-                                  type="button"
-                                  onClick={() => updateItem(item.product.product_id, 'qty_ordered', Math.max(1, item.qty_ordered - 1))}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="!p-0.5 hover:bg-gray-100"
-                                >
-                                  <MinusIcon className="w-2.5 h-2.5" />
-                                </Button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.qty_ordered}
-                                  onChange={(e) => updateItem(item.product.product_id, 'qty_ordered', parseInt(e.target.value) || 1)}
-                                  className="w-10 text-center text-xs font-bold text-gray-900 border-0 focus:ring-0 p-0"
-                                />
-                                <Button
-                                  type="button"
-                                  onClick={() => updateItem(item.product.product_id, 'qty_ordered', item.qty_ordered + 1)}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="!p-0.5 hover:bg-gray-100"
-                                >
-                                  <PlusIcon className="w-2.5 h-2.5" />
-                                </Button>
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1 border-2 border-gray-200 rounded-lg bg-white w-20">
+                                  <Button
+                                    type="button"
+                                    onClick={() => updateItem(item.product.product_id, 'qty_ordered', Math.max(1, item.qty_ordered - 1))}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="!p-0.5 hover:bg-gray-100"
+                                  >
+                                    <MinusIcon className="w-2.5 h-2.5" />
+                                  </Button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={item.qty_ordered}
+                                    onChange={(e) => updateItem(item.product.product_id, 'qty_ordered', parseInt(e.target.value) || 1)}
+                                    className="w-10 text-center text-xs font-bold text-gray-900 border-0 focus:ring-0 p-0"
+                                  />
+                                  <Button
+                                    type="button"
+                                    onClick={() => updateItem(item.product.product_id, 'qty_ordered', item.qty_ordered + 1)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="!p-0.5 hover:bg-gray-100"
+                                  >
+                                    <PlusIcon className="w-2.5 h-2.5" />
+                                  </Button>
+                                </div>
+                                {item.unit_of_measure && item.unit_of_measure !== 'each' && (
+                                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                                    {item.unit_of_measure}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="px-3 py-2">
