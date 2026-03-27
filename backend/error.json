@@ -1,0 +1,4 @@
+{
+  "message": "cannot alter type of a column used by a view or rule",
+  "detail": "rule _RETURN on view product_stock_balances depends on column \"qty\""
+}

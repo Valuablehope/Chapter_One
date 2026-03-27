@@ -36,7 +36,7 @@ router.post(
       .isArray({ min: 1, max: 100 })
       .withMessage('Sale must have at least one item and at most 100 items'),
     body('items.*.product_id').notEmpty().withMessage('Item product_id is required'),
-    body('items.*.qty').isInt({ min: 1 }).withMessage('Item quantity must be at least 1'),
+    body('items.*.qty').isFloat({ min: 0.001 }).withMessage('Item quantity must be greater than 0'),
     body('items.*.unit_price').isFloat({ min: 0 }).withMessage('Item unit price must be positive'),
     body('items.*.tax_rate').optional().isFloat({ min: 0, max: 100 }),
     body('payments')
@@ -70,7 +70,7 @@ router.put(
   [
     body('items').optional().isArray({ min: 1 }),
     body('items.*.product_id').optional().notEmpty(),
-    body('items.*.qty').optional().isInt({ min: 1 }),
+    body('items.*.qty').optional().isFloat({ min: 0.001 }),
     body('items.*.unit_price').optional().isFloat({ min: 0 }),
     body('items.*.tax_rate').optional().isFloat({ min: 0, max: 100 }),
     body('payments').optional().isArray({ min: 1 }),

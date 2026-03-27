@@ -116,7 +116,7 @@ export default function Receipt({
                                             </p>
                                             <div className="flex items-center gap-3 mt-2 text-xs text-black">
                                                 <span className="font-mono">
-                                                    {item.qty} × {formatCurrency(Number(item.unit_price))}
+                                                    {Number(item.qty).toString()} × {formatCurrency(Number(item.unit_price))}
                                                 </span>
                                                 {item.tax_rate && Number(item.tax_rate) > 0 && (
                                                     <span className="px-2 py-0.5 text-black rounded font-medium">

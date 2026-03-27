@@ -134,7 +134,7 @@ export default function PurchaseReceipt({
                                             </p>
                                             <div className="flex items-center gap-3 mt-2 text-xs text-black">
                                                 <span className="font-mono">
-                                                    {item.qty_ordered} × {formatCurrency(item.unit_cost)}
+                                                    {Number(item.qty_ordered).toString()} × {formatCurrency(item.unit_cost)}
                                                 </span>
                                                 {item.qty_received > 0 && item.qty_received !== item.qty_ordered && (
                                                     <span className="px-2 py-0.5 text-black rounded font-medium">

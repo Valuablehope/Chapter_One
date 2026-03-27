@@ -1,0 +1,5 @@
+ SELECT store_id,
+    product_id,
+    sum(qty)::numeric(18,2) AS qty_on_hand
+   FROM stock_movements sm
+  GROUP BY store_id, product_id;
