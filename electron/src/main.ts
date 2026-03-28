@@ -445,8 +445,10 @@ function setupApplicationMenu() {
       submenu: [
         {
           label: 'Documentation',
-          click: async () => {
-            await shell.openExternal('https://github.com/Valuablehope/Chapter_One#readme');
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('app:showDocumentation');
+            }
           }
         }
       ]

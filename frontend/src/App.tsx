@@ -4,6 +4,7 @@ import SplashScreen from './pages/SplashScreen';
 import LoginScreen from './pages/LoginScreen';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import DocumentationModal from './components/DocumentationModal';
 
 // Lazy load route components for code splitting
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -155,6 +156,7 @@ function App() {
         />
         <Route path="*" element={<Navigate to="/sales" replace />} />
       </Routes>
+      <DocumentationModal />
     </HashRouter>
   );
 }
