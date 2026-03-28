@@ -52,6 +52,8 @@
     "files": [
       "electron/dist/**/*",
       "frontend/dist/**/*",
+      "updater/**/*",
+      "config/**/*",
       "!**/.env",
       "!**/.env.local",
       "!**/.env.*.local",
