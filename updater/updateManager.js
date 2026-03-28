@@ -60,6 +60,13 @@ async function init(mainWindow) {
 
   // Execute the update check safely
   try {
+    const { app } = require('electron');
+    if (!app.isPackaged) {
+      logger.info('Skipping update check: Application is running in development mode (unpacked).');
+      emitStatus('up-to-date', { version: app.getVersion() });
+      return;
+    }
+    
     const isOnline = await checkInternetConnection();
     if (isOnline) {
       logger.info('Internet connection verified. Initiating background checkForUpdates.');
@@ -73,6 +80,7 @@ async function init(mainWindow) {
   }
 
   setInterval(async () => {
+    if (!require('electron').app.isPackaged) return;
     const online = await checkInternetConnection();
     if (online) {
       autoUpdater.checkForUpdates().catch(e => logger.error('Interval update failed', e));
