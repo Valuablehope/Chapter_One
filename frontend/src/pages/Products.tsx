@@ -90,6 +90,9 @@ export default function Products() {
   const [productTypeInput, setProductTypeInput] = useState('');
   const searchAbortController = useRef<AbortController | null>(null);
   const loadRequestIdRef = useRef(0);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const isCustomSizedRef = useRef(!!localStorage.getItem('products_table_resized_v1'));
+  const [isCustomSized, setIsCustomSized] = useState(isCustomSizedRef.current);
 
   const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
     const saved = localStorage.getItem('products_table_columns_v1');
@@ -115,6 +118,9 @@ export default function Products() {
 
   useEffect(() => {
     localStorage.setItem('products_table_columns_v1', JSON.stringify(columnsConfig));
+    if (isCustomSizedRef.current) {
+      localStorage.setItem('products_table_resized_v1', 'true');
+    }
   }, [columnsConfig]);
 
   useEffect(() => {
@@ -132,7 +138,34 @@ export default function Products() {
   const startColumnResize = useCallback((e: React.MouseEvent, id: string, width: number) => {
     e.preventDefault();
     e.stopPropagation();
-    colResizeDataRef.current = { id, startX: e.clientX, startWidth: width };
+    
+    if (!isCustomSizedRef.current && tableRef.current) {
+      // First time resize: capture actual rendered widths of all visible headers
+      const ths = tableRef.current.querySelectorAll('th');
+      setColumnsConfig(prev => {
+        const visibleCols = prev.filter(c => c.visible);
+        const next = [...prev];
+        visibleCols.forEach((col, index) => {
+          if (ths[index]) {
+            const rect = ths[index].getBoundingClientRect();
+            const configIndex = next.findIndex(c => c.id === col.id);
+            if (configIndex > -1) {
+              next[configIndex] = { ...next[configIndex], width: rect.width };
+            }
+          }
+        });
+        
+        // Setup initial start width specifically from the new snapshot
+        const newCol = next.find(c => c.id === id);
+        colResizeDataRef.current = { id, startX: e.clientX, startWidth: newCol?.width || width };
+        
+        return next;
+      });
+      isCustomSizedRef.current = true;
+      setIsCustomSized(true);
+    } else {
+      colResizeDataRef.current = { id, startX: e.clientX, startWidth: width };
+    }
 
     const handleMouseMove = (mvEvent: MouseEvent) => {
       if (!colResizeDataRef.current) return;
@@ -639,18 +672,24 @@ export default function Products() {
                 />
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                  {columnsConfig.filter(c => c.visible).map(c => (
-                    <col key={c.id} style={{ width: c.width }} />
-                  ))}
-                </colgroup>
+              <table
+                ref={tableRef}
+                className="divide-y divide-gray-200"
+                style={isCustomSized ? { tableLayout: 'fixed', width: columnsConfig.filter(c => c.visible).reduce((sum, c) => sum + c.width, 0) } : { tableLayout: 'auto', minWidth: '100%' }}
+              >
+                {isCustomSized && (
+                  <colgroup>
+                    {columnsConfig.filter(c => c.visible).map(c => (
+                      <col key={c.id} style={{ width: c.width }} />
+                    ))}
+                  </colgroup>
+                )}
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
                     {columnsConfig.filter(c => c.visible).map((c, idx, arr) => (
                       <th
                         key={c.id}
-                        className={`relative px-3 py-2 text-[10px] font-bold text-gray-700 uppercase tracking-wider ${c.id === 'actions' ? 'text-right' : 'text-left'}`}
+                        className={`relative px-3 py-2 text-[10px] font-bold text-gray-700 uppercase tracking-wider ${isCustomSized ? 'max-w-0' : 'w-min'} ${c.id === 'actions' ? 'text-right' : 'text-left'}`}
                       >
                         <div className="truncate">{c.label}</div>
                         {idx < arr.length - 1 && (
@@ -673,6 +712,7 @@ export default function Products() {
                       onDelete={handleDelete}
                       formatCurrency={formatCurrency}
                       visibleColumns={columnsConfig.filter(c => c.visible).map(c => c.id)}
+                      isCustomSized={isCustomSized}
                     />
                   ))}
                 </tbody>
