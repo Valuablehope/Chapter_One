@@ -114,8 +114,8 @@ export default function Receipt({
                                             <p className="font-bold text-black text-base leading-snug">
                                                 {item.product?.name || (item as any).product_name || 'Unknown Product'}
                                             </p>
-                                            <div className="flex items-center gap-3 mt-2 text-xs text-black">
-                                                <span className="font-mono">
+                                            <div className="flex items-center gap-3 mt-2 text-sm text-black">
+                                                <span className="font-mono font-medium">
                                                     {Number(item.qty).toString()} × {formatCurrency(Number(item.unit_price))}
                                                 </span>
                                                 {item.tax_rate && Number(item.tax_rate) > 0 && (

@@ -861,15 +861,15 @@ export default function Sales() {
                       <h2 className="text-sm font-semibold text-gray-900">Quick Add Categories</h2>
                     </div>
                     {/* Categories Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 border-b border-gray-100 pb-4 gap-2">
                       {posCategories.map(category => (
                         <button
                           key={category}
                           onClick={() => setActiveCategory(category)}
-                          className="aspect-square bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border-2 border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-4 transition-all shadow-sm hover:shadow-md group"
+                          className="h-20 bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-2 transition-all shadow-sm hover:shadow-md group"
                         >
-                          <TagIcon className="w-8 h-8 text-secondary-500 mb-2 group-hover:scale-110 transition-transform" />
-                          <span className="font-bold text-secondary-900 text-sm text-center line-clamp-2">{category}</span>
+                          <TagIcon className="w-6 h-6 text-secondary-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-secondary-900 text-[11px] text-center line-clamp-2 leading-tight">{category}</span>
                         </button>
                       ))}
                     </div>
@@ -886,19 +886,19 @@ export default function Sales() {
                       <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} Items</h2>
                     </div>
                     {/* Products Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 cursor-pointer">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 gap-2 cursor-pointer">
                       {displayedPosProducts.map(product => (
                         <button
                           key={product.product_id}
                           onClick={() => handlePosItemClick(product)}
-                          className="flex flex-col h-full bg-white border-2 border-gray-100 hover:border-secondary-500 hover:shadow-md rounded-xl p-3 items-center text-center transition-all group"
+                          className="flex flex-col h-full min-h-[90px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-md rounded-xl p-2 items-center text-center transition-all group"
                         >
-                          <div className="w-10 h-10 mb-2 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
-                            <span className="text-sm font-bold text-secondary-500">
+                          <div className="w-8 h-8 mb-1.5 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
+                            <span className="text-xs font-bold text-secondary-500">
                               {product.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <span className="text-[10px] font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-1">
+                          <span className="text-[10px] font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-0.5">
                             {product.name}
                           </span>
                           <span className="text-xs font-bold text-secondary-500 mt-auto">

@@ -25,8 +25,32 @@ import {
   TagIcon,
   TrashIcon,
   PencilIcon,
+  AdjustmentsVerticalIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+
+export interface ColumnConfig {
+  id: string;
+  label: string;
+  width: number;
+  visible: boolean;
+  minWidth: number;
+}
+
+const DEFAULT_COLUMNS: ColumnConfig[] = [
+  { id: 'name', label: 'Name', width: 250, visible: true, minWidth: 100 },
+  { id: 'sku', label: 'SKU', width: 120, visible: true, minWidth: 80 },
+  { id: 'barcode', label: 'Barcode', width: 140, visible: true, minWidth: 80 },
+  { id: 'type', label: 'Type', width: 120, visible: true, minWidth: 80 },
+  { id: 'unit', label: 'Unit', width: 80, visible: true, minWidth: 60 },
+  { id: 'list_price', label: 'List Price', width: 100, visible: true, minWidth: 80 },
+  { id: 'sale_price', label: 'Sale Price', width: 100, visible: true, minWidth: 80 },
+  { id: 'inventory', label: 'Inventory', width: 100, visible: true, minWidth: 80 },
+  { id: 'qty_in', label: 'Qty In', width: 80, visible: true, minWidth: 60 },
+  { id: 'qty_out', label: 'Qty Out', width: 80, visible: true, minWidth: 60 },
+  { id: 'balance', label: 'Balance', width: 80, visible: true, minWidth: 60 },
+  { id: 'actions', label: 'Actions', width: 120, visible: true, minWidth: 100 },
+];
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -66,6 +90,72 @@ export default function Products() {
   const [productTypeInput, setProductTypeInput] = useState('');
   const searchAbortController = useRef<AbortController | null>(null);
   const loadRequestIdRef = useRef(0);
+
+  const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
+    const saved = localStorage.getItem('products_table_columns_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return DEFAULT_COLUMNS.map(def => {
+            const found = parsed.find((p: any) => p.id === def.id);
+            return found ? { ...def, ...found } : def;
+          });
+        }
+      } catch (e) {
+        logger.warn('Failed to parse saved columns config');
+      }
+    }
+    return DEFAULT_COLUMNS;
+  });
+
+  const [showManageColumns, setShowManageColumns] = useState(false);
+  const columnsMenuRef = useRef<HTMLDivElement>(null);
+  const colResizeDataRef = useRef<{ id: string; startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('products_table_columns_v1', JSON.stringify(columnsConfig));
+  }, [columnsConfig]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (columnsMenuRef.current && !columnsMenuRef.current.contains(event.target as Node)) {
+        setShowManageColumns(false);
+      }
+    };
+    if (showManageColumns) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showManageColumns]);
+
+  const startColumnResize = useCallback((e: React.MouseEvent, id: string, width: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    colResizeDataRef.current = { id, startX: e.clientX, startWidth: width };
+
+    const handleMouseMove = (mvEvent: MouseEvent) => {
+      if (!colResizeDataRef.current) return;
+      const { id, startX, startWidth } = colResizeDataRef.current;
+      const delta = mvEvent.clientX - startX;
+      setColumnsConfig(prev => prev.map(c => 
+        c.id === id ? { ...c, width: Math.max(20, startWidth + delta) } : c
+      ));
+    };
+
+    const handleMouseUp = () => {
+      colResizeDataRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, []);
 
   // Abort list requests and invalidate in-flight handlers on unmount (avoids stale setState / stuck loading)
   useEffect(() => {
@@ -481,13 +571,46 @@ export default function Products() {
                 </Badge>
               )}
             </div>
-            <button
-              onClick={loadProducts}
-              className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors"
-            >
-              <ArrowPathIcon className="w-3.5 h-3.5" />
-              <span>Refresh</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="relative" ref={columnsMenuRef}>
+                <button
+                  onClick={() => setShowManageColumns(!showManageColumns)}
+                  className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200"
+                >
+                  <AdjustmentsVerticalIcon className="w-3.5 h-3.5" />
+                  <span>Columns</span>
+                </button>
+                {showManageColumns && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1.5 max-h-80 overflow-y-auto">
+                    <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Show/Hide Columns</span>
+                    </div>
+                    {columnsConfig.map(col => (
+                      <label key={col.id} className="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="mr-3 rounded border-gray-300 text-secondary-500 focus:ring-secondary-500 h-4 w-4"
+                          checked={col.visible}
+                          onChange={() => {
+                            setColumnsConfig(prev => prev.map(c => 
+                              c.id === col.id ? { ...c, visible: !c.visible } : c
+                            ));
+                          }}
+                        />
+                        <span className="text-sm font-medium text-gray-700">{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={loadProducts}
+                className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200"
+              >
+                <ArrowPathIcon className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
       </Card>
@@ -516,21 +639,28 @@ export default function Products() {
                 />
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                <colgroup>
+                  {columnsConfig.filter(c => c.visible).map(c => (
+                    <col key={c.id} style={{ width: c.width }} />
+                  ))}
+                </colgroup>
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">SKU</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Barcode</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Type</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden lg:table-cell">Unit</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">List Price</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Sale Price</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">Inventory</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty In</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Qty Out</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Balance</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                    {columnsConfig.filter(c => c.visible).map((c, idx, arr) => (
+                      <th
+                        key={c.id}
+                        className={`relative px-3 py-2 text-[10px] font-bold text-gray-700 uppercase tracking-wider ${c.id === 'actions' ? 'text-right' : 'text-left'}`}
+                      >
+                        <div className="truncate">{c.label}</div>
+                        {idx < arr.length - 1 && (
+                          <div
+                            onMouseDown={(e) => startColumnResize(e, c.id, c.width)}
+                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-secondary-400 active:bg-secondary-600 transition-colors z-10"
+                          />
+                        )}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -542,6 +672,7 @@ export default function Products() {
                       onEdit={openEditModal}
                       onDelete={handleDelete}
                       formatCurrency={formatCurrency}
+                      visibleColumns={columnsConfig.filter(c => c.visible).map(c => c.id)}
                     />
                   ))}
                 </tbody>
@@ -800,7 +931,31 @@ export default function Products() {
           </div>
         }
         size="md"
-        footer={null}
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            {editingProductType && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingProductType(null);
+                  setTypeFormData({ name: '', display_on_pos: false });
+                }}
+                disabled={typeSubmitting}
+              >
+                Cancel Edit
+              </Button>
+            )}
+            <Button
+              type="submit"
+              form="product-type-form"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold transition-all"
+              isLoading={typeSubmitting}
+            >
+              {editingProductType ? 'Save Changes' : 'Create Category'}
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-6">
           {productTypes.length > 0 && (
@@ -868,28 +1023,6 @@ export default function Products() {
                 </label>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
-                {editingProductType && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingProductType(null);
-                      setTypeFormData({ name: '', display_on_pos: false });
-                    }}
-                    disabled={typeSubmitting}
-                  >
-                    Cancel Edit
-                  </Button>
-                )}
-                <Button
-                  type="submit"
-                  className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold transition-all"
-                  isLoading={typeSubmitting}
-                >
-                  {editingProductType ? 'Save Changes' : 'Create Category'}
-                </Button>
-              </div>
             </form>
           </div>
         </div>
