@@ -1,0 +1,12 @@
+{
+  "version": "4.0.1",
+  "mandatory": false,
+  "releaseDate": "2026-03-28T16:00:31.221Z",
+  "notes": "Automatic release generated via CI",
+  "files": {
+    "appInstaller": "http://127.0.0.1:8080/releases/4.0.1/ChapterOnePOS-Setup-4.0.1.exe",
+    "latestYml": "http://127.0.0.1:8080/releases/4.0.1/latest.yml"
+  },
+  "migrations": [],
+  "checksum": "randomhashstring"
+}

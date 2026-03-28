@@ -21,6 +21,8 @@
     "build:backend": "cd backend && npm run build",
     "build:electron": "cd electron && npm run build",
     "build:win": "npm install && npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish never",
+    "release:win": "npm install && npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish always",
+    "dist": "npm run build:win",
     "install:backend:prod": "cd backend && npm install --omit=dev --no-workspaces",
     "prune:backend": "cd backend && npm prune --production --no-workspaces",
     "start": "cross-env NODE_ENV=production electron .",
@@ -116,6 +118,11 @@
       "artifactName": "${productName} Setup ${version}.${ext}",
       "shortcutName": "${productName}"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "Valuablehope",
+      "repo": "Chapter_One"
+    },
     "compression": "maximum",
     "removePackageScripts": true
   },
@@ -125,6 +132,12 @@
     "electron"
   ],
   "dependencies": {
-    "electron-log": "^5.4.3"
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.1.7",
+    "pg": "^8.11.3",
+    "winston": "^3.11.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "semver": "^7.5.4"
   }
 }

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import log from 'electron-log';
+require('dotenv').config();
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -407,10 +408,12 @@ app.whenReady().then(() => {
     // Wait a bit for backend to start before showing window
     setTimeout(() => {
       createWindow();
+      require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
     }, 2000);
   } else {
     // In dev mode, backend is started separately
     createWindow();
+    require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
   }
 
   app.on('activate', () => {
