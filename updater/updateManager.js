@@ -3,11 +3,17 @@ const logger = require('../config/logger');
 
 // Store a reference to the main window to securely send progress if needed
 let mainWindowRef = null;
+let lastStatus = { status: 'checking' };
 
 function emitStatus(status, payload = {}) {
+  lastStatus = { status, ...payload };
   if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-    mainWindowRef.webContents.send('updater:status', { status, ...payload });
+    mainWindowRef.webContents.send('updater:status', lastStatus);
   }
+}
+
+function getLastStatus() {
+  return lastStatus;
 }
 
 async function init(mainWindow) {
@@ -66,6 +72,7 @@ async function init(mainWindow) {
     }
   } catch (err) {
     logger.error('Failed to trigger update check', { error: err.message });
+    emitStatus('error', { error: err.message });
   }
 
   setInterval(async () => {
@@ -95,5 +102,6 @@ function checkInternetConnection() {
 
 module.exports = {
   init,
-  manualQuitAndInstall
+  manualQuitAndInstall,
+  getLastStatus
 };

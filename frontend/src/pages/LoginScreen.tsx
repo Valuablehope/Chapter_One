@@ -28,6 +28,15 @@ export default function LoginScreen() {
     }
     
     if (window.electronAPI?.ipcRenderer) {
+      // Eliminate race conditions by actively querying state cache
+      window.electronAPI.getUpdateStatus?.().then((data: any) => {
+        if (data && data.status) {
+          setUpdateStatus(data.status);
+          if (data.percent !== undefined) setUpdatePercent(Math.round(data.percent));
+          if (data.version && data.status === 'up-to-date') setAppVersion(data.version);
+        }
+      }).catch(console.error);
+
       const handleStatus = (data: any) => {
         setUpdateStatus(data.status);
         if (data.percent !== undefined) setUpdatePercent(Math.round(data.percent));
@@ -229,12 +238,13 @@ export default function LoginScreen() {
                 <>
                   <div style={{ 
                     width: '6px', height: '6px', borderRadius: '50%', 
-                    background: updateStatus === 'checking' || updateStatus === 'downloading' ? '#fbbf24' : '#4ade80',
+                    background: updateStatus === 'error' ? '#ef4444' : updateStatus === 'checking' || updateStatus === 'downloading' ? '#fbbf24' : '#4ade80',
                     animation: updateStatus === 'downloading' ? 'pulse 1.5s infinite' : 'none'
                   }} />
                   <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px', fontWeight: 500 }}>
                     {updateStatus === 'checking' ? 'Checking for updates...' :
                      updateStatus === 'downloading' ? `Downloading Update... ${updatePercent}%` :
+                     updateStatus === 'error' ? `Version ${appVersion} (Update Check Failed)` :
                      `Version ${appVersion} (Up to Date)`}
                   </span>
                 </>
@@ -461,6 +471,7 @@ export default function LoginScreen() {
                   <span>
                     {updateStatus === 'checking' ? 'Checking for updates...' :
                      updateStatus === 'downloading' ? `Downloading Update... ${updatePercent}%` :
+                     updateStatus === 'error' ? <>Version {appVersion} &nbsp;<span style={{ fontSize: '10px', color: '#ef4444' }}>(Check Failed)</span></> :
                      <>Version {appVersion} &nbsp;<span style={{ fontSize: '10px', opacity: 0.7 }}>(Up to Date)</span></>}
                   </span>
                 )}

@@ -485,6 +485,10 @@ ipcMain.handle('app:installUpdate', () => {
   require(path.join(app.getAppPath(), 'updater/updateManager.js')).manualQuitAndInstall();
 });
 
+ipcMain.handle('app:getUpdateStatus', () => {
+  return require(path.join(app.getAppPath(), 'updater/updateManager.js')).getLastStatus();
+});
+
 ipcMain.handle('app:getPlatform', () => {
   return process.platform;
 });
