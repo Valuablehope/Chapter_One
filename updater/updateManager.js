@@ -25,9 +25,6 @@ async function init(mainWindow) {
   
   // Set to download automatically in the background
   autoUpdater.autoDownload = true;
-  
-  // Allow Dev testing simulating the GitHub update
-  autoUpdater.forceDevUpdateConfig = true;
 
   // Bind Native Update Lifecycle Events
   autoUpdater.on('checking-for-update', () => {

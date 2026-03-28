@@ -121,7 +121,8 @@
     "publish": {
       "provider": "github",
       "owner": "Valuablehope",
-      "repo": "Chapter_One"
+      "repo": "Chapter_One",
+      "releaseType": "release"
     },
     "compression": "maximum",
     "removePackageScripts": true
