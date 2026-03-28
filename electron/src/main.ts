@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
@@ -408,11 +408,13 @@ app.whenReady().then(() => {
     // Wait a bit for backend to start before showing window
     setTimeout(() => {
       createWindow();
+      setupApplicationMenu();
       require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
     }, 2000);
   } else {
     // In dev mode, backend is started separately
     createWindow();
+    setupApplicationMenu();
     require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
   }
 
@@ -430,6 +432,28 @@ app.on('ready', () => {
     mainWindow.webContents.send('app:ready');
   }
 });
+
+function setupApplicationMenu() {
+  const template: any[] = [
+    ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Documentation',
+          click: async () => {
+            await shell.openExternal('https://github.com/Valuablehope/Chapter_One#readme');
+          }
+        }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
 // Handle power state changes (sleep/wake)
 const powerSaveBlocker = require('electron').powerSaveBlocker;

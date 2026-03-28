@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
@@ -18,6 +18,13 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading]       = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused]           = useState<string | null>(null);
+  const [appVersion, setAppVersion]     = useState('4.0.0');
+
+  useEffect(() => {
+    if (window.electronAPI?.getVersion) {
+      window.electronAPI.getVersion().then(setAppVersion).catch(console.error);
+    }
+  }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -189,7 +196,7 @@ export default function LoginScreen() {
             }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
               <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '12px', fontWeight: 500 }}>
-                Version 4.0 · Enterprise POS
+                Version {appVersion} · Enterprise POS
               </span>
             </div>
           </div>
@@ -396,7 +403,7 @@ export default function LoginScreen() {
             {/* Footer */}
             <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
               <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af', fontWeight: 400 }}>
-                Version 4.0.0 &nbsp;·&nbsp; Secure &amp; Professional
+                Version {appVersion} &nbsp;·&nbsp; Secure &amp; Professional
               </p>
               <img
                 src="cubiq-logo.jpg" alt="Cubiq"
