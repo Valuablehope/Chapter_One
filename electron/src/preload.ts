@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  installUpdate: () => ipcRenderer.invoke('app:installUpdate'),
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   log: (level: string, message: string) => ipcRenderer.send('app:log', { level, message }),
   openLogs: () => ipcRenderer.invoke('app:openLogs'),
@@ -22,6 +23,7 @@ declare global {
   interface Window {
     electronAPI: {
       getVersion: () => Promise<string>;
+      installUpdate: () => Promise<void>;
       getPlatform: () => Promise<string>;
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;

@@ -19,10 +19,27 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused]           = useState<string | null>(null);
   const [appVersion, setAppVersion]     = useState('4.0.0');
+  const [updateStatus, setUpdateStatus] = useState('checking');
+  const [updatePercent, setUpdatePercent] = useState(0);
 
   useEffect(() => {
     if (window.electronAPI?.getVersion) {
       window.electronAPI.getVersion().then(setAppVersion).catch(console.error);
+    }
+    
+    if (window.electronAPI?.ipcRenderer) {
+      const handleStatus = (data: any) => {
+        setUpdateStatus(data.status);
+        if (data.percent !== undefined) setUpdatePercent(Math.round(data.percent));
+        if (data.version && data.status === 'up-to-date') setAppVersion(data.version);
+      };
+      
+      window.electronAPI.ipcRenderer?.on('updater:status', handleStatus);
+      return () => {
+        window.electronAPI.ipcRenderer?.removeListener('updater:status', handleStatus);
+      };
+    } else {
+      setUpdateStatus('up-to-date');
     }
   }, []);
 
@@ -188,16 +205,40 @@ export default function LoginScreen() {
             <div style={{
               marginTop: '20px',
               display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '5px 12px',
-              background: 'rgba(255,255,255,0.10)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.18)',
+              padding: updateStatus === 'ready' ? '0' : '5px 12px',
+              background: updateStatus === 'ready' ? 'transparent' : 'rgba(255,255,255,0.10)',
+              backdropFilter: updateStatus === 'ready' ? 'none' : 'blur(8px)',
+              border: updateStatus === 'ready' ? 'none' : '1px solid rgba(255,255,255,0.18)',
               borderRadius: '20px',
             }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
-              <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '12px', fontWeight: 500 }}>
-                Version {appVersion} · Enterprise POS
-              </span>
+              {updateStatus === 'ready' ? (
+                <button
+                  onClick={() => window.electronAPI?.installUpdate?.()}
+                  style={{
+                    padding: '6px 16px', background: '#4ade80', color: '#064e3b',
+                    border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer', boxShadow: '0 2px 8px rgba(74,222,128,0.3)',
+                    transition: 'transform 0.1s'
+                  }}
+                  onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                  onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  ✨ Update to Latest Version
+                </button>
+              ) : (
+                <>
+                  <div style={{ 
+                    width: '6px', height: '6px', borderRadius: '50%', 
+                    background: updateStatus === 'checking' || updateStatus === 'downloading' ? '#fbbf24' : '#4ade80',
+                    animation: updateStatus === 'downloading' ? 'pulse 1.5s infinite' : 'none'
+                  }} />
+                  <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px', fontWeight: 500 }}>
+                    {updateStatus === 'checking' ? 'Checking for updates...' :
+                     updateStatus === 'downloading' ? `Downloading Update... ${updatePercent}%` :
+                     `Version ${appVersion} (Up to Date)`}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -402,9 +443,28 @@ export default function LoginScreen() {
 
             {/* Footer */}
             <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af', fontWeight: 400 }}>
-                Version {appVersion} &nbsp;·&nbsp; Secure &amp; Professional
-              </p>
+              <div style={{ margin: 0, fontSize: '12px', color: '#9ca3af', fontWeight: 400, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {updateStatus === 'ready' ? (
+                  <button
+                    onClick={() => window.electronAPI?.installUpdate?.()}
+                    style={{
+                      padding: '5px 14px', background: BLUE, color: 'white',
+                      border: 'none', borderRadius: '15px', fontSize: '12px', fontWeight: 600,
+                      cursor: 'pointer', transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#1e3a8a'}
+                    onMouseLeave={e => e.currentTarget.style.background = BLUE}
+                  >
+                    Update to Latest Version
+                  </button>
+                ) : (
+                  <span>
+                    {updateStatus === 'checking' ? 'Checking for updates...' :
+                     updateStatus === 'downloading' ? `Downloading Update... ${updatePercent}%` :
+                     <>Version {appVersion} &nbsp;<span style={{ fontSize: '10px', opacity: 0.7 }}>(Up to Date)</span></>}
+                  </span>
+                )}
+              </div>
               <img
                 src="cubiq-logo.jpg" alt="Cubiq"
                 style={{ height: '18px', objectFit: 'contain', opacity: 0.4 }}
@@ -419,6 +479,11 @@ export default function LoginScreen() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.4; }
+          100% { opacity: 1; }
         }
         input::placeholder { color: #b0b8c8; }
         input:disabled     { opacity: 0.6; cursor: not-allowed; }
