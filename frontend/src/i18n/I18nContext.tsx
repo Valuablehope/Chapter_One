@@ -9,7 +9,7 @@ type Translations = typeof en;
 interface I18nContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const translations: Record<Language, Translations> = { en, ar };
@@ -33,7 +33,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = language;
   }, [language]);
 
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
     let value: any = translations[language];
 
@@ -45,7 +45,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return typeof value === 'string' ? value : key;
+    if (typeof value === 'string') {
+      if (!params) return value;
+      return Object.entries(params).reduce(
+        (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
+        value
+      );
+    }
+    return key;
   };
 
   return (

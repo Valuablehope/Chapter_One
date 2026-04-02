@@ -124,14 +124,16 @@ export interface StoreModalProps {
 
 type Tab = 'identity' | 'regional' | 'pos' | 'inventory' | 'settings' | 'backup';
 
-const TABS: { id: Tab; label: string; icon: typeof BuildingStorefrontIcon }[] = [
-  { id: 'identity', label: 'Identity', icon: BuildingStorefrontIcon },
-  { id: 'regional', label: 'Regional', icon: ClockIcon },
-  { id: 'pos', label: 'POS & Receipts', icon: PrinterIcon },
-  { id: 'inventory', label: 'Inventory', icon: ArchiveBoxIcon },
-  { id: 'settings', label: 'Settings', icon: AdjustmentsHorizontalIcon },
-  { id: 'backup', label: 'Backup', icon: CogIcon },
-];
+function getTabs(t: any) {
+  return [
+    { id: 'identity' as Tab, label: t('admin.stores.identity'), icon: BuildingStorefrontIcon },
+    { id: 'regional' as Tab, label: t('admin.stores.regional'), icon: ClockIcon },
+    { id: 'pos' as Tab, label: t('admin.stores.pos_receipts'), icon: PrinterIcon },
+    { id: 'inventory' as Tab, label: t('admin.stores.inventory'), icon: ArchiveBoxIcon },
+    { id: 'settings' as Tab, label: t('admin.stores.settings'), icon: AdjustmentsHorizontalIcon },
+    { id: 'backup' as Tab, label: t('admin.stores.backup'), icon: CogIcon },
+  ];
+}
 
 // Shared input class
 const inputCls = (hasError?: boolean) =>
@@ -213,7 +215,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('identity');
-  const { language, setLanguage } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -311,7 +313,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingStore ? 'Edit Store' : 'Add Store'}
+      title={editingStore ? t('admin.stores.edit_store') : t('admin.stores.add_store')}
       size="xl"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -320,10 +322,10 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
           </p>
           <div className="flex gap-2">
             <Button type="button" onClick={onClose} variant="outline" disabled={submitting} size="sm">
-              Cancel
+              {t('admin.stores.cancel')}
             </Button>
             <Button type="submit" form="store-form" variant="primary" isLoading={submitting} size="sm">
-              {editingStore ? 'Save Changes' : 'Create Store'}
+              {editingStore ? t('admin.stores.save_changes') : t('admin.stores.create_store')}
             </Button>
           </div>
         </div>
@@ -336,7 +338,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
 
       {/* Tab bar */}
       <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-xl p-1 mb-5">
-        {TABS.map((tab) => {
+        {getTabs(t).map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
           return (
@@ -363,7 +365,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <FieldLabel required>Store Code</FieldLabel>
+                <FieldLabel required>{t('admin.stores.code')}</FieldLabel>
                 <div className="relative">
                   <input
                     type="text"
@@ -381,7 +383,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
               </div>
 
               <div>
-                <FieldLabel required>Store Name</FieldLabel>
+                <FieldLabel required>{t('admin.stores.name')}</FieldLabel>
                 <input
                   type="text"
                   value={formData.name}
@@ -397,7 +399,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
             </div>
 
             <div>
-              <FieldLabel>Address</FieldLabel>
+              <FieldLabel>{t('admin.stores.address')}</FieldLabel>
               <div className="relative">
                 <MapPinIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -410,13 +412,13 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
               </div>
             </div>
 
-            <SectionDivider>Status</SectionDivider>
+            <SectionDivider>{t('admin.stores.status')}</SectionDivider>
 
             <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
               <Toggle
                 checked={formData.is_active}
                 onChange={(v) => set('is_active', v)}
-                label="Store Active"
+                label={t('admin.stores.store_active')}
                 description="Inactive stores are hidden from the POS and reports"
               />
             </div>
