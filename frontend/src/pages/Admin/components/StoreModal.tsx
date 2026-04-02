@@ -19,6 +19,7 @@ import {
   AdjustmentsHorizontalIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useTranslation, Language } from '../../../i18n/I18nContext';
 
 export interface StoreFormData {
   code: string;
@@ -212,6 +213,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('identity');
+  const { language, setLanguage } = useTranslation();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -612,6 +614,25 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
         {/* ── SETTINGS (POS module / restaurant) ── */}
         {activeTab === 'settings' && (
           <div className="space-y-4">
+            <SectionDivider>Platform Language</SectionDivider>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel>Interface Language</FieldLabel>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as Language)}
+                  className={selectCls}
+                >
+                  <option value="en">English</option>
+                  <option value="ar">Arabic (العربية)</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  Changes the current language and orientation of the interface.
+                </p>
+              </div>
+            </div>
+
+            <SectionDivider>POS System</SectionDivider>
             <div>
               <FieldLabel>POS module type</FieldLabel>
               <select

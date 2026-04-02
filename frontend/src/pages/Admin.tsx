@@ -47,6 +47,7 @@ import { StoreModal } from './Admin/components/StoreModal';
 import TerminalModal from './Admin/components/TerminalModal';
 import UserModal from './Admin/components/UserModal';
 import MenusTab from './Admin/components/MenusTab';
+import { useTranslation } from '../i18n/I18nContext';
 
 type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus';
 
@@ -58,6 +59,7 @@ export default function Admin() {
     const tab = searchParams.get('tab');
     return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus') ? tab as AdminTab : 'users';
   });
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [showActivationModal, setShowActivationModal] = useState(false);
 
@@ -418,11 +420,11 @@ export default function Admin() {
         <div className="border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
           <nav className="flex -mb-px px-3 overflow-x-auto scrollbar-hide">
             {([
-              { key: 'users', label: 'Users', icon: UserGroupIcon },
-              { key: 'stores', label: 'Stores', icon: BuildingStorefrontIcon },
-              { key: 'terminals', label: 'Terminals', icon: ComputerDesktopIcon },
-              { key: 'license', label: 'License', icon: KeyIcon },
-              ...(showMenusTab ? [{ key: 'menus', label: 'Menus', icon: ClipboardDocumentListIcon }] : []),
+              { key: 'users', label: t('admin.tabs.users'), icon: UserGroupIcon },
+              { key: 'stores', label: t('admin.tabs.stores'), icon: BuildingStorefrontIcon },
+              { key: 'terminals', label: t('admin.tabs.terminals'), icon: ComputerDesktopIcon },
+              { key: 'license', label: t('admin.tabs.license'), icon: KeyIcon },
+              ...(showMenusTab ? [{ key: 'menus', label: t('admin.tabs.menus'), icon: ClipboardDocumentListIcon }] : []),
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
