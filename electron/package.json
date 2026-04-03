@@ -1,6 +1,6 @@
 {
   "name": "chapter-one-electron",
-  "version": "4.0.0",
+  "version": "4.0.8",
   "description": "Electron main process for Chapter One POS",
   "main": "dist/main.js",
   "scripts": {

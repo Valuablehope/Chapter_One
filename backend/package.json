@@ -1,6 +1,6 @@
 {
   "name": "chapter-one-backend",
-  "version": "4.0.0",
+  "version": "4.0.8",
   "description": "Backend API server for Chapter One POS",
   "main": "dist/server.js",
   "scripts": {
