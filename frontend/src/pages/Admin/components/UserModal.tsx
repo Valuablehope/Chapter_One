@@ -3,6 +3,7 @@ import Button from '../../../components/ui/Button';
 import { AppUser } from '../../../services/adminService';
 import { UserIcon, IdentificationIcon, KeyIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { INPUT_LIMITS } from '../../../config/constants';
+import { useTranslation } from '../../../i18n/I18nContext';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -79,12 +80,6 @@ function Toggle({
   );
 }
 
-const ROLE_OPTIONS = [
-  { value: 'cashier',  label: 'Cashier',  description: 'POS access only' },
-  { value: 'manager',  label: 'Manager',  description: 'Reports & inventory' },
-  { value: 'admin',    label: 'Admin',    description: 'Full access' },
-] as const;
-
 export default function UserModal({
   isOpen,
   onClose,
@@ -95,24 +90,32 @@ export default function UserModal({
   setFormData,
   onSubmit,
 }: UserModalProps) {
+  const { t } = useTranslation();
+
+  const ROLE_OPTIONS = [
+    { value: 'cashier',  label: t('admin.users.cashier'),  description: t('admin.users.role_cashier_desc') },
+    { value: 'manager',  label: t('admin.users.manager'),  description: t('admin.users.role_manager_desc') },
+    { value: 'admin',    label: t('admin.users.admin'),    description: t('admin.users.role_admin_desc') },
+  ] as const;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingUser ? 'Edit User' : 'Add User'}
+      title={editingUser ? t('admin.users.edit_user') : t('admin.users.create_user')}
       showCloseButton={false}
       size="md"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-gray-400">
-            {editingUser ? `ID: ${editingUser.user_id}` : 'Fields marked * are required'}
+            {editingUser ? `ID: ${editingUser.user_id}` : t('admin.users.fields_required')}
           </p>
           <div className="flex gap-2">
             <Button type="button" onClick={onClose} variant="outline" disabled={submitting} size="sm">
-              Cancel
+              {t('admin.users.cancel')}
             </Button>
             <Button type="submit" form="user-form" variant="primary" isLoading={submitting} size="sm">
-              {editingUser ? 'Save Changes' : 'Create User'}
+              {editingUser ? t('admin.users.save_changes') : t('admin.users.create_user')}
             </Button>
           </div>
         </div>
@@ -127,7 +130,7 @@ export default function UserModal({
 
         {/* Username */}
         <div>
-          <FieldLabel required={!editingUser}>Username</FieldLabel>
+          <FieldLabel required={!editingUser}>{t('admin.users.username')}</FieldLabel>
           <div className="relative">
             <UserIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -147,7 +150,7 @@ export default function UserModal({
             />
           </div>
           {editingUser && (
-            <p className="mt-1 text-xs text-gray-400">Username cannot be changed after creation</p>
+            <p className="mt-1 text-xs text-gray-400">{t('admin.users.username_cannot_change')}</p>
           )}
           {formErrors.username && (
             <p className="mt-1 text-xs text-red-500">{formErrors.username}</p>
@@ -156,7 +159,7 @@ export default function UserModal({
 
         {/* Full Name */}
         <div>
-          <FieldLabel required>Full Name</FieldLabel>
+          <FieldLabel required>{t('admin.users.full_name')}</FieldLabel>
           <div className="relative">
             <IdentificationIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -180,7 +183,7 @@ export default function UserModal({
 
         {/* Password */}
         <div>
-          <FieldLabel required={!editingUser}>Password</FieldLabel>
+          <FieldLabel required={!editingUser}>{t('admin.users.password')}</FieldLabel>
           <div className="relative">
             <KeyIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -191,7 +194,7 @@ export default function UserModal({
                 if (value.length <= INPUT_LIMITS.PASSWORD_MAX_LENGTH)
                   setFormData({ ...formData, password: value });
               }}
-              placeholder={editingUser ? 'Leave blank to keep current password' : 'Min 6 characters'}
+              placeholder={editingUser ? t('admin.users.leave_blank_password') : t('admin.users.min_6_chars')}
               required={!editingUser}
               minLength={editingUser ? undefined : INPUT_LIMITS.PASSWORD_MIN_LENGTH}
               maxLength={INPUT_LIMITS.PASSWORD_MAX_LENGTH}
@@ -205,7 +208,7 @@ export default function UserModal({
 
         {/* Role */}
         <div>
-          <FieldLabel>Role</FieldLabel>
+          <FieldLabel>{t('admin.users.role')}</FieldLabel>
           <div className="grid grid-cols-3 gap-2">
             {ROLE_OPTIONS.map((opt) => {
               const active = formData.role === opt.value;
@@ -234,8 +237,8 @@ export default function UserModal({
           <Toggle
             checked={formData.is_active}
             onChange={(v) => setFormData({ ...formData, is_active: v })}
-            label="Account Active"
-            description="Inactive users cannot sign in to the POS"
+            label={t('admin.users.account_active')}
+            description={t('admin.users.inactive_user_desc')}
           />
         </div>
 

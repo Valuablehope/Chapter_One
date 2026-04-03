@@ -29,6 +29,8 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
+export const STANDARD_UNITS = ['each', 'pair', 'dozen', 'pack', 'box', 'carton', 'kg', 'g', 'lb', 'oz', 'L', 'mL', 'm', 'cm'];
+
 export interface ColumnConfig {
   id: string;
   label: string;
@@ -66,6 +68,7 @@ export default function Products() {
     totalPages: 0,
   });
   const [showModal, setShowModal] = useState(false);
+  const [showCustomUnit, setShowCustomUnit] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -75,6 +78,7 @@ export default function Products() {
     unit_of_measure: 'each',
     list_price: '',
     sale_price: '',
+    margin_pct: '',
     tax_rate: '',
     track_inventory: true,
   });
@@ -289,6 +293,7 @@ export default function Products() {
 
   const openAddModal = useCallback(() => {
     setEditingProduct(null);
+    setShowCustomUnit(false);
     setFormData({
       name: '',
       sku: '',
@@ -297,9 +302,9 @@ export default function Products() {
       unit_of_measure: 'each',
       list_price: '',
       sale_price: '',
+      margin_pct: '',
       tax_rate: '',
       track_inventory: true,
-
     });
     setFormErrors({});
     setShowModal(true);
@@ -307,14 +312,23 @@ export default function Products() {
 
   const openEditModal = useCallback((product: Product) => {
     setEditingProduct(product);
+    const _uom = product.unit_of_measure || 'each';
+    setShowCustomUnit(!STANDARD_UNITS.includes(_uom));
+    const _list = product.list_price?.toString() || '';
+    const _sale = product.sale_price?.toString() || '';
+    let _margin = '';
+    if (_list && _sale && parseFloat(_list) > 0) {
+      _margin = (((parseFloat(_sale) - parseFloat(_list)) / parseFloat(_list)) * 100).toFixed(2);
+    }
     setFormData({
       name: product.name,
       sku: product.sku || '',
       barcode: product.barcode || '',
       product_type: product.product_type,
-      unit_of_measure: product.unit_of_measure || 'each',
-      list_price: product.list_price?.toString() || '',
-      sale_price: product.sale_price?.toString() || '',
+      unit_of_measure: _uom,
+      list_price: _list,
+      sale_price: _sale,
+      margin_pct: _margin,
       tax_rate: product.tax_rate?.toString() || '',
       track_inventory: product.track_inventory,
     });
@@ -324,6 +338,7 @@ export default function Products() {
 
   const closeModal = useCallback(() => {
     setShowModal(false);
+    setShowCustomUnit(false);
     setEditingProduct(null);
     setFormData({
       name: '',
@@ -333,9 +348,9 @@ export default function Products() {
       unit_of_measure: 'each',
       list_price: '',
       sale_price: '',
+      margin_pct: '',
       tax_rate: '',
       track_inventory: true,
-
     });
     setFormErrors({});
   }, []);
@@ -377,6 +392,42 @@ export default function Products() {
     return Object.keys(errors).length === 0;
   }, [formData]);
 
+  const handlePriceChange = useCallback((field: 'list_price' | 'sale_price' | 'margin_pct', value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      
+      const listPrice = parseFloat(next.list_price);
+      if (isNaN(listPrice) || listPrice <= 0) {
+        return next;
+      }
+
+      if (field === 'margin_pct') {
+        const margin = parseFloat(value);
+        if (!isNaN(margin)) {
+          // Sale Price = List Price + (List Price * Margin %)
+          next.sale_price = (listPrice * (1 + margin / 100)).toFixed(2);
+        } else if (value === '') {
+          next.sale_price = '';
+        }
+      } else if (field === 'sale_price') {
+        const salePrice = parseFloat(value);
+        if (!isNaN(salePrice)) {
+          next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+        } else if (value === '') {
+          next.margin_pct = '';
+        }
+      } else if (field === 'list_price') {
+        // If List Price changes, keep Sale Price static if it exists and adjust Margin
+        const salePrice = parseFloat(next.sale_price);
+        if (!isNaN(salePrice)) {
+          next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+        }
+      }
+
+      return next;
+    });
+  }, []);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -395,6 +446,7 @@ export default function Products() {
         unit_of_measure: formData.unit_of_measure || 'each',
         list_price: formData.list_price ? parseFloat(formData.list_price) : undefined,
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+        margin_pct: formData.margin_pct ? parseFloat(formData.margin_pct) : undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
         track_inventory: formData.track_inventory,
       };
@@ -866,8 +918,16 @@ export default function Products() {
                 Unit of Measure
               </label>
               <select
-                value={formData.unit_of_measure}
-                onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
+                value={showCustomUnit ? 'custom_number' : formData.unit_of_measure}
+                onChange={(e) => {
+                  if (e.target.value === 'custom_number') {
+                    setShowCustomUnit(true);
+                    setFormData({ ...formData, unit_of_measure: '' });
+                  } else {
+                    setShowCustomUnit(false);
+                    setFormData({ ...formData, unit_of_measure: e.target.value });
+                  }
+                }}
                 className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
               >
                 <optgroup label="Count">
@@ -892,19 +952,32 @@ export default function Products() {
                   <option value="m">m</option>
                   <option value="cm">cm</option>
                 </optgroup>
+                <optgroup label="Other">
+                  <option value="custom_number">Number (Custom)</option>
+                </optgroup>
               </select>
+              {showCustomUnit && (
+                <input
+                  type="text"
+                  placeholder="Enter custom number or unit..."
+                  value={formData.unit_of_measure}
+                  onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
+                  className="mt-2 w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-gray-50"
+                  autoFocus
+                />
+              )}
               <p className="text-[10px] text-gray-500 mt-1">How this product is measured when buying/selling</p>
             </div>
 
             <div>
               <Input
-                label="List Price"
+                label="List Price ($)"
                 type="number"
                 step="0.01"
                 min={INPUT_LIMITS.PRICE_MIN}
                 max={INPUT_LIMITS.PRICE_MAX}
                 value={formData.list_price}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, list_price: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('list_price', e.target.value)}
                 error={formErrors.list_price}
                 leftIcon={<span className="text-gray-500 font-semibold">$</span>}
               />
@@ -912,13 +985,25 @@ export default function Products() {
 
             <div>
               <Input
-                label="Sale Price"
+                label="Margin (%)"
+                type="number"
+                step="0.01"
+                value={formData.margin_pct}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('margin_pct', e.target.value)}
+                rightIcon={<span className="text-gray-500 font-semibold">%</span>}
+                helperText="Profit margin"
+              />
+            </div>
+
+            <div>
+              <Input
+                label="Sale Price ($)"
                 type="number"
                 step="0.01"
                 min={INPUT_LIMITS.PRICE_MIN}
                 max={INPUT_LIMITS.PRICE_MAX}
                 value={formData.sale_price}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, sale_price: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('sale_price', e.target.value)}
                 error={formErrors.sale_price}
                 leftIcon={<span className="text-gray-500 font-semibold">$</span>}
               />

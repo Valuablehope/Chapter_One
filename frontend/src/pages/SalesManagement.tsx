@@ -25,12 +25,16 @@ import {
   PlusIcon,
   MinusIcon,
   PrinterIcon,
+  XCircleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { productService, Product } from '../services/productService';
 import { storeService, StoreSettings } from '../services/storeService';
+import { useAuthStore } from '../store/authStore';
 
 export default function SalesManagement() {
+  const { user } = useAuthStore();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<SaleFilters>({
@@ -61,6 +65,10 @@ export default function SalesManagement() {
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEditPrintPreview, setShowEditPrintPreview] = useState(false);
+  const [saleToCancel, setSaleToCancel] = useState<Sale | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const salesAbortController = useRef<AbortController | null>(null);
@@ -239,12 +247,14 @@ export default function SalesManagement() {
     switch (status) {
       case 'paid':
         return <Badge variant="success" size="sm">Paid</Badge>;
+      case 'cancelled':
+        return <Badge variant="error" size="sm">Cancelled</Badge>;
       case 'void':
         return <Badge variant="error" size="sm">Void</Badge>;
       case 'open':
         return <Badge variant="warning" size="sm">Open</Badge>;
       default:
-        return <Badge variant="primary" size="sm">{status}</Badge>;
+        return <Badge variant="primary" size="sm">{status === 'cancelled' ? 'Cancelled' : status}</Badge>;
     }
   };
 
@@ -453,6 +463,39 @@ export default function SalesManagement() {
     }
   };
 
+  const handleCancelSale = async () => {
+    if (!saleToCancel) return;
+    
+    try {
+      setCancelling(true);
+      await saleService.cancelSale(saleToCancel.sale_id);
+      toast.success('Sale invoice cancelled successfully');
+      setSaleToCancel(null);
+      loadSales();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to cancel sale');
+      logger.error('Error cancelling sale:', err);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleDeleteSale = async () => {
+    if (!saleToDelete) return;
+    try {
+      setDeleting(true);
+      await saleService.deleteSale(saleToDelete.sale_id);
+      toast.success('Sale invoice permanently deleted');
+      setSaleToDelete(null);
+      loadSales();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to delete sale');
+      logger.error('Error deleting sale:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <PageBanner
@@ -654,6 +697,28 @@ export default function SalesManagement() {
                           >
                             Edit
                           </Button>
+                          {user?.role === 'admin' && sale.status !== 'cancelled' && sale.status !== 'void' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => setSaleToCancel(sale)}
+                              leftIcon={<XCircleIcon className="w-4 h-4" />}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                          {user?.role === 'admin' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => setSaleToDelete(sale)}
+                              leftIcon={<TrashIcon className="w-4 h-4" />}
+                            >
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1239,7 +1304,78 @@ export default function SalesManagement() {
           )}
         </Modal>
       )}
+      {/* Cancel Confirmation Modal */}
+      {saleToCancel && (
+        <Modal
+          isOpen={!!saleToCancel}
+          onClose={() => setSaleToCancel(null)}
+          title="Cancel Invoice"
+          size="sm"
+          footer={
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setSaleToCancel(null)}
+                disabled={cancelling}
+              >
+                No, Keep
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
+                onClick={handleCancelSale}
+                isLoading={cancelling}
+              >
+                Yes, Cancel Invoice
+              </Button>
+            </div>
+          }
+        >
+          <div className="p-4 text-center">
+            <XCircleIcon className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Invoice #{saleToCancel.receipt_no}?</h3>
+            <p className="text-sm text-gray-600">
+              Are you sure you want to cancel this invoice? This will reverse the stock movements and remove it from active financial reports. This action cannot be reversed.
+            </p>
+          </div>
+        </Modal>
+      )}
+      {/* Delete Confirmation Modal */}
+      {saleToDelete && (
+        <Modal
+          isOpen={!!saleToDelete}
+          onClose={() => setSaleToDelete(null)}
+          title="Delete Invoice"
+          size="sm"
+          footer={
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setSaleToDelete(null)}
+                disabled={deleting}
+              >
+                No, Keep
+              </Button>
+              <Button
+                className="flex-1 bg-red-700 hover:bg-red-800 text-white font-semibold"
+                onClick={handleDeleteSale}
+                isLoading={deleting}
+              >
+                Yes, Delete Permanently
+              </Button>
+            </div>
+          }
+        >
+          <div className="p-4 text-center">
+            <TrashIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Permanently Delete Invoice #{saleToDelete.receipt_no}?</h3>
+            <p className="text-sm text-gray-600">
+              This will <strong>permanently remove</strong> this invoice and all its records from the database. Unlike cancellation, this action <strong>cannot be undone</strong> and will not reverse inventory.
+            </p>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
-

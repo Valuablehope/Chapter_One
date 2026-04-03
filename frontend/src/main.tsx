@@ -43,10 +43,14 @@ if (window.electronAPI) {
   window.electronAPI.log('info', 'Frontend initialized');
 }
 
+import { I18nProvider } from './i18n/I18nContext';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <I18nProvider>
+        <App />
+      </I18nProvider>
       <Toaster
         position="top-right"
         toastOptions={{

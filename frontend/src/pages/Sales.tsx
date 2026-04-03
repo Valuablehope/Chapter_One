@@ -9,6 +9,7 @@ import { storeService, StoreSettings } from '../services/storeService';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
 import { gradients } from '../styles/tokens';
+import { useTranslation } from '../i18n/I18nContext';
 
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -48,6 +49,7 @@ import {
 } from '../utils/saleTotals';
 
 export default function Sales() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
@@ -858,7 +860,7 @@ export default function Sales() {
                       <div className="p-1.5 bg-secondary-500 rounded-lg">
                          <BookOpenIcon className="w-4 h-4 text-white" />
                       </div>
-                      <h2 className="text-sm font-semibold text-gray-900">Quick Add Categories</h2>
+                      <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.quick_add')}</h2>
                     </div>
                     {/* Categories Grid */}
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 border-b border-gray-100 pb-4 gap-2">
@@ -883,7 +885,7 @@ export default function Sales() {
                       >
                         <ArrowLeftIcon className="w-4 h-4 text-gray-600" />
                       </button>
-                      <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} Items</h2>
+                      <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} {t('pos_sales.items')}</h2>
                     </div>
                     {/* Products Grid */}
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 gap-2 cursor-pointer">
@@ -920,20 +922,20 @@ export default function Sales() {
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
                   <MagnifyingGlassIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-sm font-semibold text-gray-900">Find Products</h2>
+                <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.find_products')}</h2>
               </div>
 
               {/* Barcode Scanner */}
               <div className="mb-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <QrCodeIcon className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Barcode Scan</span>
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.barcode_scan')}</span>
                 </div>
                 <div className="relative">
                   <input
                     ref={barcodeInputRef}
                     type="text"
-                    placeholder="Scan barcode and press Enter…"
+                    placeholder={t('pos_sales.scan_placeholder')}
                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -952,7 +954,7 @@ export default function Sales() {
               {/* OR divider */}
               <div className="flex items-center gap-3 my-3">
                 <div className="flex-1 h-px bg-gray-100" />
-                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-widest">or</span>
+                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-widest">{t('pos_sales.or')}</span>
                 <div className="flex-1 h-px bg-gray-100" />
               </div>
 
@@ -960,7 +962,7 @@ export default function Sales() {
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Search by name or SKU</span>
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.search_by')}</span>
                 </div>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
@@ -971,7 +973,7 @@ export default function Sales() {
                     type="text"
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
-                    placeholder="e.g. The Alchemist, 978-0…"
+                    placeholder={t('pos_sales.search_placeholder')}
                     className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
                 </div>
@@ -1010,7 +1012,7 @@ export default function Sales() {
                             ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
                           </p>
                           {product.track_inventory && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">In stock</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{t('pos_sales.in_stock')}</p>
                           )}
                         </div>
                         <ArrowRightIcon className="w-3 h-3 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
@@ -1023,7 +1025,7 @@ export default function Sales() {
               {searching && (
                 <div className="mt-3 text-center py-3">
                   <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-secondary-200 border-t-secondary-500"></div>
-                  <p className="mt-1.5 text-xs text-gray-500 font-medium">Searching...</p>
+                  <p className="mt-1.5 text-xs text-gray-500 font-medium">{t('pos_sales.searching')}</p>
                 </div>
               )}
             </div>
@@ -1039,10 +1041,10 @@ export default function Sales() {
                     <ShoppingCartIcon className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-gray-900">Cart</h2>
+                    <h2 className="text-base font-bold text-gray-900">{t('pos_sales.cart')}</h2>
                     {cart.length > 0 && (
                       <p className="text-xs text-gray-500">
-                        {cart.length} {cart.length === 1 ? 'item' : 'items'} · {cart.reduce((sum, item) => sum + item.qty, 0).toFixed(3).replace(/\.?0+$/, '')} {cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? 'unit' : 'units'}
+                        {cart.length} {cart.length === 1 ? t('pos_sales.item_v') : t('pos_sales.items_v')} · {cart.reduce((sum, item) => sum + item.qty, 0).toFixed(3).replace(/\.?0+$/, '')} {cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? t('pos_sales.unit') : t('pos_sales.units')}
                       </p>
                     )}
                   </div>
@@ -1054,8 +1056,8 @@ export default function Sales() {
               <div className="p-8">
                 <EmptyState
                   icon={<BookOpenIcon className="w-12 h-12" />}
-                  title="No books yet"
-                  description="Scan a barcode or search by title to add books"
+                  title={t('pos_sales.no_items')}
+                  description={t('pos_sales.scan_to_add')}
                 />
               </div>
             ) : (
@@ -1088,17 +1090,17 @@ export default function Sales() {
                             <span className="text-xs font-medium text-gray-600">
                               ${Number(item.unit_price).toFixed(2)}{' '}
                               <span className="font-semibold text-blue-500">
-                                {item.product.unit_of_measure || 'each'}
+                                {item.product.unit_of_measure || t('pos_sales.each')}
                               </span>
                             </span>
                             {item.product.track_inventory && availableStock !== null && (
                               <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                Stock: {availableStock}
+                                {t('pos_sales.stock')}: {availableStock}
                               </span>
                             )}
                             {Number(item.tax_rate) > 0 && (
                               <Badge variant="info" size="sm">
-                                Tax: {Number(item.tax_rate)}%
+                                {t('pos_sales.tax')}: {Number(item.tax_rate)}%
                               </Badge>
                             )}
                           </div>
@@ -1173,19 +1175,19 @@ export default function Sales() {
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
                   <UserIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-sm font-bold text-gray-900">Customer</h2>
+                <h2 className="text-sm font-bold text-gray-900">{t('pos_sales.customer')}</h2>
               </div>
               {selectedCustomer ? (
                 <div className="p-3 bg-secondary-50 rounded-xl border border-secondary-200">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-full bg-secondary-500 flex items-center justify-center flex-shrink-0">
                       <span className="text-xs font-bold text-white">
-                        {(selectedCustomer.full_name || 'U').charAt(0).toUpperCase()}
+                        {(selectedCustomer.full_name || t('pos_sales.customer_placeholder')).charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-xs text-gray-900 truncate">
-                        {selectedCustomer.full_name || 'Unnamed Customer'}
+                        {selectedCustomer.full_name || t('pos_sales.customer_placeholder')}
                       </p>
                       {selectedCustomer.phone && (
                         <p className="text-xs text-gray-500 mt-0.5">{selectedCustomer.phone}</p>
@@ -1209,7 +1211,7 @@ export default function Sales() {
                   className="w-full border-2 hover:bg-sky-50 hover:border-sky-300 transition-all"
                   leftIcon={<PlusIcon className="w-4 h-4" />}
                 >
-                  Add Customer
+                  {t('pos_sales.add_customer')}
                 </Button>
               )}
             </div>
@@ -1222,18 +1224,18 @@ export default function Sales() {
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
                   <CurrencyDollarIcon className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-base font-bold text-gray-900">Totals</h2>
+                <h2 className="text-base font-bold text-gray-900">{t('pos_sales.totals')}</h2>
               </div>
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
                   <span className="font-medium text-xs text-gray-700">
-                    {storeSettings?.tax_inclusive ? 'Subtotal (tax included in prices):' : 'Subtotal:'}
+                    {storeSettings?.tax_inclusive ? t('pos_sales.subtotal_tax_inc') : t('pos_sales.subtotal')}
                   </span>
                   <span className="font-bold text-xs text-gray-900">${merchandiseGross.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
                   <span className="font-medium text-xs text-gray-700">
-                    {storeSettings?.tax_inclusive ? 'Tax (included in prices):' : 'Tax:'}
+                    {storeSettings?.tax_inclusive ? t('pos_sales.tax_inc_prices') : t('pos_sales.tax_exc')}
                   </span>
                   <span className="font-bold text-xs text-gray-900">
                     ${(storeSettings?.tax_inclusive ? taxExtracted : 0).toFixed(2)}
@@ -1241,14 +1243,14 @@ export default function Sales() {
                 </div>
                 {storeSettings?.tax_inclusive && taxExtracted > 0 && (
                   <p className="text-[10px] text-gray-500 px-2">
-                    Net merchandise ${subtotalNet.toFixed(2)} + tax ${taxExtracted.toFixed(2)} = ${merchandiseGross.toFixed(2)}
+                    {t('pos_sales.net_merch', { net: subtotalNet.toFixed(2), tax: taxExtracted.toFixed(2), gross: merchandiseGross.toFixed(2) }).replace('{{net}}', subtotalNet.toFixed(2)).replace('{{tax}}', taxExtracted.toFixed(2)).replace('{{gross}}', merchandiseGross.toFixed(2))}
                   </p>
                 )}
 
                 {/* Discount Percentage Input */}
                 <div className="p-2 bg-white/60 rounded-lg">
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-medium text-xs text-gray-700">Discount %:</label>
+                    <label className="font-medium text-xs text-gray-700">{t('pos_sales.discount_pct')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1266,7 +1268,7 @@ export default function Sales() {
                     />
                   </div>
                   <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                    <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>Discount Amount:</span>
+                    <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>{t('pos_sales.discount_amount')}</span>
                     <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
                       {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
                     </span>
@@ -1275,7 +1277,7 @@ export default function Sales() {
 
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
                   <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
-                    <span className="text-sm font-semibold opacity-90">Total Due</span>
+                    <span className="text-sm font-semibold opacity-90">{t('pos_sales.total_due')}</span>
                     <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
@@ -1289,7 +1291,7 @@ export default function Sales() {
                 leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
                 isLoading={processing}
               >
-                Process Payment
+                {t('pos_sales.process_payment')}
               </Button>
             </div>
           </Card>
@@ -1305,7 +1307,7 @@ export default function Sales() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <ScaleIcon className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-gray-900">Add Item</span>
+            <span className="font-bold text-gray-900">{t('pos_sales.add_item')}</span>
           </div>
         }
         size="sm"
@@ -1316,7 +1318,7 @@ export default function Sales() {
               variant="outline"
               className="flex-1"
             >
-              Cancel
+              {t('pos_sales.cancel')}
             </Button>
             <Button
               onClick={handleQuickConfirm}
@@ -1324,7 +1326,7 @@ export default function Sales() {
               className="flex-1"
               leftIcon={<PlusIcon className="w-5 h-5" />}
             >
-              Add to Cart
+              {t('pos_sales.add_to_cart')}
             </Button>
           </div>
         }
@@ -1341,7 +1343,7 @@ export default function Sales() {
             <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setQuickAddFocus('qty')}>
                 <Input
-                  label={`Quantity (${quickAddProduct.unit_of_measure?.toLowerCase() || 'units'})`}
+                  label={`${t('pos_sales.quantity')} (${quickAddProduct.unit_of_measure?.toLowerCase() || t('pos_sales.units')})`}
                   type="text"
                   inputMode="decimal"
                   value={quickAddQty}
@@ -1353,7 +1355,7 @@ export default function Sales() {
               </div>
               <div onClick={() => setQuickAddFocus('total')}>
                 <Input
-                  label="Total Price ($)"
+                  label={t('pos_sales.total_price')}
                   type="text"
                   inputMode="decimal"
                   value={quickAddTotal}
@@ -1365,9 +1367,9 @@ export default function Sales() {
             </div>
 
             <div className="pt-2 border-t border-gray-100 flex justify-between items-center text-sm font-bold text-gray-900">
-              <span>Selected Amount:</span>
+              <span>{t('pos_sales.selected_amount')}</span>
               <span className="text-secondary-600">
-                {parseFloat(quickAddQty || '0').toFixed(3).replace(/\.?0+$/, '') || '0'} {quickAddProduct.unit_of_measure?.toLowerCase() || 'units'}
+                {parseFloat(quickAddQty || '0').toFixed(3).replace(/\.?0+$/, '') || '0'} {quickAddProduct.unit_of_measure?.toLowerCase() || t('pos_sales.units')}
               </span>
             </div>
 
@@ -1399,7 +1401,7 @@ export default function Sales() {
       <Modal
         isOpen={showCustomerModal}
         onClose={closeCustomerModal}
-        title="Select Customer"
+        title={t('pos_sales.select_customer')}
         size="md"
       >
         <div>
@@ -1411,7 +1413,7 @@ export default function Sales() {
                 setCustomerSearch(e.target.value);
                 handleCustomerSearch(e.target.value);
               }}
-              placeholder="Search customers..."
+              placeholder={t('pos_sales.search_customers')}
               leftIcon={<MagnifyingGlassIcon className="w-5 h-5" />}
               autoFocus
               className="w-full"
@@ -1432,7 +1434,7 @@ export default function Sales() {
                       </div>
                       <div className="flex-1">
                         <p className="font-bold text-xs text-gray-900 group-hover:text-secondary-500">
-                          {customer.full_name || 'Unnamed Customer'}
+                          {customer.full_name || t('pos_sales.customer_placeholder')}
                         </p>
                         {customer.phone && (
                           <p className="text-xs text-gray-600 mt-0.5">{customer.phone}</p>
@@ -1445,13 +1447,13 @@ export default function Sales() {
               </div>
             ) : customerSearch ? (
               <EmptyState
-                title="No customers found"
-                description="Try a different search term"
+                title={t('pos_sales.no_customers_found')}
+                description={t('pos_sales.try_different_search')}
               />
             ) : (
               <EmptyState
-                title="Search for customers"
-                description="Start typing to search"
+                title={t('pos_sales.search_for_customers')}
+                description={t('pos_sales.start_typing')}
               />
             )}
           </div>
@@ -1462,7 +1464,7 @@ export default function Sales() {
       <Modal
         isOpen={showPaymentModal}
         onClose={closePaymentModal}
-        title="Process Payment"
+        title={t('pos_sales.process_payment_title')}
         size="md"
         footer={
           <div className="flex justify-end gap-3">
@@ -1494,7 +1496,7 @@ export default function Sales() {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-2">
-              Payment Method
+              {t('pos_sales.payment_method')}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).map((method) => {
@@ -1516,7 +1518,7 @@ export default function Sales() {
                         {method === 'other' && <CurrencyDollarIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                       </div>
                       <span className={`font-semibold text-xs capitalize ${active ? 'text-secondary-600' : 'text-gray-600'}`}>
-                        {method}
+                        {t(`pos_sales.${method}`)}
                       </span>
                     </div>
                   </button>
@@ -1531,19 +1533,19 @@ export default function Sales() {
               min={grandTotal}
               value={paymentAmount}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentAmount(e.target.value)}
-              label="Payment Amount"
+              label={t('pos_sales.payment_amount')}
               leftIcon={<CurrencyDollarIcon className="w-5 h-5" />}
-              helperText={`Total due: $${grandTotal.toFixed(2)}`}
+              helperText={t('pos_sales.total_due') + `: $${grandTotal.toFixed(2)}`}
             />
           </div>
           <div className="p-4 rounded-xl text-white" style={{ background: gradients.brandBlue }}>
             <div className="flex justify-between items-center">
-              <span className="font-medium text-sm opacity-80">Grand Total</span>
+              <span className="font-medium text-sm opacity-80">{t('pos_sales.grand_total')}</span>
               <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
             </div>
             {parseFloat(paymentAmount) > grandTotal && (
               <div className="mt-2.5 pt-2.5 border-t border-white/20 flex justify-between items-center">
-                <span className="text-xs font-medium opacity-70">Change Due</span>
+                <span className="text-xs font-medium opacity-70">{t('pos_sales.change_due')}</span>
                 <span className="text-base font-bold tabular-nums opacity-90">
                   ${(parseFloat(paymentAmount) - grandTotal).toFixed(2)}
                 </span>
@@ -1555,7 +1557,7 @@ export default function Sales() {
           {processing && (
             <div className="mt-4 p-4 bg-secondary-50 rounded-xl border border-secondary-200">
               <div className="flex items-center justify-between mb-2.5">
-                <span className="text-sm font-semibold text-secondary-800">{processingStage || 'Processing…'}</span>
+                <span className="text-sm font-semibold text-secondary-800">{processingStage || t('pos_sales.processing')}</span>
                 <span className="text-sm font-bold text-secondary-600 tabular-nums">{processingProgress}%</span>
               </div>
               <div className="w-full bg-secondary-100 rounded-full h-2">
@@ -1564,7 +1566,7 @@ export default function Sales() {
                   style={{ width: `${processingProgress}%` }}
                 />
               </div>
-              <p className="text-xs text-secondary-600 mt-2">Please wait while we process your sale…</p>
+              <p className="text-xs text-secondary-600 mt-2">{t('pos_sales.please_wait')}</p>
             </div>
           )}
         </div>
@@ -1585,7 +1587,7 @@ export default function Sales() {
                 className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PrinterIcon className="w-5 h-5" />}
               >
-                Print Receipt
+                {t('pos_sales.print_receipt')}
               </Button>
               <Button
                 onClick={startNewSale}
@@ -1593,7 +1595,7 @@ export default function Sales() {
                 className="flex-1 border-2"
                 leftIcon={<PlusIcon className="w-5 h-5" />}
               >
-                New Sale
+                {t('pos_sales.new_sale')}
               </Button>
             </div>
           }

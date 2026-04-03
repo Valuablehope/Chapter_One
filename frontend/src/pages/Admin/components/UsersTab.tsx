@@ -1,5 +1,6 @@
 import { useUsers } from '../hooks/useUsers';
 import { useAuthStore } from '../../../store/authStore';
+import { useTranslation } from '../../../i18n/I18nContext';
 import { TableSkeleton } from '../../../components/ui/Skeleton';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
@@ -41,6 +42,7 @@ export default function UsersTab() {
     handleSubmit,
     handleDelete,
   } = useUsers();
+  const { t } = useTranslation();
 
   return (
     <>
@@ -56,7 +58,7 @@ export default function UsersTab() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Search users..."
+                    placeholder={t('admin.users.search')}
                     value={filters.search}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const value = e.target.value;
@@ -77,10 +79,10 @@ export default function UsersTab() {
                     onChange={(e) => handleRoleFilter(e.target.value as 'cashier' | 'manager' | 'admin' | '')}
                     className="pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none bg-white font-medium"
                   >
-                    <option value="">All Roles</option>
-                    <option value="cashier">Cashier</option>
-                    <option value="manager">Manager</option>
-                    <option value="admin">Admin</option>
+                    <option value="">{t('admin.users.all_roles')}</option>
+                    <option value="cashier">{t('admin.users.cashier')}</option>
+                    <option value="manager">{t('admin.users.manager')}</option>
+                    <option value="admin">{t('admin.users.admin')}</option>
                   </select>
                 </div>
               </div>
@@ -89,14 +91,14 @@ export default function UsersTab() {
                 className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PlusIcon className="w-5 h-5" />}
               >
-                Add User
+                {t('admin.users.add_user')}
               </Button>
             </div>
             <div className="mt-4 flex items-center gap-2">
-              <Badge variant="primary" size="sm">{pagination.total} Users</Badge>
+              <Badge variant="primary" size="sm">{pagination.total} {t('admin.users.users_count')}</Badge>
               {filters.search && (
                 <Badge variant="info" size="sm">
-                  Filtered: {users.length} results
+                  {t('admin.users.filtered_results', { count: users.length })}
                 </Badge>
               )}
             </div>
@@ -110,8 +112,8 @@ export default function UsersTab() {
         ) : users.length === 0 ? (
           <EmptyState
             icon={<UserGroupIcon className="w-16 h-16" />}
-            title="No users found"
-            description={filters.search || filters.role ? "Try adjusting your filters" : "Get started by adding your first user"}
+            title={t('admin.users.no_users')}
+            description={filters.search || filters.role ? t('admin.users.try_adjusting') : t('admin.users.get_started')}
             action={
               !filters.search && !filters.role && (
                 <Button
@@ -132,11 +134,11 @@ export default function UsersTab() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Username</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Full Name</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Role</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Actions</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{t('admin.users.username')}</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{t('admin.users.full_name')}</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{t('admin.users.role')}</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{t('admin.users.status')}</th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">{t('admin.users.actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -166,12 +168,12 @@ export default function UsersTab() {
                               {u.is_active ? (
                                 <>
                                   <CheckCircleIcon className="w-3 h-3 inline mr-1" />
-                                  Active
+                                  {t('admin.users.active')}
                                 </>
                               ) : (
                                 <>
                                   <XCircleIcon className="w-3 h-3 inline mr-1" />
-                                  Inactive
+                                  {t('admin.users.inactive')}
                                 </>
                               )}
                             </Badge>
@@ -185,7 +187,7 @@ export default function UsersTab() {
                                 leftIcon={<PencilIcon className="w-4 h-4" />}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity"
                               >
-                                Edit
+                                {t('admin.users.edit')}
                               </Button>
                               {u.user_id !== user?.userId && (
                                 <Button
@@ -195,7 +197,7 @@ export default function UsersTab() {
                                   leftIcon={<TrashIcon className="w-4 h-4" />}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
-                                  Delete
+                                  {t('admin.users.delete')}
                                 </Button>
                               )}
                             </div>
@@ -211,9 +213,9 @@ export default function UsersTab() {
               <Card className="border-2 border-gray-100">
                 <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                   <div className="text-sm text-gray-600 font-medium">
-                    Showing <span className="font-bold text-gray-900">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
-                    <span className="font-bold text-gray-900">{Math.min(filters.page * filters.limit, pagination.total)}</span> of{' '}
-                    <span className="font-bold text-gray-900">{pagination.total}</span> users
+                    {t('admin.users.showing')} <span className="font-bold text-gray-900">{((filters.page - 1) * filters.limit) + 1}</span> {t('admin.users.to')}{' '}
+                    <span className="font-bold text-gray-900">{Math.min(filters.page * filters.limit, pagination.total)}</span> {t('admin.users.of')}{' '}
+                    <span className="font-bold text-gray-900">{pagination.total}</span> {t('admin.users.users_count')}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -222,10 +224,10 @@ export default function UsersTab() {
                       variant="outline"
                       size="sm"
                     >
-                      Previous
+                      {t('admin.users.previous')}
                     </Button>
                     <span className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg">
-                      Page {filters.page} of {pagination.totalPages}
+                      {t('admin.users.page')} {filters.page} {t('admin.users.of')} {pagination.totalPages}
                     </span>
                     <Button
                       onClick={() => handlePageChange(filters.page + 1)}
@@ -233,7 +235,7 @@ export default function UsersTab() {
                       variant="outline"
                       size="sm"
                     >
-                      Next
+                      {t('admin.users.next')}
                     </Button>
                   </div>
                 </div>

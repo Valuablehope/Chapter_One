@@ -38,6 +38,7 @@ import { CloudArrowUpIcon, WifiIcon } from '@heroicons/react/24/outline';
 import { APP_BRAND_POS_LINE } from '../constants/branding';
 import { storeService } from '../services/storeService';
 import type { PosModuleType } from '../services/adminService';
+import { useTranslation } from '../i18n/I18nContext';
 
 /** Thumbtack pin — outline (sidebar not pinned) */
 const PinIcon = ({ className }: { className?: string }) => (
@@ -74,6 +75,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [posModuleType, setPosModuleType] = useState<PosModuleType>('store');
+  const { t } = useTranslation();
 
   useTokenRefresh();
   const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
@@ -148,17 +150,17 @@ export default function Layout({ children }: LayoutProps) {
   }, [isRestaurant, location.pathname, navigate]);
 
   const navItems = [
-    { path: '/dashboard',        label: 'Dashboard',        icon: HomeIcon,                    iconSolid: HomeIconSolid,                    blockedRoles: ['cashier'] as string[] },
-    { path: '/products',         label: 'Products',         icon: BookOpenIcon,                iconSolid: BookOpenIconSolid },
+    { path: '/dashboard',        label: t('nav.dashboard'),        icon: HomeIcon,                    iconSolid: HomeIconSolid,                    blockedRoles: ['cashier'] as string[] },
+    { path: '/products',         label: t('nav.products'),         icon: BookOpenIcon,                iconSolid: BookOpenIconSolid },
     ...(isRestaurant
-      ? [{ path: '/restaurant', label: 'Restaurant',  icon: TableCellsIcon, iconSolid: TableCellsIconSolid }]
-      : [{ path: '/sales',      label: 'POS Sales',   icon: CreditCardIcon, iconSolid: CreditCardIconSolid }]),
-    { path: '/sales-management', label: 'Sales',            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid,   blockedRoles: ['cashier'] as string[] },
-    { path: '/purchases',        label: 'Purchases',        icon: TruckIcon,                   iconSolid: TruckIconSolid },
-    { path: '/customers',        label: 'Customers',        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
-    { path: '/suppliers',        label: 'Suppliers',        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },
-    { path: '/reports',          label: 'Reports',          icon: PresentationChartBarIcon,    iconSolid: PresentationChartBarIconSolid },
-    { path: '/admin',            label: 'Admin',            icon: ShieldCheckIcon,             iconSolid: ShieldCheckIconSolid,             role: 'admin' as const },
+      ? [{ path: '/restaurant', label: t('nav.restaurant'),  icon: TableCellsIcon, iconSolid: TableCellsIconSolid }]
+      : [{ path: '/sales',      label: t('nav.pos_sales'),   icon: CreditCardIcon, iconSolid: CreditCardIconSolid }]),
+    { path: '/sales-management', label: t('nav.sales'),            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid,   blockedRoles: ['cashier'] as string[] },
+    { path: '/purchases',        label: t('nav.purchases'),        icon: TruckIcon,                   iconSolid: TruckIconSolid },
+    { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
+    { path: '/suppliers',        label: t('nav.suppliers'),        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },
+    { path: '/reports',          label: t('nav.reports'),          icon: PresentationChartBarIcon,    iconSolid: PresentationChartBarIconSolid },
+    { path: '/admin',            label: t('nav.admin'),            icon: ShieldCheckIcon,             iconSolid: ShieldCheckIconSolid,             role: 'admin' as const },
   ];
 
   const filteredNavItems = navItems.filter(item => {
@@ -284,7 +286,7 @@ export default function Layout({ children }: LayoutProps) {
                 className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-red-300 hover:text-white hover:bg-red-900/30 rounded-lg transition-colors border border-red-900/20 hover:border-red-700/40"
               >
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                <span>Sign Out</span>
+                <span>{t('nav.sign_out')}</span>
               </button>
             </div>
           ) : (
@@ -395,7 +397,7 @@ export default function Layout({ children }: LayoutProps) {
                 className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-red-300 hover:text-white hover:bg-red-900/30 rounded-lg transition-colors border border-red-900/20"
               >
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                <span>Sign Out</span>
+                <span>{t('nav.sign_out')}</span>
               </button>
             </div>
           </div>

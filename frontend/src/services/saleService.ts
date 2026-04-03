@@ -126,7 +126,7 @@ export interface Sale {
 
 export interface SaleFilters {
   search?: string;
-  status?: 'open' | 'paid' | 'void';
+  status?: 'open' | 'paid' | 'void' | 'cancelled';
   customer_id?: string;
   store_id?: string;
   start_date?: string;
@@ -221,6 +221,19 @@ export const saleService = {
       data
     );
     return response.data.data;
+  },
+
+  // Cancel sale
+  async cancelSale(id: string): Promise<Sale> {
+    const response = await api.put<{ success: boolean; data: Sale }>(
+      `/sales/${id}/cancel`
+    );
+    return response.data.data;
+  },
+
+  // Delete sale (admin only)
+  async deleteSale(id: string): Promise<void> {
+    await api.delete(`/sales/${id}`);
   },
 };
 

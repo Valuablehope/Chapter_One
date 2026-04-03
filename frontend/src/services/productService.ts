@@ -13,6 +13,7 @@ export interface Product {
   unit_of_measure: string;
   list_price?: number;
   sale_price?: number;
+  margin_pct?: number;
   tax_rate?: number;
   track_inventory: boolean;
   created_at: string;
@@ -50,6 +51,7 @@ export interface CreateProductData {
   unit_of_measure?: string;
   list_price?: number;
   sale_price?: number;
+  margin_pct?: number;
   tax_rate?: number;
   track_inventory?: boolean;
 }

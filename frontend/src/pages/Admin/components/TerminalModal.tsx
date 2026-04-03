@@ -2,6 +2,7 @@ import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import { Terminal, Store } from '../../../services/adminService';
 import { ComputerDesktopIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline';
+import { useTranslation } from '../../../i18n/I18nContext';
 
 interface TerminalFormData {
   store_id: string;
@@ -96,23 +97,25 @@ export default function TerminalModal({
   setFormData,
   onSubmit,
 }: TerminalModalProps) {
+  const { t } = useTranslation();
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingTerminal ? 'Edit Terminal' : 'Add Terminal'}
+      title={editingTerminal ? t('admin.terminals.edit_terminal') : t('admin.terminals.create_terminal')}
       size="md"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-gray-400">
-            {editingTerminal ? `ID: ${editingTerminal.terminal_id}` : 'Fields marked * are required'}
+            {editingTerminal ? `ID: ${editingTerminal.terminal_id}` : t('admin.users.fields_required')}
           </p>
           <div className="flex gap-2">
             <Button type="button" onClick={onClose} variant="outline" disabled={submitting} size="sm">
-              Cancel
+              {t('admin.terminals.cancel')}
             </Button>
             <Button type="submit" form="terminal-form" variant="primary" isLoading={submitting} size="sm">
-              {editingTerminal ? 'Save Changes' : 'Create Terminal'}
+              {editingTerminal ? t('admin.terminals.save_changes') : t('admin.terminals.create_terminal')}
             </Button>
           </div>
         </div>
@@ -127,7 +130,7 @@ export default function TerminalModal({
 
         {/* Store */}
         <div>
-          <FieldLabel required>Store</FieldLabel>
+          <FieldLabel required>{t('admin.stores.name')}</FieldLabel>
           <div className="relative">
             <BuildingStorefrontIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <select
@@ -169,7 +172,7 @@ export default function TerminalModal({
           </div>
 
           <div>
-            <FieldLabel required>Display Name</FieldLabel>
+            <FieldLabel required>{t('admin.terminals.terminal_name')}</FieldLabel>
             <input
               type="text"
               value={formData.name}
@@ -191,7 +194,7 @@ export default function TerminalModal({
           <Toggle
             checked={formData.is_active}
             onChange={(v) => setFormData({ ...formData, is_active: v })}
-            label="Terminal Active"
+            label={t('admin.terminals.terminal_active')}
             description="Inactive terminals cannot process transactions"
           />
         </div>
