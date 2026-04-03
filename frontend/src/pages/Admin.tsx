@@ -587,31 +587,29 @@ export default function Admin() {
                               </Badge>
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <Button
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  title="Edit"
+                                  aria-label="Edit"
                                   onClick={() => {
                                     setEditingUser(u);
                                     setUserFormData({ username: u.username, full_name: u.full_name, password: '', role: u.role, is_active: u.is_active });
                                     setUserFormErrors({});
                                     setShowUserModal(true);
                                   }}
-                                  variant="ghost"
-                                  size="sm"
-                                  leftIcon={<PencilIcon className="w-4 h-4" />}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                                 >
-                                  Edit
-                                </Button>
+                                  <PencilIcon className="w-4 h-4" />
+                                </button>
                                 {u.user_id !== user?.userId && (
-                                  <Button
+                                  <button
+                                    title="Delete"
+                                    aria-label="Delete"
                                     onClick={() => handleUserDelete(u)}
-                                    variant="danger"
-                                    size="sm"
-                                    leftIcon={<TrashIcon className="w-4 h-4" />}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
                                   >
-                                    Delete
-                                  </Button>
+                                    <TrashIcon className="w-4 h-4" />
+                                  </button>
                                 )}
                               </div>
                             </td>
@@ -779,28 +777,26 @@ export default function Admin() {
                               </Badge>
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <Button
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  title="Edit"
+                                  aria-label="Edit"
                                   onClick={() => {
                                     setEditingStore(s);
                                     setShowStoreModal(true);
                                   }}
-                                  variant="ghost"
-                                  size="sm"
-                                  leftIcon={<PencilIcon className="w-4 h-4" />}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                                 >
-                                  Edit
-                                </Button>
-                                <Button
+                                  <PencilIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  title="Delete"
+                                  aria-label="Delete"
                                   onClick={() => handleStoreDelete(s)}
-                                  variant="danger"
-                                  size="sm"
-                                  leftIcon={<TrashIcon className="w-4 h-4" />}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
                                 >
-                                  Delete
-                                </Button>
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -990,30 +986,28 @@ export default function Admin() {
                               </Badge>
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <Button
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  title="Edit"
+                                  aria-label="Edit"
                                   onClick={() => {
                                     setEditingTerminal(t);
                                     setTerminalFormData({ store_id: t.store_id, code: t.code, name: t.name, is_active: t.is_active });
                                     setTerminalFormErrors({});
                                     setShowTerminalModal(true);
                                   }}
-                                  variant="ghost"
-                                  size="sm"
-                                  leftIcon={<PencilIcon className="w-4 h-4" />}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                                 >
-                                  Edit
-                                </Button>
-                                <Button
+                                  <PencilIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  title="Delete"
+                                  aria-label="Delete"
                                   onClick={() => handleTerminalDelete(t)}
-                                  variant="danger"
-                                  size="sm"
-                                  leftIcon={<TrashIcon className="w-4 h-4" />}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
                                 >
-                                  Delete
-                                </Button>
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
                               </div>
                             </td>
                           </tr>

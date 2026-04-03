@@ -179,26 +179,24 @@ export default function UsersTab() {
                             </Badge>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                title={t('admin.users.edit')}
+                                aria-label={t('admin.users.edit')}
                                 onClick={() => openEditModal(u)}
-                                variant="ghost"
-                                size="sm"
-                                leftIcon={<PencilIcon className="w-4 h-4" />}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                               >
-                                {t('admin.users.edit')}
-                              </Button>
+                                <PencilIcon className="w-4 h-4" />
+                              </button>
                               {u.user_id !== user?.userId && (
-                                <Button
+                                <button
+                                  title={t('admin.users.delete')}
+                                  aria-label={t('admin.users.delete')}
                                   onClick={() => handleDelete(u)}
-                                  variant="danger"
-                                  size="sm"
-                                  leftIcon={<TrashIcon className="w-4 h-4" />}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
                                 >
-                                  {t('admin.users.delete')}
-                                </Button>
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
                               )}
                             </div>
                           </td>

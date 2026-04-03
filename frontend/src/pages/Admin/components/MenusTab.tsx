@@ -170,27 +170,25 @@ function MenuCard({ menu, onEdit, onDelete, onToggleActive, toggling }: MenuCard
             }
           </button>
 
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            leftIcon={<PencilIcon className="w-3.5 h-3.5" />}
+            title="Edit"
+            aria-label="Edit"
             onClick={() => onEdit(menu)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
           >
-            Edit
-          </Button>
+            <PencilIcon className="w-3.5 h-3.5" />
+          </button>
 
-          <Button
+          <button
             type="button"
-            variant="danger"
-            size="sm"
-            leftIcon={<TrashIcon className="w-3.5 h-3.5" />}
+            title="Delete"
+            aria-label="Delete"
             onClick={() => onDelete(menu)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
           >
-            Delete
-          </Button>
+            <TrashIcon className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>
