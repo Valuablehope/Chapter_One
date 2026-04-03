@@ -682,44 +682,42 @@ export default function SalesManagement() {
                         {getStatusBadge(sale.status)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            title={t('sales_management.actions.view')}
+                            aria-label={t('sales_management.actions.view')}
                             onClick={() => viewSaleDetails(sale)}
-                            leftIcon={<EyeIcon className="w-4 h-4" />}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                           >
-                            {t('sales_management.actions.view')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                            <EyeIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            title={t('sales_management.actions.edit')}
+                            aria-label={t('sales_management.actions.edit')}
                             onClick={() => openEditModal(sale)}
-                            leftIcon={<PencilIcon className="w-4 h-4" />}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                           >
-                            {t('sales_management.actions.edit')}
-                          </Button>
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
                           {user?.role === 'admin' && sale.status !== 'cancelled' && sale.status !== 'void' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            <button
+                              title={t('sales_management.actions.cancel')}
+                              aria-label={t('sales_management.actions.cancel')}
                               onClick={() => setSaleToCancel(sale)}
-                              leftIcon={<XCircleIcon className="w-4 h-4" />}
+                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
                             >
-                              {t('sales_management.actions.cancel')}
-                            </Button>
+                              <XCircleIcon className="w-4 h-4" />
+                            </button>
                           )}
                           {user?.role === 'admin' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                            <button
+                              title={t('sales_management.actions.delete')}
+                              aria-label={t('sales_management.actions.delete')}
                               onClick={() => setSaleToDelete(sale)}
-                              leftIcon={<TrashIcon className="w-4 h-4" />}
+                              className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
                             >
-                              {t('sales_management.actions.delete')}
-                            </Button>
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </td>

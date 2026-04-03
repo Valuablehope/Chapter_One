@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Customer } from '../../../services/customerService';
-import Button from '../../../components/ui/Button';
 import { PencilIcon, TrashIcon, UserGroupIcon, PhoneIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { TableRow } from '../../../components/shared/TableRow';
 import { useTranslation } from '../../../i18n/I18nContext';
@@ -54,25 +53,23 @@ export const CustomerRow = memo<CustomerRowProps>(({ customer, index, onEdit, on
         {new Date(customer.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
       </td>
       <td className="px-3 py-2 whitespace-nowrap text-right">
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
+        <div className="flex items-center justify-end gap-1">
+          <button
+            title={t('customers.actions.edit')}
+            aria-label={t('customers.actions.edit')}
             onClick={() => onEdit(customer)}
-            variant="ghost"
-            size="sm"
-            leftIcon={<PencilIcon className="w-4 h-4" />}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
           >
-            {t('customers.actions.edit')}
-          </Button>
-          <Button
+            <PencilIcon className="w-4 h-4" />
+          </button>
+          <button
+            title={t('customers.actions.delete')}
+            aria-label={t('customers.actions.delete')}
             onClick={() => onDelete(customer)}
-            variant="danger"
-            size="sm"
-            leftIcon={<TrashIcon className="w-4 h-4" />}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
           >
-            {t('customers.actions.delete')}
-          </Button>
+            <TrashIcon className="w-4 h-4" />
+          </button>
         </div>
       </td>
     </TableRow>

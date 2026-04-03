@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Product } from '../../../services/productService';
-import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import { PencilIcon, TrashIcon, CubeIcon } from '@heroicons/react/24/outline';
 import { TableRow } from '../../../components/shared/TableRow';
@@ -121,26 +120,24 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
         </td>
       )}
       {visibleColumns.includes('actions') && (
-        <td className={`px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis text-right min-w-[120px] ${isCustomSized ? 'max-w-0' : ''}`}>
-          <div className="flex items-center justify-end gap-1.5 float-right">
-            <Button
+        <td className={`px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis text-right min-w-[80px] ${isCustomSized ? 'max-w-0' : ''}`}>
+          <div className="flex items-center justify-end gap-1 float-right">
+            <button
+              title={t('products.actions.edit')}
+              aria-label={t('products.actions.edit')}
               onClick={() => onEdit(product)}
-              variant="ghost"
-              size="sm"
-              leftIcon={<PencilIcon className="w-4 h-4" />}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
             >
-              {t('products.actions.edit')}
-            </Button>
-            <Button
+              <PencilIcon className="w-4 h-4" />
+            </button>
+            <button
+              title={t('products.actions.delete_short')}
+              aria-label={t('products.actions.delete_short')}
               onClick={() => onDelete(product)}
-              variant="danger"
-              size="sm"
-              leftIcon={<TrashIcon className="w-4 h-4" />}
-              className="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex"
+              className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
             >
-              {t('products.actions.delete_short')}
-            </Button>
+              <TrashIcon className="w-4 h-4" />
+            </button>
           </div>
         </td>
       )}

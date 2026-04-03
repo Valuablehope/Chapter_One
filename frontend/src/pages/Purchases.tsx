@@ -617,37 +617,34 @@ export default function Purchases() {
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1.5 relative">
+                        <div className="flex items-center justify-end gap-1">
                           {po.status !== 'RECEIVED' && po.status !== 'CANCELLED' && (
-                            <Button
+                            <button
+                              title={t('purchases.actions.receive')}
+                              aria-label={t('purchases.actions.receive')}
                               onClick={() => handleReceive(po)}
-                              variant="success"
-                              size="sm"
-                              leftIcon={<CheckCircleIcon className="w-4 h-4" />}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors"
                             >
-                               {t('purchases.actions.receive')}
-                            </Button>
+                              <CheckCircleIcon className="w-4 h-4" />
+                            </button>
                           )}
-                          <Button
+                          <button
+                            title={t('purchases.actions.view')}
+                            aria-label={t('purchases.actions.view')}
                             onClick={() => openEditModal(po)}
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<PencilIcon className="w-4 h-4" />}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                           >
-                             {t('purchases.actions.view')}
-                          </Button>
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
                           {po.status !== 'RECEIVED' && (
-                            <Button
+                            <button
+                              title={t('purchases.actions.delete')}
+                              aria-label={t('purchases.actions.delete')}
                               onClick={() => handleDelete(po)}
-                              variant="danger"
-                              size="sm"
-                              leftIcon={<TrashIcon className="w-4 h-4" />}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
                             >
-                               {t('purchases.actions.delete')}
-                            </Button>
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </td>
