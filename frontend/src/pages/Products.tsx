@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product, ProductFilters } from '../services/productService';
 import { productTypeService, ProductType } from '../services/productTypeService';
@@ -121,13 +121,85 @@ export default function Products() {
   const [showManageColumns, setShowManageColumns] = useState(false);
   const columnsMenuRef = useRef<HTMLDivElement>(null);
   const colResizeDataRef = useRef<{ id: string; startX: number; startWidth: number } | null>(null);
+  const columnsConfigRef = useRef(columnsConfig);
+  const pendingResizeRef = useRef<{ id: string; width: number } | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
+  const isResizingColumnsRef = useRef(false);
+  const moveListenerRef = useRef<((event: MouseEvent) => void) | null>(null);
+  const upListenerRef = useRef<(() => void) | null>(null);
+  const blurListenerRef = useRef<(() => void) | null>(null);
+  const visibilityListenerRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem('products_table_columns_v1', JSON.stringify(columnsConfig));
+  const persistColumnsConfig = useCallback((config: ColumnConfig[]) => {
+    localStorage.setItem('products_table_columns_v1', JSON.stringify(config));
     if (isCustomSizedRef.current) {
       localStorage.setItem('products_table_resized_v1', 'true');
     }
-  }, [columnsConfig]);
+  }, []);
+
+  useEffect(() => {
+    columnsConfigRef.current = columnsConfig;
+    if (isResizingColumnsRef.current) return;
+    persistColumnsConfig(columnsConfig);
+  }, [columnsConfig, persistColumnsConfig]);
+
+  const cleanupColumnResizeListeners = useCallback(() => {
+    if (moveListenerRef.current) {
+      document.removeEventListener('mousemove', moveListenerRef.current);
+      moveListenerRef.current = null;
+    }
+    if (upListenerRef.current) {
+      document.removeEventListener('mouseup', upListenerRef.current);
+      upListenerRef.current = null;
+    }
+    if (blurListenerRef.current) {
+      window.removeEventListener('blur', blurListenerRef.current);
+      blurListenerRef.current = null;
+    }
+    if (visibilityListenerRef.current) {
+      document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+      visibilityListenerRef.current = null;
+    }
+    if (resizeRafRef.current !== null) {
+      window.cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = null;
+    }
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  }, []);
+
+  const stopColumnResize = useCallback((persist = true) => {
+    let finalConfig = columnsConfigRef.current;
+    const pendingResize = pendingResizeRef.current;
+
+    if (pendingResize) {
+      finalConfig = columnsConfigRef.current.map(column =>
+        column.id === pendingResize.id ? { ...column, width: pendingResize.width } : column
+      );
+      columnsConfigRef.current = finalConfig;
+      setColumnsConfig(finalConfig);
+    }
+
+    pendingResizeRef.current = null;
+    colResizeDataRef.current = null;
+    const wasResizing = isResizingColumnsRef.current;
+    isResizingColumnsRef.current = false;
+
+    cleanupColumnResizeListeners();
+
+    if (persist && wasResizing) {
+      persistColumnsConfig(finalConfig);
+    }
+  }, [cleanupColumnResizeListeners, persistColumnsConfig]);
+
+  useEffect(() => {
+    return () => {
+      pendingResizeRef.current = null;
+      colResizeDataRef.current = null;
+      isResizingColumnsRef.current = false;
+      cleanupColumnResizeListeners();
+    };
+  }, [cleanupColumnResizeListeners]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -144,57 +216,90 @@ export default function Products() {
   const startColumnResize = useCallback((e: React.MouseEvent, id: string, width: number) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
+    // Defensive cleanup in case mouseup was missed previously.
+    stopColumnResize(false);
+
     if (!isCustomSizedRef.current && tableRef.current) {
       // First time resize: capture actual rendered widths of all visible headers
       const ths = tableRef.current.querySelectorAll('th');
-      setColumnsConfig(prev => {
-        const visibleCols = prev.filter(c => c.visible);
-        const next = [...prev];
-        visibleCols.forEach((col, index) => {
-          if (ths[index]) {
-            const rect = ths[index].getBoundingClientRect();
-            const configIndex = next.findIndex(c => c.id === col.id);
-            if (configIndex > -1) {
-              next[configIndex] = { ...next[configIndex], width: rect.width };
-            }
-          }
-        });
-        
-        // Setup initial start width specifically from the new snapshot
-        const newCol = next.find(c => c.id === id);
-        colResizeDataRef.current = { id, startX: e.clientX, startWidth: newCol?.width || width };
-        
-        return next;
+      const visibleCols = columnsConfigRef.current.filter(column => column.visible);
+      const measuredWidthById = new Map<string, number>();
+
+      visibleCols.forEach((column, index) => {
+        if (!ths[index]) return;
+        measuredWidthById.set(column.id, ths[index].getBoundingClientRect().width);
       });
+
+      const nextConfig = columnsConfigRef.current.map(column => {
+        const measuredWidth = measuredWidthById.get(column.id);
+        return measuredWidth !== undefined ? { ...column, width: measuredWidth } : column;
+      });
+
+      columnsConfigRef.current = nextConfig;
+      setColumnsConfig(nextConfig);
+
+      // Setup initial start width specifically from the new snapshot
+      const newCol = nextConfig.find(column => column.id === id);
+      colResizeDataRef.current = { id, startX: e.clientX, startWidth: newCol?.width || width };
+
       isCustomSizedRef.current = true;
       setIsCustomSized(true);
     } else {
       colResizeDataRef.current = { id, startX: e.clientX, startWidth: width };
     }
 
+    isResizingColumnsRef.current = true;
+
     const handleMouseMove = (mvEvent: MouseEvent) => {
       if (!colResizeDataRef.current) return;
-      const { id, startX, startWidth } = colResizeDataRef.current;
+      if ((mvEvent.buttons & 1) !== 1) {
+        stopColumnResize();
+        return;
+      }
+
+      const { id: resizeId, startX, startWidth } = colResizeDataRef.current;
+      const minWidth = columnsConfigRef.current.find(column => column.id === resizeId)?.minWidth ?? 20;
       const delta = mvEvent.clientX - startX;
-      setColumnsConfig(prev => prev.map(c => 
-        c.id === id ? { ...c, width: Math.max(20, startWidth + delta) } : c
-      ));
+      pendingResizeRef.current = { id: resizeId, width: Math.max(minWidth, startWidth + delta) };
+
+      if (resizeRafRef.current !== null) return;
+
+      resizeRafRef.current = window.requestAnimationFrame(() => {
+        resizeRafRef.current = null;
+        const pending = pendingResizeRef.current;
+        if (!pending) return;
+
+        pendingResizeRef.current = null;
+        const nextConfig = columnsConfigRef.current.map(column =>
+          column.id === pending.id ? { ...column, width: pending.width } : column
+        );
+
+        columnsConfigRef.current = nextConfig;
+        setColumnsConfig(nextConfig);
+      });
     };
 
     const handleMouseUp = () => {
-      colResizeDataRef.current = null;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      stopColumnResize();
+    };
+
+    moveListenerRef.current = handleMouseMove;
+    upListenerRef.current = handleMouseUp;
+    blurListenerRef.current = () => stopColumnResize();
+    visibilityListenerRef.current = () => {
+      if (document.visibilityState !== 'visible') {
+        stopColumnResize();
+      }
     };
 
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, []);
+    window.addEventListener('blur', blurListenerRef.current);
+    document.addEventListener('visibilitychange', visibilityListenerRef.current);
+  }, [stopColumnResize]);
 
   // Abort list requests and invalidate in-flight handlers on unmount (avoids stale setState / stuck loading)
   useEffect(() => {
@@ -513,16 +618,35 @@ export default function Products() {
     }
   };
 
-  const formatCurrency = useCallback((amount: number) => {
+  const currencyFormatter = useMemo(() => {
     return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
       style: 'currency',
       currency: 'USD',
-    }).format(amount);
+    });
   }, [language]);
+
+  const formatCurrency = useCallback((amount: number) => {
+    return currencyFormatter.format(amount);
+  }, [currencyFormatter]);
 
   const getColumnLabel = useCallback((columnId: string) => {
     return t(`products.columns.${columnId}`);
   }, [t]);
+
+  const visibleColumnConfigs = useMemo(
+    () => columnsConfig.filter(column => column.visible),
+    [columnsConfig]
+  );
+
+  const visibleColumns = useMemo(
+    () => visibleColumnConfigs.map(column => column.id),
+    [visibleColumnConfigs]
+  );
+
+  const customTableWidth = useMemo(
+    () => visibleColumnConfigs.reduce((sum, column) => sum + column.width, 0),
+    [visibleColumnConfigs]
+  );
 
   const handleTypeSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -733,18 +857,18 @@ export default function Products() {
               <table
                 ref={tableRef}
                 className="divide-y divide-gray-200"
-                style={isCustomSized ? { tableLayout: 'fixed', width: columnsConfig.filter(c => c.visible).reduce((sum, c) => sum + c.width, 0) } : { tableLayout: 'auto', minWidth: '100%' }}
+                style={isCustomSized ? { tableLayout: 'fixed', width: customTableWidth } : { tableLayout: 'auto', minWidth: '100%' }}
               >
                 {isCustomSized && (
                   <colgroup>
-                    {columnsConfig.filter(c => c.visible).map(c => (
+                    {visibleColumnConfigs.map(c => (
                       <col key={c.id} style={{ width: c.width }} />
                     ))}
                   </colgroup>
                 )}
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    {columnsConfig.filter(c => c.visible).map((c, idx, arr) => (
+                    {visibleColumnConfigs.map((c, idx, arr) => (
                       <th
                         key={c.id}
                         className={`relative px-3 py-2 text-[10px] font-bold text-gray-700 uppercase tracking-wider ${isCustomSized ? 'max-w-0' : 'w-min'} ${c.id === 'actions' ? 'text-right' : 'text-left'}`}
@@ -769,7 +893,7 @@ export default function Products() {
                       onEdit={openEditModal}
                       onDelete={handleDelete}
                       formatCurrency={formatCurrency}
-                      visibleColumns={columnsConfig.filter(c => c.visible).map(c => c.id)}
+                      visibleColumns={visibleColumns}
                       isCustomSized={isCustomSized}
                     />
                   ))}
