@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, dialog, shell } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
+import * as http from 'http';
 import * as fs from 'fs';
 import log from 'electron-log';
 require('dotenv').config();
@@ -30,6 +31,51 @@ const resourcesPath = process.resourcesPath;
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
+const BACKEND_HEALTH_URL = 'http://127.0.0.1:3001/health';
+
+function showStartupErrorAndQuit(title: string, message: string): void {
+  log.error(`${title}: ${message}`);
+  dialog.showErrorBox(title, message);
+  app.quit();
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function checkBackendHealth(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const request = http.get(BACKEND_HEALTH_URL, (response) => {
+      response.resume();
+      resolve(response.statusCode === 200);
+    });
+
+    request.on('error', () => resolve(false));
+    request.setTimeout(1500, () => {
+      request.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function waitForBackendReady(timeoutMs = 15000, pollMs = 500): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (!backendProcess || backendProcess.killed) {
+      return false;
+    }
+
+    const healthy = await checkBackendHealth();
+    if (healthy) {
+      return true;
+    }
+
+    await delay(pollMs);
+  }
+
+  return false;
+}
 
 // Function to get backend paths based on dev/production
 function getBackendPaths() {
@@ -75,13 +121,16 @@ function getEnvPath(): string | null {
 }
 
 // Start backend server
-function startBackendServer(): void {
+function startBackendServer(): boolean {
   const { serverPath, nodeModulesPath, backendDir } = getBackendPaths();
 
   // Check if backend file exists
   if (!fs.existsSync(serverPath)) {
-    log.error(`❌ Backend server not found at: ${serverPath}`);
-    return;
+    showStartupErrorAndQuit(
+      'Backend Startup Error',
+      `Backend server not found at:\n${serverPath}\n\nPlease reinstall the application to restore missing files.`
+    );
+    return false;
   }
 
   // Check if node_modules exists
@@ -105,7 +154,11 @@ function startBackendServer(): void {
       }
     }
 
-    return;
+    showStartupErrorAndQuit(
+      'Backend Startup Error',
+      `Backend dependencies are missing at:\n${nodeModulesPath}\n\nThis installation appears incomplete. Please reinstall or run the installer again.`
+    );
+    return false;
   }
 
   // Get .env path
@@ -204,7 +257,6 @@ function startBackendServer(): void {
       const errorMsg = `Backend server exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
       log.error(`❌ ${errorMsg}`);
 
-      const { dialog } = require('electron');
       const detailedError = lastError ? `\n\nSpecific Error:\n${lastError}` : '';
 
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -227,6 +279,8 @@ function startBackendServer(): void {
       console.error('❌ Backend process was killed immediately after start');
     }
   }, 1000);
+
+  return true;
 }
 
 // Stop backend server
@@ -400,17 +454,28 @@ function createWindow(): void {
 }
 
 // App event handlers
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Start backend server first (only in production)
   if (!isDev) {
     log.info('🚀 Starting backend server...');
-    startBackendServer();
-    // Wait a bit for backend to start before showing window
-    setTimeout(() => {
-      createWindow();
-      setupApplicationMenu();
-      require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
-    }, 2000);
+    const backendStarted = startBackendServer();
+    if (!backendStarted) {
+      return;
+    }
+
+    const backendReady = await waitForBackendReady();
+    if (!backendReady) {
+      const detail = `Unable to reach ${BACKEND_HEALTH_URL} after startup.`;
+      showStartupErrorAndQuit(
+        'Backend Unavailable',
+        `${detail}\n\nPlease check the application logs and verify your installation integrity.`
+      );
+      return;
+    }
+
+    createWindow();
+    setupApplicationMenu();
+    require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
   } else {
     // In dev mode, backend is started separately
     createWindow();
