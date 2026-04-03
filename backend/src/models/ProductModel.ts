@@ -11,6 +11,7 @@ export interface Product {
   unit_of_measure: string;
   list_price?: number;
   sale_price?: number;
+  margin_pct?: number;
   tax_rate?: number;
   track_inventory: boolean;
   created_at: string;
@@ -246,10 +247,10 @@ export class ProductModel extends BaseModel {
   static async create(product: Partial<Product>): Promise<Product> {
     const query = `
       INSERT INTO products (
-        sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, 
+        sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
         tax_rate, track_inventory
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
     const values = [
@@ -260,6 +261,7 @@ export class ProductModel extends BaseModel {
       product.unit_of_measure || 'each',
       product.list_price || 0,
       product.sale_price || null,
+      product.margin_pct || null,
       product.tax_rate || null,
       product.track_inventory !== undefined ? product.track_inventory : true,
     ];
@@ -301,6 +303,11 @@ export class ProductModel extends BaseModel {
       paramCount++;
       fields.push(`sale_price = $${paramCount}`);
       values.push(updates.sale_price);
+    }
+    if (updates.margin_pct !== undefined) {
+      paramCount++;
+      fields.push(`margin_pct = $${paramCount}`);
+      values.push(updates.margin_pct);
     }
     if (updates.tax_rate !== undefined) {
       paramCount++;
