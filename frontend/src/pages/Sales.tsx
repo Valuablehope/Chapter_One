@@ -10,6 +10,8 @@ import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
 import { gradients } from '../styles/tokens';
 import { useTranslation } from '../i18n/I18nContext';
+import { useSaleSessions } from '../hooks/useSaleSessions';
+import HeldSalesPanel from './Sales/HeldSalesPanel';
 
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -36,6 +38,7 @@ import {
   ArrowLeftIcon,
   ScaleIcon,
   BackspaceIcon,
+  PauseCircleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -50,6 +53,22 @@ import {
 
 export default function Sales() {
   const { t } = useTranslation();
+
+  // ── Multi-sale session management ──────────────────────────────────────────
+  const {
+    activeSale,
+    heldSales,
+    updateActiveSale,
+    holdSale,
+    resumeSale,
+    deleteHeldSale,
+    completeActiveSale,
+  } = useSaleSessions();
+
+  // Track whether we are currently restoring a resumed sale to avoid feedback loops
+  const isResumingRef = useRef(false);
+  const holdBtnRef = useRef<HTMLButtonElement>(null);
+  const [showHeldPanel, setShowHeldPanel] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
@@ -62,7 +81,9 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentAmountLBP, setPaymentAmountLBP] = useState('');
-  const [discountRate, setDiscountRate] = useState('');
+  const [discountRate, setDiscountRate] = useState(
+    () => activeSale?.discountRate ?? ''
+  );
   const [processing, setProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState('');
@@ -86,7 +107,51 @@ export default function Sales() {
   const [posProducts, setPosProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  // Cleanup on unmount
+  // ── Restore active sale from localStorage on mount/resume ─────────────────
+  useEffect(() => {
+    if (!activeSale) return;
+    // Avoid overwriting current state when we haven't just resumed
+    if (isResumingRef.current) {
+      isResumingRef.current = false;
+      return;
+    }
+    // Only apply if there's something meaningful in the session
+    if (activeSale.items.length > 0 || activeSale.customer || activeSale.discountRate) {
+      isResumingRef.current = true;
+      setCart(activeSale.items);
+      setSelectedCustomer(activeSale.customer);
+      setDiscountRate(activeSale.discountRate);
+    }
+  // Only run when activeSale.id changes (i.e. on mount or after a resume)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSale?.id]);
+
+
+  // ── Hold sale handler ───────────────────────────────────────────────────────
+  const handleHoldSale = useCallback(() => {
+    const held = holdSale();
+    if (!held) {
+      toast.error('Cart is empty — nothing to hold');
+      return;
+    }
+    setCart([]);
+    setSelectedCustomer(null);
+    setDiscountRate('');
+    toast('Sale held', { icon: '⏸️' });
+  }, [holdSale]);
+
+  // ── Resume sale handler ─────────────────────────────────────────────────────
+  const handleResumeSale = useCallback((id: string) => {
+    const resumed = resumeSale(id);
+    if (!resumed) return;
+    isResumingRef.current = true;
+    setCart(resumed.items);
+    setSelectedCustomer(resumed.customer);
+    setDiscountRate(resumed.discountRate);
+    toast('Sale resumed', { icon: '▶️' });
+  }, [resumeSale]);
+
+  // ── Cleanup on unmount
   useEffect(() => {
     return () => {
       if (searchAbortController.current) {
@@ -164,6 +229,20 @@ export default function Sales() {
     const dr = discountRate ? parseFloat(discountRate) : 0;
     return discountAndGrand(merchandiseGross, dr);
   }, [merchandiseGross, discountRate]);
+
+  // ── Sync live cart/customer/discount → active session (must be after grandTotal) ──
+  useEffect(() => {
+    if (isResumingRef.current) return;
+    updateActiveSale({
+      items: cart,
+      customer: selectedCustomer,
+      discountRate,
+      subtotal: merchandiseGross,
+      tax: taxExtracted,
+      total: grandTotal,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, selectedCustomer, discountRate, grandTotal]);
 
   const CART_ROW_HEIGHT = 90;
   const CART_LIST_MAX_HEIGHT = 450;
@@ -690,9 +769,11 @@ export default function Sales() {
       setShowPaymentModal(false);
       toast.success('Sale completed successfully!');
 
-      // Clear cart and customer
+      // Clear cart and customer, mark session as complete
       setCart([]);
       setSelectedCustomer(null);
+      setDiscountRate('');
+      completeActiveSale();
     } catch (err: any) {
       // Check if cancelled
       if (err.name === 'AbortError' || err.message?.includes('cancel')) {
@@ -1081,6 +1162,45 @@ export default function Sales() {
                       </p>
                     )}
                   </div>
+                </div>
+                {/* Hold Sale + Held Sales panel buttons */}
+                <div className="flex items-center gap-2 relative">
+                  <button
+                    id="hold-sale-btn"
+                    ref={holdBtnRef}
+                    onClick={handleHoldSale}
+                    disabled={cart.length === 0}
+                    title="Hold current sale"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <PauseCircleIcon className="w-3.5 h-3.5" />
+                    Hold
+                  </button>
+                  <button
+                    id="held-sales-btn"
+                    onClick={() => setShowHeldPanel(v => !v)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      heldSales.length > 0
+                        ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                        : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ShoppingCartIcon className="w-3.5 h-3.5" />
+                    Held
+                    {heldSales.length > 0 && (
+                      <span className="ml-0.5 min-w-[16px] h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                        {heldSales.length}
+                      </span>
+                    )}
+                  </button>
+                  <HeldSalesPanel
+                    isOpen={showHeldPanel}
+                    onClose={() => setShowHeldPanel(false)}
+                    heldSales={heldSales}
+                    onResume={handleResumeSale}
+                    onDelete={deleteHeldSale}
+                    currency={storeSettings?.currency_code || 'USD'}
+                  />
                 </div>
               </div>
             </div>
