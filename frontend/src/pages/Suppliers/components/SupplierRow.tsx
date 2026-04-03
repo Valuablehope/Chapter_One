@@ -3,6 +3,7 @@ import { Supplier } from '../../../services/supplierService';
 import Button from '../../../components/ui/Button';
 import { PencilIcon, TrashIcon, BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserIcon } from '@heroicons/react/24/outline';
 import { TableRow } from '../../../components/shared/TableRow';
+import { useTranslation } from '../../../i18n/I18nContext';
 
 export interface SupplierRowProps {
   supplier: Supplier;
@@ -12,6 +13,7 @@ export interface SupplierRowProps {
 }
 
 export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, onDelete }) => {
+  const { t, language } = useTranslation();
   return (
     <TableRow index={index} hoverClassName="hover:bg-secondary-50/50">
       <td className="px-3 py-2 whitespace-nowrap">
@@ -30,7 +32,7 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
               <span className="font-medium">{supplier.contact_name}</span>
             </>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-gray-400">{t('suppliers.common.empty_value')}</span>
           )}
         </div>
       </td>
@@ -42,7 +44,7 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
               <span className="font-medium">{supplier.phone}</span>
             </>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-gray-400">{t('suppliers.common.empty_value')}</span>
           )}
         </div>
       </td>
@@ -54,12 +56,12 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
               <span className="font-medium">{supplier.email}</span>
             </>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-gray-400">{t('suppliers.common.empty_value')}</span>
           )}
         </div>
       </td>
       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
-        {new Date(supplier.created_at).toLocaleDateString()}
+        {new Date(supplier.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
       </td>
       <td className="px-3 py-2 whitespace-nowrap text-right">
         <div className="flex items-center justify-end gap-1.5">
@@ -70,7 +72,7 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
             leftIcon={<PencilIcon className="w-4 h-4" />}
             className="opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            Edit
+            {t('suppliers.actions.edit')}
           </Button>
           <Button
             onClick={() => onDelete(supplier)}
@@ -79,7 +81,7 @@ export const SupplierRow = memo<SupplierRowProps>(({ supplier, index, onEdit, on
             leftIcon={<TrashIcon className="w-4 h-4" />}
             className="opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            Delete
+            {t('suppliers.actions.delete')}
           </Button>
         </div>
       </td>

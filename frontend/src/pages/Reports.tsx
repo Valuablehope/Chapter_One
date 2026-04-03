@@ -48,6 +48,7 @@ import {
 } from 'recharts';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
+import { useTranslation } from '../i18n/I18nContext';
 
 type ReportTab = 'sales' | 'purchases' | 'inventory';
 type SalesReportType = 'summary' | 'products' | 'customers' | 'payment-methods';
@@ -55,11 +56,11 @@ type PurchaseReportType = 'summary' | 'suppliers';
 type InventoryReportType = 'stock' | 'low-stock';
 type DatePreset = 'week' | 'month' | 'quarter' | 'custom';
 
-const DATE_PRESETS: { id: DatePreset; label: string; days?: number }[] = [
-  { id: 'week',    label: 'Last Week',    days: 7  },
-  { id: 'month',   label: 'Last Month',   days: 30 },
-  { id: 'quarter', label: 'Last Quarter', days: 90 },
-  { id: 'custom',  label: 'Custom Dates'           },
+const DATE_PRESETS: { id: DatePreset; days?: number }[] = [
+  { id: 'week', days: 7 },
+  { id: 'month', days: 30 },
+  { id: 'quarter', days: 90 },
+  { id: 'custom' },
 ];
 
 function toDateStr(d: Date) {
@@ -96,6 +97,7 @@ function TrendBadge({ pct }: { pct: number }) {
 }
 
 export default function Reports() {
+  const { t, language } = useTranslation();
   const { user } = useAuthStore();
   const isCashier = user?.role === 'cashier';
   const [activeTab, setActiveTab] = useState<ReportTab>(isCashier ? 'inventory' : 'sales');
@@ -181,7 +183,7 @@ export default function Reports() {
         }
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to load report');
+      toast.error(err.response?.data?.error?.message || t('reports.errors.load_report'));
       logger.error('Error loading report:', err);
     } finally {
       setLoading(false);
@@ -199,14 +201,14 @@ export default function Reports() {
   }, [activeTab, salesReportType, purchaseReportType, inventoryReportType, startDate, endDate, isCashier]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(Number(amount));
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US');
   };
 
   // Calculate summary totals for cards
@@ -237,8 +239,8 @@ export default function Reports() {
   return (
     <>
       <PageBanner
-        title="Reports & Analytics"
-        subtitle="View sales, purchases, and inventory insights"
+        title={t('reports.title')}
+        subtitle={t('reports.subtitle')}
         icon={<PresentationChartBarIcon className="w-5 h-5 text-white" />}
         action={
           <Button
@@ -248,7 +250,7 @@ export default function Reports() {
             leftIcon={<ArrowPathIcon className="w-4 h-4" />}
             isLoading={loading}
           >
-            Refresh
+            {t('reports.actions.refresh')}
           </Button>
         }
       />
@@ -267,7 +269,7 @@ export default function Reports() {
                   }`}
               >
                 <CurrencyDollarIcon className="w-4 h-4" />
-                Sales Reports
+                {t('reports.tabs.sales')}
               </button>
             )}
             {!isCashier && (
@@ -279,7 +281,7 @@ export default function Reports() {
                   }`}
               >
                 <ShoppingCartIcon className="w-4 h-4" />
-                Purchase Reports
+                {t('reports.tabs.purchases')}
               </button>
             )}
             <button
@@ -290,7 +292,7 @@ export default function Reports() {
                 }`}
             >
               <CubeIcon className="w-4 h-4" />
-              Inventory Reports
+              {t('reports.tabs.inventory')}
             </button>
           </nav>
         </div>
@@ -312,7 +314,7 @@ export default function Reports() {
                         : 'bg-gray-50 border border-gray-200 text-gray-600 hover:border-secondary-300 hover:text-secondary-600 hover:bg-secondary-50'
                       }`}
                   >
-                    {p.label}
+                    {t(`reports.presets.${p.id}`)}
                   </button>
                 ))}
               </div>
@@ -332,7 +334,7 @@ export default function Reports() {
                       className="pl-8 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-secondary-500/30 focus:border-secondary-500 bg-white w-36 font-medium text-gray-700"
                     />
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">→</span>
+                  <span className="text-xs text-gray-400 font-medium">{t('reports.common.range_arrow')}</span>
                   <div className="relative">
                     <CalendarIcon className="w-3.5 h-3.5 text-gray-300 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
@@ -346,9 +348,9 @@ export default function Reports() {
               ) : (
                 /* Active range label */
                 <span className="text-xs text-gray-400 font-medium hidden sm:inline">
-                  {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {new Date(startDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })}
                   {' — '}
-                  {new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(endDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               )}
             </div>
@@ -384,11 +386,11 @@ export default function Reports() {
                             </div>
                             <TrendBadge pct={trend.revenue} />
                           </div>
-                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Revenue</p>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{t('reports.sales.cards.total_revenue')}</p>
                           <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
                             {formatCurrency(totalRevenue)}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-1.5">vs prior half of period</p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">{t('reports.sales.cards.vs_prior_half')}</p>
                         </div>
                       </div>
 
@@ -402,11 +404,11 @@ export default function Reports() {
                             </div>
                             <TrendBadge pct={trend.transactions} />
                           </div>
-                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Transactions</p>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{t('reports.sales.cards.transactions')}</p>
                           <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
                             {totalTransactions.toLocaleString()}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-1.5">vs prior half of period</p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">{t('reports.sales.cards.vs_prior_half')}</p>
                         </div>
                       </div>
 
@@ -420,11 +422,11 @@ export default function Reports() {
                             </div>
                             <TrendBadge pct={trend.avgOrder} />
                           </div>
-                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Avg. Order Value</p>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{t('reports.sales.cards.avg_order_value')}</p>
                           <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
                             {totalTransactions > 0 ? formatCurrency(totalRevenue / totalTransactions) : '—'}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-1.5">vs prior half of period</p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">{t('reports.sales.cards.vs_prior_half')}</p>
                         </div>
                       </div>
                     </div>
@@ -439,7 +441,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      Summary
+                      {t('reports.sales.types.summary')}
                     </button>
                     <button
                       onClick={() => setSalesReportType('products')}
@@ -448,7 +450,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      By Product
+                      {t('reports.sales.types.by_product')}
                     </button>
                     <button
                       onClick={() => setSalesReportType('customers')}
@@ -457,7 +459,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      By Customer
+                      {t('reports.sales.types.by_customer')}
                     </button>
                     <button
                       onClick={() => setSalesReportType('payment-methods')}
@@ -466,7 +468,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      Payment Methods
+                      {t('reports.sales.types.payment_methods')}
                     </button>
                   </div>
 
@@ -476,7 +478,7 @@ export default function Reports() {
                       {/* Chart */}
                       {salesSummary.length > 0 && (
                         <Card>
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Revenue Trend</h3>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('reports.sales.summary.revenue_trend')}</h3>
                           <ResponsiveContainer width="100%" height={250}>
                             <LineChart data={salesSummary}>
                               <CartesianGrid strokeDasharray="3 3" />
@@ -492,14 +494,14 @@ export default function Reports() {
                                 dataKey="total_revenue"
                                 stroke="#6366f1"
                                 strokeWidth={2}
-                                name="Revenue"
+                                name={t('reports.sales.summary.revenue')}
                               />
                               <Line
                                 type="monotone"
                                 dataKey="total_tax"
                                 stroke="#3582e2"
                                 strokeWidth={2}
-                                name="Tax"
+                                name={t('reports.sales.summary.tax')}
                               />
                             </LineChart>
                           </ResponsiveContainer>
@@ -512,10 +514,10 @@ export default function Reports() {
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                               <tr>
-                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Date</th>
-                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Transactions</th>
-                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Revenue</th>
-                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Tax</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('reports.sales.summary.date')}</th>
+                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('reports.sales.summary.transactions')}</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">{t('reports.sales.summary.revenue')}</th>
+                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">{t('reports.sales.summary.tax')}</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -524,8 +526,8 @@ export default function Reports() {
                                   <td colSpan={4} className="px-4 py-8">
                                     <EmptyState
                                       icon={<ChartBarIcon className="w-10 h-10" />}
-                                      title="No data available"
-                                      description="No sales data found for the selected date range"
+                                      title={t('reports.empty.no_data_title')}
+                                      description={t('reports.sales.summary.no_data_description')}
                                     />
                                   </td>
                                 </tr>
@@ -564,7 +566,7 @@ export default function Reports() {
                       {/* Chart */}
                       {productSales.length > 0 && (
                         <Card>
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Top Products by Revenue</h3>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('reports.sales.products.top_products_by_revenue')}</h3>
                           <ResponsiveContainer width="100%" height={250}>
                             <BarChart
                               data={productSales.slice(0, 10)}
@@ -575,7 +577,7 @@ export default function Reports() {
                               <YAxis dataKey="product_name" type="category" width={150} />
                               <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                               <Legend />
-                              <Bar dataKey="total_revenue" fill="#6366f1" name="Revenue" />
+                               <Bar dataKey="total_revenue" fill="#6366f1" name={t('reports.sales.summary.revenue')} />
                             </BarChart>
                           </ResponsiveContainer>
                         </Card>
@@ -588,16 +590,16 @@ export default function Reports() {
                             <thead className="bg-gray-50">
                               <tr>
                                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                  Product
+                                  {t('reports.sales.products.product')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Quantity Sold
+                                  {t('reports.sales.products.quantity_sold')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Revenue
+                                  {t('reports.sales.summary.revenue')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Sales Count
+                                  {t('reports.sales.products.sales_count')}
                                 </th>
                               </tr>
                             </thead>
@@ -607,8 +609,8 @@ export default function Reports() {
                                   <td colSpan={4} className="px-4 py-8">
                                     <EmptyState
                                       icon={<CubeIcon className="w-10 h-10" />}
-                                      title="No data available"
-                                      description="No product sales data found for the selected date range"
+                                      title={t('reports.empty.no_data_title')}
+                                      description={t('reports.sales.products.no_data_description')}
                                     />
                                   </td>
                                 </tr>
@@ -649,16 +651,16 @@ export default function Reports() {
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Customer
+                                {t('reports.sales.customers.customer')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Orders
+                                {t('reports.sales.customers.orders')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Total Spent
+                                {t('reports.sales.customers.total_spent')}
                               </th>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Last Order
+                                {t('reports.sales.customers.last_order')}
                               </th>
                             </tr>
                           </thead>
@@ -668,8 +670,8 @@ export default function Reports() {
                                 <td colSpan={4} className="px-4 py-8">
                                   <EmptyState
                                     icon={<ChartBarIcon className="w-10 h-10" />}
-                                    title="No data available"
-                                    description="No customer sales data found for the selected date range"
+                                    title={t('reports.empty.no_data_title')}
+                                    description={t('reports.sales.customers.no_data_description')}
                                   />
                                 </td>
                               </tr>
@@ -707,7 +709,7 @@ export default function Reports() {
                       {/* Pie Chart */}
                       {paymentMethods.length > 0 && (
                         <Card>
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Methods Distribution</h3>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('reports.sales.payments.distribution')}</h3>
                           <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
                               <Pie
@@ -717,8 +719,8 @@ export default function Reports() {
                                 labelLine={false}
                                 label={(props: any) => {
                                   const { method, percent } = props;
-                                  return `${method || 'Unknown'}: ${percent ? (percent * 100).toFixed(0) : 0}%`;
-                                }}
+                                   return `${method || t('reports.common.unknown')}: ${percent ? (percent * 100).toFixed(0) : 0}%`;
+                                 }}
                                 outerRadius={100}
                                 fill="#8884d8"
                                 dataKey="total_amount"
@@ -740,13 +742,13 @@ export default function Reports() {
                             <thead className="bg-gray-50">
                               <tr>
                                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                  Payment Method
+                                  {t('reports.sales.payments.method')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Transactions
+                                  {t('reports.sales.summary.transactions')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Total Amount
+                                  {t('reports.sales.payments.total_amount')}
                                 </th>
                               </tr>
                             </thead>
@@ -756,8 +758,8 @@ export default function Reports() {
                                   <td colSpan={3} className="px-4 py-8">
                                     <EmptyState
                                       icon={<ChartBarIcon className="w-10 h-10" />}
-                                      title="No data available"
-                                      description="No payment method data found for the selected date range"
+                                      title={t('reports.empty.no_data_title')}
+                                      description={t('reports.sales.payments.no_data_description')}
                                     />
                                   </td>
                                 </tr>
@@ -801,7 +803,7 @@ export default function Reports() {
                         <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs font-semibold text-gray-600 mb-1">Total Cost</p>
+                               <p className="text-xs font-semibold text-gray-600 mb-1">{t('reports.purchases.cards.total_cost')}</p>
                               <p className="text-xl font-extrabold text-secondary-500">
                                 {formatCurrency(totalCost)}
                               </p>
@@ -816,7 +818,7 @@ export default function Reports() {
                         <div className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs font-semibold text-gray-600 mb-1">Purchase Orders</p>
+                               <p className="text-xs font-semibold text-gray-600 mb-1">{t('reports.purchases.cards.purchase_orders')}</p>
                               <p className="text-xl font-extrabold text-secondary-500">
                                 {totalPOs}
                               </p>
@@ -839,7 +841,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      Summary
+                      {t('reports.purchases.types.summary')}
                     </button>
                     <button
                       onClick={() => setPurchaseReportType('suppliers')}
@@ -848,7 +850,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      By Supplier
+                      {t('reports.purchases.types.by_supplier')}
                     </button>
                   </div>
 
@@ -858,7 +860,7 @@ export default function Reports() {
                       {/* Chart */}
                       {purchaseSummary.length > 0 && (
                         <Card>
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Purchase Cost Trend</h3>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('reports.purchases.summary.cost_trend')}</h3>
                           <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={purchaseSummary}>
                               <CartesianGrid strokeDasharray="3 3" />
@@ -869,7 +871,7 @@ export default function Reports() {
                                 labelFormatter={(label) => formatDate(label)}
                               />
                               <Legend />
-                              <Bar dataKey="total_cost" fill="#f59e0b" name="Total Cost" />
+                               <Bar dataKey="total_cost" fill="#f59e0b" name={t('reports.purchases.summary.total_cost')} />
                             </BarChart>
                           </ResponsiveContainer>
                         </Card>
@@ -882,13 +884,13 @@ export default function Reports() {
                             <thead className="bg-gray-50">
                               <tr>
                                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                  Date
+                                  {t('reports.purchases.summary.date')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Purchase Orders
+                                  {t('reports.purchases.summary.purchase_orders')}
                                 </th>
                                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                  Total Cost
+                                  {t('reports.purchases.summary.total_cost')}
                                 </th>
                               </tr>
                             </thead>
@@ -898,8 +900,8 @@ export default function Reports() {
                                   <td colSpan={3} className="px-4 py-8">
                                     <EmptyState
                                       icon={<ShoppingCartIcon className="w-10 h-10" />}
-                                      title="No data available"
-                                      description="No purchase data found for the selected date range"
+                                      title={t('reports.empty.no_data_title')}
+                                      description={t('reports.purchases.summary.no_data_description')}
                                     />
                                   </td>
                                 </tr>
@@ -937,16 +939,16 @@ export default function Reports() {
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Supplier
+                                {t('reports.purchases.suppliers.supplier')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Orders
+                                {t('reports.purchases.suppliers.orders')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Total Cost
+                                {t('reports.purchases.summary.total_cost')}
                               </th>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Last Order
+                                {t('reports.purchases.suppliers.last_order')}
                               </th>
                             </tr>
                           </thead>
@@ -956,8 +958,8 @@ export default function Reports() {
                                 <td colSpan={4} className="px-4 py-8">
                                   <EmptyState
                                     icon={<ShoppingCartIcon className="w-10 h-10" />}
-                                    title="No data available"
-                                    description="No supplier purchase data found for the selected date range"
+                                    title={t('reports.empty.no_data_title')}
+                                    description={t('reports.purchases.suppliers.no_data_description')}
                                   />
                                 </td>
                               </tr>
@@ -1003,7 +1005,7 @@ export default function Reports() {
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-secondary-300 hover:bg-secondary-50'
                         }`}
                     >
-                      Stock Levels
+                      {t('reports.inventory.types.stock_levels')}
                     </button>
                     <button
                       onClick={() => setInventoryReportType('low-stock')}
@@ -1013,7 +1015,7 @@ export default function Reports() {
                         }`}
                     >
                       <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-                      Low Stock
+                      {t('reports.inventory.types.low_stock')}
                     </button>
                   </div>
 
@@ -1025,13 +1027,13 @@ export default function Reports() {
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Product
+                                {t('reports.inventory.stock.product')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Quantity on Hand
+                                {t('reports.inventory.stock.quantity_on_hand')}
                               </th>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Track Inventory
+                                {t('reports.inventory.stock.track_inventory')}
                               </th>
                             </tr>
                           </thead>
@@ -1041,8 +1043,8 @@ export default function Reports() {
                                 <td colSpan={3} className="px-4 py-8">
                                   <EmptyState
                                     icon={<CubeIcon className="w-10 h-10" />}
-                                    title="No data available"
-                                    description="No stock data found"
+                                    title={t('reports.empty.no_data_title')}
+                                    description={t('reports.inventory.stock.no_data_description')}
                                   />
                                 </td>
                               </tr>
@@ -1057,14 +1059,14 @@ export default function Reports() {
                                     {item.product_name}
                                   </td>
                                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 text-right">
-                                    {item.track_inventory ? item.qty_on_hand : <span className="text-gray-400">N/A</span>}
+                                    {item.track_inventory ? item.qty_on_hand : <span className="text-gray-400">{t('reports.common.not_available')}</span>}
                                   </td>
                                   <td className="px-3 py-2 whitespace-nowrap">
                                     <Badge
                                       variant={item.track_inventory ? 'success' : 'gray'}
                                       size="sm"
                                     >
-                                      {item.track_inventory ? 'Yes' : 'No'}
+                                      {item.track_inventory ? t('reports.common.yes') : t('reports.common.no')}
                                     </Badge>
                                   </td>
                                 </tr>
@@ -1084,7 +1086,7 @@ export default function Reports() {
                           <div className="flex items-center gap-1.5">
                             <ExclamationTriangleIcon className="w-4 h-4 text-warning-600" />
                             <p className="text-xs font-semibold text-warning-800">
-                              {lowStock.length} {lowStock.length === 1 ? 'item' : 'items'} need restocking
+                              {t('reports.inventory.low_stock.restock_notice', { count: lowStock.length })}
                             </p>
                           </div>
                         </div>
@@ -1094,16 +1096,16 @@ export default function Reports() {
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Product
+                                 {t('reports.inventory.stock.product')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Quantity on Hand
+                                 {t('reports.inventory.stock.quantity_on_hand')}
                               </th>
                               <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase">
-                                Threshold
+                                 {t('reports.inventory.low_stock.threshold')}
                               </th>
                               <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase">
-                                Status
+                                 {t('reports.inventory.low_stock.status')}
                               </th>
                             </tr>
                           </thead>
@@ -1113,8 +1115,8 @@ export default function Reports() {
                                 <td colSpan={4} className="px-4 py-8">
                                   <EmptyState
                                     icon={<CubeIcon className="w-10 h-10" />}
-                                    title="All items are well stocked"
-                                    description="No low stock items found"
+                                    title={t('reports.inventory.low_stock.all_good_title')}
+                                    description={t('reports.inventory.low_stock.all_good_description')}
                                   />
                                 </td>
                               </tr>
@@ -1136,7 +1138,7 @@ export default function Reports() {
                                   </td>
                                   <td className="px-3 py-2 whitespace-nowrap">
                                     <Badge variant="error" size="sm">
-                                      Low Stock
+                                      {t('reports.inventory.low_stock.badge')}
                                     </Badge>
                                   </td>
                                 </tr>

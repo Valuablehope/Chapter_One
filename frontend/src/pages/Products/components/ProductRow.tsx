@@ -4,6 +4,7 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import { PencilIcon, TrashIcon, CubeIcon } from '@heroicons/react/24/outline';
 import { TableRow } from '../../../components/shared/TableRow';
+import { useTranslation } from '../../../i18n/I18nContext';
 
 export interface ProductRowProps {
   product: Product;
@@ -35,6 +36,8 @@ const getProductTypeVariant = (productType: string): 'primary' | 'secondary' | '
 };
 
 export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, formatCurrency, visibleColumns, isCustomSized }) => {
+  const { t, language } = useTranslation();
+  const locale = language === 'ar' ? 'ar-EG' : 'en-US';
   const cellClass = `px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis ${isCustomSized ? 'max-w-0' : ''}`;
 
   return (
@@ -51,16 +54,16 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
       )}
       {visibleColumns.includes('sku') && (
         <td className={cellClass}>
-          <div className="text-xs text-gray-600 font-mono truncate">
-            {product.sku || <span className="text-gray-400">-</span>}
-          </div>
+            <div className="text-xs text-gray-600 font-mono truncate">
+              {product.sku || <span className="text-gray-400">{t('products.common.empty_value')}</span>}
+            </div>
         </td>
       )}
       {visibleColumns.includes('barcode') && (
         <td className={cellClass}>
-          <div className="text-xs text-gray-600 font-mono truncate">
-            {product.barcode || <span className="text-gray-400">-</span>}
-          </div>
+            <div className="text-xs text-gray-600 font-mono truncate">
+              {product.barcode || <span className="text-gray-400">{t('products.common.empty_value')}</span>}
+            </div>
         </td>
       )}
       {visibleColumns.includes('type') && (
@@ -70,50 +73,50 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
       )}
       {visibleColumns.includes('unit') && (
         <td className={cellClass}>
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 truncate">
-            {product.unit_of_measure || 'each'}
-          </span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200 truncate">
+              {product.unit_of_measure || t('products.units.each')}
+            </span>
         </td>
       )}
       {visibleColumns.includes('list_price') && (
         <td className={cellClass}>
-          <div className="text-xs font-semibold text-gray-900 truncate">
-            {product.list_price ? formatCurrency(Number(product.list_price)) : <span className="text-gray-400">-</span>}
-          </div>
+            <div className="text-xs font-semibold text-gray-900 truncate">
+              {product.list_price ? formatCurrency(Number(product.list_price)) : <span className="text-gray-400">{t('products.common.empty_value')}</span>}
+            </div>
         </td>
       )}
       {visibleColumns.includes('sale_price') && (
         <td className={cellClass}>
-          <div className="text-xs font-bold text-secondary-500 truncate">
-            {product.sale_price ? formatCurrency(Number(product.sale_price)) : <span className="text-gray-400">-</span>}
-          </div>
+            <div className="text-xs font-bold text-secondary-500 truncate">
+              {product.sale_price ? formatCurrency(Number(product.sale_price)) : <span className="text-gray-400">{t('products.common.empty_value')}</span>}
+            </div>
         </td>
       )}
       {visibleColumns.includes('inventory') && (
         <td className={cellClass}>
           <Badge variant={product.track_inventory ? 'success' : 'gray'} size="sm">
-            {product.track_inventory ? 'Tracked' : 'Not Tracked'}
+            {product.track_inventory ? t('products.badges.tracked') : t('products.badges.not_tracked')}
           </Badge>
         </td>
       )}
       {visibleColumns.includes('qty_in') && (
         <td className={cellClass}>
-          <div className="text-xs font-semibold text-green-600 truncate">
-            {product.qty_in !== undefined ? product.qty_in.toLocaleString() : <span className="text-gray-400">-</span>}
-          </div>
+            <div className="text-xs font-semibold text-green-600 truncate">
+              {product.qty_in !== undefined ? product.qty_in.toLocaleString(locale) : <span className="text-gray-400">{t('products.common.empty_value')}</span>}
+            </div>
         </td>
       )}
       {visibleColumns.includes('qty_out') && (
         <td className={cellClass}>
-          <div className="text-xs font-semibold text-red-600 truncate">
-            {product.qty_out !== undefined ? product.qty_out.toLocaleString() : <span className="text-gray-400">-</span>}
-          </div>
+            <div className="text-xs font-semibold text-red-600 truncate">
+              {product.qty_out !== undefined ? product.qty_out.toLocaleString(locale) : <span className="text-gray-400">{t('products.common.empty_value')}</span>}
+            </div>
         </td>
       )}
       {visibleColumns.includes('balance') && (
         <td className={cellClass}>
           <div className={`text-xs font-bold truncate ${product.balance !== undefined && product.balance < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-            {product.balance !== undefined ? product.balance.toLocaleString() : <span className="text-gray-400">-</span>}
+            {product.balance !== undefined ? product.balance.toLocaleString(locale) : <span className="text-gray-400">{t('products.common.empty_value')}</span>}
           </div>
         </td>
       )}
@@ -127,7 +130,7 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
               leftIcon={<PencilIcon className="w-4 h-4" />}
               className="opacity-0 group-hover:opacity-100 transition-opacity"
             >
-              Edit
+              {t('products.actions.edit')}
             </Button>
             <Button
               onClick={() => onDelete(product)}
@@ -136,7 +139,7 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
               leftIcon={<TrashIcon className="w-4 h-4" />}
               className="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex"
             >
-              Del
+              {t('products.actions.delete_short')}
             </Button>
           </div>
         </td>

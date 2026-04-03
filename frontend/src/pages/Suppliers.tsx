@@ -21,8 +21,10 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useTranslation } from '../i18n/I18nContext';
 
 export default function Suppliers() {
+  const { t } = useTranslation();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<SupplierFilters>({
@@ -81,14 +83,14 @@ export default function Suppliers() {
       if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
         return;
       }
-      toast.error(err.response?.data?.error?.message || 'Failed to load suppliers');
+      toast.error(err.response?.data?.error?.message || t('suppliers.errors.load_suppliers'));
       logger.error('Error loading suppliers:', err);
     } finally {
       if (!signal.aborted) {
         setLoading(false);
       }
     }
-  }, [filters]);
+  }, [filters, t]);
 
   // Load suppliers when filters change
   useEffect(() => {
@@ -152,11 +154,11 @@ export default function Suppliers() {
     const errors: Record<string, string> = {};
 
     if (!formData.name?.trim()) {
-      errors.name = 'Supplier name is required';
+      errors.name = t('suppliers.validation.name_required');
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Invalid email format';
+      errors.email = t('suppliers.validation.email_invalid');
     }
 
     setFormErrors(errors);
@@ -178,14 +180,14 @@ export default function Suppliers() {
         await supplierService.createSupplier(formData);
       }
       closeModal();
-      toast.success(editingSupplier ? 'Supplier updated successfully' : 'Supplier created successfully');
+      toast.success(editingSupplier ? t('suppliers.success.supplier_updated') : t('suppliers.success.supplier_created'));
       loadSuppliers();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('suppliers.errors.timeout'));
       } else {
         const errorMessage =
-          err.response?.data?.error?.message || 'Failed to save supplier';
+          err.response?.data?.error?.message || t('suppliers.errors.save_supplier');
         toast.error(errorMessage);
       }
       console.error('Error saving supplier:', err);
@@ -197,7 +199,7 @@ export default function Suppliers() {
   const handleDelete = async (supplier: Supplier) => {
     if (
       !window.confirm(
-        `Are you sure you want to delete ${supplier.name}?`
+        t('suppliers.confirm.delete_supplier', { name: supplier.name })
       )
     ) {
       return;
@@ -205,14 +207,14 @@ export default function Suppliers() {
 
     try {
       await supplierService.deleteSupplier(supplier.supplier_id);
-      toast.success('Supplier deleted successfully');
+      toast.success(t('suppliers.success.supplier_deleted'));
       loadSuppliers();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('suppliers.errors.timeout'));
       } else {
         const errorMessage =
-          err.response?.data?.error?.message || 'Failed to delete supplier';
+          err.response?.data?.error?.message || t('suppliers.errors.delete_supplier');
         toast.error(errorMessage);
       }
       console.error('Error deleting supplier:', err);
@@ -222,8 +224,8 @@ export default function Suppliers() {
   return (
     <>
       <PageBanner
-        title="Suppliers"
-        subtitle="Manage your supplier database and relationships"
+        title={t('suppliers.title')}
+        subtitle={t('suppliers.subtitle')}
         icon={<BuildingOfficeIcon className="w-5 h-5 text-white" />}
         action={
           <Button
@@ -232,7 +234,7 @@ export default function Suppliers() {
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            Add Supplier
+            {t('suppliers.actions.add_supplier')}
           </Button>
         }
       />
@@ -248,7 +250,7 @@ export default function Suppliers() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by name, contact person, phone, or email..."
+                  placeholder={t('suppliers.filters.search_placeholder')}
                   value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
@@ -260,15 +262,15 @@ export default function Suppliers() {
               className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-secondary-300"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
-              <span>Refresh</span>
+              <span>{t('suppliers.actions.refresh')}</span>
             </button>
           </div>
 
           <div className="mt-3 flex items-center gap-1.5">
-            <Badge variant="primary" size="sm">{pagination.total} Suppliers</Badge>
+            <Badge variant="primary" size="sm">{t('suppliers.filters.suppliers_count', { count: pagination.total })}</Badge>
             {searchQuery && (
               <Badge variant="info" size="sm">
-                Filtered: {suppliers.length} results
+                {t('suppliers.filters.filtered_results', { count: suppliers.length })}
               </Badge>
             )}
           </div>
@@ -287,12 +289,12 @@ export default function Suppliers() {
               <div className="px-4 py-12">
                 <EmptyState
                   icon={<BuildingOfficeIcon className="w-12 h-12" />}
-                  title="No suppliers found"
-                  description={searchQuery ? "Try adjusting your search" : "Get started by adding your first supplier"}
+                  title={t('suppliers.empty.title')}
+                  description={searchQuery ? t('suppliers.empty.filtered_description') : t('suppliers.empty.default_description')}
                   action={
                     !searchQuery && (
                       <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                        Add Supplier
+                        {t('suppliers.actions.add_supplier')}
                       </Button>
                     )
                   }
@@ -302,12 +304,12 @@ export default function Suppliers() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Contact Person</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Phone</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Email</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Created</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('suppliers.table.name')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('suppliers.table.contact_person')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('suppliers.table.phone')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('suppliers.table.email')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('suppliers.table.created')}</th>
+                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('suppliers.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -332,9 +334,9 @@ export default function Suppliers() {
         <Card className="mt-3 border-2 border-gray-100">
           <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
             <div className="text-xs text-gray-600 font-medium">
-              Showing <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> to{' '}
-              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-              <span className="font-bold text-gray-900">{pagination.total}</span> suppliers
+              {t('suppliers.pagination.showing')} <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> {t('suppliers.pagination.to')}{' '}
+              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> {t('suppliers.pagination.of')}{' '}
+              <span className="font-bold text-gray-900">{pagination.total}</span> {t('suppliers.pagination.suppliers')}
             </div>
             <div className="flex items-center gap-1.5">
               <Button
@@ -343,10 +345,10 @@ export default function Suppliers() {
                 variant="outline"
                 size="sm"
               >
-                Previous
+                {t('suppliers.pagination.previous')}
               </Button>
               <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('suppliers.pagination.page')} {pagination.page} {t('suppliers.pagination.of')} {pagination.totalPages}
               </span>
               <Button
                 onClick={() => handlePageChange(pagination.page + 1)}
@@ -354,7 +356,7 @@ export default function Suppliers() {
                 variant="outline"
                 size="sm"
               >
-                Next
+                {t('suppliers.pagination.next')}
               </Button>
             </div>
           </div>
@@ -370,7 +372,7 @@ export default function Suppliers() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <BuildingOfficeIcon className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base">{editingSupplier ? 'Edit Supplier' : 'Add Supplier'}</span>
+            <span className="text-base">{editingSupplier ? t('suppliers.modal.edit_title') : t('suppliers.modal.add_title')}</span>
           </div>
         }
         size="md"
@@ -382,7 +384,7 @@ export default function Suppliers() {
               variant="outline"
               disabled={submitting}
             >
-              Cancel
+              {t('suppliers.actions.cancel')}
             </Button>
             <Button
               type="submit"
@@ -390,7 +392,7 @@ export default function Suppliers() {
               className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={submitting}
             >
-              {editingSupplier ? 'Update' : 'Create'}
+              {editingSupplier ? t('suppliers.actions.update') : t('suppliers.actions.create')}
             </Button>
           </div>
         }
@@ -398,7 +400,7 @@ export default function Suppliers() {
         <form id="supplier-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Supplier Name <span className="text-red-500">*</span>
+              {t('suppliers.form.supplier_name')} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -413,7 +415,7 @@ export default function Suppliers() {
                     setFormData({ ...formData, name: value });
                   }
                 }}
-                placeholder="Enter supplier name"
+                placeholder={t('suppliers.form.supplier_name_placeholder')}
                 required
                 maxLength={INPUT_LIMITS.CUSTOMER_NAME_MAX_LENGTH}
                 className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${formErrors.name ? 'border-red-300' : 'border-gray-200'
@@ -427,7 +429,7 @@ export default function Suppliers() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Contact Person
+              {t('suppliers.form.contact_person')}
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -442,7 +444,7 @@ export default function Suppliers() {
                     setFormData({ ...formData, contact_name: value });
                   }
                 }}
-                placeholder="Enter contact person name"
+                placeholder={t('suppliers.form.contact_person_placeholder')}
                 maxLength={INPUT_LIMITS.FULL_NAME_MAX_LENGTH}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
               />
@@ -451,7 +453,7 @@ export default function Suppliers() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Phone
+              {t('suppliers.form.phone')}
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -466,7 +468,7 @@ export default function Suppliers() {
                     setFormData({ ...formData, phone: value });
                   }
                 }}
-                placeholder="Enter phone number"
+                placeholder={t('suppliers.form.phone_placeholder')}
                 maxLength={INPUT_LIMITS.PHONE_MAX_LENGTH}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
               />
@@ -475,7 +477,7 @@ export default function Suppliers() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Email
+              {t('suppliers.form.email')}
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -490,7 +492,7 @@ export default function Suppliers() {
                     setFormData({ ...formData, email: value });
                   }
                 }}
-                placeholder="Enter email address"
+                placeholder={t('suppliers.form.email_placeholder')}
                 maxLength={INPUT_LIMITS.EMAIL_MAX_LENGTH}
                 className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${formErrors.email ? 'border-red-300' : 'border-gray-200'
                   }`}

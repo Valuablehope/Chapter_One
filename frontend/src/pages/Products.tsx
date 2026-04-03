@@ -28,6 +28,7 @@ import {
   AdjustmentsVerticalIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useTranslation } from '../i18n/I18nContext';
 
 export const STANDARD_UNITS = ['each', 'pair', 'dozen', 'pack', 'box', 'carton', 'kg', 'g', 'lb', 'oz', 'L', 'mL', 'm', 'cm'];
 
@@ -55,6 +56,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
 ];
 
 export default function Products() {
+  const { t, language } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<ProductFilters>({
@@ -229,14 +231,14 @@ export default function Products() {
         return;
       }
       if (requestId !== loadRequestIdRef.current) return;
-      toast.error(err.response?.data?.error?.message || 'Failed to load products');
+      toast.error(err.response?.data?.error?.message || t('products.errors.load_products'));
       logger.error('Error loading products:', err);
     } finally {
       if (requestId === loadRequestIdRef.current) {
         setLoading(false);
       }
     }
-  }, [filters]);
+  }, [filters, t]);
 
   const loadConfigData = useCallback(async () => {
     try {
@@ -363,34 +365,34 @@ export default function Products() {
     const errors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      errors.name = 'Product name is required';
+      errors.name = t('products.validation.name_required');
     }
 
     if (formData.barcode) {
       const barcodeRegex = /^\d{8,13}$/;
       if (!barcodeRegex.test(formData.barcode)) {
-        errors.barcode = 'Barcode must be 8-13 digits';
+        errors.barcode = t('products.validation.barcode_invalid');
       }
     }
 
     if (formData.list_price && parseFloat(formData.list_price) < 0) {
-      errors.list_price = 'List price must be positive';
+      errors.list_price = t('products.validation.list_price_positive');
     }
 
     if (formData.sale_price && parseFloat(formData.sale_price) < 0) {
-      errors.sale_price = 'Sale price must be positive';
+      errors.sale_price = t('products.validation.sale_price_positive');
     }
 
     if (formData.tax_rate) {
       const taxRate = parseFloat(formData.tax_rate);
       if (taxRate < 0 || taxRate > 100) {
-        errors.tax_rate = 'Tax rate must be between 0 and 100';
+        errors.tax_rate = t('products.validation.tax_rate_range');
       }
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData]);
+  }, [formData, t]);
 
   const handlePriceChange = useCallback((field: 'list_price' | 'sale_price' | 'margin_pct', value: string) => {
     setFormData((prev) => {
@@ -458,40 +460,40 @@ export default function Products() {
       }
 
       closeModal();
-      toast.success(editingProduct ? 'Product updated successfully' : 'Product created successfully');
+      toast.success(editingProduct ? t('products.success.product_updated') : t('products.success.product_created'));
       loadProducts();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('products.errors.timeout'));
       } else {
-        const errorMessage = err.response?.data?.error?.message || 'Failed to save product';
+        const errorMessage = err.response?.data?.error?.message || t('products.errors.save_product');
         toast.error(errorMessage);
       }
       console.error('Error saving product:', err);
     } finally {
       setSubmitting(false);
     }
-  }, [formData, editingProduct, closeModal, loadProducts, validateForm]);
+  }, [formData, editingProduct, closeModal, loadProducts, validateForm, t]);
 
   const handleDelete = useCallback(async (product: Product) => {
-    if (!window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
+    if (!window.confirm(t('products.confirm.delete_product', { name: product.name }))) {
       return;
     }
 
     try {
       await productService.deleteProduct(product.product_id);
-      toast.success('Product deleted successfully');
+      toast.success(t('products.success.product_deleted'));
       loadProducts();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('products.errors.timeout'));
       } else {
-        const errorMessage = err.response?.data?.error?.message || 'Failed to delete product';
+        const errorMessage = err.response?.data?.error?.message || t('products.errors.delete_product');
         toast.error(errorMessage);
       }
       console.error('Error deleting product:', err);
     }
-  }, [loadProducts]);
+  }, [loadProducts, t]);
 
   const handleBarcodeScan = async (barcode: string) => {
     try {
@@ -506,17 +508,21 @@ export default function Products() {
         });
         openAddModal();
       } else {
-        toast.error('Failed to lookup product by barcode');
+        toast.error(t('products.errors.lookup_barcode'));
       }
     }
   };
 
   const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-  }, []);
+  }, [language]);
+
+  const getColumnLabel = useCallback((columnId: string) => {
+    return t(`products.columns.${columnId}`);
+  }, [t]);
 
   const handleTypeSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -528,32 +534,32 @@ export default function Products() {
           name: typeFormData.name.trim(),
           display_on_pos: typeFormData.display_on_pos 
         });
-        toast.success('Product type updated successfully');
+        toast.success(t('products.success.product_type_updated'));
       } else {
         await productTypeService.createProductType({ 
           name: typeFormData.name.trim(),
           display_on_pos: typeFormData.display_on_pos
         });
-        toast.success('Product type created successfully');
+        toast.success(t('products.success.product_type_created'));
       }
       setTypeFormData({ name: '', display_on_pos: false });
       setEditingProductType(null);
       loadConfigData();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to finish action');
+      toast.error(err.response?.data?.error?.message || t('products.errors.finish_action'));
     } finally {
       setTypeSubmitting(false);
     }
-  }, [typeFormData, editingProductType, loadConfigData]);
+  }, [typeFormData, editingProductType, loadConfigData, t]);
 
   const handleDeleteProductType = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this product type?')) return;
+    if (!window.confirm(t('products.confirm.delete_type'))) return;
     try {
       await productTypeService.deleteProductType(id);
-      toast.success('Product type deleted');
+      toast.success(t('products.success.product_type_deleted'));
       loadConfigData();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to delete product type');
+      toast.error(err.response?.data?.error?.message || t('products.errors.delete_product_type'));
     }
   };
 
@@ -565,8 +571,8 @@ export default function Products() {
   return (
     <>
       <PageBanner
-        title="Products"
-        subtitle="Manage your product catalogue and inventory"
+        title={t('products.title')}
+        subtitle={t('products.subtitle')}
         icon={<BookOpenIcon className="w-5 h-5 text-white" />}
         action={
           <div className="flex gap-2">
@@ -579,14 +585,14 @@ export default function Products() {
               className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<TagIcon className="w-4 h-4" />}
             >
-              Manage Product Types
+              {t('products.actions.manage_product_types')}
             </Button>
             <Button
               onClick={openAddModal}
               className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<PlusIcon className="w-4 h-4" />}
             >
-              Add Product
+              {t('products.actions.add_product')}
             </Button>
           </div>
         }
@@ -603,7 +609,7 @@ export default function Products() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search products by name, SKU, or barcode..."
+                  placeholder={t('products.filters.search_placeholder')}
                   value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
@@ -617,7 +623,7 @@ export default function Products() {
               </div>
               <input
                 type="text"
-                placeholder="Filter by type..."
+                placeholder={t('products.filters.type_placeholder')}
                 value={productTypeInput}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductTypeChange(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-white font-medium uppercase"
@@ -630,7 +636,7 @@ export default function Products() {
               </div>
               <input
                 type="text"
-                placeholder="Scan barcode..."
+                placeholder={t('products.filters.scan_barcode_placeholder')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault(); // Prevent form submission
@@ -649,10 +655,10 @@ export default function Products() {
 
           <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-1.5">
-              <Badge variant="success" size="sm">{pagination.total} Products</Badge>
+              <Badge variant="success" size="sm">{t('products.filters.products_count', { count: pagination.total })}</Badge>
               {filters.search && (
                 <Badge variant="primary" size="sm">
-                  Filtered: {products.length} results
+                  {t('products.filters.filtered_results', { count: products.length })}
                 </Badge>
               )}
             </div>
@@ -663,12 +669,12 @@ export default function Products() {
                   className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200"
                 >
                   <AdjustmentsVerticalIcon className="w-3.5 h-3.5" />
-                  <span>Columns</span>
+                  <span>{t('products.actions.columns')}</span>
                 </button>
                 {showManageColumns && (
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1.5 max-h-80 overflow-y-auto">
                     <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Show/Hide Columns</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('products.columns.show_hide')}</span>
                     </div>
                     {columnsConfig.map(col => (
                       <label key={col.id} className="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
@@ -682,7 +688,7 @@ export default function Products() {
                             ));
                           }}
                         />
-                        <span className="text-sm font-medium text-gray-700">{col.label}</span>
+                        <span className="text-sm font-medium text-gray-700">{getColumnLabel(col.id)}</span>
                       </label>
                     ))}
                   </div>
@@ -693,7 +699,7 @@ export default function Products() {
                 className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200"
               >
                 <ArrowPathIcon className="w-3.5 h-3.5" />
-                <span>Refresh</span>
+                <span>{t('products.actions.refresh')}</span>
               </button>
             </div>
           </div>
@@ -712,12 +718,12 @@ export default function Products() {
               <div className="px-4 py-12">
                 <EmptyState
                   icon={<CubeIcon className="w-12 h-12" />}
-                  title="No products found"
-                  description={filters.search ? "Try adjusting your search or filters" : "Get started by adding your first product"}
+                  title={t('products.empty.title')}
+                  description={filters.search ? t('products.empty.filtered_description') : t('products.empty.default_description')}
                   action={
                     !filters.search && (
                       <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                        Add Product
+                        {t('products.actions.add_product')}
                       </Button>
                     )
                   }
@@ -743,7 +749,7 @@ export default function Products() {
                         key={c.id}
                         className={`relative px-3 py-2 text-[10px] font-bold text-gray-700 uppercase tracking-wider ${isCustomSized ? 'max-w-0' : 'w-min'} ${c.id === 'actions' ? 'text-right' : 'text-left'}`}
                       >
-                        <div className="truncate">{c.label}</div>
+                        <div className="truncate">{getColumnLabel(c.id)}</div>
                         {idx < arr.length - 1 && (
                           <div
                             onMouseDown={(e) => startColumnResize(e, c.id, c.width)}
@@ -779,9 +785,9 @@ export default function Products() {
         <Card className="mt-3 border-2 border-gray-100">
           <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
             <div className="text-xs text-gray-600 font-medium">
-              Showing <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> to{' '}
-              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-              <span className="font-bold text-gray-900">{pagination.total}</span> products
+              {t('products.pagination.showing')} <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> {t('products.pagination.to')}{' '}
+              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> {t('products.pagination.of')}{' '}
+              <span className="font-bold text-gray-900">{pagination.total}</span> {t('products.pagination.products')}
             </div>
             <div className="flex items-center gap-1.5">
               <Button
@@ -790,10 +796,10 @@ export default function Products() {
                 variant="outline"
                 size="sm"
               >
-                Previous
+                {t('products.pagination.previous')}
               </Button>
               <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('products.pagination.page')} {pagination.page} {t('products.pagination.of')} {pagination.totalPages}
               </span>
               <Button
                 onClick={() => handlePageChange(pagination.page + 1)}
@@ -801,7 +807,7 @@ export default function Products() {
                 variant="outline"
                 size="sm"
               >
-                Next
+                {t('products.pagination.next')}
               </Button>
             </div>
           </div>
@@ -817,7 +823,7 @@ export default function Products() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <CubeIcon className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base">{editingProduct ? 'Edit Product' : 'Add New Product'}</span>
+            <span className="text-base">{editingProduct ? t('products.modal.edit_title') : t('products.modal.add_title')}</span>
           </div>
         }
         size="lg"
@@ -829,7 +835,7 @@ export default function Products() {
               variant="outline"
               disabled={submitting}
             >
-              Cancel
+              {t('products.actions.cancel')}
             </Button>
             <Button
               type="submit"
@@ -837,7 +843,7 @@ export default function Products() {
               className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={submitting}
             >
-              {editingProduct ? 'Update Product' : 'Create Product'}
+              {editingProduct ? t('products.actions.update_product') : t('products.actions.create_product')}
             </Button>
           </div>
         }
@@ -846,7 +852,7 @@ export default function Products() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Input
-                label="Product Name"
+                label={t('products.form.product_name')}
                 type="text"
                 value={formData.name}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -864,7 +870,7 @@ export default function Products() {
 
             <div>
               <Input
-                label="SKU"
+                label={t('products.form.sku')}
                 type="text"
                 value={formData.sku}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -874,13 +880,13 @@ export default function Products() {
                   }
                 }}
                 maxLength={INPUT_LIMITS.SKU_MAX_LENGTH}
-                helperText="Stock Keeping Unit"
+                helperText={t('products.form.sku_helper')}
               />
             </div>
 
             <div>
               <Input
-                label="Barcode"
+                label={t('products.form.barcode')}
                 type="text"
                 value={formData.barcode}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -891,14 +897,14 @@ export default function Products() {
                 }}
                 error={formErrors.barcode}
                 maxLength={INPUT_LIMITS.BARCODE_MAX_LENGTH}
-                helperText="8-13 digits"
+                helperText={t('products.form.barcode_helper')}
                 leftIcon={<QrCodeIcon className="w-5 h-5" />}
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                Product Type
+                {t('products.form.product_type')}
               </label>
               <select
                 value={formData.product_type}
@@ -906,7 +912,7 @@ export default function Products() {
                 className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
                 required
               >
-                <option value="" disabled>Select a type</option>
+                <option value="" disabled>{t('products.form.select_type')}</option>
                 {productTypes.map(type => (
                   <option key={type.id} value={type.name}>{type.name}</option>
                 ))}
@@ -915,7 +921,7 @@ export default function Products() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                Unit of Measure
+                {t('products.form.unit_of_measure')}
               </label>
               <select
                 value={showCustomUnit ? 'custom_number' : formData.unit_of_measure}
@@ -930,48 +936,48 @@ export default function Products() {
                 }}
                 className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
               >
-                <optgroup label="Count">
-                  <option value="each">each</option>
-                  <option value="pair">pair</option>
-                  <option value="dozen">dozen</option>
-                  <option value="pack">pack</option>
-                  <option value="box">box</option>
-                  <option value="carton">carton</option>
+                <optgroup label={t('products.units.groups.count')}>
+                  <option value="each">{t('products.units.each')}</option>
+                  <option value="pair">{t('products.units.pair')}</option>
+                  <option value="dozen">{t('products.units.dozen')}</option>
+                  <option value="pack">{t('products.units.pack')}</option>
+                  <option value="box">{t('products.units.box')}</option>
+                  <option value="carton">{t('products.units.carton')}</option>
                 </optgroup>
-                <optgroup label="Weight">
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="lb">lb</option>
-                  <option value="oz">oz</option>
+                <optgroup label={t('products.units.groups.weight')}>
+                  <option value="kg">{t('products.units.kg')}</option>
+                  <option value="g">{t('products.units.g')}</option>
+                  <option value="lb">{t('products.units.lb')}</option>
+                  <option value="oz">{t('products.units.oz')}</option>
                 </optgroup>
-                <optgroup label="Volume">
-                  <option value="L">L</option>
-                  <option value="mL">mL</option>
+                <optgroup label={t('products.units.groups.volume')}>
+                  <option value="L">{t('products.units.L')}</option>
+                  <option value="mL">{t('products.units.mL')}</option>
                 </optgroup>
-                <optgroup label="Length">
-                  <option value="m">m</option>
-                  <option value="cm">cm</option>
+                <optgroup label={t('products.units.groups.length')}>
+                  <option value="m">{t('products.units.m')}</option>
+                  <option value="cm">{t('products.units.cm')}</option>
                 </optgroup>
-                <optgroup label="Other">
-                  <option value="custom_number">Number (Custom)</option>
+                <optgroup label={t('products.units.groups.other')}>
+                  <option value="custom_number">{t('products.units.custom_number')}</option>
                 </optgroup>
               </select>
               {showCustomUnit && (
                 <input
                   type="text"
-                  placeholder="Enter custom number or unit..."
+                  placeholder={t('products.form.custom_unit_placeholder')}
                   value={formData.unit_of_measure}
                   onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
                   className="mt-2 w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-gray-50"
                   autoFocus
                 />
               )}
-              <p className="text-[10px] text-gray-500 mt-1">How this product is measured when buying/selling</p>
+              <p className="text-[10px] text-gray-500 mt-1">{t('products.form.unit_helper')}</p>
             </div>
 
             <div>
               <Input
-                label="List Price ($)"
+                label={t('products.form.list_price')}
                 type="number"
                 step="0.01"
                 min={INPUT_LIMITS.PRICE_MIN}
@@ -985,19 +991,19 @@ export default function Products() {
 
             <div>
               <Input
-                label="Margin (%)"
+                label={t('products.form.margin')}
                 type="number"
                 step="0.01"
                 value={formData.margin_pct}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('margin_pct', e.target.value)}
                 rightIcon={<span className="text-gray-500 font-semibold">%</span>}
-                helperText="Profit margin"
+                helperText={t('products.form.margin_helper')}
               />
             </div>
 
             <div>
               <Input
-                label="Sale Price ($)"
+                label={t('products.form.sale_price')}
                 type="number"
                 step="0.01"
                 min={INPUT_LIMITS.PRICE_MIN}
@@ -1011,7 +1017,7 @@ export default function Products() {
 
             <div>
               <Input
-                label="Tax Rate (%)"
+                label={t('products.form.tax_rate')}
                 type="number"
                 step="0.01"
                 min={INPUT_LIMITS.TAX_RATE_MIN}
@@ -1019,7 +1025,7 @@ export default function Products() {
                 value={formData.tax_rate}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, tax_rate: e.target.value })}
                 error={formErrors.tax_rate}
-                helperText="0-100"
+                helperText={t('products.form.tax_rate_helper')}
               />
             </div>
 
@@ -1033,9 +1039,9 @@ export default function Products() {
                 />
                 <div>
                   <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
-                    Track Inventory
+                    {t('products.form.track_inventory')}
                   </span>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Enable inventory tracking for this product</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{t('products.form.track_inventory_helper')}</p>
                 </div>
               </label>
             </div>
@@ -1052,7 +1058,7 @@ export default function Products() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <TagIcon className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base">Manage Product Types</span>
+            <span className="text-base">{t('products.types.modal_title')}</span>
           </div>
         }
         size="md"
@@ -1068,7 +1074,7 @@ export default function Products() {
                 }}
                 disabled={typeSubmitting}
               >
-                Cancel Edit
+                {t('products.types.cancel_edit')}
               </Button>
             )}
             <Button
@@ -1077,7 +1083,7 @@ export default function Products() {
               className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold transition-all"
               isLoading={typeSubmitting}
             >
-              {editingProductType ? 'Save Changes' : 'Create Category'}
+              {editingProductType ? t('products.types.save_changes') : t('products.types.create_category')}
             </Button>
           </div>
         }
@@ -1092,7 +1098,7 @@ export default function Products() {
                       <span className="font-semibold text-gray-900 text-sm">{type.name}</span>
                       {type.display_on_pos && (
                         <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                          POS Visible
+                          {t('products.types.pos_visible')}
                         </span>
                       )}
                     </div>
@@ -1117,17 +1123,17 @@ export default function Products() {
           )}
 
           <div className="border-t border-gray-200 pt-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">{editingProductType ? 'Edit Product Type' : 'Add New Category'}</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">{editingProductType ? t('products.types.edit_type') : t('products.types.add_new_category')}</h3>
             <form id="product-type-form" onSubmit={handleTypeSubmit} className="space-y-4">
               <Input
-                label="Product Type Name"
+                label={t('products.types.name_label')}
                 type="text"
                 value={typeFormData.name}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setTypeFormData({ ...typeFormData, name: e.target.value.toUpperCase() });
                 }}
                 required
-                placeholder="e.g. ELECTRONICS, GROCERIES"
+                placeholder={t('products.types.name_placeholder')}
                 className="uppercase"
               />
 
@@ -1141,9 +1147,9 @@ export default function Products() {
                   />
                   <div>
                     <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
-                      Display on POS Sales
+                      {t('products.types.display_on_pos')}
                     </span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Show this category on Quick Add grid</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{t('products.types.display_on_pos_helper')}</p>
                   </div>
                 </label>
               )}

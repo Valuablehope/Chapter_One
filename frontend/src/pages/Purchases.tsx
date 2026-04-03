@@ -35,6 +35,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { storeService, StoreSettings } from '../services/storeService';
+import { useTranslation } from '../i18n/I18nContext';
 
 interface PurchaseOrderItem {
   product: Product;
@@ -44,6 +45,7 @@ interface PurchaseOrderItem {
 }
 
 export default function Purchases() {
+  const { t, language } = useTranslation();
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<PurchaseOrderFilters>({
@@ -107,14 +109,14 @@ export default function Purchases() {
       if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
         return;
       }
-      toast.error(err.response?.data?.error?.message || 'Failed to load purchase orders');
+      toast.error(err.response?.data?.error?.message || t('purchases.errors.load_orders'));
       logger.error('Error loading purchase orders:', err);
     } finally {
       if (!signal.aborted) {
         setLoading(false);
       }
     }
-  }, [filters]);
+  }, [filters, t]);
 
   // Load purchase orders
   useEffect(() => {
@@ -154,7 +156,7 @@ export default function Purchases() {
       });
       setSupplierResults(response.data);
     } catch (err: any) {
-      toast.error('Failed to search suppliers');
+      toast.error(t('purchases.errors.search_suppliers'));
       logger.error('Error searching suppliers:', err);
     }
   };
@@ -173,7 +175,7 @@ export default function Purchases() {
       });
       setProductResults(response.data);
     } catch (err: any) {
-      toast.error('Failed to search products');
+      toast.error(t('purchases.errors.search_products'));
       logger.error('Error searching products:', err);
     }
   };
@@ -190,9 +192,9 @@ export default function Purchases() {
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
-        toast.error(`Product with barcode ${barcode} not found`);
+        toast.error(t('purchases.errors.barcode_not_found', { barcode }));
       } else {
-        toast.error('Failed to lookup product by barcode');
+        toast.error(t('purchases.errors.lookup_barcode'));
       }
     }
   };
@@ -218,7 +220,7 @@ export default function Purchases() {
           product,
           qty_ordered: 1,
           unit_cost: Number(product.list_price || 0),
-          unit_of_measure: product.unit_of_measure || 'each',
+          unit_of_measure: product.unit_of_measure || t('purchases.common.each'),
         },
       ]);
     }
@@ -274,12 +276,12 @@ export default function Purchases() {
       const formItems: PurchaseOrderItem[] = fullPO.items.map((item) => ({
         product: {
           product_id: item.product_id,
-          name: item.product_name || `[Deleted Product - ID: ${item.product_id.substring(0, 8)}...]`,
-          barcode: item.barcode || 'N/A',
+            name: item.product_name || t('purchases.common.deleted_product', { id: item.product_id.substring(0, 8) }),
+            barcode: item.barcode || t('purchases.common.not_available'),
         } as Product,
         qty_ordered: item.qty_ordered,
         unit_cost: item.unit_cost,
-        unit_of_measure: item.unit_of_measure || 'each',
+          unit_of_measure: item.unit_of_measure || t('purchases.common.each'),
       }));
       setItems(formItems);
       setExpectedAt(fullPO.expected_at ? fullPO.expected_at.split('T')[0] : '');
@@ -295,7 +297,7 @@ export default function Purchases() {
         }
       }
     } catch (err: any) {
-      toast.error('Failed to load purchase order details');
+      toast.error(t('purchases.errors.load_order_details'));
       logger.error('Error loading purchase order:', err);
     }
   };
@@ -323,12 +325,12 @@ export default function Purchases() {
     e.preventDefault();
 
     if (!selectedSupplier) {
-      toast.error('Please select a supplier');
+      toast.error(t('purchases.errors.select_supplier'));
       return;
     }
 
     if (items.length === 0) {
-      toast.error('Please add at least one item');
+      toast.error(t('purchases.errors.add_one_item'));
       return;
     }
 
@@ -348,26 +350,26 @@ export default function Purchases() {
       if (editingPO) {
         // Only allow editing if status is OPEN
         if (editingPO.status !== 'OPEN') {
-          toast.error('Only OPEN purchase orders can be edited');
+          toast.error(t('purchases.errors.only_open_editable'));
           setSubmitting(false);
           return;
         }
 
         await purchaseService.updatePurchaseOrder(editingPO.po_id, purchaseOrderData);
         closeModal();
-        toast.success('Purchase order updated successfully');
+        toast.success(t('purchases.success.order_updated'));
       } else {
         await purchaseService.createPurchaseOrder(purchaseOrderData);
         closeModal();
-        toast.success('Purchase order created successfully');
+        toast.success(t('purchases.success.order_created'));
       }
 
       loadPurchaseOrders();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('purchases.errors.timeout'));
       } else {
-        toast.error(err.response?.data?.error?.message || 'Failed to save purchase order');
+        toast.error(err.response?.data?.error?.message || t('purchases.errors.save_order'));
       }
       logger.error('Error saving purchase order:', err);
     } finally {
@@ -377,35 +379,35 @@ export default function Purchases() {
 
   // Receive purchase order
   const handleReceive = async (po: PurchaseOrder) => {
-    if (!window.confirm(`Receive purchase order ${po.po_number}? This will update stock levels.`)) {
+    if (!window.confirm(t('purchases.confirm.receive_order', { poNumber: po.po_number }))) {
       return;
     }
 
     try {
       await purchaseService.receivePurchaseOrder(po.po_id);
-      toast.success('Purchase order received successfully');
+      toast.success(t('purchases.success.order_received'));
       loadPurchaseOrders();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to receive purchase order');
+      toast.error(err.response?.data?.error?.message || t('purchases.errors.receive_order'));
       logger.error('Error receiving purchase order:', err);
     }
   };
 
   // Delete purchase order
   const handleDelete = async (po: PurchaseOrder) => {
-    if (!window.confirm(`Are you sure you want to delete purchase order ${po.po_number}?`)) {
+    if (!window.confirm(t('purchases.confirm.delete_order', { poNumber: po.po_number }))) {
       return;
     }
 
     try {
       await purchaseService.deletePurchaseOrder(po.po_id);
-      toast.success('Purchase order deleted successfully');
+      toast.success(t('purchases.success.order_deleted'));
       loadPurchaseOrders();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('purchases.errors.timeout'));
       } else {
-        toast.error(err.response?.data?.error?.message || 'Failed to delete purchase order');
+        toast.error(err.response?.data?.error?.message || t('purchases.errors.delete_order'));
       }
       logger.error('Error deleting purchase order:', err);
     }
@@ -438,18 +440,18 @@ export default function Purchases() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'RECEIVED':
-        return <Badge variant="success" size="sm">{status}</Badge>;
+        return <Badge variant="success" size="sm">{t('purchases.status.received')}</Badge>;
       case 'CANCELLED':
-        return <Badge variant="error" size="sm">{status}</Badge>;
+        return <Badge variant="error" size="sm">{t('purchases.status.cancelled')}</Badge>;
       case 'PENDING':
-        return <Badge variant="warning" size="sm">{status}</Badge>;
+        return <Badge variant="warning" size="sm">{t('purchases.status.pending')}</Badge>;
       default:
-        return <Badge variant="primary" size="sm">{status}</Badge>;
+        return <Badge variant="primary" size="sm">{t('purchases.status.open')}</Badge>;
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
@@ -465,8 +467,8 @@ export default function Purchases() {
   return (
     <>
       <PageBanner
-        title="Purchase Orders"
-        subtitle="Manage your inventory purchases and suppliers"
+        title={t('purchases.title')}
+        subtitle={t('purchases.subtitle')}
         icon={<TruckIcon className="w-5 h-5 text-white" />}
         action={
           <Button
@@ -475,7 +477,7 @@ export default function Purchases() {
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            New Purchase Order
+            {t('purchases.actions.new_order')}
           </Button>
         }
       />
@@ -491,7 +493,7 @@ export default function Purchases() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by PO number or supplier..."
+                  placeholder={t('purchases.filters.search_placeholder')}
                   value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
@@ -508,21 +510,21 @@ export default function Purchases() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('status', e.target.value || undefined)}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium"
               >
-                <option value="">All Statuses</option>
-                <option value="OPEN">Open</option>
-                <option value="PENDING">Pending</option>
-                <option value="RECEIVED">Received</option>
-                <option value="CANCELLED">Cancelled</option>
+                <option value="">{t('purchases.filters.all_statuses')}</option>
+                <option value="OPEN">{t('purchases.status.open')}</option>
+                <option value="PENDING">{t('purchases.status.pending')}</option>
+                <option value="RECEIVED">{t('purchases.status.received')}</option>
+                <option value="CANCELLED">{t('purchases.status.cancelled')}</option>
               </select>
             </div>
           </div>
 
           <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-1.5">
-              <Badge variant="warning" size="sm">{pagination.total} Orders</Badge>
+              <Badge variant="warning" size="sm">{t('purchases.filters.orders_count', { count: pagination.total })}</Badge>
               {filters.search && (
                 <Badge variant="primary" size="sm">
-                  Filtered: {purchaseOrders.length} results
+                  {t('purchases.filters.filtered_results', { count: purchaseOrders.length })}
                 </Badge>
               )}
             </div>
@@ -531,7 +533,7 @@ export default function Purchases() {
               className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
-              <span>Refresh</span>
+              <span>{t('purchases.actions.refresh')}</span>
             </button>
           </div>
         </div>
@@ -549,12 +551,12 @@ export default function Purchases() {
               <div className="px-4 py-12">
                 <EmptyState
                   icon={<ShoppingCartIcon className="w-12 h-12" />}
-                  title="No purchase orders found"
-                  description={filters.search ? "Try adjusting your search or filters" : "Get started by creating your first purchase order"}
+                  title={t('purchases.empty.title')}
+                  description={filters.search ? t('purchases.empty.filtered_description') : t('purchases.empty.default_description')}
                   action={
                     !filters.search && (
                       <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                        New Purchase Order
+                        {t('purchases.actions.new_order')}
                       </Button>
                     )
                   }
@@ -564,13 +566,13 @@ export default function Purchases() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">PO Number</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Supplier</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Status</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Items</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Total Cost</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Ordered At</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.po_number')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.supplier')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.status')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.items')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.total_cost')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.ordered_at')}</th>
+                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -592,7 +594,7 @@ export default function Purchases() {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="text-xs font-semibold text-gray-900">
-                          {po.supplier?.name || <span className="text-gray-400">Unknown</span>}
+                          {po.supplier?.name || <span className="text-gray-400">{t('purchases.common.unknown')}</span>}
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -601,7 +603,7 @@ export default function Purchases() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
                           <Badge variant="primary" size="sm">{po.items.length}</Badge>
-                          <span className="text-xs text-gray-600">{po.items.length === 1 ? 'item' : 'items'}</span>
+                           <span className="text-xs text-gray-600">{t('purchases.table.items_count', { count: po.items.length })}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -611,7 +613,7 @@ export default function Purchases() {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="text-xs text-gray-600">
-                          {new Date(po.ordered_at).toLocaleDateString()}
+                          {new Date(po.ordered_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-right">
@@ -624,7 +626,7 @@ export default function Purchases() {
                               leftIcon={<CheckCircleIcon className="w-4 h-4" />}
                               className="opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              Receive
+                               {t('purchases.actions.receive')}
                             </Button>
                           )}
                           <Button
@@ -634,7 +636,7 @@ export default function Purchases() {
                             leftIcon={<PencilIcon className="w-4 h-4" />}
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            View
+                             {t('purchases.actions.view')}
                           </Button>
                           {po.status !== 'RECEIVED' && (
                             <Button
@@ -644,7 +646,7 @@ export default function Purchases() {
                               leftIcon={<TrashIcon className="w-4 h-4" />}
                               className="opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              Delete
+                               {t('purchases.actions.delete')}
                             </Button>
                           )}
                         </div>
@@ -663,9 +665,9 @@ export default function Purchases() {
         <Card className="mt-3 border-2 border-gray-100">
           <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
             <div className="text-xs text-gray-600 font-medium">
-              Showing <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> to{' '}
-              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-              <span className="font-bold text-gray-900">{pagination.total}</span> purchase orders
+              {t('purchases.pagination.showing')} <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> {t('purchases.pagination.to')}{' '}
+              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> {t('purchases.pagination.of')}{' '}
+              <span className="font-bold text-gray-900">{pagination.total}</span> {t('purchases.pagination.orders')}
             </div>
             <div className="flex items-center gap-1.5">
               <Button
@@ -674,10 +676,10 @@ export default function Purchases() {
                 variant="outline"
                 size="sm"
               >
-                Previous
+                {t('purchases.pagination.previous')}
               </Button>
               <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('purchases.pagination.page')} {pagination.page} {t('purchases.pagination.of')} {pagination.totalPages}
               </span>
               <Button
                 onClick={() => handlePageChange(pagination.page + 1)}
@@ -685,7 +687,7 @@ export default function Purchases() {
                 variant="outline"
                 size="sm"
               >
-                Next
+                {t('purchases.pagination.next')}
               </Button>
             </div>
           </div>
@@ -702,7 +704,7 @@ export default function Purchases() {
               <ShoppingCartIcon className="w-4 h-4 text-white" />
             </div>
             <span className="text-base">
-              {showPrintPreview ? `Print Preview: ${editingPO?.po_number}` : (editingPO ? 'View Purchase Order' : 'New Purchase Order')}
+              {showPrintPreview ? t('purchases.modal.print_preview_title', { poNumber: editingPO?.po_number || '' }) : (editingPO ? t('purchases.modal.view_title') : t('purchases.modal.new_title'))}
             </span>
           </div>
         }
@@ -715,7 +717,7 @@ export default function Purchases() {
                 className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PrinterIcon className="w-5 h-5" />}
               >
-                Print Preview
+                {t('purchases.actions.print_preview')}
               </Button>
             )}
             {editingPO && showPrintPreview && (
@@ -724,7 +726,7 @@ export default function Purchases() {
                 className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PrinterIcon className="w-5 h-5" />}
               >
-                Print
+                {t('purchases.actions.print')}
               </Button>
             )}
             <Button
@@ -739,7 +741,7 @@ export default function Purchases() {
               variant="outline"
               disabled={submitting}
             >
-              {showPrintPreview ? 'Back' : (editingPO ? 'Close' : 'Cancel')}
+              {showPrintPreview ? t('purchases.actions.back') : (editingPO ? t('purchases.actions.close') : t('purchases.actions.cancel'))}
             </Button>
             {editingPO && !showPrintPreview && editingPO.status === 'OPEN' && (
               <Button
@@ -749,7 +751,7 @@ export default function Purchases() {
                 isLoading={submitting}
                 leftIcon={<PencilIcon className="w-5 h-5" />}
               >
-                Save Changes
+                {t('purchases.actions.save_changes')}
               </Button>
             )}
             {!editingPO && (
@@ -760,7 +762,7 @@ export default function Purchases() {
                 isLoading={submitting}
                 leftIcon={<PlusIcon className="w-5 h-5" />}
               >
-                Create Purchase Order
+                {t('purchases.actions.create_order')}
               </Button>
             )}
           </div>
@@ -772,7 +774,7 @@ export default function Purchases() {
             {/* Enhanced Supplier Selection */}
             <div className="mb-4">
               <label className="block text-xs font-semibold text-gray-700 mb-2">
-                Supplier <span className="text-red-500">*</span>
+                {t('purchases.form.supplier')} <span className="text-red-500">*</span>
               </label>
               {selectedSupplier ? (
                 <div className="flex justify-between items-center p-3 bg-secondary-50 rounded-lg border-2 border-secondary-200">
@@ -794,8 +796,8 @@ export default function Purchases() {
                     size="sm"
                     className="hover:bg-white !p-1"
                   >
-                    Change
-                  </Button>
+                      {t('purchases.actions.change')}
+                    </Button>
                 </div>
               ) : (
                 <Button
@@ -806,7 +808,7 @@ export default function Purchases() {
                   className="w-full border-2 hover:bg-secondary-50 hover:border-secondary-300 transition-all"
                   leftIcon={<PlusIcon className="w-4 h-4" />}
                 >
-                  Select Supplier
+                  {t('purchases.actions.select_supplier')}
                 </Button>
               )}
             </div>
@@ -824,14 +826,14 @@ export default function Purchases() {
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                 />
               </div>
-              <p className="text-[10px] text-gray-500 mt-1 ml-3">Expected Delivery Date (Optional)</p>
+              <p className="text-[10px] text-gray-500 mt-1 ml-3">{t('purchases.form.expected_delivery_optional')}</p>
             </div>
 
             {/* Enhanced Items Section */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-3">
                 <label className="block text-xs font-semibold text-gray-700">
-                  Items <span className="text-red-500">*</span>
+                  {t('purchases.form.items')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-1.5">
                   {/* Barcode Scanner */}
@@ -842,7 +844,7 @@ export default function Purchases() {
                     <input
                       ref={barcodeInputRef}
                       type="text"
-                      placeholder="Scan barcode..."
+                       placeholder={t('purchases.form.scan_barcode_placeholder')}
                       onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                         if (e.key === 'Enter') {
                           e.preventDefault(); // Prevent form submission
@@ -866,7 +868,7 @@ export default function Purchases() {
                       type="text"
                       value={productSearch}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProductSearch(e.target.value)}
-                      placeholder="Search products..."
+                       placeholder={t('purchases.form.search_products_placeholder')}
                       className="w-56 pl-9 pr-2.5 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
                     />
                   </div>
@@ -913,21 +915,21 @@ export default function Purchases() {
               {items.length === 0 ? (
                 <EmptyState
                   icon={<ShoppingCartIcon className="w-10 h-10" />}
-                  title="No items added"
-                  description="Search and add products to get started"
-                />
+                   title={t('purchases.form.no_items_title')}
+                   description={t('purchases.form.no_items_description')}
+                 />
               ) : (
                 <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-secondary-50">
                         <tr>
-                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Product</th>
-                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Quantity</th>
-                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Unit Cost</th>
-                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Total</th>
-                          <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Actions</th>
-                        </tr>
+                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.product')}</th>
+                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.quantity')}</th>
+                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.unit_cost')}</th>
+                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.total')}</th>
+                           <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">{t('purchases.table.actions')}</th>
+                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {items.map((item) => (
@@ -1010,7 +1012,7 @@ export default function Purchases() {
                       <tfoot className="bg-secondary-50">
                         <tr>
                           <td colSpan={3} className="px-3 py-2.5 text-right font-bold text-xs text-gray-700">
-                            Total:
+                            {t('purchases.form.total_label')}
                           </td>
                           <td className="px-3 py-2.5">
                             <div className="text-base font-extrabold text-secondary-500">
@@ -1070,7 +1072,7 @@ export default function Purchases() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <BuildingOfficeIcon className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base">Select Supplier</span>
+            <span className="text-base">{t('purchases.supplier_modal.title')}</span>
           </div>
         }
         size="md"
@@ -1083,7 +1085,7 @@ export default function Purchases() {
               setSupplierSearch(e.target.value);
               handleSupplierSearch(e.target.value);
             }}
-            placeholder="Search suppliers..."
+            placeholder={t('purchases.supplier_modal.search_placeholder')}
             leftIcon={<MagnifyingGlassIcon className="w-5 h-5" />}
             autoFocus
           />
@@ -1115,13 +1117,13 @@ export default function Purchases() {
               </div>
             ) : supplierSearch ? (
               <EmptyState
-                title="No suppliers found"
-                description="Try a different search term"
+                title={t('purchases.supplier_modal.no_suppliers_title')}
+                description={t('purchases.supplier_modal.no_suppliers_description')}
               />
             ) : (
               <EmptyState
-                title="Search for suppliers"
-                description="Start typing to search"
+                title={t('purchases.supplier_modal.search_title')}
+                description={t('purchases.supplier_modal.search_description')}
               />
             )}
           </div>

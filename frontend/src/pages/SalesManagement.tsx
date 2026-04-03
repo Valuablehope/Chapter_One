@@ -32,9 +32,11 @@ import toast from 'react-hot-toast';
 import { productService, Product } from '../services/productService';
 import { storeService, StoreSettings } from '../services/storeService';
 import { useAuthStore } from '../store/authStore';
+import { useTranslation } from '../i18n/I18nContext';
 
 export default function SalesManagement() {
   const { user } = useAuthStore();
+  const { t, language } = useTranslation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<SaleFilters>({
@@ -116,14 +118,14 @@ export default function SalesManagement() {
       if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
         return;
       }
-      toast.error(err.response?.data?.error?.message || 'Failed to load sales');
+      toast.error(err.response?.data?.error?.message || t('sales_management.errors.load_sales'));
       logger.error('Error loading sales:', err);
     } finally {
       if (!signal.aborted) {
         setLoading(false);
       }
     }
-  }, [filters]);
+  }, [filters, t]);
 
   // Load sales when filters change
   useEffect(() => {
@@ -221,20 +223,20 @@ export default function SalesManagement() {
         }
       }
     } catch (err: any) {
-      toast.error('Failed to load sale details');
+      toast.error(t('sales_management.errors.load_sale_details'));
       logger.error('Error loading sale details:', err);
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -246,28 +248,28 @@ export default function SalesManagement() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'paid':
-        return <Badge variant="success" size="sm">Paid</Badge>;
+        return <Badge variant="success" size="sm">{t('sales_management.status.paid')}</Badge>;
       case 'cancelled':
-        return <Badge variant="error" size="sm">Cancelled</Badge>;
+        return <Badge variant="error" size="sm">{t('sales_management.status.cancelled')}</Badge>;
       case 'void':
-        return <Badge variant="error" size="sm">Void</Badge>;
+        return <Badge variant="error" size="sm">{t('sales_management.status.void')}</Badge>;
       case 'open':
-        return <Badge variant="warning" size="sm">Open</Badge>;
+        return <Badge variant="warning" size="sm">{t('sales_management.status.open')}</Badge>;
       default:
-        return <Badge variant="primary" size="sm">{status === 'cancelled' ? 'Cancelled' : status}</Badge>;
+        return <Badge variant="primary" size="sm">{status === 'cancelled' ? t('sales_management.status.cancelled') : status}</Badge>;
     }
   };
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case 'cash':
-        return 'Cash';
+        return t('sales_management.payment.cash');
       case 'card':
-        return 'Card';
+        return t('sales_management.payment.card');
       case 'voucher':
-        return 'Voucher';
+        return t('sales_management.payment.voucher');
       case 'other':
-        return 'Other';
+        return t('sales_management.payment.other');
       default:
         return method;
     }
@@ -308,7 +310,7 @@ export default function SalesManagement() {
         }
       }
     } catch (err: any) {
-      toast.error('Failed to load sale for editing');
+      toast.error(t('sales_management.errors.load_sale_edit'));
       logger.error('Error loading sale:', err);
     }
   };
@@ -414,17 +416,17 @@ export default function SalesManagement() {
 
     const { grandTotal, paidTotal } = calculateEditTotals();
     if (paidTotal < grandTotal) {
-      toast.error('Payment amount must be at least equal to grand total');
+      toast.error(t('sales_management.errors.payment_insufficient'));
       return;
     }
 
     if (editItems.length === 0) {
-      toast.error('Sale must have at least one item');
+      toast.error(t('sales_management.errors.sale_needs_item'));
       return;
     }
 
     if (editPayments.length === 0) {
-      toast.error('Sale must have at least one payment');
+      toast.error(t('sales_management.errors.sale_needs_payment'));
       return;
     }
 
@@ -444,7 +446,7 @@ export default function SalesManagement() {
           amount: p.amount,
         })),
       });
-      toast.success('Sale updated successfully');
+      toast.success(t('sales_management.success.sale_updated'));
       setShowEditModal(false);
       setEditingSale(null);
       setEditItems([]);
@@ -453,9 +455,9 @@ export default function SalesManagement() {
       loadSales();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('sales_management.errors.timeout'));
       } else {
-        toast.error(err.response?.data?.error?.message || 'Failed to update sale');
+        toast.error(err.response?.data?.error?.message || t('sales_management.errors.update_sale'));
       }
       logger.error('Error updating sale:', err);
     } finally {
@@ -469,11 +471,11 @@ export default function SalesManagement() {
     try {
       setCancelling(true);
       await saleService.cancelSale(saleToCancel.sale_id);
-      toast.success('Sale invoice cancelled successfully');
+      toast.success(t('sales_management.success.sale_cancelled'));
       setSaleToCancel(null);
       loadSales();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to cancel sale');
+      toast.error(err.response?.data?.error?.message || t('sales_management.errors.cancel_sale'));
       logger.error('Error cancelling sale:', err);
     } finally {
       setCancelling(false);
@@ -485,11 +487,11 @@ export default function SalesManagement() {
     try {
       setDeleting(true);
       await saleService.deleteSale(saleToDelete.sale_id);
-      toast.success('Sale invoice permanently deleted');
+      toast.success(t('sales_management.success.sale_deleted'));
       setSaleToDelete(null);
       loadSales();
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Failed to delete sale');
+      toast.error(err.response?.data?.error?.message || t('sales_management.errors.delete_sale'));
       logger.error('Error deleting sale:', err);
     } finally {
       setDeleting(false);
@@ -499,8 +501,8 @@ export default function SalesManagement() {
   return (
     <>
       <PageBanner
-        title="Sales Management"
-        subtitle="View and manage all sales invoices"
+        title={t('sales_management.title')}
+        subtitle={t('sales_management.subtitle')}
         icon={<ClipboardDocumentListIcon className="w-5 h-5 text-white" />}
         action={
           <Button
@@ -509,7 +511,7 @@ export default function SalesManagement() {
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
             leftIcon={<FunnelIcon className="w-4 h-4" />}
           >
-            Filters
+            {t('sales_management.filters.title')}
           </Button>
         }
       />
@@ -520,11 +522,11 @@ export default function SalesManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Search
+                {t('sales_management.filters.search_label')}
               </label>
               <Input
                 type="text"
-                placeholder="Receipt No, Customer, Cashier..."
+                placeholder={t('sales_management.filters.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
@@ -532,22 +534,22 @@ export default function SalesManagement() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Status
+                {t('sales_management.filters.status_label')}
               </label>
               <select
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500"
                 value={filters.status || ''}
                 onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
               >
-                <option value="">All Status</option>
-                <option value="paid">Paid</option>
-                <option value="open">Open</option>
-                <option value="void">Void</option>
+                <option value="">{t('sales_management.filters.all_status')}</option>
+                <option value="paid">{t('sales_management.status.paid')}</option>
+                <option value="open">{t('sales_management.status.open')}</option>
+                <option value="void">{t('sales_management.status.void')}</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Start Date
+                {t('sales_management.filters.start_date')}
               </label>
               <Input
                 type="date"
@@ -557,7 +559,7 @@ export default function SalesManagement() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                End Date
+                {t('sales_management.filters.end_date')}
               </label>
               <Input
                 type="date"
@@ -567,12 +569,12 @@ export default function SalesManagement() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Customer
+                {t('sales_management.filters.customer')}
               </label>
               <div className="relative">
                 {selectedCustomer ? (
                   <div className="flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
-                    <span className="text-sm">{selectedCustomer.full_name || 'N/A'}</span>
+                    <span className="text-sm">{selectedCustomer.full_name || t('sales_management.common.not_available')}</span>
                     <button
                       onClick={clearCustomerFilter}
                       className="text-gray-400 hover:text-gray-600"
@@ -584,7 +586,7 @@ export default function SalesManagement() {
                   <>
                     <Input
                       type="text"
-                      placeholder="Search customer..."
+                      placeholder={t('sales_management.filters.search_customer_placeholder')}
                       value={customerSearch}
                       onChange={(e) => {
                         setCustomerSearch(e.target.value);
@@ -600,7 +602,7 @@ export default function SalesManagement() {
                             onClick={() => selectCustomer(customer)}
                             className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                           >
-                            {customer.full_name || 'N/A'}
+                             {customer.full_name || t('sales_management.common.not_available')}
                           </button>
                         ))}
                       </div>
@@ -618,11 +620,11 @@ export default function SalesManagement() {
         {loading ? (
           <TableSkeleton rows={5} columns={7} />
         ) : sales.length === 0 ? (
-          <EmptyState
-            icon={<DocumentTextIcon className="w-12 h-12" />}
-            title="No sales found"
-            description="There are no sales invoices matching your filters."
-          />
+            <EmptyState
+              icon={<DocumentTextIcon className="w-12 h-12" />}
+              title={t('sales_management.empty.title')}
+              description={t('sales_management.empty.description')}
+            />
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -630,28 +632,28 @@ export default function SalesManagement() {
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Receipt No
+                      {t('sales_management.table.receipt_no')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Date
+                      {t('sales_management.table.date')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Customer
+                      {t('sales_management.table.customer')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Items
+                      {t('sales_management.table.items')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Total
+                      {t('sales_management.table.total')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Payment
+                      {t('sales_management.table.payment')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Status
+                      {t('sales_management.table.status')}
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Actions
+                      {t('sales_management.table.actions')}
                     </th>
                   </tr>
                 </thead>
@@ -665,10 +667,10 @@ export default function SalesManagement() {
                         {formatDate(sale.created_at)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {sale.customer?.full_name || 'Walk-in'}
+                        {sale.customer?.full_name || t('sales_management.common.walk_in')}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {sale.items.length} item{sale.items.length !== 1 ? 's' : ''}
+                        {t('sales_management.table.items_count', { count: sale.items.length })}
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                         {formatCurrency(sale.grand_total)}
@@ -687,7 +689,7 @@ export default function SalesManagement() {
                             onClick={() => viewSaleDetails(sale)}
                             leftIcon={<EyeIcon className="w-4 h-4" />}
                           >
-                            View
+                            {t('sales_management.actions.view')}
                           </Button>
                           <Button
                             size="sm"
@@ -695,7 +697,7 @@ export default function SalesManagement() {
                             onClick={() => openEditModal(sale)}
                             leftIcon={<PencilIcon className="w-4 h-4" />}
                           >
-                            Edit
+                            {t('sales_management.actions.edit')}
                           </Button>
                           {user?.role === 'admin' && sale.status !== 'cancelled' && sale.status !== 'void' && (
                             <Button
@@ -705,7 +707,7 @@ export default function SalesManagement() {
                               onClick={() => setSaleToCancel(sale)}
                               leftIcon={<XCircleIcon className="w-4 h-4" />}
                             >
-                              Cancel
+                              {t('sales_management.actions.cancel')}
                             </Button>
                           )}
                           {user?.role === 'admin' && (
@@ -716,7 +718,7 @@ export default function SalesManagement() {
                               onClick={() => setSaleToDelete(sale)}
                               leftIcon={<TrashIcon className="w-4 h-4" />}
                             >
-                              Delete
+                              {t('sales_management.actions.delete')}
                             </Button>
                           )}
                         </div>
@@ -731,9 +733,9 @@ export default function SalesManagement() {
             {pagination.totalPages > 1 && (
               <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                  {pagination.total} sales
+                  {t('sales_management.pagination.showing')} {((pagination.page - 1) * pagination.limit) + 1} {t('sales_management.pagination.to')}{' '}
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} {t('sales_management.pagination.of')}{' '}
+                  {pagination.total} {t('sales_management.pagination.sales')}
                 </div>
                 <div className="flex space-x-2">
                   <Button
@@ -742,10 +744,10 @@ export default function SalesManagement() {
                     onClick={() => handlePageChange(pagination.page - 1)}
                     disabled={pagination.page === 1}
                   >
-                    Previous
+                    {t('sales_management.pagination.previous')}
                   </Button>
                   <span className="px-3 py-1 text-sm text-gray-600">
-                    Page {pagination.page} of {pagination.totalPages}
+                    {t('sales_management.pagination.page')} {pagination.page} {t('sales_management.pagination.of')} {pagination.totalPages}
                   </span>
                   <Button
                     size="sm"
@@ -753,7 +755,7 @@ export default function SalesManagement() {
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page === pagination.totalPages}
                   >
-                    Next
+                    {t('sales_management.pagination.next')}
                   </Button>
                 </div>
               </div>
@@ -771,7 +773,7 @@ export default function SalesManagement() {
             setSelectedSale(null);
             setShowPrintPreview(false);
           }}
-          title={showPrintPreview ? `Print Preview: ${selectedSale.receipt_no}` : `Sale Invoice: ${selectedSale.receipt_no}`}
+          title={showPrintPreview ? t('sales_management.print.preview_title', { receiptNo: selectedSale.receipt_no }) : t('sales_management.details.title', { receiptNo: selectedSale.receipt_no })}
           size="lg"
           footer={
             <div className="flex gap-3 print:hidden">
@@ -782,7 +784,7 @@ export default function SalesManagement() {
                     className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                     leftIcon={<PrinterIcon className="w-5 h-5" />}
                   >
-                    Print Preview
+                    {t('sales_management.actions.print_preview')}
                   </Button>
                   <Button
                     variant="outline"
@@ -792,7 +794,7 @@ export default function SalesManagement() {
                       setShowPrintPreview(false);
                     }}
                   >
-                    Close
+                    {t('sales_management.actions.close')}
                   </Button>
                 </>
               ) : (
@@ -802,13 +804,13 @@ export default function SalesManagement() {
                     className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                     leftIcon={<PrinterIcon className="w-5 h-5" />}
                   >
-                    Print
+                    {t('sales_management.actions.print')}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setShowPrintPreview(false)}
                   >
-                    Back
+                    {t('sales_management.actions.back')}
                   </Button>
                 </>
               )}
@@ -821,22 +823,22 @@ export default function SalesManagement() {
               {/* Sale Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Date</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.table.date')}</label>
                   <p className="text-sm font-medium text-gray-900">{formatDate(selectedSale.created_at)}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Status</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.table.status')}</label>
                   <div className="mt-1">{getStatusBadge(selectedSale.status)}</div>
                 </div>
                 {selectedSale.customer && (
                   <>
                     <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase">Customer</label>
-                      <p className="text-sm font-medium text-gray-900">{selectedSale.customer.full_name || 'N/A'}</p>
+                      <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.table.customer')}</label>
+                      <p className="text-sm font-medium text-gray-900">{selectedSale.customer.full_name || t('sales_management.common.not_available')}</p>
                     </div>
                     {selectedSale.customer.phone && (
                       <div>
-                        <label className="text-xs font-semibold text-gray-500 uppercase">Phone</label>
+                        <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.details.phone')}</label>
                         <p className="text-sm font-medium text-gray-900">{selectedSale.customer.phone}</p>
                       </div>
                     )}
@@ -844,7 +846,7 @@ export default function SalesManagement() {
                 )}
                 {selectedSale.cashier_name && (
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 uppercase">Cashier</label>
+                    <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.details.cashier')}</label>
                     <p className="text-sm font-medium text-gray-900">{selectedSale.cashier_name}</p>
                   </div>
                 )}
@@ -852,22 +854,22 @@ export default function SalesManagement() {
 
               {/* Items */}
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Items</label>
+                <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">{t('sales_management.table.items')}</label>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Product</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Qty</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Price</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Total</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{t('sales_management.edit.product')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">{t('sales_management.edit.qty')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">{t('sales_management.edit.price')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">{t('sales_management.edit.total')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {selectedSale.items.map((item) => (
                         <tr key={item.sale_item_id}>
                           <td className="px-3 py-2 text-sm text-gray-900">
-                            {item.product_name || `Product ID: ${item.product_id.substring(0, 8)}...`}
+                            {item.product_name || t('sales_management.details.product_id_fallback', { id: item.product_id.substring(0, 8) })}
                           </td>
                           <td className="px-3 py-2 text-sm text-right text-gray-600">{item.qty}</td>
                           <td className="px-3 py-2 text-sm text-right text-gray-600">{formatCurrency(item.unit_price)}</td>
@@ -883,23 +885,23 @@ export default function SalesManagement() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="text-gray-600">{t('sales_management.totals.subtotal')}</span>
                     <span className="font-medium text-gray-900">{formatCurrency(selectedSale.subtotal)}</span>
                   </div>
                   {selectedSale.tax_total > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax:</span>
+                       <span className="text-gray-600">{t('sales_management.totals.tax')}</span>
                       <span className="font-medium text-gray-900">{formatCurrency(selectedSale.tax_total)}</span>
                     </div>
                   )}
                   {selectedSale.discount_total > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Discount:</span>
+                       <span className="text-gray-600">{t('sales_management.totals.discount')}</span>
                       <span className="font-medium text-gray-900">-{formatCurrency(selectedSale.discount_total)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                    <span>Grand Total:</span>
+                     <span>{t('sales_management.totals.grand_total')}</span>
                     <span>{formatCurrency(selectedSale.grand_total)}</span>
                   </div>
                 </div>
@@ -908,7 +910,7 @@ export default function SalesManagement() {
               {/* Payments */}
               {selectedSale.payments.length > 0 && (
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Payments</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">{t('sales_management.edit.payments')}</label>
                   <div className="space-y-2">
                     {selectedSale.payments.map((payment) => (
                       <div key={payment.sale_payment_id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
@@ -966,7 +968,7 @@ export default function SalesManagement() {
             setEditCustomer(null);
             setShowEditPrintPreview(false);
           }}
-          title={showEditPrintPreview ? `Print Preview: ${editingSale.receipt_no}` : `Edit Sale: ${editingSale.receipt_no}`}
+          title={showEditPrintPreview ? t('sales_management.print.preview_title', { receiptNo: editingSale.receipt_no }) : t('sales_management.edit.title', { receiptNo: editingSale.receipt_no })}
           size="xl"
           footer={
             <div className="flex justify-end gap-3 print:hidden">
@@ -977,7 +979,7 @@ export default function SalesManagement() {
                     className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                     leftIcon={<PrinterIcon className="w-5 h-5" />}
                   >
-                    Print Preview
+                    {t('sales_management.actions.print_preview')}
                   </Button>
                   <Button
                     variant="outline"
@@ -991,13 +993,13 @@ export default function SalesManagement() {
                     }}
                     disabled={submitting}
                   >
-                    Cancel
+                    {t('sales_management.actions.cancel')}
                   </Button>
                   <Button
                     onClick={handleSaveEdit}
                     isLoading={submitting}
                   >
-                    Save Changes
+                    {t('sales_management.actions.save_changes')}
                   </Button>
                 </>
               ) : (
@@ -1007,13 +1009,13 @@ export default function SalesManagement() {
                     className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                     leftIcon={<PrinterIcon className="w-5 h-5" />}
                   >
-                    Print
+                    {t('sales_management.actions.print')}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setShowEditPrintPreview(false)}
                   >
-                    Back
+                    {t('sales_management.actions.back')}
                   </Button>
                 </>
               )}
@@ -1025,7 +1027,7 @@ export default function SalesManagement() {
             <div className="space-y-4">
               {/* Customer Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Customer</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('sales_management.table.customer')}</label>
                 {editCustomer ? (
                   <div className="flex items-center justify-between p-2 border border-gray-300 rounded-lg bg-gray-50">
                     <span>{editCustomer.full_name}</span>
@@ -1036,7 +1038,7 @@ export default function SalesManagement() {
                 ) : (
                   <Input
                     type="text"
-                    placeholder="Search customer..."
+                    placeholder={t('sales_management.filters.search_customer_placeholder')}
                     value={customerSearch}
                     onChange={(e) => {
                       setCustomerSearch(e.target.value);
@@ -1066,13 +1068,13 @@ export default function SalesManagement() {
 
               {/* Items */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Items</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('sales_management.table.items')}</label>
 
                 {/* Product Search */}
                 <div className="mb-3">
                   <Input
                     type="text"
-                    placeholder="Search products to add..."
+                    placeholder={t('sales_management.edit.search_products_placeholder')}
                     value={productSearch}
                     onChange={(e) => {
                       setProductSearch(e.target.value);
@@ -1100,17 +1102,17 @@ export default function SalesManagement() {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-semibold">Product</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold">Qty</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold">Price</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold">Total</th>
-                        <th className="px-3 py-2 text-right text-xs font-semibold">Actions</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">{t('sales_management.edit.product')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.edit.qty')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.edit.price')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.edit.total')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.table.actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {editItems.map((item, index) => (
                         <tr key={index}>
-                          <td className="px-3 py-2 text-sm">{item.product_name || 'Product'}</td>
+                          <td className="px-3 py-2 text-sm">{item.product_name || t('sales_management.edit.product')}</td>
                           <td className="px-3 py-2 text-sm text-right">
                             <div className="inline-flex items-center justify-end gap-0 border border-gray-300 rounded overflow-hidden">
                               <button
@@ -1160,14 +1162,14 @@ export default function SalesManagement() {
 
               {/* Payments */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Payments</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('sales_management.edit.payments')}</label>
                 <Button
                   size="sm"
                   onClick={addPayment}
                   leftIcon={<PlusIcon className="w-4 h-4" />}
                   className="mb-2"
                 >
-                  Add Payment
+                  {t('sales_management.actions.add_payment')}
                 </Button>
                 <div className="space-y-2">
                   {editPayments.map((payment, index) => (
@@ -1181,10 +1183,10 @@ export default function SalesManagement() {
                         }}
                         className="px-3 py-2 border border-gray-300 rounded-lg"
                       >
-                        <option value="cash">Cash</option>
-                        <option value="card">Card</option>
-                        <option value="voucher">Voucher</option>
-                        <option value="other">Other</option>
+                        <option value="cash">{t('sales_management.payment.cash')}</option>
+                        <option value="card">{t('sales_management.payment.card')}</option>
+                        <option value="voucher">{t('sales_management.payment.voucher')}</option>
+                        <option value="other">{t('sales_management.payment.other')}</option>
                       </select>
                       <Input
                         type="number"
@@ -1195,7 +1197,7 @@ export default function SalesManagement() {
                           newPayments[index].amount = parseFloat(e.target.value) || 0;
                           setEditPayments(newPayments);
                         }}
-                        placeholder="Amount"
+                        placeholder={t('sales_management.edit.amount_placeholder')}
                         className="flex-1"
                       />
                       <button
@@ -1216,15 +1218,15 @@ export default function SalesManagement() {
                   return (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span>Subtotal:</span>
+                        <span>{t('sales_management.totals.subtotal')}</span>
                         <span>{formatCurrency(subtotal)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span>Tax:</span>
+                        <span>{t('sales_management.totals.tax')}</span>
                         <span>{formatCurrency(taxTotal)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm py-1">
-                        <span>Discount %:</span>
+                        <span>{t('sales_management.totals.discount_pct')}</span>
                         <input
                           type="number"
                           min="0"
@@ -1237,20 +1239,20 @@ export default function SalesManagement() {
                       </div>
                       {discountAmount > 0 && (
                         <div className="flex justify-between text-sm text-secondary-600">
-                          <span>Discount ({editDiscountRate}%):</span>
+                          <span>{t('sales_management.totals.discount_with_rate', { rate: editDiscountRate })}</span>
                           <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">
-                        <span>Grand Total:</span>
+                        <span>{t('sales_management.totals.grand_total')}</span>
                         <span>{formatCurrency(grandTotal)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span>Paid:</span>
+                        <span>{t('sales_management.totals.paid')}</span>
                         <span>{formatCurrency(paidTotal)}</span>
                       </div>
                       {paidTotal < grandTotal && (
-                        <p className="text-xs text-red-600">Payment amount is less than grand total</p>
+                        <p className="text-xs text-red-600">{t('sales_management.errors.payment_less_than_total')}</p>
                       )}
                     </div>
                   );
@@ -1309,7 +1311,7 @@ export default function SalesManagement() {
         <Modal
           isOpen={!!saleToCancel}
           onClose={() => setSaleToCancel(null)}
-          title="Cancel Invoice"
+          title={t('sales_management.modals.cancel_invoice_title')}
           size="sm"
           footer={
             <div className="flex gap-3">
@@ -1319,23 +1321,23 @@ export default function SalesManagement() {
                 onClick={() => setSaleToCancel(null)}
                 disabled={cancelling}
               >
-                No, Keep
+                {t('sales_management.modals.no_keep')}
               </Button>
               <Button
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
                 onClick={handleCancelSale}
                 isLoading={cancelling}
               >
-                Yes, Cancel Invoice
+                {t('sales_management.modals.yes_cancel_invoice')}
               </Button>
             </div>
           }
         >
           <div className="p-4 text-center">
             <XCircleIcon className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel Invoice #{saleToCancel.receipt_no}?</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('sales_management.modals.cancel_invoice_question', { receiptNo: saleToCancel.receipt_no })}</h3>
             <p className="text-sm text-gray-600">
-              Are you sure you want to cancel this invoice? This will reverse the stock movements and remove it from active financial reports. This action cannot be reversed.
+              {t('sales_management.modals.cancel_invoice_description')}
             </p>
           </div>
         </Modal>
@@ -1345,7 +1347,7 @@ export default function SalesManagement() {
         <Modal
           isOpen={!!saleToDelete}
           onClose={() => setSaleToDelete(null)}
-          title="Delete Invoice"
+          title={t('sales_management.modals.delete_invoice_title')}
           size="sm"
           footer={
             <div className="flex gap-3">
@@ -1355,23 +1357,23 @@ export default function SalesManagement() {
                 onClick={() => setSaleToDelete(null)}
                 disabled={deleting}
               >
-                No, Keep
+                {t('sales_management.modals.no_keep')}
               </Button>
               <Button
                 className="flex-1 bg-red-700 hover:bg-red-800 text-white font-semibold"
                 onClick={handleDeleteSale}
                 isLoading={deleting}
               >
-                Yes, Delete Permanently
+                {t('sales_management.modals.yes_delete_permanently')}
               </Button>
             </div>
           }
         >
           <div className="p-4 text-center">
             <TrashIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Permanently Delete Invoice #{saleToDelete.receipt_no}?</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('sales_management.modals.delete_invoice_question', { receiptNo: saleToDelete.receipt_no })}</h3>
             <p className="text-sm text-gray-600">
-              This will <strong>permanently remove</strong> this invoice and all its records from the database. Unlike cancellation, this action <strong>cannot be undone</strong> and will not reverse inventory.
+              {t('sales_management.modals.delete_invoice_description')}
             </p>
           </div>
         </Modal>

@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import { APP_BRAND_POS_LINE } from '../constants/branding';
 import { StatCardSkeleton } from '../components/ui/Skeleton';
+import { useTranslation } from '../i18n/I18nContext';
 
 interface DashboardStats {
   todayRevenue: number;
@@ -32,6 +33,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuthStore();
+  const { t, language } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     todayRevenue: 0,
@@ -58,77 +60,78 @@ export default function Dashboard() {
       });
     } catch (err: any) {
       logger.error('Error loading dashboard data:', err);
-      toast.error('Failed to load dashboard statistics');
+      toast.error(t('dashboard.errors.load_stats'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
   const formatCurrency = useCallback((amount: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount), []);
+    new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', { style: 'currency', currency: 'USD' }).format(amount), [language]);
 
   const getGreeting = useCallback(() => {
     const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
+    if (h < 12) return t('dashboard.greetings.morning');
+    if (h < 18) return t('dashboard.greetings.afternoon');
+    return t('dashboard.greetings.evening');
+  }, [t]);
 
   const statCards = useMemo(() => [
     {
-      title: "Today's Revenue",
+      title: t('dashboard.stats.revenue_title'),
       value: loading ? null : formatCurrency(stats.todayRevenue),
       icon: CurrencyDollarIcon,
       accent: colors.brand,
       accentBg: colors.brandLight,
-      sub: 'View full report →',
+      sub: t('dashboard.stats.revenue_sub'),
       link: '/reports',
     },
     {
-      title: 'Transactions',
+      title: t('dashboard.stats.transactions_title'),
       value: loading ? null : String(stats.todayTransactions),
       icon: ShoppingCartIcon,
       accent: colors.brand,
       accentBg: colors.brandLight,
-      sub: 'Today',
+      sub: t('dashboard.stats.today'),
       link: '/sales',
     },
     {
-      title: 'Low Stock Items',
+      title: t('dashboard.stats.low_stock_title'),
       value: loading ? null : String(stats.lowStockCount),
       icon: stats.lowStockCount > 0 ? ExclamationTriangleIcon : BookOpenIcon,
       accent: stats.lowStockCount > 0 ? colors.warning : colors.brand,
       accentBg: stats.lowStockCount > 0 ? colors.warningLight : colors.brandLight,
-      sub: stats.lowStockCount > 0 ? 'Needs attention' : 'Stock is healthy',
+      sub: stats.lowStockCount > 0 ? t('dashboard.stats.low_stock_attention') : t('dashboard.stats.low_stock_healthy'),
       link: '/products',
       alert: stats.lowStockCount > 0,
     },
     {
-      title: 'Avg. Order Value',
+      title: t('dashboard.stats.avg_order_value_title'),
       value: loading ? null : (stats.todayTransactions > 0
         ? formatCurrency(stats.todayRevenue / stats.todayTransactions)
         : '—'),
       icon: ArrowTrendingUpIcon,
       accent: colors.brand,
       accentBg: colors.brandLight,
-      sub: 'Today',
+      sub: t('dashboard.stats.today'),
       link: '/reports',
     },
-  ], [loading, stats, formatCurrency]);
+  ], [loading, stats, formatCurrency, t]);
 
   const quickLinks = useMemo(() => [
-    { to: '/products',   label: 'Products',         icon: BookOpenIcon,           description: 'Manage your catalogue' },
-    { to: '/sales',      label: 'POS — New Sale',   icon: CreditCardIcon,         description: 'Process a transaction', highlight: true },
-    { to: '/purchases',  label: 'Purchases',        icon: TruckIcon,              description: 'Purchase orders' },
-    { to: '/customers',  label: 'Customers',        icon: UserGroupIcon,          description: 'Customer accounts' },
-    { to: '/suppliers',  label: 'Suppliers',        icon: BuildingOfficeIcon,     description: 'Supplier directory' },
-    { to: '/reports',    label: 'Reports',          icon: PresentationChartBarIcon, description: 'Analytics & insights' },
-  ], []);
+    { to: '/products',   label: t('dashboard.quick_access.products_label'),         icon: BookOpenIcon,           description: t('dashboard.quick_access.products_desc') },
+    { to: '/sales',      label: t('dashboard.quick_access.pos_sale_label'),         icon: CreditCardIcon,         description: t('dashboard.quick_access.pos_sale_desc'), highlight: true },
+    { to: '/purchases',  label: t('dashboard.quick_access.purchases_label'),        icon: TruckIcon,              description: t('dashboard.quick_access.purchases_desc') },
+    { to: '/customers',  label: t('dashboard.quick_access.customers_label'),        icon: UserGroupIcon,          description: t('dashboard.quick_access.customers_desc') },
+    { to: '/suppliers',  label: t('dashboard.quick_access.suppliers_label'),        icon: BuildingOfficeIcon,     description: t('dashboard.quick_access.suppliers_desc') },
+    { to: '/reports',    label: t('dashboard.quick_access.reports_label'),          icon: PresentationChartBarIcon, description: t('dashboard.quick_access.reports_desc') },
+  ], [t]);
 
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const firstName = user?.fullName?.split(' ')[0] || 'there';
+  const locale = language === 'ar' ? 'ar-EG' : 'en-US';
+  const today = new Date().toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const firstName = user?.fullName?.split(' ')[0] || t('dashboard.defaults.user_name_fallback');
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -148,10 +151,10 @@ export default function Dashboard() {
               {getGreeting()}, {firstName}
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight" style={{ fontFamily: fonts.display }}>
-              Welcome to {APP_BRAND_POS_LINE}
+              {t('dashboard.welcome', { brand: APP_BRAND_POS_LINE })}
             </h1>
             <div className="mt-2 flex items-center space-x-2">
-              <span className="text-white/50 text-sm">Signed in as</span>
+              <span className="text-white/50 text-sm">{t('dashboard.signed_in_as')}</span>
               <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'rgba(147,197,253,0.20)', color: colors.brandAccentText }}>
                 {user?.role}
               </span>
@@ -205,8 +208,8 @@ export default function Dashboard() {
       {/* ── Quick Access ── */}
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
         <div className="px-6 py-4 border-b border-[#e2e8f0]">
-          <h2 className="text-sm font-semibold text-gray-900 tracking-tight">Quick Access</h2>
-          <p className="text-[11px] text-gray-400 mt-0.5 uppercase tracking-wider font-medium">Jump to any module</p>
+          <h2 className="text-sm font-semibold text-gray-900 tracking-tight">{t('dashboard.quick_access.title')}</h2>
+          <p className="text-[11px] text-gray-400 mt-0.5 uppercase tracking-wider font-medium">{t('dashboard.quick_access.subtitle')}</p>
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {quickLinks.map((link, i) => {
@@ -247,14 +250,14 @@ export default function Dashboard() {
         {/* Today's performance */}
         <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#e2e8f0]">
-            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">Today's Performance</h2>
-            <p className="text-[11px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">{t('dashboard.performance.title')}</h2>
+            <p className="text-[11px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">{new Date().toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
           </div>
           <div className="p-5 space-y-3">
             {/* Revenue row */}
             <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: colors.brandLight }}>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-secondary-400 mb-1">Revenue</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-secondary-400 mb-1">{t('dashboard.performance.revenue')}</p>
                 <p className="text-2xl font-bold text-secondary-700 tabular-nums leading-none">
                   {loading ? '—' : formatCurrency(stats.todayRevenue)}
                 </p>
@@ -266,7 +269,7 @@ export default function Dashboard() {
             {/* Transactions + AOV row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col p-4 rounded-xl bg-[#f8fafc] border border-[#e8ecf0]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Transactions</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{t('dashboard.performance.transactions')}</p>
                 <p className="text-2xl font-bold text-gray-800 tabular-nums leading-none">
                   {loading ? '—' : stats.todayTransactions}
                 </p>
@@ -275,7 +278,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex flex-col p-4 rounded-xl bg-[#f8fafc] border border-[#e8ecf0]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Avg. Order</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{t('dashboard.performance.avg_order')}</p>
                 <p className="text-2xl font-bold text-gray-800 tabular-nums leading-none">
                   {loading ? '—' : (stats.todayTransactions > 0
                     ? formatCurrency(stats.todayRevenue / stats.todayTransactions)
@@ -292,13 +295,13 @@ export default function Dashboard() {
         {/* Inventory Status */}
         <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#e2e8f0]">
-            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">Inventory Status</h2>
-            <p className="text-[11px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">Stock health overview</p>
+            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">{t('dashboard.inventory.title')}</h2>
+            <p className="text-[11px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">{t('dashboard.inventory.subtitle')}</p>
           </div>
           <div className="p-5">
             {loading ? (
               <div className="flex items-center justify-center h-[140px]">
-                <div className="text-gray-400 text-sm">Loading…</div>
+                <div className="text-gray-400 text-sm">{t('dashboard.inventory.loading')}</div>
               </div>
             ) : stats.lowStockCount === 0 ? (
               <div className="flex items-center gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
@@ -306,8 +309,8 @@ export default function Dashboard() {
                   <BookOpenIcon className="w-6 h-6 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-emerald-800">All stock levels healthy</p>
-                  <p className="text-xs text-emerald-600 mt-0.5">No items below reorder threshold</p>
+                  <p className="text-sm font-semibold text-emerald-800">{t('dashboard.inventory.all_healthy')}</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">{t('dashboard.inventory.no_low_items')}</p>
                 </div>
               </div>
             ) : (
@@ -317,9 +320,9 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-900">
-                    <span className="text-amber-600">{stats.lowStockCount}</span> item{stats.lowStockCount > 1 ? 's' : ''} running low
+                    {t('dashboard.inventory.low_items_running', { count: stats.lowStockCount })}
                   </p>
-                  <p className="text-xs text-amber-600 mt-0.5 group-hover:underline underline-offset-2">Review inventory →</p>
+                  <p className="text-xs text-amber-600 mt-0.5 group-hover:underline underline-offset-2">{t('dashboard.inventory.review_inventory')}</p>
                 </div>
                 <ArrowRightIcon className="w-4 h-4 text-amber-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
               </Link>
@@ -328,7 +331,7 @@ export default function Dashboard() {
             {!loading && (
               <div className="mt-4 pt-4 border-t border-gray-50">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Stock Health</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t('dashboard.inventory.stock_health')}</span>
                   <span className="text-[11px] font-semibold text-gray-500">
                     {stats.lowStockCount === 0 ? '100%' : `${Math.max(0, 100 - stats.lowStockCount * 10)}%`}
                   </span>

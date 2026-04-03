@@ -21,8 +21,10 @@ import {
   EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useTranslation } from '../i18n/I18nContext';
 
 export default function Customers() {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<CustomerFilters>({
@@ -81,14 +83,14 @@ export default function Customers() {
       if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
         return;
       }
-      toast.error(err.response?.data?.error?.message || 'Failed to load customers');
+      toast.error(err.response?.data?.error?.message || t('customers.errors.load_customers'));
       logger.error('Error loading customers:', err);
     } finally {
       if (!signal.aborted) {
         setLoading(false);
       }
     }
-  }, [filters]);
+  }, [filters, t]);
 
   // Load customers when filters change
   useEffect(() => {
@@ -152,11 +154,11 @@ export default function Customers() {
     const errors: Record<string, string> = {};
 
     if (!formData.full_name?.trim()) {
-      errors.full_name = 'Full name is required';
+      errors.full_name = t('customers.validation.full_name_required');
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Invalid email format';
+      errors.email = t('customers.validation.email_invalid');
     }
 
     setFormErrors(errors);
@@ -178,14 +180,14 @@ export default function Customers() {
         await customerService.createCustomer(formData);
       }
       closeModal();
-      toast.success(editingCustomer ? 'Customer updated successfully' : 'Customer created successfully');
+      toast.success(editingCustomer ? t('customers.success.customer_updated') : t('customers.success.customer_created'));
       loadCustomers();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('customers.errors.timeout'));
       } else {
         const errorMessage =
-          err.response?.data?.error?.message || 'Failed to save customer';
+          err.response?.data?.error?.message || t('customers.errors.save_customer');
         toast.error(errorMessage);
       }
       console.error('Error saving customer:', err);
@@ -197,7 +199,7 @@ export default function Customers() {
   const handleDelete = async (customer: Customer) => {
     if (
       !window.confirm(
-        `Are you sure you want to delete ${customer.full_name || 'this customer'}?`
+        t('customers.confirm.delete_customer', { name: customer.full_name || t('customers.common.this_customer') })
       )
     ) {
       return;
@@ -205,14 +207,14 @@ export default function Customers() {
 
     try {
       await customerService.deleteCustomer(customer.customer_id);
-      toast.success('Customer deleted successfully');
+      toast.success(t('customers.success.customer_deleted'));
       loadCustomers();
     } catch (err: any) {
       if (err.isTimeout || err.message?.includes('timeout')) {
-        toast.error('Request timed out. Please try again.');
+        toast.error(t('customers.errors.timeout'));
       } else {
         const errorMessage =
-          err.response?.data?.error?.message || 'Failed to delete customer';
+          err.response?.data?.error?.message || t('customers.errors.delete_customer');
         toast.error(errorMessage);
       }
       console.error('Error deleting customer:', err);
@@ -222,8 +224,8 @@ export default function Customers() {
   return (
     <>
       <PageBanner
-        title="Customers"
-        subtitle="Manage your customer database and relationships"
+        title={t('customers.title')}
+        subtitle={t('customers.subtitle')}
         icon={<UserGroupIcon className="w-5 h-5 text-white" />}
         action={
           <Button
@@ -232,7 +234,7 @@ export default function Customers() {
             className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            Add Customer
+            {t('customers.actions.add_customer')}
           </Button>
         }
       />
@@ -248,7 +250,7 @@ export default function Customers() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by name, phone, or email..."
+                  placeholder={t('customers.filters.search_placeholder')}
                   value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
@@ -260,15 +262,15 @@ export default function Customers() {
               className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-secondary-300"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
-              <span>Refresh</span>
+              <span>{t('customers.actions.refresh')}</span>
             </button>
           </div>
 
           <div className="mt-3 flex items-center gap-1.5">
-            <Badge variant="primary" size="sm">{pagination.total} Customers</Badge>
+            <Badge variant="primary" size="sm">{t('customers.filters.customers_count', { count: pagination.total })}</Badge>
             {searchQuery && (
               <Badge variant="info" size="sm">
-                Filtered: {customers.length} results
+                {t('customers.filters.filtered_results', { count: customers.length })}
               </Badge>
             )}
           </div>
@@ -287,12 +289,12 @@ export default function Customers() {
               <div className="px-4 py-12">
                 <EmptyState
                   icon={<UserGroupIcon className="w-12 h-12" />}
-                  title="No customers found"
-                  description={searchQuery ? "Try adjusting your search" : "Get started by adding your first customer"}
+                  title={t('customers.empty.title')}
+                  description={searchQuery ? t('customers.empty.filtered_description') : t('customers.empty.default_description')}
                   action={
                     !searchQuery && (
                       <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                        Add Customer
+                        {t('customers.actions.add_customer')}
                       </Button>
                     )
                   }
@@ -302,11 +304,11 @@ export default function Customers() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Contact</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Email</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Created</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('customers.table.name')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('customers.table.contact')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('customers.table.email')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('customers.table.created')}</th>
+                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('customers.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -331,9 +333,9 @@ export default function Customers() {
         <Card className="mt-3 border-2 border-gray-100">
           <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
             <div className="text-xs text-gray-600 font-medium">
-              Showing <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> to{' '}
-              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-              <span className="font-bold text-gray-900">{pagination.total}</span> customers
+              {t('customers.pagination.showing')} <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> {t('customers.pagination.to')}{' '}
+              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> {t('customers.pagination.of')}{' '}
+              <span className="font-bold text-gray-900">{pagination.total}</span> {t('customers.pagination.customers')}
             </div>
             <div className="flex items-center gap-1.5">
               <Button
@@ -342,10 +344,10 @@ export default function Customers() {
                 variant="outline"
                 size="sm"
               >
-                Previous
+                {t('customers.pagination.previous')}
               </Button>
               <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
-                Page {pagination.page} of {pagination.totalPages}
+                {t('customers.pagination.page')} {pagination.page} {t('customers.pagination.of')} {pagination.totalPages}
               </span>
               <Button
                 onClick={() => handlePageChange(pagination.page + 1)}
@@ -353,7 +355,7 @@ export default function Customers() {
                 variant="outline"
                 size="sm"
               >
-                Next
+                {t('customers.pagination.next')}
               </Button>
             </div>
           </div>
@@ -369,7 +371,7 @@ export default function Customers() {
             <div className="p-1.5 bg-secondary-500 rounded-lg">
               <UserGroupIcon className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base">{editingCustomer ? 'Edit Customer' : 'Add Customer'}</span>
+            <span className="text-base">{editingCustomer ? t('customers.modal.edit_title') : t('customers.modal.add_title')}</span>
           </div>
         }
         size="md"
@@ -381,7 +383,7 @@ export default function Customers() {
               variant="outline"
               disabled={submitting}
             >
-              Cancel
+              {t('customers.actions.cancel')}
             </Button>
             <Button
               type="submit"
@@ -389,7 +391,7 @@ export default function Customers() {
               className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               isLoading={submitting}
             >
-              {editingCustomer ? 'Update' : 'Create'}
+              {editingCustomer ? t('customers.actions.update') : t('customers.actions.create')}
             </Button>
           </div>
         }
@@ -397,7 +399,7 @@ export default function Customers() {
         <form id="customer-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Full Name <span className="text-red-500">*</span>
+              {t('customers.form.full_name')} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -412,7 +414,7 @@ export default function Customers() {
                     setFormData({ ...formData, full_name: value });
                   }
                 }}
-                placeholder="Enter full name"
+                placeholder={t('customers.form.full_name_placeholder')}
                 required
                 maxLength={INPUT_LIMITS.CUSTOMER_NAME_MAX_LENGTH}
                 className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${formErrors.full_name ? 'border-red-300' : 'border-gray-200'
@@ -426,7 +428,7 @@ export default function Customers() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Phone
+              {t('customers.form.phone')}
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -442,7 +444,7 @@ export default function Customers() {
                   }
                 }}
                 maxLength={INPUT_LIMITS.PHONE_MAX_LENGTH}
-                placeholder="Enter phone number"
+                placeholder={t('customers.form.phone_placeholder')}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
               />
             </div>
@@ -450,7 +452,7 @@ export default function Customers() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Email
+              {t('customers.form.email')}
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -466,7 +468,7 @@ export default function Customers() {
                   }
                 }}
                 maxLength={INPUT_LIMITS.EMAIL_MAX_LENGTH}
-                placeholder="Enter email address"
+                placeholder={t('customers.form.email_placeholder')}
                 className={`w-full pl-10 pr-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium ${formErrors.email ? 'border-red-300' : 'border-gray-200'
                   }`}
               />
@@ -478,7 +480,7 @@ export default function Customers() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Notes
+              {t('customers.form.notes')}
             </label>
             <div className="relative">
               <DocumentTextIcon className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -489,7 +491,7 @@ export default function Customers() {
                 }
                 rows={3}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 resize-none transition-all bg-white font-medium"
-                placeholder="Additional notes about this customer..."
+                placeholder={t('customers.form.notes_placeholder')}
               />
             </div>
           </div>
