@@ -9,6 +9,7 @@ import {
   EyeIcon,
   MagnifyingGlassIcon,
   CheckIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 // ─── Paper size dimensions (mm → pixels at 96 dpi, 1 mm ≈ 3.7795 px) ──────────
@@ -478,12 +479,29 @@ export default function Labels() {
 
       {/* ── Print Preview Modal ──────────────────────────────────── */}
       {showPreview && store && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center overflow-auto py-8 px-4" onClick={() => setShowPreview(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-fit" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowPreview(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()}
+          >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-800 text-base">Print Preview — {selectedProducts.length} label{selectedProducts.length !== 1 ? 's' : ''}</h2>
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-secondary-50 flex items-center justify-center flex-shrink-0">
+                  <PrinterIcon className="w-4 h-4 text-secondary-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900 text-sm leading-tight">Print Preview</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {selectedProducts.length} label{selectedProducts.length !== 1 ? 's' : ''} · {paper.label} · {cols} per row
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-6">
                 <button
                   id="modal-print-labels"
                   onClick={handlePrint}
@@ -495,16 +513,16 @@ export default function Labels() {
                 <button
                   id="modal-close-preview"
                   onClick={() => setShowPreview(false)}
-                  className="px-3 py-2 rounded-lg text-gray-500 hover:bg-gray-100 text-sm font-medium transition-colors"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                 >
-                  Close
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Preview content */}
-            <div className="p-6 overflow-auto max-h-[75vh] bg-gray-100">
-              <div ref={printRef} className="shadow-lg">
+            {/* Preview content — scrollable */}
+            <div className="overflow-auto bg-gray-100 p-6 flex-1">
+              <div ref={printRef} className="shadow-lg mx-auto" style={{ width: 'fit-content' }}>
                 <PrintPreview products={selectedProducts} store={store} />
               </div>
             </div>
