@@ -490,83 +490,95 @@ export class PurchaseOrderModel extends BaseModel {
           // Row-level locking (FOR UPDATE) provides sufficient protection against race conditions
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
-      // Get purchase order with items
-      const po = await this.findById(poId);
-      if (!po) {
-        throw new Error('Purchase order not found');
-      }
+          // Get purchase order INSIDE the transaction using the locked client
+          const poResult = await client.query(`
+            SELECT 
+              po.*,
+              s.name as supplier_name,
+              s.contact_name as supplier_contact,
+              s.phone as supplier_phone
+            FROM purchase_orders po
+            LEFT JOIN suppliers s ON s.supplier_id = po.supplier_id
+            WHERE po.po_id = $1
+            FOR UPDATE OF po
+          `, [poId]);
 
-      if (po.status === 'RECEIVED') {
-        throw new Error('Purchase order already received');
-      }
+          if (poResult.rows.length === 0) {
+            throw new Error('Purchase order not found');
+          }
 
-      // Update stock for each item
-      for (const item of po.items) {
-        const qtyReceived = item.qty_received || item.qty_ordered;
-        
-        // Check if product tracks inventory
-        const productQuery = `
-          SELECT track_inventory FROM products WHERE product_id = $1
-        `;
-        const productResult = await client.query(productQuery, [item.product_id]);
-        
-        if (productResult.rows[0]?.track_inventory) {
-          // Lock stock balance row for update (prevents concurrent modifications)
+          const poRow = poResult.rows[0];
+
+          if (poRow.status === 'RECEIVED') {
+            throw new Error('Purchase order already received');
+          }
+
+          // Get items for this PO inside the transaction
+          const itemsResult = await client.query(`
+            SELECT poi.*, p.name as product_name, p.barcode, p.unit_of_measure, p.track_inventory
+            FROM purchase_order_items poi
+            LEFT JOIN products p ON p.product_id = poi.product_id
+            WHERE poi.po_id = $1
+          `, [poId]);
+
+          const items = itemsResult.rows;
+
+          // Update stock for each item
+          for (const item of items) {
+            const qtyReceived = Number(item.qty_received) > 0 ? Number(item.qty_received) : Number(item.qty_ordered);
+            
+            if (item.track_inventory) {
+              // Lock stock balance row for update (prevents concurrent modifications)
+              await client.query(`
+                SELECT qty_on_hand FROM stock_balances
+                WHERE store_id = $1 AND product_id = $2
+                FOR UPDATE
+              `, [poRow.store_id, item.product_id]);
+              
+              // Create stock movement (inbound)
+              await client.query(`
+                INSERT INTO stock_movements (
+                  store_id, product_id, reason, qty, reference, created_by
+                )
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `, [
+                poRow.store_id,
+                item.product_id,
+                'purchase',
+                qtyReceived,
+                poRow.po_number,
+                null, // System created
+              ]);
+              
+              // Update stock balance atomically (maintain O(1) query performance)
+              await client.query(`
+                INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (store_id, product_id)
+                DO UPDATE SET 
+                  qty_on_hand = stock_balances.qty_on_hand + $3,
+                  updated_at = NOW()
+              `, [poRow.store_id, item.product_id, qtyReceived]);
+            }
+
+            // Update qty_received on the purchase order item
+            await client.query(`
+              UPDATE purchase_order_items
+              SET qty_received = $1
+              WHERE po_item_id = $2
+            `, [qtyReceived, item.po_item_id]);
+          }
+
+          // Update purchase order status to RECEIVED
           await client.query(`
-            SELECT qty_on_hand FROM stock_balances
-            WHERE store_id = $1 AND product_id = $2
-            FOR UPDATE
-          `, [po.store_id, item.product_id]);
-          
-          // Create stock movement (inbound)
-          const stockQuery = `
-            INSERT INTO stock_movements (
-              store_id, product_id, reason, qty, reference, created_by
-            )
-            VALUES ($1, $2, $3, $4, $5, $6)
-          `;
-          await client.query(stockQuery, [
-            po.store_id,
-            item.product_id,
-            'purchase',
-            qtyReceived,
-            po.po_number,
-            null, // System created
-          ]);
-          
-          // Update stock balance atomically (maintain O(1) query performance)
-          await client.query(`
-            INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (store_id, product_id)
-            DO UPDATE SET 
-              qty_on_hand = stock_balances.qty_on_hand + $3,
-              updated_at = NOW()
-          `, [po.store_id, item.product_id, qtyReceived]); // Positive for purchase (inbound)
-        }
-
-        // Update qty_received
-        const updateItemQuery = `
-          UPDATE purchase_order_items
-          SET qty_received = $1
-          WHERE po_item_id = $2
-        `;
-        await client.query(updateItemQuery, [qtyReceived, item.po_item_id]);
-      }
-
-      // Update purchase order status
-      const updateQuery = `
-        UPDATE purchase_orders
-        SET status = 'RECEIVED', received_at = NOW()
-        WHERE po_id = $1
-        RETURNING *
-      `;
-      const updateResult = await client.query(updateQuery, [poId]);
-      const updatedPO = updateResult.rows[0];
+            UPDATE purchase_orders
+            SET status = 'RECEIVED', received_at = NOW()
+            WHERE po_id = $1
+          `, [poId]);
 
           await client.query('COMMIT');
 
-          // Return updated purchase order
+          // Return updated purchase order (after commit, safe to use pool)
           return await this.findById(poId) as PurchaseOrderWithDetails;
         } catch (error) {
           // Always rollback on error

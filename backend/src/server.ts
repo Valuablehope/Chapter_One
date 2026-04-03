@@ -26,6 +26,7 @@ import { sanitizeMiddleware } from './utils/sanitize';
 import { requestLogger } from './middleware/requestLogger';
 import { csrfProtection } from './middleware/csrf';
 import { logger } from './utils/logger';
+import { fixStockBalancesOnStartup } from './utils/autoFixStock';
 
 // Load environment variables from root directory
 import * as path from 'path';
@@ -211,6 +212,10 @@ async function startServer(): Promise<void> {
     } else {
       logger.info(`✅ store_settings restaurant schema validated in schema "${storeSettingsAudit.schema}"`);
     }
+
+    // Auto-fix missing stock balances for legacy/bugged received POs
+    await fixStockBalancesOnStartup();
+    
   } catch (error) {
     logger.warn('⚠️  Database connection failed during startup:', {
       error: error instanceof Error ? error.message : 'Unknown error',
