@@ -106,9 +106,9 @@ export default function HeldSalesPanel({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-2">
-            <PauseCircleIcon className="w-4 h-4 text-amber-500" />
+            <PauseCircleIcon className="w-4 h-4 text-secondary-500" />
             <span className="text-sm font-bold text-gray-800">Held Sales</span>
-            <span className="text-xs bg-amber-100 text-amber-700 font-bold rounded-full px-2 py-0.5">
+            <span className="text-xs bg-secondary-100 text-secondary-700 font-bold rounded-full px-2 py-0.5">
               {heldSales.length}
             </span>
           </div>
@@ -133,7 +133,7 @@ export default function HeldSalesPanel({
               return (
                 <div
                   key={sale.id}
-                  className="px-4 py-3 hover:bg-amber-50 transition-colors group"
+                  className="px-4 py-3 hover:bg-gray-50 transition-colors group"
                 >
                   {/* Top row */}
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -181,7 +181,7 @@ export default function HeldSalesPanel({
                     <button
                       id={`resume-sale-${sale.id}`}
                       onClick={() => { onResume(sale.id); onClose(); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-400 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-secondary-50 text-secondary-700 hover:bg-secondary-100 border border-secondary-200 hover:border-secondary-300 transition-colors"
                     >
                       <ArrowPathIcon className="w-3.5 h-3.5" />
                       Resume
@@ -189,7 +189,7 @@ export default function HeldSalesPanel({
                     <button
                       id={`delete-held-sale-${sale.id}`}
                       onClick={() => onDelete(sale.id)}
-                      className="w-8 h-7 flex items-center justify-center rounded-lg text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 border border-red-100 hover:border-red-300 transition-colors"
+                      className="w-8 h-7 flex items-center justify-center rounded-lg text-xs font-semibold bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 border border-gray-200 hover:border-red-200 transition-colors"
                     >
                       <TrashIcon className="w-3.5 h-3.5" />
                     </button>

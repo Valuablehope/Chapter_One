@@ -1171,7 +1171,7 @@ export default function Sales() {
                     onClick={handleHoldSale}
                     disabled={cart.length === 0}
                     title="Hold current sale"
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <PauseCircleIcon className="w-3.5 h-3.5" />
                     Hold
@@ -1181,14 +1181,14 @@ export default function Sales() {
                     onClick={() => setShowHeldPanel(v => !v)}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                       heldSales.length > 0
-                        ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                        ? 'border-secondary-200 bg-secondary-50 text-secondary-700 hover:bg-secondary-100'
                         : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                     }`}
                   >
                     <ShoppingCartIcon className="w-3.5 h-3.5" />
                     Held
                     {heldSales.length > 0 && (
-                      <span className="ml-0.5 min-w-[16px] h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                      <span className="ml-0.5 min-w-[16px] h-4 bg-secondary-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
                         {heldSales.length}
                       </span>
                     )}
