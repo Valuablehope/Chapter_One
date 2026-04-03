@@ -109,19 +109,19 @@ function LabelCard({ storeName, productName, price, currency, style }: LabelCard
         boxSizing:      'border-box',
       }}>
         <span style={{
-          fontSize:       12,
-          fontWeight:     700,
+          fontSize:       15,
+          fontWeight:     800,
           color:          '#111111',
           textAlign:      'center',
-          lineHeight:     1.3,
+          lineHeight:     1.25,
           wordBreak:      'break-word',
           overflowWrap:   'break-word',
           display:        '-webkit-box',
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
           WebkitBoxOrient: 'vertical',
           overflow:       'hidden',
           fontFamily:     'Arial, Helvetica, sans-serif',
-          letterSpacing:  '0.01em',
+          letterSpacing:  '0.005em',
         }}>
           {productName}
         </span>
@@ -141,18 +141,18 @@ function LabelCard({ storeName, productName, price, currency, style }: LabelCard
         gap:            3,
       }}>
         <span style={{
-          fontSize:      9,
+          fontSize:      11,
           fontWeight:    700,
           color:         '#444444',
           alignSelf:     'flex-start',
-          marginTop:     3,
+          marginTop:     4,
           fontFamily:    'Arial, Helvetica, sans-serif',
           letterSpacing: '0.02em',
         }}>
           {currency}
         </span>
         <span style={{
-          fontSize:      24,
+          fontSize:      30,
           fontWeight:    900,
           color:         '#111111',
           letterSpacing: '-0.03em',
