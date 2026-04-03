@@ -54,6 +54,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
+    lbp_exchange_rate,
     ...storeData
   } = req.body;
 
@@ -79,6 +80,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
+    lbp_exchange_rate,
   };
 
   // Only create settings if at least one setting field is provided
@@ -135,6 +137,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
+    lbp_exchange_rate,
     ...storeData
   } = req.body;
 
@@ -181,6 +184,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pos_module_type,
     restaurant_table_count,
     restaurant_track_guests_per_table,
+    lbp_exchange_rate,
   };
 
   // Only update settings if at least one setting field is provided

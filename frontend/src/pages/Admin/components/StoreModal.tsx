@@ -44,6 +44,7 @@ export interface StoreFormData {
   pos_module_type: PosModuleType;
   restaurant_table_count: number | null;
   restaurant_track_guests_per_table: boolean;
+  lbp_exchange_rate: number | null;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -78,6 +79,7 @@ const initialFormData: StoreFormData = {
   pos_module_type: 'store',
   restaurant_table_count: null,
   restaurant_track_guests_per_table: false,
+  lbp_exchange_rate: null,
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -112,6 +114,7 @@ function storeToFormData(s: Store): StoreFormData {
     pos_module_type: pos,
     restaurant_table_count: tableCount,
     restaurant_track_guests_per_table: s.restaurant_track_guests_per_table ?? false,
+    lbp_exchange_rate: s.lbp_exchange_rate ?? null,
   };
 }
 
@@ -279,6 +282,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       restaurant_track_guests_per_table: isRestaurant
         ? formData.restaurant_track_guests_per_table
         : false,
+      lbp_exchange_rate: formData.lbp_exchange_rate ?? null,
     };
 
     setSubmitting(true);
@@ -482,6 +486,44 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   products that have no tax set, and to split shelf prices into net + tax on receipts.
                 </p>
               </div>
+            </div>
+
+            <SectionDivider>LBP Exchange Rate</SectionDivider>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel>LBP Rate (1 {formData.currency_code || 'USD'} = ? LBP)</FieldLabel>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.lbp_exchange_rate ?? ''}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const raw = e.target.value;
+                    set('lbp_exchange_rate', raw === '' ? null : parseFloat(raw) || null);
+                  }}
+                  placeholder="e.g. 89500"
+                  className={inputCls()}
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Enter how many LBP equal 1&nbsp;{formData.currency_code || 'USD'}. Leave blank to hide LBP prices in POS.
+                </p>
+              </div>
+
+              {/* Live preview badge */}
+              {formData.lbp_exchange_rate !== null && formData.lbp_exchange_rate > 0 && (
+                <div className="flex items-start pt-6">
+                  <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                    <span className="text-lg">🇱🇧</span>
+                    <div>
+                      <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Live Preview</p>
+                      <p className="text-sm font-bold text-amber-900">
+                        1 {formData.currency_code || 'USD'} = {formData.lbp_exchange_rate.toLocaleString()} LBP
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <SectionDivider>Pricing</SectionDivider>

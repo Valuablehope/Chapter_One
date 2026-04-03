@@ -24,6 +24,7 @@ export interface StoreSettings {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
 }
 
 export interface StoreSettingsInput {
@@ -45,6 +46,7 @@ export interface StoreSettingsInput {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -280,6 +282,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('restaurant_track_guests_per_table');
       values.push(settings.restaurant_track_guests_per_table);
     }
+    if (settings.lbp_exchange_rate !== undefined && availableColumns.has('lbp_exchange_rate')) {
+      paramCount++;
+      fields.push('lbp_exchange_rate');
+      values.push(settings.lbp_exchange_rate);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -385,6 +392,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`restaurant_track_guests_per_table = $${paramCount}`);
       values.push(settings.restaurant_track_guests_per_table);
+    }
+    if (settings.lbp_exchange_rate !== undefined && availableColumns.has('lbp_exchange_rate')) {
+      paramCount++;
+      fields.push(`lbp_exchange_rate = $${paramCount}`);
+      values.push(settings.lbp_exchange_rate);
     }
 
     if (fields.length === 0) {

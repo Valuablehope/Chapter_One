@@ -24,6 +24,7 @@ export interface StoreSettings {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
 }
 
 type StoreModuleChangeListener = () => void;

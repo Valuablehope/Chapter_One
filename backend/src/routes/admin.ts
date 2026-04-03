@@ -146,6 +146,11 @@ router.post(
       })
       .withMessage('restaurant_table_count must be a positive integer'),
     body('restaurant_track_guests_per_table').optional().isBoolean(),
+    body('lbp_exchange_rate').optional({ nullable: true }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      const num = parseFloat(value);
+      return !isNaN(num) && num >= 0;
+    }).withMessage('LBP exchange rate must be a non-negative number'),
   ],
   validateRequest,
   createStore
@@ -192,6 +197,11 @@ router.put(
       })
       .withMessage('restaurant_table_count must be a positive integer'),
     body('restaurant_track_guests_per_table').optional().isBoolean(),
+    body('lbp_exchange_rate').optional({ nullable: true }).custom((value) => {
+      if (value === null || value === undefined || value === '') return true;
+      const num = parseFloat(value);
+      return !isNaN(num) && num >= 0;
+    }).withMessage('LBP exchange rate must be a non-negative number'),
   ],
   validateRequest,
   updateStore

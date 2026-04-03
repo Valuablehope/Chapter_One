@@ -123,6 +123,14 @@ export default function Sales() {
 
   const taxMode: SaleTaxMode = storeSettings?.tax_inclusive ? 'inclusive' : 'exclusive';
 
+  // LBP conversion helper — returns formatted string or null when rate not set
+  const lbpRate = Number(storeSettings?.lbp_exchange_rate ?? 0);
+  const formatLBP = (amount: number): string | null => {
+    if (!lbpRate || lbpRate <= 0) return null;
+    return Math.round(amount * lbpRate).toLocaleString() + ' LBP';
+  };
+
+
   const cartAmounts = useMemo(
     () =>
       cart.map((item) =>
@@ -906,6 +914,11 @@ export default function Sales() {
                           <span className="text-xs font-bold text-secondary-500 mt-auto">
                             ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
                           </span>
+                          {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
+                            <span className="text-[9px] font-semibold text-amber-600 mt-0.5 leading-none">
+                              ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -1145,6 +1158,11 @@ export default function Sales() {
                             <p className="font-bold text-sm text-secondary-500">
                               ${Number(item.line_total).toFixed(2)}
                             </p>
+                            {formatLBP(Number(item.line_total)) && (
+                              <p className="text-[10px] text-amber-600 font-semibold mt-0.5">
+                                ≈ {formatLBP(Number(item.line_total))}
+                              </p>
+                            )}
                           </div>
                           <Button
                             onClick={() => removeFromCart(item.product.product_id)}
@@ -1278,7 +1296,14 @@ export default function Sales() {
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
                   <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
                     <span className="text-sm font-semibold opacity-90">{t('pos_sales.total_due')}</span>
-                    <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
+                      {formatLBP(grandTotal) && (
+                        <p className="text-xs font-semibold text-white/80 mt-0.5 tabular-nums">
+                          ≈ {formatLBP(grandTotal)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1541,7 +1566,14 @@ export default function Sales() {
           <div className="p-4 rounded-xl text-white" style={{ background: gradients.brandBlue }}>
             <div className="flex justify-between items-center">
               <span className="font-medium text-sm opacity-80">{t('pos_sales.grand_total')}</span>
-              <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
+              <div className="text-right">
+                <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
+                {formatLBP(grandTotal) && (
+                  <p className="text-xs font-semibold text-white/80 mt-0.5 tabular-nums">
+                    ≈ {formatLBP(grandTotal)}
+                  </p>
+                )}
+              </div>
             </div>
             {parseFloat(paymentAmount) > grandTotal && (
               <div className="mt-2.5 pt-2.5 border-t border-white/20 flex justify-between items-center">
