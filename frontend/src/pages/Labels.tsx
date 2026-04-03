@@ -59,88 +59,106 @@ function LabelCard({ storeName, productName, price, currency, style }: LabelCard
     <div
       className="label-card"
       style={{
-        width:       mmToPx(LABEL_W_MM),
-        height:      mmToPx(LABEL_H_MM),
-        border:      '1.5px solid #222',
-        borderRadius: 5,
-        display:     'flex',
+        width:         mmToPx(LABEL_W_MM),
+        height:        mmToPx(LABEL_H_MM),
+        border:        '1.5px solid #1a1a1a',
+        borderRadius:  5,
+        display:       'flex',
         flexDirection: 'column',
-        alignItems:  'center',
-        background:  '#ffffff',
-        boxSizing:   'border-box',
-        overflow:    'hidden',
-        fontFamily:  'Arial, Helvetica, sans-serif',
+        background:    '#ffffff',
+        boxSizing:     'border-box',
+        overflow:      'hidden',
+        fontFamily:    'Georgia, "Times New Roman", serif',
         ...style,
       }}
     >
       {/* ── Top strip: store name ── */}
       <div style={{
-        width: '100%',
-        background: '#111',
-        textAlign: 'center',
-        padding: '3px 6px',
-        boxSizing: 'border-box',
+        width:      '100%',
+        background: '#1a1a1a',
+        textAlign:  'center',
+        padding:    '2.5px 6px',
+        boxSizing:  'border-box',
+        flexShrink: 0,
       }}>
         <span style={{
-          fontSize: 6.5,
-          fontWeight: 700,
-          color: '#ffffff',
+          fontSize:      5.5,
+          fontWeight:    700,
+          color:         '#ffffff',
           textTransform: 'uppercase',
-          letterSpacing: '0.12em',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: 'block',
+          letterSpacing: '0.18em',
+          whiteSpace:    'nowrap',
+          overflow:      'hidden',
+          textOverflow:  'ellipsis',
+          display:       'block',
+          fontFamily:    'Arial, Helvetica, sans-serif',
         }}>
           {storeName}
         </span>
       </div>
 
-      {/* ── Middle: product name (centered, wraps) ── */}
+      {/* ── Middle: product name ── */}
       <div style={{
-        flex: 1,
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
+        flex:           1,
+        width:          '100%',
+        display:        'flex',
+        alignItems:     'center',
         justifyContent: 'center',
-        padding: '4px 8px',
-        boxSizing: 'border-box',
+        padding:        '5px 8px 4px',
+        boxSizing:      'border-box',
       }}>
         <span style={{
-          fontSize: 9.5,
-          fontWeight: 700,
-          color: '#111',
-          textAlign: 'center',
-          lineHeight: 1.35,
-          wordBreak: 'break-word',
-          overflowWrap: 'break-word',
-          display: '-webkit-box',
-          WebkitLineClamp: 3,
+          fontSize:       12,
+          fontWeight:     700,
+          color:          '#111111',
+          textAlign:      'center',
+          lineHeight:     1.3,
+          wordBreak:      'break-word',
+          overflowWrap:   'break-word',
+          display:        '-webkit-box',
+          WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
+          overflow:       'hidden',
+          fontFamily:     'Arial, Helvetica, sans-serif',
+          letterSpacing:  '0.01em',
         }}>
           {productName}
         </span>
       </div>
 
-      {/* ── Thin divider ── */}
-      <div style={{ width: '80%', height: 1, background: '#ddd', marginBottom: 3 }} />
-
-      {/* ── Bottom: price ── */}
+      {/* ── Price zone: full-width band with strong contrast ── */}
       <div style={{
-        width: '100%',
-        textAlign: 'center',
-        padding: '2px 6px 5px',
-        boxSizing: 'border-box',
+        width:          '100%',
+        background:     '#f4f4f4',
+        borderTop:      '1px solid #d0d0d0',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        '5px 6px 6px',
+        boxSizing:      'border-box',
+        flexShrink:     0,
+        gap:            3,
       }}>
         <span style={{
-          fontSize: 15,
-          fontWeight: 900,
-          color: '#111',
-          letterSpacing: '-0.02em',
-          lineHeight: 1,
+          fontSize:      9,
+          fontWeight:    700,
+          color:         '#444444',
+          alignSelf:     'flex-start',
+          marginTop:     3,
+          fontFamily:    'Arial, Helvetica, sans-serif',
+          letterSpacing: '0.02em',
         }}>
-          {currency} {Number(price).toFixed(2)}
+          {currency}
+        </span>
+        <span style={{
+          fontSize:      24,
+          fontWeight:    900,
+          color:         '#111111',
+          letterSpacing: '-0.03em',
+          lineHeight:    1,
+          fontFamily:    'Arial Black, Arial, Helvetica, sans-serif',
+        }}>
+          {Number(price).toFixed(2)}
         </span>
       </div>
     </div>
