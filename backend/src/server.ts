@@ -263,3 +263,25 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// ── Prevent unhandled promise rejections from crashing the server ──────────────
+// In Node.js 15+, unhandled rejections crash the process by default.
+// We catch them here so a single bad request doesn't bring down the whole app.
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  logger.error('Unhandled promise rejection (caught by global handler):', {
+    reason: message,
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+  // Do NOT call process.exit() here – let the request fail with a 500,
+  // but keep the server running for subsequent requests.
+});
+
+// Catch genuine programming errors (syntax errors, etc.) and log before exiting
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught exception – server will restart:', {
+    message: error.message,
+    stack: error.stack,
+  });
+  // Exit so Electron can restart the backend process
+  process.exit(1);
+});

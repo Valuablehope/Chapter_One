@@ -117,6 +117,8 @@ export class PurchaseOrderModel extends BaseModel {
 
   // Create purchase order
   static async create(data: CreatePurchaseOrderData): Promise<PurchaseOrderWithDetails> {
+    return await withRetry(
+      async () => {
     const client = await pool.connect();
     
     try {
@@ -222,6 +224,18 @@ export class PurchaseOrderModel extends BaseModel {
         console.error('Failed to release database client:', releaseError);
       }
     }
+      },
+      {
+        maxAttempts: 3,
+        backoffMs: 150,
+        onRetry: (attempt, error) => {
+          logger.warn(`Retrying purchase order create (attempt ${attempt})`, {
+            error: error.message,
+            code: (error as any).code,
+          });
+        },
+      }
+    );
   }
 
   // Get all purchase orders with filters
