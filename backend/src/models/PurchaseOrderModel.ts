@@ -88,20 +88,31 @@ export class PurchaseOrderModel extends BaseModel {
     return result.rows[0] || null;
   }
 
-  // Generate PO number
-  static async generatePONumber(storeId: string): Promise<string> {
-    const query = `
-      SELECT COUNT(*) as count
-      FROM purchase_orders
-      WHERE store_id = $1 AND ordered_date = CURRENT_DATE
-    `;
-    const result = await this.query(query, [storeId]);
-    const count = parseInt(result.rows[0].count, 10);
-    
-    // Format: PO-YYYYMMDD-XXXX (e.g., PO-20231205-0001)
+  // Generate PO number — runs inside transaction for safety
+  static async generatePONumber(client: any, storeId: string): Promise<string> {
     const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const sequence = String(count + 1).padStart(4, '0');
-    return `PO-${date}-${sequence}`;
+
+    // Count existing POs for today to get starting sequence
+    const result = await client.query(
+      `SELECT COUNT(*) as count FROM purchase_orders
+       WHERE store_id = $1 AND DATE(ordered_at) = CURRENT_DATE`,
+      [storeId]
+    );
+    let sequence = parseInt(result.rows[0].count, 10) + 1;
+
+    // Loop until we find a sequence that doesn't already exist
+    // (handles rapid concurrent creation)
+    while (true) {
+      const candidate = `PO-${date}-${String(sequence).padStart(4, '0')}`;
+      const exists = await client.query(
+        'SELECT 1 FROM purchase_orders WHERE po_number = $1',
+        [candidate]
+      );
+      if (exists.rows.length === 0) {
+        return candidate;
+      }
+      sequence++;
+    }
   }
 
   // Create purchase order
@@ -119,8 +130,8 @@ export class PurchaseOrderModel extends BaseModel {
         throw new Error('No active store found');
       }
 
-      // Generate PO number
-      const poNumber = await this.generatePONumber(store.store_id);
+      // Generate PO number inside transaction to avoid race conditions
+      const poNumber = await this.generatePONumber(client, store.store_id);
 
       // Create purchase order
       const poQuery = `
