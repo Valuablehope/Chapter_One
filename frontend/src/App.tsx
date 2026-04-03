@@ -13,6 +13,7 @@ const Sales = lazy(() => import('./pages/Sales'));
 const RestaurantPOS = lazy(() => import('./pages/RestaurantPOS'));
 const SalesManagement = lazy(() => import('./pages/SalesManagement'));
 const Purchases = lazy(() => import('./pages/Purchases'));
+const Labels = lazy(() => import('./pages/Labels'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
@@ -101,6 +102,18 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <Purchases />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/labels"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <Labels />
                 </Suspense>
               </Layout>
             </ProtectedRoute>
