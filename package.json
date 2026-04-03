@@ -1,6 +1,6 @@
 {
   "name": "chapter-one-pos",
-  "version": "4.0.8",
+  "version": "4.0.9",
   "description": "Chapter One POS Desktop Application",
   "main": "electron/dist/main.js",
   "author": "Chapter One",
