@@ -7,7 +7,7 @@ const pool = new Pool({
 });
 
 async function run() {
-  const sqlPath = path.join(__dirname, '../database/migrations/015_alter_qty_to_numeric.sql');
+  const sqlPath = path.join(__dirname, '../database/migrations/018_add_cancelled_to_movement_reason.sql');
   const sql = fs.readFileSync(sqlPath, 'utf8');
   try {
     await pool.query('BEGIN');

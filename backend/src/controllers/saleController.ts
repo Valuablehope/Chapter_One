@@ -173,6 +173,48 @@ export const updateSale = asyncHandler(
   }
 );
 
+// Cancel sale
+export const cancelSale = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      throw new CustomError('User not authenticated', 401);
+    }
+
+    const { id } = req.params;
+
+    const sale = await SaleModel.cancel(id, userId);
+
+    logger.info(`Sale cancelled: ${sale.receipt_no} by admin user ${userId}`);
+
+    res.json({
+      success: true,
+      data: sale,
+    });
+  }
+);
+
+// Delete sale (admin only)
+export const deleteSale = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      throw new CustomError('User not authenticated', 401);
+    }
+
+    const { id } = req.params;
+
+    await SaleModel.deleteSale(id);
+
+    logger.info(`Sale ${id} permanently deleted by admin user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Sale permanently deleted',
+    });
+  }
+);
+
 
 
 

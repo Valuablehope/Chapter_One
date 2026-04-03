@@ -13,7 +13,7 @@ import {
   type SaleTaxMode,
 } from '../utils/saleTaxTotals';
 
-export type SaleStatus = 'open' | 'paid' | 'void';
+export type SaleStatus = 'open' | 'paid' | 'void' | 'cancelled';
 export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
 
 export interface Sale {
@@ -854,6 +854,153 @@ export class SaleModel extends BaseModel {
         },
       }
     );
+  }
+
+  // Cancel sale
+  static async cancel(
+    saleId: string,
+    cashierId: string
+  ): Promise<SaleWithDetails> {
+    return await withRetry(
+      async () => {
+        const client = await pool.connect();
+
+        try {
+          await client.query('BEGIN');
+          await client.query('SET LOCAL statement_timeout = 30000');
+          await client.query('SET LOCAL lock_timeout = 5000');
+          await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+
+          // Get existing sale
+          const existingSale = await this.findById(saleId);
+          if (!existingSale) {
+            await client.query('ROLLBACK');
+            throw new Error('Sale not found');
+          }
+
+          if (existingSale.status === 'cancelled') {
+            await client.query('ROLLBACK');
+            throw new Error('Sale is already cancelled');
+          }
+
+          // Update sale status
+          const updateQuery = `
+            UPDATE sales 
+            SET status = 'cancelled' 
+            WHERE sale_id = $1
+          `;
+          await client.query(updateQuery, [saleId]);
+
+          // Get items to reverse inventory
+          const itemsResult = await client.query(
+            'SELECT * FROM sale_items WHERE sale_id = $1',
+            [saleId]
+          );
+          const items = itemsResult.rows;
+
+          // Process stock reversions
+          for (const item of items) {
+             // Check if product tracks inventory
+             const productQuery = `
+              SELECT track_inventory FROM products WHERE product_id = $1
+            `;
+            const productResult = await client.query(productQuery, [item.product_id]);
+
+            if (productResult.rows[0]?.track_inventory) {
+               // Create stock movement (inbound reversion)
+               const stockQuery = `
+                INSERT INTO stock_movements (
+                  store_id, product_id, reason, qty, reference, created_by
+                )
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `;
+              await client.query(stockQuery, [
+                existingSale.store_id,
+                item.product_id,
+                'cancelled',
+                Math.abs(item.qty), // Positive for reverting a sale 
+                existingSale.receipt_no,
+                cashierId,
+              ]);
+
+              // Update stock balance atomically
+              await client.query(`
+                INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (store_id, product_id)
+                DO UPDATE SET 
+                  qty_on_hand = stock_balances.qty_on_hand + $3,
+                  updated_at = NOW()
+              `, [existingSale.store_id, item.product_id, Math.abs(item.qty)]);
+            }
+          }
+
+          await client.query('COMMIT');
+          
+          const updatedSale = await this.findById(saleId);
+          return updatedSale as SaleWithDetails;
+        } catch (error) {
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            logger.error('Failed to rollback transaction', { error: rollbackError });
+          }
+          throw error;
+        } finally {
+          try {
+            client.release();
+          } catch (releaseError) {
+            logger.error('Failed to release database client', { error: releaseError });
+          }
+        }
+      },
+      {
+        maxAttempts: 3,
+        backoffMs: 100,
+        onRetry: (attempt, error) => {
+          logger.warn(`Retrying sale cancellation (attempt ${attempt})`, {
+            error: error.message,
+            code: (error as any).code,
+          });
+        },
+      }
+    );
+  }
+
+  // Hard-delete a sale (admin only) — removes all related records
+  static async deleteSale(saleId: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Verify sale exists
+      const existing = await client.query('SELECT sale_id FROM sales WHERE sale_id = $1', [saleId]);
+      if (existing.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('Sale not found');
+      }
+
+      // Delete child records first (FK constraints)
+      // Check if restaurant_sale_context exists before deleting (optional table)
+      const tableCheck = await client.query(`
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'restaurant_sale_context'
+      `);
+      if (tableCheck.rows.length > 0) {
+        await client.query('DELETE FROM restaurant_sale_context WHERE sale_id = $1', [saleId]);
+      }
+      await client.query('DELETE FROM sale_items WHERE sale_id = $1', [saleId]);
+      await client.query('DELETE FROM sale_payments WHERE sale_id = $1', [saleId]);
+      await client.query('DELETE FROM sales WHERE sale_id = $1', [saleId]);
+
+      await client.query('COMMIT');
+      logger.info(`Sale ${saleId} permanently deleted`);
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      throw error;
+    } finally {
+      try { client.release(); } catch (_) {}
+    }
   }
 
   // Get sale by ID - Using subqueries to avoid Cartesian product with payments

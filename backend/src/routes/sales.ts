@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
-import { getSales, createSale, getSaleById, updateSale } from '../controllers/saleController';
+import { getSales, createSale, getSaleById, updateSale, cancelSale, deleteSale } from '../controllers/saleController';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
@@ -80,6 +80,21 @@ router.put(
   ],
   validateRequest,
   updateSale
+);
+
+// Cancel sale
+import { authorize } from '../middleware/auth';
+router.put(
+  '/:id/cancel',
+  authorize('admin'),
+  cancelSale
+);
+
+// Delete sale (admin only)
+router.delete(
+  '/:id',
+  authorize('admin'),
+  deleteSale
 );
 
 export default router;
