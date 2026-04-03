@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, dialog, shell } from 'electron';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as http from 'http';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import log from 'electron-log';
 require('dotenv').config();
@@ -106,10 +107,15 @@ function getEnvPath(): string | null {
     return null;
   }
 
-  // 2. In packaged production, look for .env in installation directory and resources
+  // 2. In packaged production, prefer userData/.env for persistence across auto-updates
+  const userDataEnvPath = path.join(app.getPath('userData'), '.env');
   const installDir = path.dirname(app.getPath('exe'));
   const envPath = path.join(installDir, '.env');
   const resourcesEnvPath = path.join(resourcesPath, '.env');
+
+  if (fs.existsSync(userDataEnvPath)) {
+    return userDataEnvPath;
+  }
 
   if (fs.existsSync(envPath)) {
     return envPath;
@@ -118,6 +124,75 @@ function getEnvPath(): string | null {
   }
 
   return envPath;
+}
+
+function generateSecret(minLength = 32): string {
+  const raw = crypto.randomBytes(48).toString('hex');
+  return raw.length >= minLength ? raw : `${raw}${crypto.randomBytes(16).toString('hex')}`;
+}
+
+function ensureUserDataEnvFile(sourceEnvPath: string | null): string {
+  const userDataEnvPath = path.join(app.getPath('userData'), '.env');
+  const userDataDir = path.dirname(userDataEnvPath);
+
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(userDataEnvPath) && sourceEnvPath && fs.existsSync(sourceEnvPath)) {
+    try {
+      fs.copyFileSync(sourceEnvPath, userDataEnvPath);
+      log.info(`Copied .env to userData for update-safe persistence: ${userDataEnvPath}`);
+    } catch (error) {
+      log.warn(`Unable to copy .env to userData: ${(error as Error).message}`);
+    }
+  }
+
+  if (!fs.existsSync(userDataEnvPath)) {
+    fs.writeFileSync(userDataEnvPath, '', 'utf-8');
+  }
+
+  return userDataEnvPath;
+}
+
+function persistMissingSecrets(envPath: string | null, envVars: NodeJS.ProcessEnv): void {
+  if (!app.isPackaged) {
+    return;
+  }
+
+  const userDataEnvPath = ensureUserDataEnvFile(envPath);
+  const existingContent = fs.existsSync(userDataEnvPath)
+    ? fs.readFileSync(userDataEnvPath, 'utf-8')
+    : '';
+  let updatedContent = existingContent;
+
+  const upsertLine = (key: string, value: string) => {
+    const lineRegex = new RegExp(`^[\\t ]*${key}[\\t ]*=.*$`, 'm');
+    const line = `${key}=${value}`;
+
+    if (lineRegex.test(updatedContent)) {
+      updatedContent = updatedContent.replace(lineRegex, line);
+      return;
+    }
+
+    const separator = updatedContent.endsWith('\n') || updatedContent.length === 0 ? '' : '\n';
+    updatedContent = `${updatedContent}${separator}${line}\n`;
+  };
+
+  if (!envVars.JWT_SECRET || envVars.JWT_SECRET.trim().length < 32) {
+    envVars.JWT_SECRET = generateSecret(32);
+    upsertLine('JWT_SECRET', envVars.JWT_SECRET);
+  }
+
+  if (!envVars.LICENSE_ENCRYPTION_KEY || envVars.LICENSE_ENCRYPTION_KEY.trim().length < 32) {
+    envVars.LICENSE_ENCRYPTION_KEY = generateSecret(32);
+    upsertLine('LICENSE_ENCRYPTION_KEY', envVars.LICENSE_ENCRYPTION_KEY);
+  }
+
+  if (updatedContent !== existingContent) {
+    fs.writeFileSync(userDataEnvPath, updatedContent, 'utf-8');
+    log.warn(`Persisted missing secrets to: ${userDataEnvPath}`);
+  }
 }
 
 // Start backend server
@@ -204,6 +279,8 @@ function startBackendServer(): boolean {
     console.warn(`⚠️  .env file not found. Expected at: ${envPath || 'unknown'}`);
     console.warn('   Backend will use default environment variables.');
   }
+
+  persistMissingSecrets(envPath, env);
 
   console.log(`🚀 Starting backend server from: ${serverPath}`);
   console.log(`📦 Using node_modules from: ${nodeModulesPath}`);
