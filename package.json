@@ -27,7 +27,7 @@
     "prune:backend": "cd backend && npm prune --production --no-workspaces",
     "start": "cross-env NODE_ENV=production electron .",
     "lint": "eslint . --ext .ts,.tsx",
-    "type-check": "tsc --noEmit",
+    "type-check": "npm run type-check -w frontend && npm run type-check -w backend && npm run type-check -w electron",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../electron && npm install",
     "create-user": "cd backend && npm run create-user",
     "create-license": "cd backend && npm run create-license"
