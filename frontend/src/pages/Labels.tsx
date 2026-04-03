@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { productService, Product } from '../services/productService';
 import { storeService, StoreSettings } from '../services/storeService';
+import Button from '../components/ui/Button';
+import PageBanner from '../components/ui/PageBanner';
 import {
   TagIcon,
   PrinterIcon,
@@ -305,46 +307,41 @@ export default function Labels() {
   const currency = store?.currency_code || 'USD';
 
   return (
-    <div className="h-full flex flex-col space-y-5">
+    <div className="flex flex-col h-full">
 
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md">
-            <TagIcon className="w-5 h-5 text-white" />
+      {/* ── Page Banner ─────────────────────────────────────────────── */}
+      <PageBanner
+        title="Shelf Labels"
+        subtitle={`${paper.label} · ${cols} label${cols !== 1 ? 's' : ''} per row · ${LABEL_W_MM}×${LABEL_H_MM} mm each`}
+        icon={<TagIcon className="w-5 h-5 text-white" />}
+        action={
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-white/70 bg-white/10 border border-white/20 rounded-full px-3 py-1">
+              {selected.size} selected
+            </span>
+            <Button
+              id="btn-preview-labels"
+              disabled={selected.size === 0}
+              onClick={() => setShowPreview(true)}
+              size="sm"
+              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              leftIcon={<EyeIcon className="w-4 h-4" />}
+            >
+              Preview
+            </Button>
+            <Button
+              id="btn-print-labels"
+              disabled={selected.size === 0}
+              onClick={() => { setShowPreview(true); setTimeout(handlePrint, 100); }}
+              size="sm"
+              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              leftIcon={<PrinterIcon className="w-4 h-4" />}
+            >
+              Print Labels
+            </Button>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Shelf Labels</h1>
-            <p className="text-xs text-gray-500">
-              {paper.label} · {cols} label{cols !== 1 ? 's' : ''} per row · {LABEL_W_MM}×{LABEL_H_MM} mm each
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-600 bg-gray-100 rounded-full px-3 py-1">
-            {selected.size} selected
-          </span>
-          <button
-            id="btn-preview-labels"
-            disabled={selected.size === 0}
-            onClick={() => setShowPreview(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <EyeIcon className="w-4 h-4" />
-            Preview
-          </button>
-          <button
-            id="btn-print-labels"
-            disabled={selected.size === 0}
-            onClick={() => { setShowPreview(true); setTimeout(handlePrint, 100); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-colors"
-          >
-            <PrinterIcon className="w-4 h-4" />
-            Print Labels
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Body ───────────────────────────────────────────────── */}
       <div className="flex gap-5 flex-1 min-h-0">
@@ -362,7 +359,7 @@ export default function Labels() {
                 placeholder="Search products by name, SKU or barcode…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
               />
             </div>
           </div>
@@ -371,7 +368,7 @@ export default function Labels() {
           <div className="flex-1 overflow-auto">
             {loading ? (
               <div className="flex items-center justify-center h-40">
-                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-secondary-200 border-t-secondary-600 rounded-full animate-spin" />
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -383,8 +380,8 @@ export default function Labels() {
                         onClick={toggleAll}
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                           allFilteredSelected
-                            ? 'bg-indigo-600 border-indigo-600'
-                            : 'border-gray-300 hover:border-indigo-400'
+                            ? 'bg-secondary-600 border-secondary-600'
+                            : 'border-gray-300 hover:border-secondary-400'
                         }`}
                       >
                         {allFilteredSelected && <CheckIcon className="w-3 h-3 text-white" />}
@@ -409,13 +406,13 @@ export default function Labels() {
                         <tr
                           key={p.product_id}
                           onClick={() => toggleOne(p.product_id)}
-                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-secondary-50' : 'hover:bg-gray-50'}`}
                         >
                           <td className="px-4 py-3">
                             <div
                               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                                 isSelected
-                                  ? 'bg-indigo-600 border-indigo-600'
+                                  ? 'bg-secondary-600 border-secondary-600'
                                   : 'border-gray-300'
                               }`}
                             >
@@ -472,7 +469,7 @@ export default function Labels() {
                 <button
                   id="modal-print-labels"
                   onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-semibold hover:bg-secondary-700 transition-colors shadow-sm"
                 >
                   <PrinterIcon className="w-4 h-4" />
                   Print

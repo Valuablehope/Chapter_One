@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { XMarkIcon, ArrowPathIcon, TrashIcon, ClockIcon, ShoppingCartIcon, PauseCircleIcon } from '@heroicons/react/24/outline';
 import { LocalSale } from '../../hooks/useSaleSessions';
 
@@ -9,7 +10,8 @@ interface HeldSalesPanelProps {
   onResume: (id: string) => void;
   onDelete: (id: string) => void;
   currency: string;
-  anchorRef?: React.RefObject<HTMLButtonElement | null>;
+  /** Ref to the button that toggles this panel — used for portal positioning */
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 function timeAgo(isoString: string): string {
@@ -26,26 +28,58 @@ export default function HeldSalesPanel({
   onResume,
   onDelete,
   currency,
+  anchorRef,
 }: HeldSalesPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
+  // ── Portal position state ─────────────────────────────────────────────────
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  // Calculate position from anchor button on every open
+  useLayoutEffect(() => {
+    if (!isOpen || !anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + 6,           // 6px gap below the button
+      right: window.innerWidth - rect.right, // align right edge to button right
+    });
+  }, [isOpen, anchorRef]);
+
+  // Re-calculate on scroll/resize so the panel follows the anchor
+  useEffect(() => {
+    if (!isOpen) return;
+    const recalc = () => {
+      if (!anchorRef.current) return;
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+    };
+    window.addEventListener('scroll', recalc, true);
+    window.addEventListener('resize', recalc);
+    return () => {
+      window.removeEventListener('scroll', recalc, true);
+      window.removeEventListener('resize', recalc);
+    };
+  }, [isOpen, anchorRef]);
+
+  // ── Outside click → close ─────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+      // Ignore clicks inside the panel or on the anchor button itself
+      if (
+        panelRef.current?.contains(e.target as Node) ||
+        anchorRef.current?.contains(e.target as Node)
+      ) return;
+      onClose();
     };
-    // slight delay so the button click that opens it doesn't immediately close it
     const t = setTimeout(() => document.addEventListener('mousedown', handler), 50);
     return () => {
       clearTimeout(t);
       document.removeEventListener('mousedown', handler);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, anchorRef]);
 
-  // Close on Escape
+  // ── Escape → close ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -53,29 +87,27 @@ export default function HeldSalesPanel({
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !pos) return null;
 
-  return (
+  return createPortal(
     <>
-      {/* Backdrop (mobile) */}
+      {/* Mobile backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] md:hidden"
         onClick={onClose}
       />
 
-      {/* Panel */}
+      {/* Panel — fixed to viewport, z-50, never clipped by parent overflow */}
       <div
         ref={panelRef}
-        className="absolute right-0 top-full mt-1 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
-        style={{ animation: 'slideDownFade 0.18s ease-out' }}
+        className="fixed z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+        style={{ top: pos.top, right: pos.right, animation: 'heldPanelIn 0.18s ease-out' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center gap-2">
             <PauseCircleIcon className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-bold text-gray-800">
-              Held Sales
-            </span>
+            <span className="text-sm font-bold text-gray-800">Held Sales</span>
             <span className="text-xs bg-amber-100 text-amber-700 font-bold rounded-full px-2 py-0.5">
               {heldSales.length}
             </span>
@@ -177,11 +209,12 @@ export default function HeldSalesPanel({
       </div>
 
       <style>{`
-        @keyframes slideDownFade {
+        @keyframes heldPanelIn {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-    </>
+    </>,
+    document.body
   );
 }

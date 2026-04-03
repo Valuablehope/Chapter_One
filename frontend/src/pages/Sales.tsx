@@ -1164,7 +1164,7 @@ export default function Sales() {
                   </div>
                 </div>
                 {/* Hold Sale + Held Sales panel buttons */}
-                <div className="flex items-center gap-2 relative">
+                <div className="flex items-center gap-2">
                   <button
                     id="hold-sale-btn"
                     ref={holdBtnRef}
@@ -1200,6 +1200,7 @@ export default function Sales() {
                     onResume={handleResumeSale}
                     onDelete={deleteHeldSale}
                     currency={storeSettings?.currency_code || 'USD'}
+                    anchorRef={holdBtnRef}
                   />
                 </div>
               </div>
@@ -1732,12 +1733,12 @@ export default function Sales() {
                   title={lbpRate <= 0 ? 'Set LBP exchange rate in Admin → Store → Regional to enable this field' : undefined}
                   className={`w-full px-3 py-2.5 text-sm font-bold rounded-lg border transition-all
                     ${lbpRate > 0
-                      ? 'border-amber-200 bg-amber-50 text-amber-900 placeholder:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400'
+                      ? 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500'
                       : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                     }`}
                 />
                 {lbpRate > 0 && lbpPaid > 0 && (
-                  <p className="mt-1 text-[10px] text-amber-600 font-medium">≈ ${lbpPaidInUSD.toFixed(2)}</p>
+                  <p className="mt-1 text-[10px] text-gray-500 font-medium">≈ ${lbpPaidInUSD.toFixed(2)}</p>
                 )}
                 {lbpRate <= 0 && (
                   <p className="mt-1 text-[10px] text-gray-400">Set in Admin → Store → Regional</p>
@@ -1764,7 +1765,7 @@ export default function Sales() {
             <p className="text-xs text-gray-400">
               Total due:&nbsp;<span className="font-semibold text-gray-600">${grandTotal.toFixed(2)}</span>
               {lbpRate > 0 && (
-                <span className="ml-2">≈ <span className="font-semibold text-amber-600">{Math.ceil(grandTotal * lbpRate).toLocaleString()} LBP</span></span>
+                <span className="ml-2">≈ <span className="font-semibold text-gray-600">{Math.ceil(grandTotal * lbpRate).toLocaleString()} LBP</span></span>
               )}
             </p>
           </div>
