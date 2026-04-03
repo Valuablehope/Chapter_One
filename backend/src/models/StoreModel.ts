@@ -28,6 +28,7 @@ export interface Store {
   pos_module_type?: PosModuleType;
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
 }
 
 export interface StoreFilters {
@@ -96,6 +97,7 @@ export class StoreModel extends BaseModel {
       pos_module_type: 'ss.pos_module_type',
       restaurant_table_count: 'ss.restaurant_table_count',
       restaurant_track_guests_per_table: 'ss.restaurant_track_guests_per_table',
+      lbp_exchange_rate: 'ss.lbp_exchange_rate',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

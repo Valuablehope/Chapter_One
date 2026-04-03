@@ -61,6 +61,7 @@ export default function Sales() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentAmountLBP, setPaymentAmountLBP] = useState('');
   const [discountRate, setDiscountRate] = useState('');
   const [processing, setProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
@@ -536,15 +537,32 @@ export default function Sales() {
     setCustomerResults([]);
   };
 
-  // Open payment modal
+  // Open payment modal — reset both tender fields; cashier enters what the customer hands over
   const openPaymentModal = () => {
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return;
     }
-    setPaymentAmount(grandTotal.toFixed(2));
+    setPaymentAmount('');
+    setPaymentAmountLBP('');
     setShowPaymentModal(true);
   };
+
+  // USD field changed — independent, do NOT touch LBP field
+  const handlePaymentAmountChange = (val: string) => {
+    setPaymentAmount(val);
+  };
+
+  // LBP field changed — independent, do NOT touch USD field
+  const handlePaymentAmountLBPChange = (val: string) => {
+    setPaymentAmountLBP(val);
+  };
+
+  // Total tendered in USD = USD cash + LBP cash converted to USD
+  const usdPaid = parseFloat(paymentAmount || '0') || 0;
+  const lbpPaid = parseFloat(paymentAmountLBP || '0') || 0;
+  const lbpPaidInUSD = lbpRate > 0 && lbpPaid > 0 ? lbpPaid / lbpRate : 0;
+  const totalTenderedUSD = usdPaid + lbpPaidInUSD;
 
   // Process payment with optimistic updates
   const processPayment = async () => {
@@ -582,9 +600,11 @@ export default function Sales() {
       }
     }
 
-    const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount < grandTotal) {
-      toast.error(`Payment amount must be at least $${grandTotal.toFixed(2)}`);
+    const totalTendered = totalTenderedUSD;
+    if (totalTendered <= 0 || totalTendered < grandTotal) {
+      const shortfallUSD = (grandTotal - totalTendered).toFixed(2);
+      const shortfallLBP = lbpRate > 0 ? ` (${Math.ceil((grandTotal - totalTendered) * lbpRate).toLocaleString()} LBP)` : '';
+      toast.error(`Insufficient payment. Short by $${shortfallUSD}${shortfallLBP}`);
       return;
     }
 
@@ -1551,19 +1571,87 @@ export default function Sales() {
               })}
             </div>
           </div>
-          <div>
-            <Input
-              type="number"
-              step="0.01"
-              min={grandTotal}
-              value={paymentAmount}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentAmount(e.target.value)}
-              label={t('pos_sales.payment_amount')}
-              leftIcon={<CurrencyDollarIcon className="w-5 h-5" />}
-              helperText={t('pos_sales.total_due') + `: $${grandTotal.toFixed(2)}`}
-            />
+          {/* ── Cash Received ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cash Received</p>
+
+            {/* Two-column layout for currency fields */}
+            <div className="grid grid-cols-2 gap-3">
+
+              {/* USD field */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                  <CurrencyDollarIcon className="w-3.5 h-3.5 text-gray-400" />
+                  Amount ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentAmount}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentAmountChange(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2.5 text-sm font-bold rounded-lg border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
+                />
+              </div>
+
+              {/* LBP field */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                  <span className="text-xs">🇱🇧</span>
+                  Amount (LBP)
+                </label>
+                <input
+                  type="number"
+                  step="500"
+                  min="0"
+                  value={paymentAmountLBP}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentAmountLBPChange(e.target.value)}
+                  placeholder={lbpRate > 0 ? '0' : 'No rate set'}
+                  disabled={lbpRate <= 0}
+                  title={lbpRate <= 0 ? 'Set LBP exchange rate in Admin → Store → Regional to enable this field' : undefined}
+                  className={`w-full px-3 py-2.5 text-sm font-bold rounded-lg border transition-all
+                    ${lbpRate > 0
+                      ? 'border-amber-200 bg-amber-50 text-amber-900 placeholder:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400'
+                      : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                    }`}
+                />
+                {lbpRate > 0 && lbpPaid > 0 && (
+                  <p className="mt-1 text-[10px] text-amber-600 font-medium">≈ ${lbpPaidInUSD.toFixed(2)}</p>
+                )}
+                {lbpRate <= 0 && (
+                  <p className="mt-1 text-[10px] text-gray-400">Set in Admin → Store → Regional</p>
+                )}
+              </div>
+            </div>
+
+            {/* Live total received row — shown when at least one field is filled and rate exists */}
+            {(usdPaid > 0 || (lbpRate > 0 && lbpPaid > 0)) && (
+              <div className="flex justify-between items-center px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                <span className="text-xs font-semibold text-gray-600">Total Received</span>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-gray-900">${totalTenderedUSD.toFixed(2)}</span>
+                  {lbpRate > 0 && (usdPaid > 0 && lbpPaid > 0) && (
+                    <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
+                      ${usdPaid.toFixed(2)} + {lbpPaid.toLocaleString()} LBP
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Hint line — due amounts for reference */}
+            <p className="text-xs text-gray-400">
+              Total due:&nbsp;<span className="font-semibold text-gray-600">${grandTotal.toFixed(2)}</span>
+              {lbpRate > 0 && (
+                <span className="ml-2">≈ <span className="font-semibold text-amber-600">{Math.ceil(grandTotal * lbpRate).toLocaleString()} LBP</span></span>
+              )}
+            </p>
           </div>
+
+          {/* ── Grand Total + Change Due ── */}
           <div className="p-4 rounded-xl text-white" style={{ background: gradients.brandBlue }}>
+            {/* Grand Total row */}
             <div className="flex justify-between items-center">
               <span className="font-medium text-sm opacity-80">{t('pos_sales.grand_total')}</span>
               <div className="text-right">
@@ -1575,14 +1663,51 @@ export default function Sales() {
                 )}
               </div>
             </div>
-            {parseFloat(paymentAmount) > grandTotal && (
-              <div className="mt-2.5 pt-2.5 border-t border-white/20 flex justify-between items-center">
-                <span className="text-xs font-medium opacity-70">{t('pos_sales.change_due')}</span>
-                <span className="text-base font-bold tabular-nums opacity-90">
-                  ${(parseFloat(paymentAmount) - grandTotal).toFixed(2)}
-                </span>
-              </div>
-            )}
+
+            {/* Change Due — uses combined totalTenderedUSD */}
+            {totalTenderedUSD > grandTotal && (() => {
+              const changeDueUSD = totalTenderedUSD - grandTotal;
+              const changeDueLBP = lbpRate > 0 ? Math.round(changeDueUSD * lbpRate) : null;
+              return (
+                <div className="mt-2.5 pt-2.5 border-t border-white/20">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium opacity-70">{t('pos_sales.change_due')}</span>
+                    <div className="text-right">
+                      <span className="text-base font-bold tabular-nums opacity-90">
+                        ${changeDueUSD.toFixed(2)}
+                      </span>
+                      {changeDueLBP !== null && (
+                        <p className="text-xs font-semibold text-white/70 mt-0.5 tabular-nums">
+                          ≈ {changeDueLBP.toLocaleString()} LBP
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Shortfall indicator — shows how much more is needed */}
+            {totalTenderedUSD > 0 && totalTenderedUSD < grandTotal && (() => {
+              const shortfallUSD = grandTotal - totalTenderedUSD;
+              return (
+                <div className="mt-2.5 pt-2.5 border-t border-white/20">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium opacity-70 text-red-200">Still needed</span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold tabular-nums text-red-200">
+                        ${shortfallUSD.toFixed(2)}
+                      </span>
+                      {lbpRate > 0 && (
+                        <p className="text-xs font-semibold text-red-200/80 mt-0.5 tabular-nums">
+                          ≈ {Math.ceil(shortfallUSD * lbpRate).toLocaleString()} LBP
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Progress indicator */}
