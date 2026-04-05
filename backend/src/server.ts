@@ -194,8 +194,25 @@ app.use((req: Request, res: Response) => {
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Validate database connection before starting server
+// Validate database connection and start server
 async function startServer(): Promise<void> {
+  // Start server FIRST so health checks can pass even if DB is slow
+  const server = app.listen(Number(PORT), '127.0.0.1', () => {
+    logger.info(`🚀 Server running on http://127.0.0.1:${PORT}`);
+    logger.info(`📊 Health check: http://127.0.0.1:${PORT}/health`);
+    logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+
+  server.on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(`❌ Port ${PORT} is already in use.`);
+      logger.error('Please kill the process using this port or use a different port.');
+    } else {
+      logger.error('❌ Server error:', error);
+    }
+    process.exit(1);
+  });
+
   try {
     // Test database connection
     await pool.query('SELECT NOW()');
@@ -229,22 +246,6 @@ async function startServer(): Promise<void> {
     }
   }
 
-  // Start server
-  const server = app.listen(Number(PORT), '127.0.0.1', () => {
-    logger.info(`🚀 Server running on http://127.0.0.1:${PORT}`);
-    logger.info(`📊 Health check: http://127.0.0.1:${PORT}/health`);
-    logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  });
-
-  server.on('error', (error: any) => {
-    if (error.code === 'EADDRINUSE') {
-      logger.error(`❌ Port ${PORT} is already in use.`);
-      logger.error('Please kill the process using this port or use a different port.');
-    } else {
-      logger.error('❌ Server error:', error);
-    }
-    process.exit(1);
-  });
 }
 
 // Start the server

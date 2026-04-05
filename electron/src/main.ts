@@ -48,7 +48,9 @@ function checkBackendHealth(): Promise<boolean> {
   return new Promise((resolve) => {
     const request = http.get(BACKEND_HEALTH_URL, (response) => {
       response.resume();
-      resolve(response.statusCode === 200);
+      // Allow 503 Service Unavailable because it means the HTTP server is up, 
+      // even if the database connection isn't ready.
+      resolve(response.statusCode === 200 || response.statusCode === 503);
     });
 
     request.on('error', () => resolve(false));
@@ -59,7 +61,7 @@ function checkBackendHealth(): Promise<boolean> {
   });
 }
 
-async function waitForBackendReady(timeoutMs = 15000, pollMs = 500): Promise<boolean> {
+async function waitForBackendReady(timeoutMs = 45000, pollMs = 500): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
