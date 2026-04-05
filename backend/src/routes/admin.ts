@@ -27,6 +27,22 @@ import { validateRequest } from '../middleware/validateRequest';
 
 const router = Router();
 
+const labelSectionOrderBody = body('label_section_order')
+  .optional({ nullable: true })
+  .custom((value) => {
+    if (value === undefined || value === null) return true;
+    if (!Array.isArray(value)) return false;
+    const ok = new Set(['header', 'title', 'lbp', 'price']);
+    if (value.length !== 4) return false;
+    const seen = new Set<string>();
+    for (const x of value) {
+      if (typeof x !== 'string' || !ok.has(x) || seen.has(x)) return false;
+      seen.add(x);
+    }
+    return seen.size === 4;
+  })
+  .withMessage('label_section_order must list header, title, lbp, and price exactly once each');
+
 // All admin routes require authentication and admin role
 router.use(authenticate);
 router.use(authorize('admin'));
@@ -151,6 +167,24 @@ router.post(
       const num = parseFloat(value);
       return !isNaN(num) && num >= 0;
     }).withMessage('LBP exchange rate must be a non-negative number'),
+    body('label_show_lbp').optional().isBoolean(),
+    body('label_store_name_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_product_name_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_lbp_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_price_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_header_align').optional({ nullable: true }).isIn(['left', 'center', 'right']),
+    body('label_title_align').optional({ nullable: true }).isIn(['left', 'center', 'right']),
+    body('label_price_row_align').optional({ nullable: true }).isIn(['left', 'center', 'right']),
+    body('label_lbp_row_align').optional({ nullable: true }).isIn(['between', 'left', 'center', 'right']),
+    body('label_header_font_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_title_font_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_lbp_prefix_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_lbp_prefix_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_lbp_amount_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_currency_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_currency_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_price_amount_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    labelSectionOrderBody,
   ],
   validateRequest,
   createStore
@@ -202,6 +236,24 @@ router.put(
       const num = parseFloat(value);
       return !isNaN(num) && num >= 0;
     }).withMessage('LBP exchange rate must be a non-negative number'),
+    body('label_show_lbp').optional().isBoolean(),
+    body('label_store_name_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_product_name_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_lbp_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_price_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_header_align').optional({ nullable: true }).isIn(['left', 'center', 'right']),
+    body('label_title_align').optional({ nullable: true }).isIn(['left', 'center', 'right']),
+    body('label_price_row_align').optional({ nullable: true }).isIn(['left', 'center', 'right']),
+    body('label_lbp_row_align').optional({ nullable: true }).isIn(['between', 'left', 'center', 'right']),
+    body('label_header_font_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_title_font_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_lbp_prefix_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_lbp_prefix_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_lbp_amount_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_currency_size').optional({ nullable: true }).isFloat({ min: 1, max: 99 }),
+    body('label_currency_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    body('label_price_amount_weight').optional({ nullable: true }).isInt({ min: 100, max: 900 }),
+    labelSectionOrderBody,
   ],
   validateRequest,
   updateStore

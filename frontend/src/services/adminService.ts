@@ -80,6 +80,19 @@ export interface Store {
   label_product_name_size?: number | null;
   label_lbp_size?: number | null;
   label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_section_order?: unknown;
 }
 
 export interface Terminal {

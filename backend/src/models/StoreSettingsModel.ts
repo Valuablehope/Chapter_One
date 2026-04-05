@@ -30,6 +30,20 @@ export interface StoreSettings {
   label_product_name_size?: number | null;
   label_lbp_size?: number | null;
   label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  /** JSON array: ["header","title","lbp","price"] */
+  label_section_order?: unknown;
 }
 
 export interface StoreSettingsInput {
@@ -57,6 +71,19 @@ export interface StoreSettingsInput {
   label_product_name_size?: number | null;
   label_lbp_size?: number | null;
   label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_section_order?: unknown;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -68,6 +95,11 @@ interface StoreSettingsSchemaAudit {
     expected: string[];
     actual: string;
   }>;
+}
+
+/** node-pg encodes JS arrays as Postgres array literals; JSONB needs JSON text. */
+function toJsonbParam(value: unknown): string {
+  return JSON.stringify(value);
 }
 
 export class StoreSettingsModel extends BaseModel {
@@ -322,6 +354,71 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('label_price_size');
       values.push(settings.label_price_size);
     }
+    if (settings.label_header_align !== undefined && availableColumns.has('label_header_align')) {
+      paramCount++;
+      fields.push('label_header_align');
+      values.push(settings.label_header_align);
+    }
+    if (settings.label_header_font_weight !== undefined && availableColumns.has('label_header_font_weight')) {
+      paramCount++;
+      fields.push('label_header_font_weight');
+      values.push(settings.label_header_font_weight);
+    }
+    if (settings.label_title_align !== undefined && availableColumns.has('label_title_align')) {
+      paramCount++;
+      fields.push('label_title_align');
+      values.push(settings.label_title_align);
+    }
+    if (settings.label_title_font_weight !== undefined && availableColumns.has('label_title_font_weight')) {
+      paramCount++;
+      fields.push('label_title_font_weight');
+      values.push(settings.label_title_font_weight);
+    }
+    if (settings.label_lbp_row_align !== undefined && availableColumns.has('label_lbp_row_align')) {
+      paramCount++;
+      fields.push('label_lbp_row_align');
+      values.push(settings.label_lbp_row_align);
+    }
+    if (settings.label_lbp_prefix_size !== undefined && availableColumns.has('label_lbp_prefix_size')) {
+      paramCount++;
+      fields.push('label_lbp_prefix_size');
+      values.push(settings.label_lbp_prefix_size);
+    }
+    if (settings.label_lbp_prefix_weight !== undefined && availableColumns.has('label_lbp_prefix_weight')) {
+      paramCount++;
+      fields.push('label_lbp_prefix_weight');
+      values.push(settings.label_lbp_prefix_weight);
+    }
+    if (settings.label_lbp_amount_weight !== undefined && availableColumns.has('label_lbp_amount_weight')) {
+      paramCount++;
+      fields.push('label_lbp_amount_weight');
+      values.push(settings.label_lbp_amount_weight);
+    }
+    if (settings.label_price_row_align !== undefined && availableColumns.has('label_price_row_align')) {
+      paramCount++;
+      fields.push('label_price_row_align');
+      values.push(settings.label_price_row_align);
+    }
+    if (settings.label_currency_size !== undefined && availableColumns.has('label_currency_size')) {
+      paramCount++;
+      fields.push('label_currency_size');
+      values.push(settings.label_currency_size);
+    }
+    if (settings.label_currency_weight !== undefined && availableColumns.has('label_currency_weight')) {
+      paramCount++;
+      fields.push('label_currency_weight');
+      values.push(settings.label_currency_weight);
+    }
+    if (settings.label_price_amount_weight !== undefined && availableColumns.has('label_price_amount_weight')) {
+      paramCount++;
+      fields.push('label_price_amount_weight');
+      values.push(settings.label_price_amount_weight);
+    }
+    if (settings.label_section_order !== undefined && availableColumns.has('label_section_order')) {
+      paramCount++;
+      fields.push('label_section_order');
+      values.push(toJsonbParam(settings.label_section_order));
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -457,6 +554,71 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`label_price_size = $${paramCount}`);
       values.push(settings.label_price_size);
+    }
+    if (settings.label_header_align !== undefined && availableColumns.has('label_header_align')) {
+      paramCount++;
+      fields.push(`label_header_align = $${paramCount}`);
+      values.push(settings.label_header_align);
+    }
+    if (settings.label_header_font_weight !== undefined && availableColumns.has('label_header_font_weight')) {
+      paramCount++;
+      fields.push(`label_header_font_weight = $${paramCount}`);
+      values.push(settings.label_header_font_weight);
+    }
+    if (settings.label_title_align !== undefined && availableColumns.has('label_title_align')) {
+      paramCount++;
+      fields.push(`label_title_align = $${paramCount}`);
+      values.push(settings.label_title_align);
+    }
+    if (settings.label_title_font_weight !== undefined && availableColumns.has('label_title_font_weight')) {
+      paramCount++;
+      fields.push(`label_title_font_weight = $${paramCount}`);
+      values.push(settings.label_title_font_weight);
+    }
+    if (settings.label_lbp_row_align !== undefined && availableColumns.has('label_lbp_row_align')) {
+      paramCount++;
+      fields.push(`label_lbp_row_align = $${paramCount}`);
+      values.push(settings.label_lbp_row_align);
+    }
+    if (settings.label_lbp_prefix_size !== undefined && availableColumns.has('label_lbp_prefix_size')) {
+      paramCount++;
+      fields.push(`label_lbp_prefix_size = $${paramCount}`);
+      values.push(settings.label_lbp_prefix_size);
+    }
+    if (settings.label_lbp_prefix_weight !== undefined && availableColumns.has('label_lbp_prefix_weight')) {
+      paramCount++;
+      fields.push(`label_lbp_prefix_weight = $${paramCount}`);
+      values.push(settings.label_lbp_prefix_weight);
+    }
+    if (settings.label_lbp_amount_weight !== undefined && availableColumns.has('label_lbp_amount_weight')) {
+      paramCount++;
+      fields.push(`label_lbp_amount_weight = $${paramCount}`);
+      values.push(settings.label_lbp_amount_weight);
+    }
+    if (settings.label_price_row_align !== undefined && availableColumns.has('label_price_row_align')) {
+      paramCount++;
+      fields.push(`label_price_row_align = $${paramCount}`);
+      values.push(settings.label_price_row_align);
+    }
+    if (settings.label_currency_size !== undefined && availableColumns.has('label_currency_size')) {
+      paramCount++;
+      fields.push(`label_currency_size = $${paramCount}`);
+      values.push(settings.label_currency_size);
+    }
+    if (settings.label_currency_weight !== undefined && availableColumns.has('label_currency_weight')) {
+      paramCount++;
+      fields.push(`label_currency_weight = $${paramCount}`);
+      values.push(settings.label_currency_weight);
+    }
+    if (settings.label_price_amount_weight !== undefined && availableColumns.has('label_price_amount_weight')) {
+      paramCount++;
+      fields.push(`label_price_amount_weight = $${paramCount}`);
+      values.push(settings.label_price_amount_weight);
+    }
+    if (settings.label_section_order !== undefined && availableColumns.has('label_section_order')) {
+      paramCount++;
+      fields.push(`label_section_order = $${paramCount}::jsonb`);
+      values.push(toJsonbParam(settings.label_section_order));
     }
 
     if (fields.length === 0) {

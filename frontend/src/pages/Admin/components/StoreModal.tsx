@@ -45,6 +45,7 @@ export interface StoreFormData {
   restaurant_table_count: number | null;
   restaurant_track_guests_per_table: boolean;
   lbp_exchange_rate: number | null;
+  label_show_lbp: boolean;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -80,6 +81,7 @@ const initialFormData: StoreFormData = {
   restaurant_table_count: null,
   restaurant_track_guests_per_table: false,
   lbp_exchange_rate: null,
+  label_show_lbp: true,
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -115,6 +117,7 @@ function storeToFormData(s: Store): StoreFormData {
     restaurant_table_count: tableCount,
     restaurant_track_guests_per_table: s.restaurant_track_guests_per_table ?? false,
     lbp_exchange_rate: s.lbp_exchange_rate ?? null,
+    label_show_lbp: s.label_show_lbp ?? true,
   };
 }
 
@@ -283,6 +286,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
         ? formData.restaurant_track_guests_per_table
         : false,
       lbp_exchange_rate: formData.lbp_exchange_rate ?? null,
+      label_show_lbp: formData.label_show_lbp,
     };
 
     setSubmitting(true);
@@ -525,6 +529,17 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 </div>
               )}
             </div>
+
+            {formData.lbp_exchange_rate !== null && formData.lbp_exchange_rate > 0 && (
+              <div className="bg-gray-50 rounded-xl px-4 py-3">
+                <Toggle
+                  checked={formData.label_show_lbp}
+                  onChange={(v) => set('label_show_lbp', v)}
+                  label="Show LBP on shelf labels"
+                  description="When enabled, printed shelf labels include a line with the price in LBP (USD × this rate), between the product name and the main price."
+                />
+              </div>
+            )}
 
             <SectionDivider>Pricing</SectionDivider>
 

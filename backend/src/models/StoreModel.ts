@@ -29,6 +29,24 @@ export interface Store {
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
   lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_section_order?: unknown;
 }
 
 export interface StoreFilters {
@@ -98,6 +116,24 @@ export class StoreModel extends BaseModel {
       restaurant_table_count: 'ss.restaurant_table_count',
       restaurant_track_guests_per_table: 'ss.restaurant_track_guests_per_table',
       lbp_exchange_rate: 'ss.lbp_exchange_rate',
+      label_show_lbp: 'ss.label_show_lbp',
+      label_store_name_size: 'ss.label_store_name_size',
+      label_product_name_size: 'ss.label_product_name_size',
+      label_lbp_size: 'ss.label_lbp_size',
+      label_price_size: 'ss.label_price_size',
+      label_header_align: 'ss.label_header_align',
+      label_header_font_weight: 'ss.label_header_font_weight',
+      label_title_align: 'ss.label_title_align',
+      label_title_font_weight: 'ss.label_title_font_weight',
+      label_lbp_row_align: 'ss.label_lbp_row_align',
+      label_lbp_prefix_size: 'ss.label_lbp_prefix_size',
+      label_lbp_prefix_weight: 'ss.label_lbp_prefix_weight',
+      label_lbp_amount_weight: 'ss.label_lbp_amount_weight',
+      label_price_row_align: 'ss.label_price_row_align',
+      label_currency_size: 'ss.label_currency_size',
+      label_currency_weight: 'ss.label_currency_weight',
+      label_price_amount_weight: 'ss.label_price_amount_weight',
+      label_section_order: 'ss.label_section_order',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

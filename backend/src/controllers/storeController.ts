@@ -55,6 +55,24 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     restaurant_table_count,
     restaurant_track_guests_per_table,
     lbp_exchange_rate,
+    label_show_lbp,
+    label_store_name_size,
+    label_product_name_size,
+    label_lbp_size,
+    label_price_size,
+    label_header_align,
+    label_header_font_weight,
+    label_title_align,
+    label_title_font_weight,
+    label_lbp_row_align,
+    label_lbp_prefix_size,
+    label_lbp_prefix_weight,
+    label_lbp_amount_weight,
+    label_price_row_align,
+    label_currency_size,
+    label_currency_weight,
+    label_price_amount_weight,
+    label_section_order,
     ...storeData
   } = req.body;
 
@@ -81,6 +99,24 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     restaurant_table_count,
     restaurant_track_guests_per_table,
     lbp_exchange_rate,
+    label_show_lbp,
+    label_store_name_size,
+    label_product_name_size,
+    label_lbp_size,
+    label_price_size,
+    label_header_align,
+    label_header_font_weight,
+    label_title_align,
+    label_title_font_weight,
+    label_lbp_row_align,
+    label_lbp_prefix_size,
+    label_lbp_prefix_weight,
+    label_lbp_amount_weight,
+    label_price_row_align,
+    label_currency_size,
+    label_currency_weight,
+    label_price_amount_weight,
+    label_section_order,
   };
 
   // Only create settings if at least one setting field is provided
@@ -138,6 +174,24 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     restaurant_table_count,
     restaurant_track_guests_per_table,
     lbp_exchange_rate,
+    label_show_lbp,
+    label_store_name_size,
+    label_product_name_size,
+    label_lbp_size,
+    label_price_size,
+    label_header_align,
+    label_header_font_weight,
+    label_title_align,
+    label_title_font_weight,
+    label_lbp_row_align,
+    label_lbp_prefix_size,
+    label_lbp_prefix_weight,
+    label_lbp_amount_weight,
+    label_price_row_align,
+    label_currency_size,
+    label_currency_weight,
+    label_price_amount_weight,
+    label_section_order,
     ...storeData
   } = req.body;
 
@@ -185,6 +239,24 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     restaurant_table_count,
     restaurant_track_guests_per_table,
     lbp_exchange_rate,
+    label_show_lbp,
+    label_store_name_size,
+    label_product_name_size,
+    label_lbp_size,
+    label_price_size,
+    label_header_align,
+    label_header_font_weight,
+    label_title_align,
+    label_title_font_weight,
+    label_lbp_row_align,
+    label_lbp_prefix_size,
+    label_lbp_prefix_weight,
+    label_lbp_amount_weight,
+    label_price_row_align,
+    label_currency_size,
+    label_currency_weight,
+    label_price_amount_weight,
+    label_section_order,
   };
 
   // Only update settings if at least one setting field is provided
@@ -264,6 +336,52 @@ export const getDefaultStore = asyncHandler(async (req: Request, res: Response) 
   });
 });
 
+/** Fields allowed on PATCH …/label-layout (shelf label appearance only). */
+const LABEL_LAYOUT_PATCH_KEYS = [
+  'label_show_lbp',
+  'label_store_name_size',
+  'label_product_name_size',
+  'label_lbp_size',
+  'label_price_size',
+  'label_header_align',
+  'label_header_font_weight',
+  'label_title_align',
+  'label_title_font_weight',
+  'label_lbp_row_align',
+  'label_lbp_prefix_size',
+  'label_lbp_prefix_weight',
+  'label_lbp_amount_weight',
+  'label_price_row_align',
+  'label_currency_size',
+  'label_currency_weight',
+  'label_price_amount_weight',
+  'label_section_order',
+] as const;
 
+export const patchStoreLabelLayout = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const existing = await StoreModel.findById(id);
+  if (!existing) {
+    throw new CustomError('Store not found', 404);
+  }
+
+  const settings: StoreSettingsInput = {};
+  for (const key of LABEL_LAYOUT_PATCH_KEYS) {
+    if (req.body[key] !== undefined) {
+      (settings as Record<string, unknown>)[key] = req.body[key];
+    }
+  }
+
+  if (Object.keys(settings).length === 0) {
+    throw new CustomError('No label layout fields in request body', 400);
+  }
+
+  await StoreSettingsModel.createOrUpdate(id, settings);
+  const completeStore = await StoreModel.findById(id);
+  res.json({
+    success: true,
+    data: completeStore,
+  });
+});
 
 
