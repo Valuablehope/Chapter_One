@@ -115,6 +115,32 @@ export class PurchaseOrderModel extends BaseModel {
     }
   }
 
+  // Synchronize product prices based on PO unit cost
+  private static async syncProductPrice(client: any, productId: string, unitCost: number): Promise<void> {
+    const productRes = await client.query(
+      'SELECT list_price, sale_price, margin_pct FROM products WHERE product_id = $1',
+      [productId]
+    );
+    const product = productRes.rows[0];
+    if (!product) return;
+
+    if (Number(product.list_price) !== Number(unitCost)) {
+      const newListPrice = Number(unitCost);
+      const marginPct = product.margin_pct !== null ? Number(product.margin_pct) : null;
+      let newSalePrice = product.sale_price !== null ? Number(product.sale_price) : null;
+
+      if (marginPct !== null) {
+        newSalePrice = newListPrice * (1 + marginPct / 100);
+        newSalePrice = Math.round(newSalePrice * 100) / 100;
+      }
+
+      await client.query(
+        'UPDATE products SET list_price = $1, sale_price = $2, updated_at = NOW() WHERE product_id = $3',
+        [newListPrice, newSalePrice, productId]
+      );
+    }
+  }
+
   // Create purchase order
   static async create(data: CreatePurchaseOrderData): Promise<PurchaseOrderWithDetails> {
     return await withRetry(
@@ -182,6 +208,9 @@ export class PurchaseOrderModel extends BaseModel {
         const itemResult = await client.query(itemQuery, itemValues);
         items.push(itemResult.rows[0]);
         totalCost += item.qty_ordered * item.unit_cost;
+
+        // Sync product prices based on unit cost
+        await this.syncProductPrice(client, item.product_id, item.unit_cost);
       }
 
       await client.query('COMMIT');
@@ -436,6 +465,9 @@ export class PurchaseOrderModel extends BaseModel {
              VALUES ($1, $2, $3, 0, $4)`,
             [poId, item.product_id, item.qty_ordered, item.unit_cost]
           );
+
+          // Sync product prices based on unit cost
+          await this.syncProductPrice(client, item.product_id, item.unit_cost);
         }
       }
 

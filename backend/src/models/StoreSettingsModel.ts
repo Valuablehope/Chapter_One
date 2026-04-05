@@ -25,6 +25,11 @@ export interface StoreSettings {
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
   lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
 }
 
 export interface StoreSettingsInput {
@@ -47,6 +52,11 @@ export interface StoreSettingsInput {
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
   lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -287,6 +297,31 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('lbp_exchange_rate');
       values.push(settings.lbp_exchange_rate);
     }
+    if (settings.label_show_lbp !== undefined && availableColumns.has('label_show_lbp')) {
+      paramCount++;
+      fields.push('label_show_lbp');
+      values.push(settings.label_show_lbp);
+    }
+    if (settings.label_store_name_size !== undefined && availableColumns.has('label_store_name_size')) {
+      paramCount++;
+      fields.push('label_store_name_size');
+      values.push(settings.label_store_name_size);
+    }
+    if (settings.label_product_name_size !== undefined && availableColumns.has('label_product_name_size')) {
+      paramCount++;
+      fields.push('label_product_name_size');
+      values.push(settings.label_product_name_size);
+    }
+    if (settings.label_lbp_size !== undefined && availableColumns.has('label_lbp_size')) {
+      paramCount++;
+      fields.push('label_lbp_size');
+      values.push(settings.label_lbp_size);
+    }
+    if (settings.label_price_size !== undefined && availableColumns.has('label_price_size')) {
+      paramCount++;
+      fields.push('label_price_size');
+      values.push(settings.label_price_size);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -397,6 +432,31 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`lbp_exchange_rate = $${paramCount}`);
       values.push(settings.lbp_exchange_rate);
+    }
+    if (settings.label_show_lbp !== undefined && availableColumns.has('label_show_lbp')) {
+      paramCount++;
+      fields.push(`label_show_lbp = $${paramCount}`);
+      values.push(settings.label_show_lbp);
+    }
+    if (settings.label_store_name_size !== undefined && availableColumns.has('label_store_name_size')) {
+      paramCount++;
+      fields.push(`label_store_name_size = $${paramCount}`);
+      values.push(settings.label_store_name_size);
+    }
+    if (settings.label_product_name_size !== undefined && availableColumns.has('label_product_name_size')) {
+      paramCount++;
+      fields.push(`label_product_name_size = $${paramCount}`);
+      values.push(settings.label_product_name_size);
+    }
+    if (settings.label_lbp_size !== undefined && availableColumns.has('label_lbp_size')) {
+      paramCount++;
+      fields.push(`label_lbp_size = $${paramCount}`);
+      values.push(settings.label_lbp_size);
+    }
+    if (settings.label_price_size !== undefined && availableColumns.has('label_price_size')) {
+      paramCount++;
+      fields.push(`label_price_size = $${paramCount}`);
+      values.push(settings.label_price_size);
     }
 
     if (fields.length === 0) {

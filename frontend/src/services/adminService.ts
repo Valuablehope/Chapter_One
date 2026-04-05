@@ -75,6 +75,11 @@ export interface Store {
   restaurant_table_count?: number | null;
   restaurant_track_guests_per_table?: boolean;
   lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
 }
 
 export interface Terminal {
