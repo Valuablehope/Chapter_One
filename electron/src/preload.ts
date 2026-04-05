@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   log: (level: string, message: string) => ipcRenderer.send('app:log', { level, message }),
   openLogs: () => ipcRenderer.invoke('app:openLogs'),
+  customerDisplayShow: (payload: { storeName: string; amount: number }) =>
+    ipcRenderer.invoke('customer-display:show', payload),
   ipcRenderer: {
     on: (channel: string, callback: (...args: any[]) => void) => {
       ipcRenderer.on(channel, (_event, ...args) => callback(...args));
@@ -29,6 +31,10 @@ declare global {
       getPlatform: () => Promise<string>;
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;
+      customerDisplayShow: (payload: {
+        storeName: string;
+        amount: number;
+      }) => Promise<{ ok: boolean }>;
       ipcRenderer: {
         on: (channel: string, callback: (...args: any[]) => void) => void;
         removeListener: (channel: string, callback: (...args: any[]) => void) => void;

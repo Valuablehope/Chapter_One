@@ -6,7 +6,17 @@ import type { Menu } from '../services/adminService';
 import { saleService } from '../services/saleService';
 import { useAuthStore } from '../store/authStore';
 import { gradients, fonts } from '../styles/tokens';
-import { receiptPrintTitle } from '../constants/branding';
+import { useTranslation } from '../i18n/I18nContext';
+import {
+  MinimalReceiptHeader,
+  MinimalReceiptMeta,
+  MinimalReceiptLineTable,
+  MinimalReceiptTotals,
+  MinimalReceiptFooter,
+  MinimalReceiptPayments,
+  formatLbpGrand,
+  formatLbpPlain,
+} from '../components/printReceipt';
 import {
   UsersIcon,
   ClockIcon,
@@ -1156,10 +1166,13 @@ interface RestaurantReceiptProps {
 }
 
 function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceiptProps) {
+  const { t } = useTranslation();
+
   const formatDate = (iso: string) => {
     try {
       return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium', timeStyle: 'short',
+        dateStyle: 'medium',
+        timeStyle: 'short',
         timeZone: settings?.timezone || 'UTC',
       }).format(new Date(iso));
     } catch {
@@ -1167,78 +1180,66 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
     }
   };
 
+  const lbp = formatLbpGrand(order.grandTotal, settings?.lbp_exchange_rate);
+
+  const metaRows = [
+    { label: t('receipt.receipt_no'), value: order.receiptNo },
+    { label: t('receipt.date'), value: formatDate(order.completedAt) },
+    { label: t('receipt.table'), value: String(order.tableNumber) },
+    { label: t('receipt.guests'), value: String(order.guestCount) },
+    { label: t('receipt.seated'), value: formatDate(order.startTime) },
+  ];
+
+  const lineRows = order.items.map((item) => ({
+    description: item.itemName,
+    qty: String(item.qty),
+    price: formatCurrency(item.price),
+    total: formatCurrency(item.price * item.qty),
+  }));
+
+  const totalRows: {
+    label: string;
+    value: string;
+    emphasis?: 'normal' | 'strong' | 'strongSub';
+  }[] = [{ label: t('receipt.subtotal'), value: formatCurrency(order.subtotal) }];
+
+  if (order.serviceFeeEnabled && order.serviceFeeAmount > 0) {
+    totalRows.push({
+      label: t('receipt.service_fee', { rate: order.serviceFeeRate }),
+      value: formatCurrency(order.serviceFeeAmount),
+    });
+  }
+  if (order.taxAmount > 0) {
+    totalRows.push({
+      label: t('receipt.tax'),
+      value: formatCurrency(order.taxAmount),
+    });
+  }
+  totalRows.push({
+    label: t('receipt.net_total'),
+    value: formatCurrency(order.grandTotal),
+    emphasis: 'strong',
+  });
+  if (lbp != null) {
+    totalRows.push({
+      label: t('receipt.net_total_lbp'),
+      value: `${formatLbpPlain(lbp)} LBP`,
+      emphasis: 'strongSub',
+    });
+  }
+
   return (
-    <div className="bg-white max-w-sm mx-auto p-8 font-mono text-sm">
-      <div className="text-center mb-6 pb-4 border-b-2 border-black">
-        <div className="w-16 h-1 bg-secondary-500 rounded-full mx-auto mb-4" />
-        {settings?.receipt_header ? (
-          <div className="text-sm text-black whitespace-pre-line">{settings.receipt_header}</div>
-        ) : (
-          <>
-            <h1 className="text-2xl font-extrabold text-black tracking-tight">{receiptPrintTitle(settings?.name, settings?.code)}</h1>
-            {settings?.address && <p className="text-xs text-black mt-1">{settings.address}</p>}
-          </>
-        )}
-      </div>
-      <div className="mb-4 space-y-1 text-xs border border-black rounded p-3">
-        <div className="flex justify-between"><span className="text-black">Receipt #</span><span className="font-bold text-black font-mono">{order.receiptNo}</span></div>
-        <div className="flex justify-between"><span className="text-black">Date</span><span className="font-semibold text-black">{formatDate(order.completedAt)}</span></div>
-        <div className="flex justify-between"><span className="text-black">Table</span><span className="font-bold text-black">Table {order.tableNumber}</span></div>
-        <div className="flex justify-between"><span className="text-black">Guests</span><span className="text-black">{order.guestCount}</span></div>
-        <div className="flex justify-between"><span className="text-black">Seated</span><span className="text-black">{formatDate(order.startTime)}</span></div>
-      </div>
-      <div className="mb-4 border-t-2 border-b-2 border-black py-3 space-y-2">
-        {order.items.map((item, i) => (
-          <div key={i} className="flex justify-between items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-black text-xs">{item.itemName}</div>
-              <div className="text-[10px] text-black">{item.qty} × {formatCurrency(item.price)}</div>
-            </div>
-            <div className="font-bold text-black text-xs whitespace-nowrap">{formatCurrency(item.price * item.qty)}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mb-4 border-2 border-black rounded p-3 space-y-1.5 text-xs">
-        <div className="flex justify-between"><span className="text-black">Subtotal</span><span className="font-semibold text-black">{formatCurrency(order.subtotal)}</span></div>
-        {order.serviceFeeEnabled && order.serviceFeeAmount > 0 && (
-          <div className="flex justify-between"><span className="text-black">Service Fee ({order.serviceFeeRate}%)</span><span className="font-semibold text-black">{formatCurrency(order.serviceFeeAmount)}</span></div>
-        )}
-        {order.taxAmount > 0 && <div className="flex justify-between"><span className="text-black">Tax</span><span className="font-semibold text-black">{formatCurrency(order.taxAmount)}</span></div>}
-        <div className="flex justify-between border-t border-black pt-1.5 font-extrabold text-sm">
-          <span className="text-black">TOTAL</span><span className="text-black">{formatCurrency(order.grandTotal)}</span>
-        </div>
-      </div>
-      <div className="mb-4 border border-black rounded p-3 text-xs space-y-1">
-        <div className="flex justify-between">
-          <span className="text-black capitalize">{order.paymentMethod} Payment</span>
-          <span className="font-bold text-black">{formatCurrency(order.amountGiven)}</span>
-        </div>
-        {order.change > 0 && (
-          <div className="flex justify-between border-t border-black pt-1">
-            <span className="font-bold text-black">Change</span>
-            <span className="font-extrabold text-black">{formatCurrency(order.change)}</span>
-          </div>
-        )}
-      </div>
-      <div className="text-center border-t-2 border-black pt-4 space-y-2">
-        {settings?.receipt_footer ? (
-          <div className="text-xs text-black whitespace-pre-line">{settings.receipt_footer}</div>
-        ) : (
-          <>
-            <p className="font-bold text-black text-sm">Thank you for dining with us!</p>
-            <p className="text-xs text-black">We hope to see you again soon.</p>
-          </>
-        )}
-        <div className="mt-4 pt-3 border-t border-black">
-          <img
-            src="/cubiq-logo.jpg"
-            alt="Cubiq Solutions"
-            className="h-12 w-auto mx-auto object-contain opacity-90"
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <p className="text-[10px] text-black mt-1">www.cubiq-solutions.com</p>
-        </div>
-      </div>
+    <div className="bg-white receipt-print-root max-w-[80mm] mx-auto print:p-2 p-4 text-black text-xs">
+      <MinimalReceiptHeader settings={settings} />
+      <MinimalReceiptMeta rows={metaRows} />
+      <MinimalReceiptLineTable rows={lineRows} />
+      <MinimalReceiptTotals rows={totalRows} />
+      <MinimalReceiptPayments
+        payments={[{ method: order.paymentMethod, amount: order.amountGiven }]}
+        grandTotal={order.grandTotal}
+        formatCurrency={formatCurrency}
+      />
+      <MinimalReceiptFooter settings={settings} variant="restaurant" />
     </div>
   );
 }
@@ -1252,54 +1253,68 @@ interface BillReceiptProps {
 }
 
 function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
+  const { t } = useTranslation();
   const { order, totals } = data;
+  const lbp = formatLbpGrand(totals.total, settings?.lbp_exchange_rate);
+
+  const metaRows = [
+    {
+      label: t('receipt.bill'),
+      value: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    },
+    { label: t('receipt.table'), value: String(order.tableNumber) },
+    { label: t('receipt.guests'), value: String(order.guestCount) },
+    {
+      label: t('receipt.seated'),
+      value: new Date(order.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    },
+  ];
+
+  const lineRows = order.items.map((item) => ({
+    description: item.itemName,
+    qty: String(item.qty),
+    price: formatCurrency(item.price),
+    total: formatCurrency(item.price * item.qty),
+  }));
+
+  const totalRows: {
+    label: string;
+    value: string;
+    emphasis?: 'normal' | 'strong' | 'strongSub';
+  }[] = [{ label: t('receipt.subtotal'), value: formatCurrency(totals.subtotal) }];
+
+  if (order.serviceFeeEnabled && totals.serviceFeeAmount > 0) {
+    totalRows.push({
+      label: t('receipt.service_fee', { rate: order.serviceFeeRate }),
+      value: formatCurrency(totals.serviceFeeAmount),
+    });
+  }
+  if (totals.taxAmount > 0) {
+    totalRows.push({
+      label: t('receipt.tax'),
+      value: formatCurrency(totals.taxAmount),
+    });
+  }
+  totalRows.push({
+    label: t('receipt.net_total'),
+    value: formatCurrency(totals.total),
+    emphasis: 'strong',
+  });
+  if (lbp != null) {
+    totalRows.push({
+      label: t('receipt.net_total_lbp'),
+      value: `${formatLbpPlain(lbp)} LBP`,
+      emphasis: 'strongSub',
+    });
+  }
+
   return (
-    <div className="bg-white max-w-sm mx-auto p-8 font-mono text-sm">
-      <div className="text-center mb-6 pb-4 border-b-2 border-black">
-        <div className="w-16 h-1 bg-secondary-500 rounded-full mx-auto mb-4" />
-        {settings?.receipt_header ? (
-          <div className="text-sm text-black whitespace-pre-line">{settings.receipt_header}</div>
-        ) : (
-          <>
-            <h1 className="text-2xl font-extrabold text-black">{receiptPrintTitle(settings?.name, settings?.code)}</h1>
-            {settings?.address && <p className="text-xs text-black mt-1">{settings.address}</p>}
-          </>
-        )}
-      </div>
-      <div className="mb-4 space-y-1 text-xs border border-black rounded p-3">
-        <div className="flex justify-between"><span className="text-black font-bold">** BILL **</span><span className="text-black">{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span></div>
-        <div className="flex justify-between"><span className="text-black">Table</span><span className="font-bold text-black">Table {order.tableNumber}</span></div>
-        <div className="flex justify-between"><span className="text-black">Guests</span><span className="text-black">{order.guestCount}</span></div>
-        <div className="flex justify-between"><span className="text-black">Seated</span><span className="text-black">{new Date(order.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span></div>
-      </div>
-      <div className="mb-4 border-t-2 border-b-2 border-black py-3 space-y-2">
-        {order.items.map((item, i) => (
-          <div key={i} className="flex justify-between items-start gap-2">
-            <div className="flex-1">
-              <div className="font-bold text-black text-xs">{item.itemName}</div>
-              <div className="text-[10px] text-black">{item.qty} × {formatCurrency(item.price)}</div>
-            </div>
-            <div className="font-bold text-black text-xs">{formatCurrency(item.price * item.qty)}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mb-4 border-2 border-black rounded p-3 space-y-1.5 text-xs">
-        <div className="flex justify-between"><span className="text-black">Subtotal</span><span className="font-semibold text-black">{formatCurrency(totals.subtotal)}</span></div>
-        {order.serviceFeeEnabled && totals.serviceFeeAmount > 0 && (
-          <div className="flex justify-between"><span className="text-black">Service Fee ({order.serviceFeeRate}%)</span><span className="font-semibold text-black">{formatCurrency(totals.serviceFeeAmount)}</span></div>
-        )}
-        {totals.taxAmount > 0 && <div className="flex justify-between"><span className="text-black">Tax</span><span className="font-semibold text-black">{formatCurrency(totals.taxAmount)}</span></div>}
-        <div className="flex justify-between border-t border-black pt-1.5 font-extrabold text-sm">
-          <span className="text-black">TOTAL</span><span className="text-black">{formatCurrency(totals.total)}</span>
-        </div>
-      </div>
-      <div className="text-center border-t-2 border-black pt-4">
-        {settings?.receipt_footer ? (
-          <div className="text-xs text-black whitespace-pre-line">{settings.receipt_footer}</div>
-        ) : (
-          <p className="font-bold text-black text-sm">Thank you for dining with us!</p>
-        )}
-      </div>
+    <div className="bg-white receipt-print-root max-w-[80mm] mx-auto print:p-2 p-4 text-black text-xs">
+      <MinimalReceiptHeader settings={settings} />
+      <MinimalReceiptMeta rows={metaRows} />
+      <MinimalReceiptLineTable rows={lineRows} />
+      <MinimalReceiptTotals rows={totalRows} />
+      <MinimalReceiptFooter settings={settings} variant="restaurant" />
     </div>
   );
 }

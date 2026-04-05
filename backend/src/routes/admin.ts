@@ -128,6 +128,7 @@ router.post(
     body('code').trim().notEmpty(),
     body('name').trim().notEmpty(),
     body('address').optional({ nullable: true, checkFalsy: true }).isString(),
+    body('phone').optional({ nullable: true }).isString(),
     body('timezone').optional({ nullable: true, checkFalsy: true }).isString(),
     body('is_active').optional().isBoolean(),
     // Store Settings validation
@@ -197,6 +198,7 @@ router.put(
     body('code').optional().trim().notEmpty(),
     body('name').optional().trim().notEmpty(),
     body('address').optional({ nullable: true, checkFalsy: true }).isString(),
+    body('phone').optional({ nullable: true }).isString(),
     body('timezone').optional({ nullable: true, checkFalsy: true }).isString(),
     body('is_active').optional().isBoolean(),
     // Store Settings validation

@@ -6,6 +6,7 @@ export interface StoreSettings {
   code: string;
   name: string;
   address?: string;
+  phone?: string | null;
   currency_code?: string;
   tax_inclusive?: boolean;
   theme?: string;

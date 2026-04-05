@@ -25,6 +25,7 @@ export interface StoreFormData {
   code: string;
   name: string;
   address: string;
+  phone: string;
   is_active: boolean;
   timezone: string;
   currency_code: string;
@@ -61,6 +62,7 @@ const initialFormData: StoreFormData = {
   code: '',
   name: '',
   address: '',
+  phone: '',
   is_active: true,
   timezone: 'UTC',
   currency_code: 'USD',
@@ -97,6 +99,7 @@ function storeToFormData(s: Store): StoreFormData {
     code: s.code || '',
     name: s.name || '',
     address: s.address || '',
+    phone: s.phone || '',
     is_active: s.is_active ?? true,
     timezone: s.timezone || 'UTC',
     currency_code: s.currency_code || 'USD',
@@ -263,6 +266,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       code: formData.code.trim(),
       name: formData.name.trim(),
       address: formData.address?.trim() || undefined,
+      phone: formData.phone?.trim() || undefined,
       timezone: formData.timezone?.trim() || 'UTC',
       is_active: formData.is_active,
       currency_code: formData.currency_code?.trim() || undefined,
@@ -418,6 +422,18 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   className={`${inputCls()} pl-9`}
                 />
               </div>
+            </div>
+
+            <div>
+              <FieldLabel>{t('admin.stores.phone')}</FieldLabel>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => set('phone', e.target.value)}
+                placeholder="+961 1 234 567"
+                className={inputCls()}
+              />
+              <p className="mt-1 text-xs text-gray-400">Shown on printed receipts</p>
             </div>
 
             <SectionDivider>{t('admin.stores.status')}</SectionDivider>

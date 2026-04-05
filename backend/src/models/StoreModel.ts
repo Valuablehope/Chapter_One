@@ -7,6 +7,7 @@ export interface Store {
   code: string;
   name: string;
   address?: string;
+  phone?: string | null;
   is_active: boolean;
   created_at: string;
   timezone?: string; // From stores table
@@ -158,6 +159,7 @@ export class StoreModel extends BaseModel {
         s.code,
         s.name,
         s.address,
+        s.phone,
         s.timezone,
         s.is_active,
         s.created_at${settingsSelect ? ',\n        ' + settingsSelect : ''}
@@ -213,6 +215,7 @@ export class StoreModel extends BaseModel {
         s.code,
         s.name,
         s.address,
+        s.phone,
         s.timezone,
         s.is_active,
         s.created_at${settingsSelect ? ',\n        ' + settingsSelect : ''}
@@ -233,14 +236,15 @@ export class StoreModel extends BaseModel {
   static async create(store: Partial<Store>): Promise<Store> {
     // Only use columns that exist: store_id, code, name, address, timezone, is_active, created_at
     const query = `
-      INSERT INTO stores (code, name, address, timezone, is_active)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO stores (code, name, address, phone, timezone, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
     const values = [
       store.code,
       store.name,
       store.address || null,
+      store.phone ?? null,
       store.timezone || 'UTC',
       store.is_active !== undefined ? store.is_active : true,
     ];
@@ -254,8 +258,8 @@ export class StoreModel extends BaseModel {
     let paramCount = 0;
 
     // Only update columns that exist in the database:
-    // Existing: store_id, code, name, address, timezone, is_active, created_at
-    // Skip: phone, email, updated_at, currency_code, tax_inclusive, theme,
+    // Existing: store_id, code, name, address, phone, timezone, is_active, created_at
+    // Skip: email, updated_at, currency_code, tax_inclusive, theme,
     //       tax_rate, receipt_footer, auto_backup, backup_frequency
 
     if (updates.code !== undefined) {
@@ -272,6 +276,11 @@ export class StoreModel extends BaseModel {
       paramCount++;
       fields.push(`address = $${paramCount}`);
       values.push(updates.address);
+    }
+    if (updates.phone !== undefined) {
+      paramCount++;
+      fields.push(`phone = $${paramCount}`);
+      values.push(updates.phone);
     }
     if (updates.timezone !== undefined) {
       paramCount++;

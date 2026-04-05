@@ -86,6 +86,7 @@ export const en = {
       code: "Store Code",
       name: "Store Name",
       address: "Address",
+      phone: "Phone",
       status: "Status",
       store_active: "Store Active"
     },
@@ -118,6 +119,34 @@ export const en = {
       create_menu: "Create Menu",
       cancel: "Cancel"
     }
+  },
+  receipt: {
+    receipt_no: "Receipt #",
+    po_no: "PO #",
+    date: "Date",
+    customer: "Customer",
+    description: "Description",
+    qty: "Qty",
+    price: "Price",
+    total: "Total",
+    subtotal: "Subtotal",
+    discount: "Discount",
+    tax: "Tax",
+    net_total: "Net Total",
+    net_total_lbp: "Net Total (LBP)",
+    change: "Change",
+    payment: "{{method}} payment",
+    table: "Table",
+    guests: "Guests",
+    seated: "Seated",
+    bill: "Bill",
+    service_fee: "Service fee ({{rate}}%)",
+    expected_delivery: "Expected delivery",
+    status: "Status",
+    supplier: "Supplier",
+    thank_you_sale: "Thank you for your business!",
+    thank_you_restaurant: "Thank you for dining with us!",
+    by_cubiq: "By Cubiq Solutions",
   },
   pos_sales: {
     quick_add: "Quick Add Categories",
@@ -179,7 +208,15 @@ export const en = {
     processing: "Processing...",
     please_wait: "Please wait while we process your sale...",
     print_receipt: "Print Receipt",
-    new_sale: "New Sale"
+    new_sale: "New Sale",
+    loading_store: "Loading store settings…",
+    load_failed: "Could not load store settings. Check your connection and try again.",
+    retry: "Retry",
+    exchange_rate_title: "LBP exchange rate",
+    exchange_rate_value: "{{amount}} LBP per 1 {{currency}}",
+    exchange_rate_not_set: "Not set",
+    exchange_rate_hint: "Set the rate in Admin → Store → Regional.",
+    lbp_field_hint: "Set LBP exchange rate in Admin → Store → Regional to enable this field"
   },
   dashboard: {
     errors: {

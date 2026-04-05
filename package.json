@@ -49,6 +49,10 @@
       "buildResources": "build"
     },
     "asar": true,
+    "asarUnpack": [
+      "**/node_modules/serialport/**/*",
+      "**/node_modules/@serialport/**/*"
+    ],
     "files": [
       "electron/dist/**/*",
       "frontend/dist/**/*",

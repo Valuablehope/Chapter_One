@@ -54,6 +54,7 @@ export interface Store {
   code: string;
   name: string;
   address?: string;
+  phone?: string | null;
   is_active: boolean;
   created_at: string;
   timezone?: string;

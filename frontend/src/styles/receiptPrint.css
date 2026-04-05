@@ -1,0 +1,17 @@
+/**
+ * Receipt print: prefer one continuous flow (thermal / roll style).
+ * If a receipt is taller than one physical page, break-inside: avoid on the
+ * whole block may behave inconsistently across browsers/drivers—use driver
+ * settings for extreme cases.
+ */
+@media print {
+  .receipt-print-root {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .receipt-print-root table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

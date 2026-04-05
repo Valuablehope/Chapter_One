@@ -5,6 +5,7 @@ import * as http from 'http';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import log from 'electron-log';
+import { closeCustomerDisplayPort, showCustomerDisplay } from './customerDisplay';
 require('dotenv').config();
 
 // Configure logging
@@ -617,6 +618,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  closeCustomerDisplayPort();
   stopBackendServer();
 });
 
@@ -660,6 +662,23 @@ ipcMain.handle('app:openLogs', () => {
   }
   return { success: false, error: 'Log directory not found' };
 });
+
+ipcMain.handle(
+  'customer-display:show',
+  async (_event, payload: { storeName: string; amount: number }) => {
+    try {
+      if (!payload || typeof payload.amount !== 'number' || !Number.isFinite(payload.amount)) {
+        return { ok: false as const };
+      }
+      const name = typeof payload.storeName === 'string' ? payload.storeName : '';
+      await showCustomerDisplay(name, payload.amount);
+      return { ok: true as const };
+    } catch (e) {
+      log.error('[customer-display:show]', e);
+      return { ok: false as const };
+    }
+  }
+);
 
 // Catch unhandled exceptions
 process.on('uncaughtException', (error) => {

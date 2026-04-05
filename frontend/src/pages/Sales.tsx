@@ -6,6 +6,7 @@ import { productTypeService } from '../services/productTypeService';
 import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
+import { getStoreDisplayName, showCustomerDisplay } from '../services/customerDisplayService';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
 import { gradients } from '../styles/tokens';
@@ -39,6 +40,7 @@ import {
   ScaleIcon,
   BackspaceIcon,
   PauseCircleIcon,
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -92,6 +94,9 @@ export default function Sales() {
   const [receiptCartItems, setReceiptCartItems] = useState<CartItem[]>([]);
   const [receiptCustomer, setReceiptCustomer] = useState<Customer | null>(null);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  /** LBP per 1 unit of store currency (from DB); single source for all POS LBP UI and math */
+  const [lbpExchangeRatePerUsd, setLbpExchangeRatePerUsd] = useState(0);
+  const [posSettingsStatus, setPosSettingsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [stockBalances, setStockBalances] = useState<Map<string, StockBalance>>(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +110,7 @@ export default function Sales() {
   const [quickAddFocus, setQuickAddFocus] = useState<'qty' | 'total'>('qty');
 
   const [posProducts, setPosProducts] = useState<Product[]>([]);
+  const [posCategories, setPosCategories] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // ── Restore active sale from localStorage on mount/resume ─────────────────
@@ -163,6 +169,50 @@ export default function Sales() {
     };
   }, []);
 
+  const loadPosInitialData = useCallback(async () => {
+    setPosSettingsStatus('loading');
+    try {
+      const settings = await storeService.getDefaultStore();
+      const rate = Math.max(0, Number(settings.lbp_exchange_rate ?? 0) || 0);
+      setLbpExchangeRatePerUsd(rate);
+      setStoreSettings({
+        ...settings,
+        allow_negative: settings.allow_negative,
+      });
+      try {
+        const [productsRes, typesRes] = await Promise.all([
+          productService.getProducts({ pos_category_only: true, limit: 1000 }),
+          productTypeService.getProductTypes(),
+        ]);
+        setPosProducts(productsRes.data);
+        const visibleTypes = typesRes.data
+          .filter((t: { display_on_pos?: boolean }) => t.display_on_pos)
+          .map((t: { name: string }) => t.name)
+          .sort();
+        setPosCategories(visibleTypes);
+      } catch (err) {
+        logger.error('Failed to load POS quick-add data', err);
+      }
+      setPosSettingsStatus('ready');
+    } catch (error) {
+      logger.warn('Failed to load store settings for POS', { error });
+      setStoreSettings(null);
+      setLbpExchangeRatePerUsd(0);
+      setPosSettingsStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPosInitialData();
+  }, [loadPosInitialData]);
+
+  useEffect(() => {
+    if (posSettingsStatus !== 'ready' || !storeSettings) return;
+    // Only when POS becomes ready — do not depend on storeSettings identity or refreshes after a sale will clear the pole during receipt.
+    showCustomerDisplay(getStoreDisplayName(storeSettings), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run once when switching to ready
+  }, [posSettingsStatus]);
+
   // Recalculate cart lines when store tax mode or default rate changes (catalog price unchanged)
   useEffect(() => {
     if (!storeSettings) return;
@@ -189,8 +239,8 @@ export default function Sales() {
 
   const taxMode: SaleTaxMode = storeSettings?.tax_inclusive ? 'inclusive' : 'exclusive';
 
-  // LBP conversion helper — returns formatted string or null when rate not set
-  const lbpRate = Number(storeSettings?.lbp_exchange_rate ?? 0);
+  // LBP conversion — single source: lbpExchangeRatePerUsd (set from DB on load / after sale refresh)
+  const lbpRate = lbpExchangeRatePerUsd;
   const formatLBP = (amount: number): string | null => {
     if (!lbpRate || lbpRate <= 0) return null;
     return Math.round(amount * lbpRate).toLocaleString() + ' LBP';
@@ -478,6 +528,7 @@ export default function Sales() {
           line_total: amounts.line_total,
         },
       ]);
+      showCustomerDisplay(getStoreDisplayName(storeSettings), amounts.unit_price);
     }
 
     // Clear search
@@ -499,7 +550,9 @@ export default function Sales() {
     // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false
     // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
     const item = cart.find(i => i.product.product_id === productId);
-    if (item && item.product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
+    if (!item) return;
+
+    if (item.product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
       try {
         const balance = await stockService.getStockBalance(productId);
         const availableStock = balance?.qty_on_hand || 0;
@@ -523,26 +576,28 @@ export default function Sales() {
     const taxInclusive = !!(storeSettings?.tax_inclusive);
     const defaultTax = Number(storeSettings?.tax_rate ?? 0);
     const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
+    const price = Number(item.product.sale_price || item.product.list_price || 0);
+    const eff = taxInclusive
+      ? effectiveProductTaxRate(item.product.tax_rate, defaultTax)
+      : 0;
+    const amounts = computeLineAmounts(qty, price, eff, mode);
 
     setCart(
-      cart.map((item) => {
-        if (item.product.product_id === productId) {
-          const price = Number(item.product.sale_price || item.product.list_price || 0);
-          const eff = taxInclusive
-            ? effectiveProductTaxRate(item.product.tax_rate, defaultTax)
-            : 0;
-          const amounts = computeLineAmounts(qty, price, eff, mode);
+      cart.map((row) => {
+        if (row.product.product_id === productId) {
           return {
-            ...item,
+            ...row,
             qty,
             unit_price: amounts.unit_price,
             tax_rate: amounts.tax_rate,
             line_total: amounts.line_total,
           };
         }
-        return item;
+        return row;
       })
     );
+
+    showCustomerDisplay(getStoreDisplayName(storeSettings), amounts.unit_price);
   };
 
   // Remove from cart
@@ -818,6 +873,7 @@ export default function Sales() {
 
   // Start new sale
   const startNewSale = useCallback(() => {
+    showCustomerDisplay(getStoreDisplayName(storeSettings), 0);
     setCompletedSale(null);
     setReceiptCartItems([]);
     setReceiptCustomer(null);
@@ -828,92 +884,33 @@ export default function Sales() {
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
-  }, []);
+  }, [storeSettings]);
 
   // Print receipt
   const handlePrint = () => {
+    if (completedSale) {
+      showCustomerDisplay(
+        getStoreDisplayName(storeSettings),
+        Number(completedSale.grand_total)
+      );
+    }
     window.print();
   };
 
-  // Fetch store settings when sale completes
+  // Refresh store settings + LBP rate from DB after a sale completes (receipt flow)
   useEffect(() => {
     if (completedSale?.store_id) {
-      storeService.getStoreSettings(completedSale.store_id)
+      storeService
+        .getStoreSettings(completedSale.store_id)
         .then((settings) => {
-          // Merge with defaults since not all columns exist in DB
-          setStoreSettings({
-            store_id: settings.store_id,
-            code: settings.code || '',
-            name: settings.name ?? '',
-            address: settings.address,
-            // Use defaults for settings that don't exist in DB
-            currency_code: settings.currency_code || 'USD',
-            tax_inclusive: settings.tax_inclusive ?? false,
-            theme: settings.theme || 'classic',
-            timezone: settings.timezone || 'UTC',
-            tax_rate: settings.tax_rate || 0,
-            receipt_footer: settings.receipt_footer || '',
-            receipt_header: settings.receipt_header || '',
-            auto_backup: settings.auto_backup ?? false,
-            backup_frequency: settings.backup_frequency || 'daily',
-          });
+          setStoreSettings((prev) => ({ ...(prev ?? {}), ...settings } as StoreSettings));
+          setLbpExchangeRatePerUsd(Math.max(0, Number(settings.lbp_exchange_rate ?? 0) || 0));
         })
         .catch((err) => {
-          logger.error('Failed to fetch store settings:', err);
-          // Set defaults if fetch fails
-          setStoreSettings({
-            store_id: completedSale.store_id,
-            code: '',
-            name: '',
-            currency_code: 'USD',
-            tax_inclusive: false,
-            timezone: 'UTC',
-          } as StoreSettings);
+          logger.error('Failed to fetch store settings after sale:', err);
         });
     }
   }, [completedSale?.store_id]);
-
-
-
-  // Load store settings on mount
-  useEffect(() => {
-    const fetchStoreSettings = async () => {
-      try {
-        // Get default store using public endpoint (accessible to all authenticated users)
-        const settings = await storeService.getDefaultStore();
-        setStoreSettings({
-          ...settings,
-          // Preserve allow_negative value from API (don't default to false)
-          allow_negative: settings.allow_negative,
-        });
-      } catch (error) {
-        logger.warn('Failed to fetch store settings on mount', { error });
-        // Don't set default to false - let it be null so stock checks are skipped
-        // This allows sales to proceed even if settings can't be loaded
-        setStoreSettings(null);
-      }
-    };
-    fetchStoreSettings();
-  }, []);
-
-  // Fetch products and categories designated for POS quick add
-  const [posCategories, setPosCategories] = useState<string[]>([]);
-  useEffect(() => {
-    const fetchPosData = async () => {
-      try {
-        const [productsRes, typesRes] = await Promise.all([
-          productService.getProducts({ pos_category_only: true, limit: 1000 }),
-          productTypeService.getProductTypes()
-        ]);
-        setPosProducts(productsRes.data);
-        const visibleTypes = typesRes.data.filter((t: any) => t.display_on_pos).map((t: any) => t.name).sort();
-        setPosCategories(visibleTypes);
-      } catch (err) {
-        logger.error('Failed to fetch POS data', err);
-      }
-    };
-    fetchPosData();
-  }, []);
 
   // removed default setActiveCategory
 
@@ -922,12 +919,11 @@ export default function Sales() {
     return posProducts.filter(p => p.product_type === activeCategory);
   }, [posProducts, activeCategory]);
 
-  // Focus barcode input on mount (not search - user chooses when to search)
+  // Focus barcode once POS settings (and LBP rate) have loaded
   useEffect(() => {
-    if (barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
-    }
-  }, []);
+    if (posSettingsStatus !== 'ready') return;
+    barcodeInputRef.current?.focus();
+  }, [posSettingsStatus]);
 
   // Search is now debounced via useDebouncedCallback
 
@@ -956,6 +952,22 @@ export default function Sales() {
 
   return (
     <>
+      {posSettingsStatus === 'loading' && (
+        <div className="flex flex-col items-center justify-center min-h-[min(70vh,520px)] gap-4 px-4">
+          <div className="w-10 h-10 border-4 border-secondary-200 border-t-secondary-600 rounded-full animate-spin" />
+          <p className="text-sm font-medium text-gray-600">{t('pos_sales.loading_store')}</p>
+        </div>
+      )}
+      {posSettingsStatus === 'error' && (
+        <div className="flex flex-col items-center justify-center min-h-[min(70vh,520px)] gap-4 px-4 text-center max-w-md mx-auto">
+          <p className="text-sm text-gray-700">{t('pos_sales.load_failed')}</p>
+          <Button type="button" onClick={() => void loadPosInitialData()}>
+            {t('pos_sales.retry')}
+          </Button>
+        </div>
+      )}
+      {posSettingsStatus === 'ready' && (
+      <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
         {/* Left Column - Product Search & Cart */}
         <div className="lg:col-span-2 space-y-4">
@@ -1376,6 +1388,29 @@ export default function Sales() {
             </div>
           </Card>
 
+          {/* LBP exchange rate (same value as all ≈ LBP math on this page) */}
+          <Card className="border border-amber-100 bg-amber-50/80 shadow-sm overflow-hidden">
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="p-1.5 bg-amber-500/90 rounded-lg">
+                  <GlobeAltIcon className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-sm font-bold text-amber-950">{t('pos_sales.exchange_rate_title')}</h2>
+              </div>
+              {lbpExchangeRatePerUsd > 0 ? (
+                <p className="text-sm font-semibold tabular-nums text-amber-950 pl-0.5">
+                  {t('pos_sales.exchange_rate_value', {
+                    amount: lbpExchangeRatePerUsd.toLocaleString(),
+                    currency: storeSettings?.currency_code || 'USD',
+                  })}
+                </p>
+              ) : (
+                <p className="text-sm font-medium text-amber-900/80">{t('pos_sales.exchange_rate_not_set')}</p>
+              )}
+              <p className="text-[10px] text-amber-900/70 mt-1.5 leading-snug">{t('pos_sales.exchange_rate_hint')}</p>
+            </div>
+          </Card>
+
           {/* Totals */}
           <Card className="border border-[#e2e8f0] bg-white shadow-medium overflow-hidden">
             <div className="p-3">
@@ -1728,9 +1763,9 @@ export default function Sales() {
                   min="0"
                   value={paymentAmountLBP}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentAmountLBPChange(e.target.value)}
-                  placeholder={lbpRate > 0 ? '0' : 'No rate set'}
+                  placeholder={lbpRate > 0 ? '0' : t('pos_sales.exchange_rate_not_set')}
                   disabled={lbpRate <= 0}
-                  title={lbpRate <= 0 ? 'Set LBP exchange rate in Admin → Store → Regional to enable this field' : undefined}
+                  title={lbpRate <= 0 ? t('pos_sales.lbp_field_hint') : undefined}
                   className={`w-full px-3 py-2.5 text-sm font-bold rounded-lg border transition-all
                     ${lbpRate > 0
                       ? 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500'
@@ -1741,7 +1776,7 @@ export default function Sales() {
                   <p className="mt-1 text-[10px] text-gray-500 font-medium">≈ ${lbpPaidInUSD.toFixed(2)}</p>
                 )}
                 {lbpRate <= 0 && (
-                  <p className="mt-1 text-[10px] text-gray-400">Set in Admin → Store → Regional</p>
+                  <p className="mt-1 text-[10px] text-gray-400">{t('pos_sales.exchange_rate_hint')}</p>
                 )}
               </div>
             </div>
@@ -1907,6 +1942,8 @@ export default function Sales() {
           />
         </div>,
         document.body
+      )}
+      </>
       )}
     </>
   );

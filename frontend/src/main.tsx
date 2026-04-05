@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
+import './styles/receiptPrint.css';
 
 // Configure global error logging for Electron
 if (window.electronAPI) {

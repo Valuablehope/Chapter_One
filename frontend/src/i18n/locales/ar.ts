@@ -86,6 +86,7 @@ export const ar = {
       code: "رمز المتجر",
       name: "اسم المتجر",
       address: "العنوان",
+      phone: "الهاتف",
       status: "الحالة",
       store_active: "المتجر نشط"
     },
@@ -118,6 +119,34 @@ export const ar = {
       create_menu: "إنشاء قائمة",
       cancel: "إلغاء"
     }
+  },
+  receipt: {
+    receipt_no: "إيصال رقم",
+    po_no: "أمر شراء رقم",
+    date: "التاريخ",
+    customer: "العميل",
+    description: "الوصف",
+    qty: "الكمية",
+    price: "السعر",
+    total: "المجموع",
+    subtotal: "المجموع الفرعي",
+    discount: "الخصم",
+    tax: "الضريبة",
+    net_total: "الصافي",
+    net_total_lbp: "الصافي (ل.ل)",
+    change: "الباقي",
+    payment: "دفع {{method}}",
+    table: "طاولة",
+    guests: "الضيوف",
+    seated: "الجلوس",
+    bill: "الفاتورة",
+    service_fee: "رسوم الخدمة ({{rate}}٪)",
+    expected_delivery: "التسليم المتوقع",
+    status: "الحالة",
+    supplier: "المورد",
+    thank_you_sale: "شكراً لتعاملكم معنا!",
+    thank_you_restaurant: "شكراً لزيارتكم!",
+    by_cubiq: "By Cubiq Solutions",
   },
   pos_sales: {
     quick_add: "فئات الإضافة السريعة",
@@ -179,7 +208,15 @@ export const ar = {
     processing: "جاري المعالجة...",
     please_wait: "يرجى الانتظار بينما نقوم بمعالجة البيع...",
     print_receipt: "طباعة الفاتورة",
-    new_sale: "عملية بيع جديدة"
+    new_sale: "عملية بيع جديدة",
+    loading_store: "جاري تحميل إعدادات المتجر…",
+    load_failed: "تعذر تحميل إعدادات المتجر. تحقق من الاتصال وحاول مرة أخرى.",
+    retry: "إعادة المحاولة",
+    exchange_rate_title: "سعر صرف الليرة",
+    exchange_rate_value: "{{amount}} ليرة لكل 1 {{currency}}",
+    exchange_rate_not_set: "غير محدد",
+    exchange_rate_hint: "عيّن السعر من المسؤول → المتجر → إقليمي.",
+    lbp_field_hint: "عيّن سعر صرف الليرة من المسؤول → المتجر → إقليمي لتفعيل هذا الحقل"
   },
   dashboard: {
     errors: {

@@ -199,18 +199,20 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     code: string;
     name: string;
     address?: string;
+    phone?: string | null;
     timezone?: string;
     is_active: boolean;
   }>;
 
   logger.info(
-    `[StoreController] Store body keys present: code=${rawStore.code !== undefined}, name=${rawStore.name !== undefined}, address=${rawStore.address !== undefined}, timezone=${rawStore.timezone !== undefined}, is_active=${rawStore.is_active !== undefined}`
+    `[StoreController] Store body keys present: code=${rawStore.code !== undefined}, name=${rawStore.name !== undefined}, address=${rawStore.address !== undefined}, phone=${rawStore.phone !== undefined}, timezone=${rawStore.timezone !== undefined}, is_active=${rawStore.is_active !== undefined}`
   );
 
   const mergedStorePayload = {
     code: rawStore.code !== undefined ? rawStore.code : existing.code,
     name: rawStore.name !== undefined ? rawStore.name : existing.name,
     address: rawStore.address !== undefined ? rawStore.address : existing.address,
+    phone: rawStore.phone !== undefined ? rawStore.phone : existing.phone,
     timezone: rawStore.timezone !== undefined ? rawStore.timezone : existing.timezone ?? 'UTC',
     is_active: rawStore.is_active !== undefined ? rawStore.is_active : existing.is_active,
   };
