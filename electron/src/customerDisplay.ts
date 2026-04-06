@@ -55,7 +55,7 @@ function buildPayload(storeName: string, amount: number): Buffer {
   const mode = getMode();
   const amt = formatDisplayAmount(amount);
   if (mode === 'numeric_only') {
-    return Buffer.from(`${amt}\r\n`, 'ascii');
+    return Buffer.from(`\x0C${amt}\r\n`, 'ascii');
   }
   const name = truncateStoreNameForDisplay(storeName);
   const init = Buffer.from([0x1b, 0x40]); // ESC @
