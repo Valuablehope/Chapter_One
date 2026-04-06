@@ -1,4 +1,5 @@
 import { BaseModel, PaginatedResult } from './BaseModel';
+import { CustomError } from '../middleware/errorHandler';
 import { pool } from '../config/database';
 import { withRetry } from '../utils/retry';
 import { logger } from '../utils/logger';
@@ -31,6 +32,8 @@ export interface Sale {
   paid_total: number;
   status: SaleStatus;
   created_at: string;
+  /** Set when sale is included in a day closure (Z); locked from edit/delete/cancel */
+  day_closure_id?: number | null;
 }
 
 export interface SaleItem {
@@ -656,6 +659,19 @@ export class SaleModel extends BaseModel {
           await client.query('SET LOCAL lock_timeout = 5000');
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
+          const lockRow = await client.query(
+            `SELECT day_closure_id FROM sales WHERE sale_id = $1 FOR UPDATE`,
+            [saleId]
+          );
+          if (lockRow.rows.length === 0) {
+            await client.query('ROLLBACK');
+            throw new Error('Sale not found');
+          }
+          if (lockRow.rows[0].day_closure_id != null) {
+            await client.query('ROLLBACK');
+            throw new CustomError('Sale is included in a day closure and cannot be modified', 409);
+          }
+
           // Get existing sale
           const existingSale = await this.findById(saleId);
           if (!existingSale) {
@@ -871,6 +887,19 @@ export class SaleModel extends BaseModel {
           await client.query('SET LOCAL lock_timeout = 5000');
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
+          const cancelLock = await client.query(
+            `SELECT day_closure_id, status FROM sales WHERE sale_id = $1 FOR UPDATE`,
+            [saleId]
+          );
+          if (cancelLock.rows.length === 0) {
+            await client.query('ROLLBACK');
+            throw new Error('Sale not found');
+          }
+          if (cancelLock.rows[0].day_closure_id != null) {
+            await client.query('ROLLBACK');
+            throw new CustomError('Sale is included in a day closure and cannot be modified', 409);
+          }
+
           // Get existing sale
           const existingSale = await this.findById(saleId);
           if (!existingSale) {
@@ -973,11 +1002,18 @@ export class SaleModel extends BaseModel {
     try {
       await client.query('BEGIN');
 
-      // Verify sale exists
-      const existing = await client.query('SELECT sale_id FROM sales WHERE sale_id = $1', [saleId]);
+      // Verify sale exists and is not day-closed
+      const existing = await client.query(
+        'SELECT sale_id, day_closure_id FROM sales WHERE sale_id = $1',
+        [saleId]
+      );
       if (existing.rows.length === 0) {
         await client.query('ROLLBACK');
         throw new Error('Sale not found');
+      }
+      if (existing.rows[0].day_closure_id != null) {
+        await client.query('ROLLBACK');
+        throw new CustomError('Sale is included in a day closure and cannot be modified', 409);
       }
 
       // Delete child records first (FK constraints)

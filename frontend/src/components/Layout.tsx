@@ -16,6 +16,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   TableCellsIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -29,6 +30,7 @@ import {
   PresentationChartBarIcon as PresentationChartBarIconSolid,
   ShieldCheckIcon as ShieldCheckIconSolid,
   TableCellsIcon as TableCellsIconSolid,
+  ClipboardDocumentCheckIcon as ClipboardDocumentCheckIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
@@ -158,6 +160,7 @@ export default function Layout({ children }: LayoutProps) {
       ? [{ path: '/restaurant', label: t('nav.restaurant'),  icon: TableCellsIcon, iconSolid: TableCellsIconSolid }]
       : [{ path: '/sales',      label: t('nav.pos_sales'),   icon: CreditCardIcon, iconSolid: CreditCardIconSolid }]),
     { path: '/sales-management', label: t('nav.sales'),            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid,   blockedRoles: ['cashier'] as string[] },
+    { path: '/day-closure',      label: t('nav.day_closure'),      icon: ClipboardDocumentCheckIcon,    iconSolid: ClipboardDocumentCheckIconSolid,  blockedRoles: ['cashier'] as string[] },
     { path: '/purchases',        label: t('nav.purchases'),        icon: TruckIcon,                   iconSolid: TruckIconSolid },
     { path: '/labels',           label: 'Labels',                  icon: TagIcon,                     iconSolid: TagIconSolid },
     { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },

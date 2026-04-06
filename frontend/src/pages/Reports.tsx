@@ -9,6 +9,7 @@ import {
   SupplierPurchaseReport,
   StockReport,
   LowStockReport,
+  ProfitReport,
   ReportFilters,
 } from '../services/reportService';
 import { logger } from '../utils/logger';
@@ -50,7 +51,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n/I18nContext';
 
-type ReportTab = 'sales' | 'purchases' | 'inventory';
+type ReportTab = 'sales' | 'purchases' | 'profit' | 'inventory';
 type SalesReportType = 'summary' | 'products' | 'customers' | 'payment-methods';
 type PurchaseReportType = 'summary' | 'suppliers';
 type InventoryReportType = 'stock' | 'low-stock';
@@ -129,6 +130,7 @@ export default function Reports() {
   const [supplierPurchases, setSupplierPurchases] = useState<SupplierPurchaseReport[]>([]);
   const [stockReport, setStockReport] = useState<StockReport[]>([]);
   const [lowStock, setLowStock] = useState<LowStockReport[]>([]);
+  const [profitReport, setProfitReport] = useState<ProfitReport | null>(null);
 
   const loadReport = async () => {
     setLoading(true);
@@ -170,6 +172,9 @@ export default function Reports() {
             setSupplierPurchases(suppliers);
             break;
         }
+      } else if (activeTab === 'profit') {
+        const profit = await reportService.getProfitReport(filters);
+        setProfitReport(profit);
       } else if (activeTab === 'inventory') {
         switch (inventoryReportType) {
           case 'stock':
@@ -284,6 +289,18 @@ export default function Reports() {
                 {t('reports.tabs.purchases')}
               </button>
             )}
+            {!isCashier && (
+              <button
+                onClick={() => setActiveTab('profit')}
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'profit'
+                  ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+              >
+                <ArrowTrendingUpIcon className="w-4 h-4" />
+                {t('reports.tabs.profit')}
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('inventory')}
               className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'inventory'
@@ -298,7 +315,7 @@ export default function Reports() {
         </div>
 
         {/* Date Range Filter */}
-        {(activeTab === 'sales' || activeTab === 'purchases') && (
+        {(activeTab === 'sales' || activeTab === 'purchases' || activeTab === 'profit') && (
           <div className="px-4 py-2.5 border-b border-gray-100 bg-white">
             <div className="flex flex-wrap items-center gap-3">
 
@@ -990,6 +1007,63 @@ export default function Reports() {
                       </div>
                     </Card>
                   )}
+                </div>
+              )}
+
+              {/* Profit Report */}
+              {activeTab === 'profit' && (
+                <div className="space-y-4">
+                  <p className="text-xs text-gray-500 leading-relaxed max-w-2xl">
+                    {t('reports.profit.disclaimer')}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                      <div className="h-1 w-full bg-secondary-500" />
+                      <div className="p-4">
+                        <div className="p-2 rounded-lg bg-secondary-50 w-fit mb-3">
+                          <CurrencyDollarIcon className="w-4 h-4 text-secondary-500" />
+                        </div>
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          {t('reports.profit.total_sales')}
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
+                          {profitReport != null ? formatCurrency(profitReport.total_sales) : '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                      <div className="h-1 w-full bg-indigo-500" />
+                      <div className="p-4">
+                        <div className="p-2 rounded-lg bg-indigo-50 w-fit mb-3">
+                          <CubeIcon className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          {t('reports.profit.total_cogs')}
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900 tabular-nums leading-tight">
+                          {profitReport != null ? formatCurrency(profitReport.total_cogs) : '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                      <div className={`h-1 w-full ${profitReport != null && profitReport.total_profit >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      <div className="p-4">
+                        <div className={`p-2 rounded-lg w-fit mb-3 ${profitReport != null && profitReport.total_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                          <ArrowTrendingUpIcon className={`w-4 h-4 ${profitReport != null && profitReport.total_profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+                        </div>
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          {t('reports.profit.total_profit')}
+                        </p>
+                        <p
+                          className={`text-2xl font-bold tabular-nums leading-tight ${
+                            profitReport == null ? 'text-gray-900' : profitReport.total_profit >= 0 ? 'text-emerald-700' : 'text-red-700'
+                          }`}
+                        >
+                          {profitReport != null ? formatCurrency(profitReport.total_profit) : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

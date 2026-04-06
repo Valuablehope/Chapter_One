@@ -12,6 +12,7 @@ const Products = lazy(() => import('./pages/Products'));
 const Sales = lazy(() => import('./pages/Sales'));
 const RestaurantPOS = lazy(() => import('./pages/RestaurantPOS'));
 const SalesManagement = lazy(() => import('./pages/SalesManagement'));
+const DayClosure = lazy(() => import('./pages/DayClosure'));
 const Purchases = lazy(() => import('./pages/Purchases'));
 const Labels = lazy(() => import('./pages/Labels'));
 const Customers = lazy(() => import('./pages/Customers'));
@@ -90,6 +91,18 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <SalesManagement />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/day-closure"
+          element={
+            <ProtectedRoute blockedRoles={['cashier']}>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <DayClosure />
                 </Suspense>
               </Layout>
             </ProtectedRoute>

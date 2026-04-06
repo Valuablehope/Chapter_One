@@ -10,6 +10,7 @@ export const ar = {
     suppliers: "الموردين",
     reports: "التقارير",
     admin: "المشرف",
+    day_closure: "إغلاق اليوم",
     sign_out: "تسجيل الخروج",
   },
   admin: {
@@ -273,6 +274,45 @@ export const ar = {
       low_items_running: "{{count}} منتج منخفض المخزون",
       review_inventory: "مراجعة المخزون ->",
       stock_health: "صحة المخزون"
+    }
+  },
+  day_closure: {
+    title: "إغلاق اليوم (تقرير Z)",
+    subtitle: "إغلاق الفترة الحالية وتثبيت المبيعات المضمّنة",
+    banner: "تُضمّن فقط المبيعات المدفوعة غير المربوطة بإغلاق سابق. بعد الإغلاق لا يمكن تعديلها أو إلغاؤها.",
+    loading: "جاري تحميل المعاينة…",
+    refresh: "تحديث",
+    store: "المتجر",
+    total_sales: "إجمالي المبيعات",
+    transactions: "عدد المعاملات",
+    cash_expected: "النقد المتوقع",
+    card: "بطاقة",
+    voucher: "قسيمة",
+    other_payments: "مدفوعات أخرى",
+    other_excl_voucher: "أخرى (باستثناء القسائم)",
+    cash_actual_label: "النقد المعدود (الفعلي)",
+    difference: "الفرق (الفعلي − المتوقع)",
+    balanced: "متطابق",
+    short: "عجز",
+    over: "زيادة",
+    close_day: "إغلاق اليوم",
+    confirm_title: "تأكيد إغلاق اليوم",
+    confirm_body: "سيتم ربط جميع المبيعات المدفوعة غير المغلقة بتقرير Z التالي ومنع تعديلها. لا يمكن التراجع.",
+    confirm_cancel: "إلغاء",
+    confirm_submit: "إغلاق وتثبيت",
+    empty_title: "لا يوجد ما يُغلق",
+    empty_body: "لا توجد مبيعات مدفوعة غير مغلقة لهذا المتجر.",
+    success_title: "تم إغلاق اليوم",
+    z_number: "رقم Z",
+    closed_at: "وقت الإغلاق",
+    cash_difference: "فرق النقد",
+    print: "طباعة تقرير Z",
+    new_closure: "تم",
+    notes_label: "ملاحظات (اختياري)",
+    errors: {
+      load_preview: "تعذر تحميل معاينة الإغلاق",
+      close_failed: "تعذر إتمام إغلاق اليوم",
+      invalid_cash: "أدخل مبلغ نقد صالحًا (صفر أو أكبر)."
     }
   },
   products: {
@@ -813,14 +853,22 @@ export const ar = {
   },
   reports: {
     title: "التقارير والتحليلات",
-    subtitle: "عرض رؤى المبيعات والمشتريات والمخزون",
+    subtitle: "عرض رؤى المبيعات والمشتريات والربح والمخزون",
     actions: {
       refresh: "تحديث"
     },
     tabs: {
       sales: "تقارير المبيعات",
       purchases: "تقارير المشتريات",
+      profit: "تقرير الربح",
       inventory: "تقارير المخزون"
+    },
+    profit: {
+      total_sales: "إجمالي المبيعات",
+      total_cogs: "تكلفة البضاعة المباعة",
+      total_profit: "إجمالي الربح",
+      disclaimer:
+        "تُحسب تكلفة البضاعة المباعة بضرب كمية كل بند في سعر القائمة (أساس التكلفة) الحالي في المنتج وقت التقرير—وليس تكلفة تاريخية لكل بند بيع."
     },
     presets: {
       week: "آخر أسبوع",

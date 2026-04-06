@@ -59,6 +59,12 @@ export interface LowStockReport {
   min_threshold?: number;
 }
 
+export interface ProfitReport {
+  total_sales: number;
+  total_cogs: number;
+  total_profit: number;
+}
+
 export interface ReportFilters {
   start_date?: string;
   end_date?: string;
@@ -116,6 +122,19 @@ export const reportService = {
 
     const response = await api.get<{ success: boolean; data: PaymentMethodReport[] }>(
       `/reports/sales/payment-methods?${params.toString()}`
+    );
+    return response.data.data;
+  },
+
+  async getProfitReport(filters: ReportFilters = {}) {
+    const params = new URLSearchParams();
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
+    if (filters.store_id) params.append('store_id', filters.store_id);
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get<{ success: boolean; data: ProfitReport }>(
+      `/reports/profit?${params.toString()}`
     );
     return response.data.data;
   },

@@ -59,6 +59,13 @@ export interface LowStockReport {
   min_threshold?: number;
 }
 
+/** Aggregated profit for a period: sales revenue minus COGS (qty × current product list_price). */
+export interface ProfitReport {
+  total_sales: number;
+  total_cogs: number;
+  total_profit: number;
+}
+
 export interface ReportFilters {
   start_date?: string;
   end_date?: string;
@@ -115,6 +122,79 @@ export class ReportModel extends BaseModel {
     }
 
     return validated;
+  }
+
+  private static roundMoney(n: number): number {
+    return Math.round(n * 100) / 100;
+  }
+
+  /**
+   * Profit report: sum of paid sales grand totals vs sum of (qty × list_price) on lines.
+   * Two separate queries so grand_total is not duplicated per line item.
+   */
+  static async getProfitReport(filters: ReportFilters = {}): Promise<ProfitReport> {
+    const validatedFilters = this.validateReportFilters(filters);
+
+    let qSales = `
+      SELECT COALESCE(SUM(grand_total), 0)::numeric AS total_sales
+      FROM sales
+      WHERE status = 'paid'
+    `;
+    const paramsSales: unknown[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      qSales += ` AND created_date >= $${paramCount}`;
+      paramsSales.push(validatedFilters.start_date);
+    }
+    if (validatedFilters.end_date) {
+      paramCount++;
+      qSales += ` AND created_date <= $${paramCount}`;
+      paramsSales.push(validatedFilters.end_date);
+    }
+    if (validatedFilters.store_id) {
+      paramCount++;
+      qSales += ` AND store_id = $${paramCount}`;
+      paramsSales.push(validatedFilters.store_id);
+    }
+
+    let qCogs = `
+      SELECT COALESCE(SUM(si.qty * COALESCE(p.list_price, 0)), 0)::numeric AS total_cogs
+      FROM sale_items si
+      INNER JOIN sales s ON s.sale_id = si.sale_id
+      INNER JOIN products p ON p.product_id = si.product_id
+      WHERE s.status = 'paid'
+    `;
+    const paramsCogs: unknown[] = [];
+    paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      qCogs += ` AND s.created_date >= $${paramCount}`;
+      paramsCogs.push(validatedFilters.start_date);
+    }
+    if (validatedFilters.end_date) {
+      paramCount++;
+      qCogs += ` AND s.created_date <= $${paramCount}`;
+      paramsCogs.push(validatedFilters.end_date);
+    }
+    if (validatedFilters.store_id) {
+      paramCount++;
+      qCogs += ` AND s.store_id = $${paramCount}`;
+      paramsCogs.push(validatedFilters.store_id);
+    }
+
+    const [salesRes, cogsRes] = await Promise.all([
+      this.query<{ total_sales: string }>(qSales, paramsSales, 60000),
+      this.query<{ total_cogs: string }>(qCogs, paramsCogs, 60000),
+    ]);
+
+    const total_sales = this.roundMoney(Number(salesRes.rows[0]?.total_sales ?? 0));
+    const total_cogs = this.roundMoney(Number(cogsRes.rows[0]?.total_cogs ?? 0));
+    const total_profit = this.roundMoney(total_sales - total_cogs);
+
+    return { total_sales, total_cogs, total_profit };
   }
 
   // Sales Summary Report

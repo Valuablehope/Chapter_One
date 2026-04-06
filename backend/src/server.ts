@@ -20,6 +20,7 @@ import licenseRoutes from './routes/license';
 import stockRoutes from './routes/stock';
 import storesRoutes from './routes/stores';
 import menusRoutes from './routes/menus';
+import dayClosureRoutes from './routes/dayClosure';
 import { StoreSettingsModel } from './models/StoreSettingsModel';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
@@ -182,6 +183,7 @@ app.use('/api/license', licenseRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/stores', storesRoutes);
 app.use('/api/menus', menusRoutes);
+app.use('/api/day-closure', dayClosureRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req: Request, res: Response) => {

@@ -116,6 +116,21 @@ export const getLowStockReport = asyncHandler(async (req: Request, res: Response
   });
 });
 
+export const getProfitReport = asyncHandler(async (req: Request, res: Response) => {
+  const filters: ReportFilters = {
+    start_date: req.query.start_date as string,
+    end_date: req.query.end_date as string,
+    store_id: req.query.store_id as string,
+    limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+  };
+
+  const result = await ReportModel.getProfitReport(filters);
+  res.json({
+    success: true,
+    data: result,
+  });
+});
+
 
 
 

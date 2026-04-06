@@ -10,6 +10,7 @@ export const en = {
     suppliers: "Suppliers",
     reports: "Reports",
     admin: "Admin",
+    day_closure: "Day Closure",
     sign_out: "Sign Out",
   },
   admin: {
@@ -273,6 +274,45 @@ export const en = {
       low_items_running: "{{count}} item(s) running low",
       review_inventory: "Review inventory ->",
       stock_health: "Stock Health"
+    }
+  },
+  day_closure: {
+    title: "Day closure (Z report)",
+    subtitle: "Close the current period and lock included sales",
+    banner: "Only paid sales not yet assigned to a closure are included. After closing, those sales cannot be edited or voided.",
+    loading: "Loading preview…",
+    refresh: "Refresh",
+    store: "Store",
+    total_sales: "Total sales",
+    transactions: "Transactions",
+    cash_expected: "Cash expected",
+    card: "Card",
+    voucher: "Voucher",
+    other_payments: "Other payments",
+    other_excl_voucher: "Other (excl. voucher)",
+    cash_actual_label: "Cash counted (actual)",
+    difference: "Difference (actual − expected)",
+    balanced: "Balanced",
+    short: "Short",
+    over: "Over",
+    close_day: "Close day",
+    confirm_title: "Confirm day closure",
+    confirm_body: "This will assign all unclosed paid sales to the next Z report and lock them from further changes. This cannot be undone.",
+    confirm_cancel: "Cancel",
+    confirm_submit: "Close and lock",
+    empty_title: "Nothing to close",
+    empty_body: "There are no paid, unclosed sales for this store.",
+    success_title: "Day closed",
+    z_number: "Z number",
+    closed_at: "Closed at",
+    cash_difference: "Cash difference",
+    print: "Print Z report",
+    new_closure: "Done",
+    notes_label: "Notes (optional)",
+    errors: {
+      load_preview: "Could not load closure preview",
+      close_failed: "Could not complete day closure",
+      invalid_cash: "Enter a valid cash amount (0 or greater)."
     }
   },
   products: {
@@ -813,14 +853,22 @@ export const en = {
   },
   reports: {
     title: "Reports & Analytics",
-    subtitle: "View sales, purchases, and inventory insights",
+    subtitle: "View sales, purchases, profit, and inventory insights",
     actions: {
       refresh: "Refresh"
     },
     tabs: {
       sales: "Sales Reports",
       purchases: "Purchase Reports",
+      profit: "Profit Report",
       inventory: "Inventory Reports"
+    },
+    profit: {
+      total_sales: "Total sales",
+      total_cogs: "Cost of goods sold",
+      total_profit: "Total profit",
+      disclaimer:
+        "COGS uses each line quantity multiplied by the product catalog list price (cost base) at report time—not historical cost per sale line."
     },
     presets: {
       week: "Last Week",

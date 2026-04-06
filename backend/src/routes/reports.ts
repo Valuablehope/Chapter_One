@@ -8,6 +8,7 @@ import {
   getSupplierPurchases,
   getStockReport,
   getLowStockReport,
+  getProfitReport,
 } from '../controllers/reportController';
 import { authenticate } from '../middleware/auth';
 import { query } from 'express-validator';
@@ -63,6 +64,18 @@ router.get(
   ],
   validateRequest,
   getPaymentMethodReport
+);
+
+router.get(
+  '/profit',
+  [
+    query('start_date').optional().isISO8601().toDate(),
+    query('end_date').optional().isISO8601().toDate(),
+    query('store_id').optional().isUUID(),
+    query('limit').optional().isInt({ min: 1, max: 1000 }),
+  ],
+  validateRequest,
+  getProfitReport
 );
 
 router.get(
