@@ -701,6 +701,36 @@ export class SaleModel extends BaseModel {
               throw new Error('Sale must have at least one item');
             }
 
+            // Fetch existing items WITH track_inventory BEFORE deleting so we can reverse their stock
+            const oldItemsResult = await client.query(
+              `SELECT si.product_id, si.qty, p.track_inventory
+               FROM sale_items si
+               LEFT JOIN products p ON p.product_id = si.product_id
+               WHERE si.sale_id = $1`,
+              [saleId]
+            );
+
+            // Reverse stock for each old item that tracked inventory
+            for (const oldItem of oldItemsResult.rows) {
+              if (oldItem.track_inventory) {
+                // Remove the stock movements recorded for this sale+product
+                await client.query(
+                  `DELETE FROM stock_movements
+                   WHERE store_id = $1 AND product_id = $2 AND reference = $3 AND reason = 'sale'`,
+                  [existingSale.store_id, oldItem.product_id, existingSale.receipt_no]
+                );
+                // Add the sold qty back to stock
+                await client.query(`
+                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+                  VALUES ($1, $2, $3)
+                  ON CONFLICT (store_id, product_id)
+                  DO UPDATE SET
+                    qty_on_hand = stock_balances.qty_on_hand + $3,
+                    updated_at = NOW()
+                `, [existingSale.store_id, oldItem.product_id, Math.abs(Number(oldItem.qty))]);
+              }
+            }
+
             // Delete existing items
             await client.query('DELETE FROM sale_items WHERE sale_id = $1', [saleId]);
 
@@ -741,6 +771,27 @@ export class SaleModel extends BaseModel {
               `,
                 [saleId, item.product_id, item.qty, amounts.unit_price, amounts.tax_rate, amounts.line_total]
               );
+
+              // Record stock movement for the new item qty
+              const trackResult = await client.query(
+                'SELECT track_inventory FROM products WHERE product_id = $1',
+                [item.product_id]
+              );
+              if (trackResult.rows[0]?.track_inventory) {
+                await client.query(
+                  `INSERT INTO stock_movements (store_id, product_id, reason, qty, reference, created_by)
+                   VALUES ($1, $2, 'sale', $3, $4, $5)`,
+                  [existingSale.store_id, item.product_id, -item.qty, existingSale.receipt_no, cashierId]
+                );
+                await client.query(`
+                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+                  VALUES ($1, $2, $3)
+                  ON CONFLICT (store_id, product_id)
+                  DO UPDATE SET
+                    qty_on_hand = stock_balances.qty_on_hand + $3,
+                    updated_at = NOW()
+                `, [existingSale.store_id, item.product_id, -item.qty]);
+              }
             }
           }
 
@@ -1004,7 +1055,7 @@ export class SaleModel extends BaseModel {
 
       // Verify sale exists and is not day-closed
       const existing = await client.query(
-        'SELECT sale_id, day_closure_id FROM sales WHERE sale_id = $1',
+        'SELECT sale_id, store_id, receipt_no, status, day_closure_id FROM sales WHERE sale_id = $1',
         [saleId]
       );
       if (existing.rows.length === 0) {
@@ -1016,10 +1067,43 @@ export class SaleModel extends BaseModel {
         throw new CustomError('Sale is included in a day closure and cannot be modified', 409);
       }
 
+      const { store_id, receipt_no, status } = existing.rows[0];
+
+      // Reverse stock for items that tracked inventory.
+      // If the sale was already cancelled its stock was already restored, so skip.
+      if (status !== 'cancelled') {
+        const itemsResult = await client.query(
+          `SELECT si.product_id, si.qty, p.track_inventory
+           FROM sale_items si
+           LEFT JOIN products p ON p.product_id = si.product_id
+           WHERE si.sale_id = $1`,
+          [saleId]
+        );
+        for (const item of itemsResult.rows) {
+          if (item.track_inventory) {
+            // Add the sold qty back to stock
+            await client.query(`
+              INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+              VALUES ($1, $2, $3)
+              ON CONFLICT (store_id, product_id)
+              DO UPDATE SET
+                qty_on_hand = stock_balances.qty_on_hand + $3,
+                updated_at = NOW()
+            `, [store_id, item.product_id, Math.abs(Number(item.qty))]);
+          }
+        }
+      }
+
+      // Remove stock_movements tied to this receipt (both 'sale' and any 'cancelled' reversals)
+      await client.query(
+        `DELETE FROM stock_movements WHERE store_id = $1 AND reference = $2`,
+        [store_id, receipt_no]
+      );
+
       // Delete child records first (FK constraints)
       // Check if restaurant_sale_context exists before deleting (optional table)
       const tableCheck = await client.query(`
-        SELECT 1 FROM information_schema.tables 
+        SELECT 1 FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'restaurant_sale_context'
       `);
       if (tableCheck.rows.length > 0) {

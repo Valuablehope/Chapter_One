@@ -749,37 +749,61 @@ export default function Labels() {
   const { user } = useAuthStore();
   const canEditLayout = user?.role === 'admin' || user?.role === 'manager';
 
-  const [products,     setProducts]     = useState<Product[]>([]);
-  const [store,        setStore]        = useState<StoreSettings | null>(null);
-  const [layoutForm,   setLayoutForm]   = useState<LabelLayoutFormState | null>(null);
-  const [layoutOpen,   setLayoutOpen]   = useState(false);
-  const [activeLabelSection, setActiveLabelSection] = useState<LabelSectionId | null>(null);
-  const [savingLayout, setSavingLayout] = useState(false);
-  const [loading,      setLoading]      = useState(true);
-  const [search,       setSearch]       = useState('');
-  const [selected,     setSelected]     = useState<Set<string>>(new Set());
-  const [showPreview,  setShowPreview]  = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 50;
 
+  const [products,              setProducts]              = useState<Product[]>([]);
+  const [store,                 setStore]                 = useState<StoreSettings | null>(null);
+  const [layoutForm,            setLayoutForm]            = useState<LabelLayoutFormState | null>(null);
+  const [layoutOpen,            setLayoutOpen]            = useState(false);
+  const [activeLabelSection,    setActiveLabelSection]    = useState<LabelSectionId | null>(null);
+  const [savingLayout,          setSavingLayout]          = useState(false);
+  const [loading,               setLoading]               = useState(true);
+  const [search,                setSearch]                = useState('');
+  const [searchQuery,           setSearchQuery]           = useState('');
+  const [selected,              setSelected]              = useState<Set<string>>(new Set());
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Map<string, Product>>(new Map());
+  const [currentPage,           setCurrentPage]           = useState(1);
+  const [totalPages,            setTotalPages]            = useState(1);
+  const [totalProducts,         setTotalProducts]         = useState(0);
+  const [showPreview,           setShowPreview]           = useState(false);
+  const printRef        = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load store settings once on mount
   useEffect(() => {
     let active = true;
+    storeService.getDefaultStore().then(storeData => {
+      if (!active) return;
+      setStore(storeData);
+      setLayoutForm(labelFormFromStore(storeData));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // Reload products whenever the page number or search query changes
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
     (async () => {
       try {
         setLoading(true);
-        const [storeData, prodData] = await Promise.all([
-          storeService.getDefaultStore(),
-          productService.getProducts({ limit: 500 }),
-        ]);
+        const prodData = await productService.getProducts(
+          { page: currentPage, limit: PAGE_SIZE, search: searchQuery || undefined },
+          controller.signal
+        );
         if (!active) return;
-        setStore(storeData);
-        setLayoutForm(labelFormFromStore(storeData));
         setProducts(prodData.data);
+        setTotalPages(prodData.pagination.totalPages);
+        setTotalProducts(prodData.pagination.total);
+      } catch (e: unknown) {
+        const err = e as { name?: string; code?: string };
+        if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return;
       } finally {
         if (active) setLoading(false);
       }
     })();
-    return () => { active = false; };
-  }, []);
+    return () => { active = false; controller.abort(); };
+  }, [currentPage, searchQuery]);
 
   const displayStore =
     store && layoutForm ? mergeLabelFormIntoStore(store, layoutForm) : store;
@@ -825,11 +849,15 @@ export default function Labels() {
     });
   }, []);
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode ?? '').includes(search) ||
-    (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  // Debounce the search input: update the query after 400 ms of no typing, reset to page 1
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    }, 400);
+  }, []);
 
   const toggleOne = useCallback((id: string) => {
     setSelected(prev => {
@@ -837,27 +865,60 @@ export default function Labels() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }, []);
+    setSelectedProductDetails(prev => {
+      const next = new Map(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        const product = products.find(p => p.product_id === id);
+        if (product) next.set(id, product);
+      }
+      return next;
+    });
+  }, [products]);
 
-  const allFilteredSelected = filtered.length > 0 && filtered.every(p => selected.has(p.product_id));
+  const allOnPageSelected = products.length > 0 && products.every(p => selected.has(p.product_id));
 
   const toggleAll = useCallback(() => {
-    if (allFilteredSelected) {
+    if (allOnPageSelected) {
       setSelected(prev => {
         const next = new Set(prev);
-        filtered.forEach(p => next.delete(p.product_id));
+        products.forEach(p => next.delete(p.product_id));
+        return next;
+      });
+      setSelectedProductDetails(prev => {
+        const next = new Map(prev);
+        products.forEach(p => next.delete(p.product_id));
         return next;
       });
     } else {
       setSelected(prev => {
         const next = new Set(prev);
-        filtered.forEach(p => next.add(p.product_id));
+        products.forEach(p => next.add(p.product_id));
+        return next;
+      });
+      setSelectedProductDetails(prev => {
+        const next = new Map(prev);
+        products.forEach(p => next.set(p.product_id, p));
         return next;
       });
     }
-  }, [filtered, allFilteredSelected]);
+  }, [products, allOnPageSelected]);
 
-  const selectedProducts = products.filter(p => selected.has(p.product_id));
+  const selectedProducts = Array.from(selectedProductDetails.values());
+
+  // Page-number list for the pagination bar
+  const pageNumbers: (number | '...')[] = (() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const start = Math.max(2, currentPage - 2);
+    const end   = Math.min(totalPages - 1, currentPage + 2);
+    const nums: (number | '...')[] = [1];
+    if (start > 2) nums.push('...');
+    for (let i = start; i <= end; i++) nums.push(i);
+    if (end < totalPages - 1) nums.push('...');
+    nums.push(totalPages);
+    return nums;
+  })();
 
   const handlePrint = useCallback(() => {
     if (!printRef.current) return;
@@ -1078,7 +1139,7 @@ export default function Labels() {
         </div>
       )}
 
-      <div className="flex flex-col xl:flex-row gap-5 flex-1 min-h-0 px-4 pb-4 min-h-0">
+      <div className="flex flex-col xl:flex-row gap-5 flex-1 min-h-0 px-4 pb-4">
 
         <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
@@ -1090,7 +1151,7 @@ export default function Labels() {
                 type="text"
                 placeholder="Search products by name, SKU or barcode…"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => handleSearchChange(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
               />
             </div>
@@ -1110,12 +1171,12 @@ export default function Labels() {
                         id="labels-select-all"
                         onClick={toggleAll}
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                          allFilteredSelected
+                          allOnPageSelected
                             ? 'bg-secondary-600 border-secondary-600'
                             : 'border-gray-300 hover:border-secondary-400'
                         }`}
                       >
-                        {allFilteredSelected && <CheckIcon className="w-3 h-3 text-white" />}
+                        {allOnPageSelected && <CheckIcon className="w-3 h-3 text-white" />}
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Product</th>
@@ -1124,14 +1185,14 @@ export default function Labels() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.length === 0 ? (
+                  {products.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-gray-400">
                         No products found
                       </td>
                     </tr>
                   ) : (
-                    filtered.map(p => {
+                    products.map(p => {
                       const isSelected = selected.has(p.product_id);
                       return (
                         <tr
@@ -1163,6 +1224,50 @@ export default function Labels() {
               </table>
             )}
           </div>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between text-sm flex-shrink-0">
+              <span className="text-gray-500 text-xs">
+                {totalProducts === 0
+                  ? 'No products'
+                  : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalProducts)} of ${totalProducts}`}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-base leading-none"
+                >
+                  ‹
+                </button>
+                {pageNumbers.map((n, i) =>
+                  n === '...' ? (
+                    <span key={`ellipsis-${i}`} className="px-1 text-gray-400 text-xs">…</span>
+                  ) : (
+                    <button
+                      key={n}
+                      onClick={() => setCurrentPage(n as number)}
+                      className={`w-7 h-7 rounded text-xs font-medium transition-colors ${
+                        n === currentPage
+                          ? 'bg-secondary-600 text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-base leading-none"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="w-full xl:w-72 xl:max-w-sm flex-shrink-0 flex flex-col gap-3 min-h-0">

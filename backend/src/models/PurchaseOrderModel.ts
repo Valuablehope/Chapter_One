@@ -648,15 +648,56 @@ export class PurchaseOrderModel extends BaseModel {
   // Delete purchase order
   static async delete(poId: string): Promise<void> {
     const client = await pool.connect();
-    
+
     try {
       await client.query('BEGIN');
       // Set transaction timeout (30 seconds) to prevent long-running transactions
       await client.query('SET LOCAL statement_timeout = 30000');
 
+      // Fetch PO header so we know its status, store, and reference number
+      const poResult = await client.query(
+        'SELECT po_id, store_id, po_number, status FROM purchase_orders WHERE po_id = $1',
+        [poId]
+      );
+      if (poResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('Purchase order not found');
+      }
+      const { store_id, po_number, status } = poResult.rows[0];
+
+      // If the PO was already received, its items were added to stock — reverse that now
+      if (status === 'RECEIVED') {
+        const itemsResult = await client.query(
+          `SELECT poi.product_id, poi.qty_received, poi.qty_ordered, p.track_inventory
+           FROM purchase_order_items poi
+           LEFT JOIN products p ON p.product_id = poi.product_id
+           WHERE poi.po_id = $1`,
+          [poId]
+        );
+        for (const item of itemsResult.rows) {
+          if (item.track_inventory) {
+            const qtyReceived = Number(item.qty_received) > 0 ? Number(item.qty_received) : Number(item.qty_ordered);
+            // Subtract the previously added qty from stock
+            await client.query(`
+              INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
+              VALUES ($1, $2, 0)
+              ON CONFLICT (store_id, product_id)
+              DO UPDATE SET
+                qty_on_hand = stock_balances.qty_on_hand - $3,
+                updated_at = NOW()
+            `, [store_id, item.product_id, qtyReceived]);
+          }
+        }
+        // Remove stock_movements tied to this purchase order
+        await client.query(
+          `DELETE FROM stock_movements WHERE store_id = $1 AND reference = $2 AND reason = 'purchase'`,
+          [store_id, po_number]
+        );
+      }
+
       // Delete items first
       await client.query('DELETE FROM purchase_order_items WHERE po_id = $1', [poId]);
-      
+
       // Delete purchase order
       await client.query('DELETE FROM purchase_orders WHERE po_id = $1', [poId]);
 
