@@ -159,8 +159,8 @@ export default function Layout({ children }: LayoutProps) {
     ...(isRestaurant
       ? [{ path: '/restaurant', label: t('nav.restaurant'),  icon: TableCellsIcon, iconSolid: TableCellsIconSolid }]
       : [{ path: '/sales',      label: t('nav.pos_sales'),   icon: CreditCardIcon, iconSolid: CreditCardIconSolid }]),
-    { path: '/sales-management', label: t('nav.sales'),            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid,   blockedRoles: ['cashier'] as string[] },
-    { path: '/day-closure',      label: t('nav.day_closure'),      icon: ClipboardDocumentCheckIcon,    iconSolid: ClipboardDocumentCheckIconSolid,  blockedRoles: ['cashier'] as string[] },
+    { path: '/sales-management', label: t('nav.sales'),            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid },
+    { path: '/day-closure',      label: t('nav.day_closure'),      icon: ClipboardDocumentCheckIcon,    iconSolid: ClipboardDocumentCheckIconSolid },
     { path: '/purchases',        label: t('nav.purchases'),        icon: TruckIcon,                   iconSolid: TruckIconSolid },
     { path: '/labels',           label: 'Labels',                  icon: TagIcon,                     iconSolid: TagIconSolid },
     { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
