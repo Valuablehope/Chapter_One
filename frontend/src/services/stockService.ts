@@ -180,7 +180,7 @@ class StockService {
 
     const cached = await this.getFromCache(productId);
     if (cached) {
-      cached.qty_on_hand = Math.max(0, cached.qty_on_hand + qtyChange);
+      cached.qty_on_hand = cached.qty_on_hand + qtyChange;
       cached.updated_at = Date.now();
       await this.saveToCache(cached);
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { offlineQueue } from '../services/offlineQueue';
 import { saleService } from '../services/saleService';
 import { stockService } from '../services/stockService';
@@ -14,6 +14,14 @@ export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Ref mirrors pendingCount so the sync interval can read the current value
+  // without needing pendingCount in the effect dependency array.
+  const pendingCountRef = useRef(pendingCount);
+  pendingCountRef.current = pendingCount;
+
+  // Ref-based guard prevents concurrent sync runs (setState is async, can't guard with it).
+  const isSyncingRef = useRef(false);
+
   // Update pending count
   const updatePendingCount = useCallback(async () => {
     try {
@@ -26,17 +34,14 @@ export function useOfflineSync() {
 
   // Sync pending sales - wrapped in useCallback with stable dependencies
   const syncPendingSales = useCallback(async () => {
-    // Use functional state update to avoid dependency on isSyncing
-    setIsSyncing((current) => {
-      if (current) {
-        return current; // Already syncing
-      }
-      return true;
-    });
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setIsSyncing(true);
 
     try {
       const pending = await offlineQueue.getPendingSales();
       if (pending.length === 0) {
+        isSyncingRef.current = false;
         setIsSyncing(false);
         return; // Nothing to sync
       }
@@ -109,6 +114,7 @@ export function useOfflineSync() {
       logger.error('Failed to sync pending sales', error);
       toast.error('Failed to sync pending sales. Will retry when connection is restored.');
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
   }, []); // Empty deps - function doesn't depend on state
@@ -179,7 +185,7 @@ export function useOfflineSync() {
     // Only run the periodic sync when there are actually pending sales to avoid
     // unnecessary IndexedDB reads on every interval tick.
     const syncInterval = setInterval(() => {
-      if (navigator.onLine && pendingCount > 0) {
+      if (navigator.onLine && pendingCountRef.current > 0) {
         syncPendingSales();
       }
     }, 60000);
@@ -205,7 +211,7 @@ export function useOfflineSync() {
       clearInterval(syncInterval);
       clearInterval(countInterval);
     };
-  }, [syncPendingSales, updatePendingCount, pendingCount]);
+  }, [syncPendingSales, updatePendingCount]);
 
   return {
     pendingCount,
