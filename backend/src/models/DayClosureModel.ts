@@ -29,6 +29,7 @@ export interface DayClosureRecord {
   closed_at: string;
   z_number: number;
   notes: string | null;
+  cash_breakdown: any | null;
   created_at: string;
 }
 
@@ -115,7 +116,8 @@ export class DayClosureModel {
     storeId: string,
     closedByUserId: string,
     cashActual: number,
-    notes: string | null
+    notes: string | null,
+    cashBreakdown: any | null = null
   ): Promise<DayClosureRecord> {
     const client = await pool.connect();
     try {
@@ -151,7 +153,8 @@ export class DayClosureModel {
           other_payments,
           closed_by,
           z_number,
-          notes
+          notes,
+          cash_breakdown
         )
         VALUES (
           $1,
@@ -165,7 +168,8 @@ export class DayClosureModel {
           $8,
           $9,
           $10,
-          $11
+          $11,
+          $12
         )
         RETURNING *
       `,
@@ -181,6 +185,7 @@ export class DayClosureModel {
           closedByUserId,
           z_number,
           notes?.trim() || null,
+          cashBreakdown ? JSON.stringify(cashBreakdown) : null,
         ]
       );
 

@@ -1,6 +1,11 @@
 import { Client } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config(); // Also try default location
 
 async function runMigrations() {
   const { DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME } = process.env;
@@ -106,7 +111,7 @@ async function runMigrations() {
     let migrationsDir = '';
     
     const possibleDirs = [
-      path.resolve(__dirname, '../../../../database/migrations'), // Development
+      path.resolve(__dirname, '../../../database/migrations'), // Development
       path.resolve(process.cwd(), 'database/migrations'),        // Production root
       path.resolve(process.cwd(), 'resources/database/migrations'), // Production resources
     ];

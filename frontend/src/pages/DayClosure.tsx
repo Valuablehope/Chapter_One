@@ -13,6 +13,7 @@ import Input from '../components/ui/Input';
 import PageBanner from '../components/ui/PageBanner';
 import EmptyState from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeleton';
+import { CashBreakdown } from './DayClosure/components/CashBreakdown';
 import {
   dayClosureService,
   DayClosurePreview,
@@ -71,6 +72,7 @@ export default function DayClosure() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [closing, setClosing] = useState(false);
   const [result, setResult] = useState<DayClosureRecord | null>(null);
+  const [cashBreakdown, setCashBreakdown] = useState<Record<string, number> | null>(null);
 
   const formatCurrency = useCallback(
     (amount: number) =>
@@ -151,7 +153,11 @@ export default function DayClosure() {
     }
     try {
       setClosing(true);
-      const closure = await dayClosureService.close(cashActualNum, notes.trim() || undefined);
+      const closure = await dayClosureService.close(
+        cashActualNum,
+        notes.trim() || undefined,
+        cashBreakdown || undefined
+      );
       setResult(closure);
       setShowConfirm(false);
       toast.success(t('day_closure.success_title'));
@@ -290,14 +296,15 @@ export default function DayClosure() {
               </div>
             </dl>
 
-            <Input
-              label={t('day_closure.cash_actual_label')}
-              type="text"
-              inputMode="decimal"
-              value={cashActualStr}
-              onChange={(e) => setCashActualStr(e.target.value)}
-              fullWidth
-            />
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700">{t('day_closure.cash_actual_label')}</label>
+              <CashBreakdown 
+                onChange={(total, breakdown) => {
+                  setCashActualStr(total.toString());
+                  setCashBreakdown(breakdown);
+                }} 
+              />
+            </div>
 
             {difference !== null && (
               <div
