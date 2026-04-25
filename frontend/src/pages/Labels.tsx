@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Fragment, type CSSProperties } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment, type CSSProperties, type ReactNode } from 'react';
 import { productService, Product } from '../services/productService';
 import { storeService, StoreSettings, type LabelLayoutPatch } from '../services/storeService';
 import { useAuthStore } from '../store/authStore';
@@ -600,37 +600,90 @@ function PrintPreview({ products, store }: PrintPreviewProps) {
   );
 }
 
-function selectBaseCls() {
-  return 'px-2 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-800 focus:ring-2 focus:ring-secondary-500/30 focus:border-secondary-500 box-border';
-}
-
-/** Block selects: full width of container but never exceed panel (avoids horizontal scroll). */
-function selectFullCls() {
-  return `${selectBaseCls()} w-full max-w-md`;
-}
-
-/**
- * Weight dropdowns: fixed width so `w-full` from a shared class cannot stretch them
- * (stretching clipped the native chevron on some browsers).
- */
-function selectWeightCls() {
-  return `${selectBaseCls()} h-[2.125rem] w-[5rem] min-w-[5rem] max-w-[5rem] shrink-0 pl-2 pr-7 text-left tabular-nums`;
-}
-
-function numInputBaseCls() {
-  return 'px-2 py-1.5 text-xs rounded-lg border border-gray-200 font-mono box-border min-w-0';
-}
-
-function numInputCls() {
-  return `${numInputBaseCls()} w-full max-w-md`;
-}
-
-/** Size field paired with a weight select: grows in grid column 1 only. */
-function numInputPairCls() {
-  return `${numInputBaseCls()} w-full max-w-[6rem]`;
-}
-
 type SetLabelField = <K extends keyof LabelLayoutFormState>(key: K, value: LabelLayoutFormState[K]) => void;
+
+// ─── Reusable premium control sub-components ─────────────────────────────────
+
+function AlignSegment({ value, onChange, options }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="grid p-1 bg-gray-100 rounded-xl" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+      {options.map(o => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            value === o.value
+              ? 'bg-white text-secondary-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SizeSlider({ value, min, max, step = 0.5, onChange, fallback }: {
+  value: number; min: number; max: number; step?: number;
+  onChange: (v: number) => void; fallback: number;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-gray-400 font-mono">{min}px</span>
+        <span className="text-xs font-bold text-secondary-700 tabular-nums bg-secondary-50 px-2 py-0.5 rounded-md border border-secondary-100">
+          {value}px
+        </span>
+        <span className="text-[10px] text-gray-400 font-mono">{max}px</span>
+      </div>
+      <input
+        type="range"
+        min={min} max={max} step={step}
+        value={value}
+        onChange={e => onChange(parseFloat(e.target.value) || fallback)}
+        className="w-full h-1.5 appearance-none bg-gray-200 rounded-full outline-none cursor-pointer"
+        style={{ accentColor: '#3582e2' }}
+      />
+    </div>
+  );
+}
+
+function WeightGrid({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 rounded-xl">
+      {WEIGHT_OPTIONS.map(w => (
+        <button
+          key={w}
+          type="button"
+          onClick={() => onChange(w)}
+          className={`py-1.5 rounded-lg text-xs transition-all ${
+            value === w
+              ? 'bg-white text-secondary-700 shadow-sm font-black'
+              : 'text-gray-500 hover:text-gray-700 font-semibold'
+          }`}
+          style={{ fontWeight: w }}
+        >
+          {w}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ControlRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+      {children}
+    </div>
+  );
+}
 
 function LabelSectionFormFields({
   section,
@@ -641,104 +694,159 @@ function LabelSectionFormFields({
   layoutForm: LabelLayoutFormState;
   setField: SetLabelField;
 }) {
+  const alignOpts = [
+    { value: 'left',   label: 'Left'   },
+    { value: 'center', label: 'Center' },
+    { value: 'right',  label: 'Right'  },
+  ];
+
   switch (section) {
     case 'header':
       return (
-        <div className="space-y-3 text-sm max-w-md">
-          <label className="block text-gray-500 text-xs font-medium">Alignment</label>
-          <select className={selectFullCls()} value={layoutForm.label_header_align} onChange={e => setField('label_header_align', e.target.value as TextAlignLR)}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-          <label className="block text-gray-500 text-xs font-medium">Font size (px)</label>
-          <input type="number" min={3} max={40} step={0.5} className={numInputCls()} value={layoutForm.label_store_name_size} onChange={e => setField('label_store_name_size', parseFloat(e.target.value) || 5.5)} />
-          <label className="block text-gray-500 text-xs font-medium">Weight</label>
-          <select className={selectFullCls()} value={layoutForm.label_header_font_weight} onChange={e => setField('label_header_font_weight', Number(e.target.value))}>
-            {WEIGHT_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-          </select>
+        <div className="space-y-4">
+          <ControlRow label="Alignment">
+            <AlignSegment
+              value={layoutForm.label_header_align}
+              onChange={v => setField('label_header_align', v as TextAlignLR)}
+              options={alignOpts}
+            />
+          </ControlRow>
+          <ControlRow label="Font size">
+            <SizeSlider value={layoutForm.label_store_name_size} min={3} max={18} fallback={5.5}
+              onChange={v => setField('label_store_name_size', v)} />
+          </ControlRow>
+          <ControlRow label="Font weight">
+            <WeightGrid value={layoutForm.label_header_font_weight}
+              onChange={v => setField('label_header_font_weight', v)} />
+          </ControlRow>
         </div>
       );
+
     case 'title':
       return (
-        <div className="space-y-3 text-sm max-w-md">
-          <label className="block text-gray-500 text-xs font-medium">Alignment</label>
-          <select className={selectFullCls()} value={layoutForm.label_title_align} onChange={e => setField('label_title_align', e.target.value as TextAlignLR)}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-          <label className="block text-gray-500 text-xs font-medium">Font size (px)</label>
-          <input type="number" min={6} max={48} step={0.5} className={numInputCls()} value={layoutForm.label_product_name_size} onChange={e => setField('label_product_name_size', parseFloat(e.target.value) || 15)} />
-          <label className="block text-gray-500 text-xs font-medium">Weight</label>
-          <select className={selectFullCls()} value={layoutForm.label_title_font_weight} onChange={e => setField('label_title_font_weight', Number(e.target.value))}>
-            {WEIGHT_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-          </select>
+        <div className="space-y-4">
+          <ControlRow label="Alignment">
+            <AlignSegment
+              value={layoutForm.label_title_align}
+              onChange={v => setField('label_title_align', v as TextAlignLR)}
+              options={alignOpts}
+            />
+          </ControlRow>
+          <ControlRow label="Font size">
+            <SizeSlider value={layoutForm.label_product_name_size} min={6} max={36} fallback={15}
+              onChange={v => setField('label_product_name_size', v)} />
+          </ControlRow>
+          <ControlRow label="Font weight">
+            <WeightGrid value={layoutForm.label_title_font_weight}
+              onChange={v => setField('label_title_font_weight', v)} />
+          </ControlRow>
         </div>
       );
+
     case 'lbp':
       return (
-        <div className="space-y-3 text-sm w-full max-w-md min-w-0 overflow-x-hidden">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={layoutForm.label_show_lbp} onChange={e => setField('label_show_lbp', e.target.checked)} className="rounded border-gray-300 shrink-0" />
-            <span>Show LBP line when exchange rate is set</span>
-          </label>
-          <label className="block text-gray-500 text-xs font-medium">Row layout</label>
-          <select className={selectFullCls()} value={layoutForm.label_lbp_row_align} onChange={e => setField('label_lbp_row_align', e.target.value as LbpRowAlign)}>
-            <option value="between">Edges (label left, amount right)</option>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-          <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">Prefix “LBP”</p>
-            <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 items-center w-full min-w-0">
-              <input type="number" min={4} max={24} step={0.5} className={numInputPairCls()} value={layoutForm.label_lbp_prefix_size} onChange={e => setField('label_lbp_prefix_size', parseFloat(e.target.value) || 10)} />
-              <select className={selectWeightCls()} value={layoutForm.label_lbp_prefix_weight} onChange={e => setField('label_lbp_prefix_weight', Number(e.target.value))}>
-                {WEIGHT_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
+        <div className="space-y-4">
+          {/* Toggle switch for show/hide */}
+          <button
+            type="button"
+            onClick={() => setField('label_show_lbp', !layoutForm.label_show_lbp)}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+              layoutForm.label_show_lbp
+                ? 'bg-secondary-50 border-secondary-200'
+                : 'bg-gray-50 border-gray-200'
+            }`}
+          >
+            <span className="text-xs font-semibold text-gray-700">Show LBP line</span>
+            <div className={`w-9 h-5 rounded-full transition-colors relative ${layoutForm.label_show_lbp ? 'bg-secondary-500' : 'bg-gray-300'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${layoutForm.label_show_lbp ? 'left-[18px]' : 'left-0.5'}`} />
             </div>
+          </button>
+
+          <ControlRow label="Row layout">
+            <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-xl">
+              {([
+                { value: 'between', label: 'Spread' },
+                { value: 'left',    label: 'Left'   },
+                { value: 'center',  label: 'Center' },
+                { value: 'right',   label: 'Right'  },
+              ] as { value: LbpRowAlign; label: string }[]).map(o => (
+                <button key={o.value} type="button"
+                  onClick={() => setField('label_lbp_row_align', o.value)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    layoutForm.label_lbp_row_align === o.value
+                      ? 'bg-white text-secondary-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </ControlRow>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Prefix "LBP"</p>
+            <ControlRow label="Size">
+              <SizeSlider value={layoutForm.label_lbp_prefix_size} min={4} max={20} fallback={10}
+                onChange={v => setField('label_lbp_prefix_size', v)} />
+            </ControlRow>
+            <ControlRow label="Weight">
+              <WeightGrid value={layoutForm.label_lbp_prefix_weight}
+                onChange={v => setField('label_lbp_prefix_weight', v)} />
+            </ControlRow>
           </div>
-          <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">LBP amount</p>
-            <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 items-center w-full min-w-0">
-              <input type="number" min={6} max={48} step={0.5} className={numInputPairCls()} value={layoutForm.label_lbp_size} onChange={e => setField('label_lbp_size', parseFloat(e.target.value) || 14)} />
-              <select className={selectWeightCls()} value={layoutForm.label_lbp_amount_weight} onChange={e => setField('label_lbp_amount_weight', Number(e.target.value))}>
-                {WEIGHT_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LBP amount</p>
+            <ControlRow label="Size">
+              <SizeSlider value={layoutForm.label_lbp_size} min={6} max={36} fallback={14}
+                onChange={v => setField('label_lbp_size', v)} />
+            </ControlRow>
+            <ControlRow label="Weight">
+              <WeightGrid value={layoutForm.label_lbp_amount_weight}
+                onChange={v => setField('label_lbp_amount_weight', v)} />
+            </ControlRow>
           </div>
         </div>
       );
+
     case 'price':
       return (
-        <div className="space-y-3 text-sm w-full max-w-md min-w-0 overflow-x-hidden">
-          <label className="block text-gray-500 text-xs font-medium">Row alignment</label>
-          <select className={selectFullCls()} value={layoutForm.label_price_row_align} onChange={e => setField('label_price_row_align', e.target.value as TextAlignLR)}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-          <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">Currency code (e.g. USD)</p>
-            <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 items-center w-full min-w-0">
-              <input type="number" min={4} max={28} step={0.5} className={numInputPairCls()} value={layoutForm.label_currency_size} onChange={e => setField('label_currency_size', parseFloat(e.target.value) || 11)} />
-              <select className={selectWeightCls()} value={layoutForm.label_currency_weight} onChange={e => setField('label_currency_weight', Number(e.target.value))}>
-                {WEIGHT_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
+        <div className="space-y-4">
+          <ControlRow label="Alignment">
+            <AlignSegment
+              value={layoutForm.label_price_row_align}
+              onChange={v => setField('label_price_row_align', v as TextAlignLR)}
+              options={alignOpts}
+            />
+          </ControlRow>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Currency code</p>
+            <ControlRow label="Size">
+              <SizeSlider value={layoutForm.label_currency_size} min={4} max={24} fallback={11}
+                onChange={v => setField('label_currency_size', v)} />
+            </ControlRow>
+            <ControlRow label="Weight">
+              <WeightGrid value={layoutForm.label_currency_weight}
+                onChange={v => setField('label_currency_weight', v)} />
+            </ControlRow>
           </div>
-          <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">Price amount</p>
-            <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2 items-center w-full min-w-0">
-              <input type="number" min={8} max={56} step={0.5} className={numInputPairCls()} value={layoutForm.label_price_size} onChange={e => setField('label_price_size', parseFloat(e.target.value) || 30)} />
-              <select className={selectWeightCls()} value={layoutForm.label_price_amount_weight} onChange={e => setField('label_price_amount_weight', Number(e.target.value))}>
-                {WEIGHT_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Price amount</p>
+            <ControlRow label="Size">
+              <SizeSlider value={layoutForm.label_price_size} min={8} max={52} fallback={30}
+                onChange={v => setField('label_price_size', v)} />
+            </ControlRow>
+            <ControlRow label="Weight">
+              <WeightGrid value={layoutForm.label_price_amount_weight}
+                onChange={v => setField('label_price_amount_weight', v)} />
+            </ControlRow>
           </div>
         </div>
       );
+
     default:
       return null;
   }
@@ -1002,7 +1110,8 @@ export default function Labels() {
       />
 
       {canEditLayout && layoutForm && (
-        <div className="px-4 pt-3 pb-0 flex-shrink-0">
+        <div className="px-4 pt-3 pb-4 flex-shrink-0">
+          {/* Premium toggle header */}
           <button
             type="button"
             onClick={() => {
@@ -1012,127 +1121,244 @@ export default function Labels() {
                 return next;
               });
             }}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-secondary-700"
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-200 ${
+              layoutOpen
+                ? 'bg-secondary-600 border-secondary-700 shadow-brand'
+                : 'bg-white border-gray-200 hover:border-secondary-300 hover:bg-secondary-50 shadow-soft'
+            }`}
           >
-            <PaintBrushIcon className="w-4 h-4 text-secondary-600" />
-            <ChevronDownIcon className={`w-4 h-4 transition-transform ${layoutOpen ? 'rotate-180' : ''}`} />
-            Label appearance
-          </button>
-          {layoutOpen && (
-            <div className="mt-3 mb-4 p-4 sm:p-5 bg-white rounded-xl border border-gray-200 shadow-sm space-y-4 max-h-[min(85vh,640px)] overflow-y-auto">
-              <p className="text-sm text-gray-600 leading-snug">
-                Tap a part of the sample label to edit that section. Use the shortcuts below if you prefer.
-              </p>
-
-              <div className="rounded-xl border border-gray-200 bg-gray-50/90 p-3 sm:p-4 max-w-lg">
-                <p className="text-xs font-semibold text-gray-700 mb-2">Section order (top → bottom)</p>
-                <ul className="space-y-1">
-                  {layoutForm.label_section_order.map((id, idx) => {
-                    const meta = LABEL_SECTION_META.find(m => m.id === id);
-                    return (
-                      <li
-                        key={id}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-white border border-gray-100 px-2.5 py-1.5"
-                      >
-                        <span className="text-sm text-gray-800 truncate">{meta?.label ?? id}</span>
-                        <span className="flex items-center gap-0.5 shrink-0">
-                          <button
-                            type="button"
-                            className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
-                            disabled={idx === 0}
-                            aria-label="Move section up"
-                            onClick={() => moveSectionInOrder(idx, -1)}
-                          >
-                            <ChevronUpIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent"
-                            disabled={idx >= layoutForm.label_section_order.length - 1}
-                            aria-label="Move section down"
-                            onClick={() => moveSectionInOrder(idx, 1)}
-                          >
-                            <ChevronDownIcon className="w-4 h-4" />
-                          </button>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+            <div className="flex items-center gap-3">
+              <div className={`p-1.5 rounded-lg ${layoutOpen ? 'bg-white/20' : 'bg-secondary-500'}`}>
+                <PaintBrushIcon className="w-4 h-4 text-white" />
               </div>
+              <div className="text-left">
+                <p className={`text-sm font-bold mb-0.5 ${layoutOpen ? 'text-white' : 'text-gray-900'}`}>Label Appearance</p>
+                <p className={`text-xs ${layoutOpen ? 'text-white/60' : 'text-gray-500'}`}>
+                  Font sizes, weights &amp; section layout
+                </p>
+              </div>
+            </div>
+            <ChevronDownIcon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${layoutOpen ? 'rotate-180 text-white' : 'text-gray-400'}`} />
+          </button>
 
-              <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-8">
-                <div className="flex flex-col items-center gap-3 shrink-0 mx-auto lg:mx-0">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sample label</span>
-                  {previewStore && (
-                    <LabelCard
-                      storeName={previewStore.name ?? ''}
-                      productName={editorProductName}
-                      price={editorPrice}
-                      currency={currency}
-                      store={previewStore}
-                      interactive
-                      activeSection={activeLabelSection}
-                      onSectionSelect={setActiveLabelSection}
-                    />
-                  )}
-                  <div className="flex flex-wrap justify-center gap-1.5 max-w-[16rem]">
-                    {layoutForm.label_section_order.map(id => {
-                      const short = LABEL_SECTION_META.find(m => m.id === id)?.short ?? id;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setActiveLabelSection(id)}
-                          className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                            activeLabelSection === id
-                              ? 'bg-secondary-600 text-white border-secondary-600'
-                              : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-secondary-300'
-                          }`}
-                        >
-                          {short}
-                        </button>
-                      );
-                    })}
+          {layoutOpen && (
+            <div className="mt-3 mb-4">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-medium overflow-hidden">
+
+                {/* Panel header bar */}
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/70">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">Label Designer</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Click any section on the label preview to edit its typography
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={resetLayout}
+                      disabled={savingLayout}
+                      className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 transition-colors"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveLayout()}
+                      disabled={savingLayout}
+                      className="px-4 py-1.5 text-xs font-bold text-white bg-secondary-600 rounded-lg hover:bg-secondary-700 disabled:opacity-50 transition-colors shadow-sm"
+                    >
+                      {savingLayout ? 'Saving…' : 'Save changes'}
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex-1 min-w-0 w-full border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-8">
-                  {activeLabelSection === null ? (
-                    <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/80 px-4 py-10 text-center">
-                      <p className="text-sm text-gray-600 font-medium">Choose a section</p>
-                      <p className="text-xs text-gray-500 mt-2 max-w-sm mx-auto">
-                        Click the store bar, product name, LBP line, or price band on the label, or use the shortcuts under the preview.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="min-w-0 w-full max-w-lg overflow-x-hidden">
-                      <h3 className="text-base font-bold text-gray-900 mb-1">
-                        {LABEL_SECTION_META.find(m => m.id === activeLabelSection)?.label}
-                      </h3>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Changes apply to all printed shelf labels for this store.
-                      </p>
-                      <LabelSectionFormFields
-                        section={activeLabelSection}
-                        layoutForm={layoutForm}
-                        setField={setField}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
+                {/* Two-column body */}
+                <div
+                  className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-100"
+                  style={{ maxHeight: 'min(82vh, 600px)' }}
+                >
+                  {/* ── Left column: navigator + form fields ── */}
+                  <div className="flex flex-col lg:w-80 flex-shrink-0 overflow-y-auto">
 
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 pt-3 border-t border-gray-100">
-                <Button size="sm" onClick={() => void saveLayout()} disabled={savingLayout} className="font-semibold w-full sm:w-auto">
-                  {savingLayout ? 'Saving…' : 'Save to store'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={resetLayout} disabled={savingLayout} className="w-full sm:w-auto">
-                  Reset
-                </Button>
-                <p className="text-[11px] text-gray-500 sm:ml-1">
-                  LBP preview needs an exchange rate under Admin → Store → Regional.
-                </p>
+                    {/* Section order navigator */}
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">
+                        Section order  <span className="normal-case font-normal text-gray-300">top → bottom</span>
+                      </p>
+                      <div className="space-y-1.5">
+                        {layoutForm.label_section_order.map((id, idx) => {
+                          const meta = LABEL_SECTION_META.find(m => m.id === id);
+                          const isActive = activeLabelSection === id;
+                          return (
+                            <div
+                              key={id}
+                              onClick={() => setActiveLabelSection(id)}
+                              className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border cursor-pointer transition-all duration-150 ${
+                                isActive
+                                  ? 'bg-secondary-50 border-secondary-200 shadow-sm'
+                                  : 'bg-white border-gray-100 hover:border-secondary-200 hover:bg-secondary-50/40'
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0 transition-colors ${
+                                isActive ? 'bg-secondary-600 text-white' : 'bg-gray-200 text-gray-500'
+                              }`}>
+                                {idx + 1}
+                              </div>
+                              <span className={`text-xs font-semibold flex-1 truncate ${isActive ? 'text-secondary-700' : 'text-gray-700'}`}>
+                                {meta?.label ?? id}
+                              </span>
+                              <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); moveSectionInOrder(idx, -1); }}
+                                  disabled={idx === 0}
+                                  aria-label="Move up"
+                                  className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-25 disabled:pointer-events-none transition-colors"
+                                >
+                                  <ChevronUpIcon className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); moveSectionInOrder(idx, 1); }}
+                                  disabled={idx >= layoutForm.label_section_order.length - 1}
+                                  aria-label="Move down"
+                                  className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-25 disabled:pointer-events-none transition-colors"
+                                >
+                                  <ChevronDownIcon className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Form fields */}
+                    <div className="p-4 flex-1 overflow-y-auto">
+                      {activeLabelSection === null ? (
+                        <div className="flex flex-col items-center justify-center py-10 text-center">
+                          <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                            <TagIcon className="w-6 h-6 text-gray-300" />
+                          </div>
+                          <p className="text-sm font-semibold text-gray-500">No section selected</p>
+                          <p className="text-xs text-gray-400 mt-1.5 leading-snug max-w-[180px]">
+                            Pick a section from the list above or tap the label preview
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="p-1.5 bg-secondary-500 rounded-lg flex-shrink-0">
+                              <PaintBrushIcon className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                                {LABEL_SECTION_META.find(m => m.id === activeLabelSection)?.label}
+                              </h4>
+                              <p className="text-[10px] text-gray-400">Applies to all printed labels</p>
+                            </div>
+                          </div>
+                          <LabelSectionFormFields
+                            section={activeLabelSection}
+                            layoutForm={layoutForm}
+                            setField={setField}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Right column: live label preview ── */}
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-8 min-h-[300px] overflow-y-auto"
+                    style={{ background: 'linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)' }}
+                  >
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-5">Live Preview</p>
+
+                    {/* Paper mock */}
+                    <div className="relative p-5 rounded-2xl bg-white border border-gray-200 shadow-large">
+                      {/* Dot pattern background */}
+                      <div
+                        className="absolute inset-0 rounded-2xl opacity-[0.035] pointer-events-none"
+                        style={{
+                          backgroundImage: 'radial-gradient(circle, #334155 1.5px, transparent 1.5px)',
+                          backgroundSize: '14px 14px',
+                        }}
+                      />
+                      <div className="relative">
+                        {previewStore && (
+                          <LabelCard
+                            storeName={previewStore.name ?? ''}
+                            productName={editorProductName}
+                            price={editorPrice}
+                            currency={currency}
+                            store={previewStore}
+                            interactive
+                            activeSection={activeLabelSection}
+                            onSectionSelect={setActiveLabelSection}
+                          />
+                        )}
+                      </div>
+                      {/* Paper edge indicator */}
+                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-[10px] text-gray-300 font-mono whitespace-nowrap select-none pointer-events-none">
+                        {LABEL_W_MM}×{LABEL_H_MM} mm
+                      </div>
+                    </div>
+
+                    {/* Section shortcut pills */}
+                    <div className="flex flex-wrap justify-center gap-1.5 mt-8">
+                      {layoutForm.label_section_order.map(id => {
+                        const short = LABEL_SECTION_META.find(m => m.id === id)?.short ?? id;
+                        const isActive = activeLabelSection === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setActiveLabelSection(id)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${
+                              isActive
+                                ? 'bg-secondary-600 text-white border-secondary-600 shadow-brand'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-secondary-300 hover:text-secondary-600 shadow-soft'
+                            }`}
+                          >
+                            {short}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {!previewStore?.lbp_exchange_rate && (
+                      <p className="text-[10px] text-gray-400 mt-4 text-center max-w-[200px] leading-snug">
+                        Set an exchange rate in Admin → Store → Regional to preview the LBP line
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+                  <p className="text-[11px] text-gray-400">
+                    Exchange rate required for LBP preview — Admin → Store → Regional
+                  </p>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                    <button
+                      type="button"
+                      onClick={resetLayout}
+                      disabled={savingLayout}
+                      className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 transition-colors"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveLayout()}
+                      disabled={savingLayout}
+                      className="px-4 py-1.5 text-xs font-bold text-white bg-secondary-600 rounded-lg hover:bg-secondary-700 disabled:opacity-50 transition-colors shadow-sm"
+                    >
+                      {savingLayout ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
