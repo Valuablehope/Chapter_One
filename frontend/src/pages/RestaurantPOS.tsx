@@ -1180,7 +1180,9 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
     }
   };
 
-  const lbp = formatLbpGrand(order.grandTotal, settings?.lbp_exchange_rate);
+  const lbp = settings?.show_lbp_price !== false
+    ? formatLbpGrand(order.grandTotal, settings?.lbp_exchange_rate)
+    : null;
 
   const metaRows = [
     { label: t('receipt.receipt_no'), value: order.receiptNo },
@@ -1255,7 +1257,9 @@ interface BillReceiptProps {
 function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
   const { t } = useTranslation();
   const { order, totals } = data;
-  const lbp = formatLbpGrand(totals.total, settings?.lbp_exchange_rate);
+  const lbp = settings?.show_lbp_price !== false
+    ? formatLbpGrand(totals.total, settings?.lbp_exchange_rate)
+    : null;
 
   const metaRows = [
     {

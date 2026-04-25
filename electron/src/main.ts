@@ -622,7 +622,10 @@ app.whenReady().then(async () => {
     // In dev mode, backend is started separately
     createWindow(!setupComplete);
     setupApplicationMenu();
-    require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
+    const updaterPath = isDev 
+      ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+      : path.join(app.getAppPath(), 'updater/updateManager.js');
+    require(updaterPath).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
   }
 
   app.on('activate', () => {
@@ -691,11 +694,17 @@ ipcMain.handle('app:getVersion', () => {
 });
 
 ipcMain.handle('app:installUpdate', () => {
-  require(path.join(app.getAppPath(), 'updater/updateManager.js')).manualQuitAndInstall();
+  const updaterPath = isDev 
+    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+    : path.join(app.getAppPath(), 'updater/updateManager.js');
+  require(updaterPath).manualQuitAndInstall();
 });
 
 ipcMain.handle('app:getUpdateStatus', () => {
-  return require(path.join(app.getAppPath(), 'updater/updateManager.js')).getLastStatus();
+  const updaterPath = isDev 
+    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+    : path.join(app.getAppPath(), 'updater/updateManager.js');
+  return require(updaterPath).getLastStatus();
 });
 
 ipcMain.handle('app:getPlatform', () => {

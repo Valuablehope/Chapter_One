@@ -1,4 +1,5 @@
 import { BaseModel } from './BaseModel';
+// Triggering restart to refresh database column cache
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
@@ -42,8 +43,8 @@ export interface StoreSettings {
   label_currency_size?: number | null;
   label_currency_weight?: number | null;
   label_price_amount_weight?: number | null;
-  /** JSON array: ["header","title","lbp","price"] */
   label_section_order?: unknown;
+  show_lbp_price: boolean;
 }
 
 export interface StoreSettingsInput {
@@ -84,6 +85,7 @@ export interface StoreSettingsInput {
   label_currency_weight?: number | null;
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
+  show_lbp_price?: boolean;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -419,6 +421,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('label_section_order');
       values.push(toJsonbParam(settings.label_section_order));
     }
+    if (settings.show_lbp_price !== undefined && availableColumns.has('show_lbp_price')) {
+      paramCount++;
+      fields.push('show_lbp_price');
+      values.push(settings.show_lbp_price);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -619,6 +626,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`label_section_order = $${paramCount}::jsonb`);
       values.push(toJsonbParam(settings.label_section_order));
+    }
+    if (settings.show_lbp_price !== undefined && availableColumns.has('show_lbp_price')) {
+      paramCount++;
+      fields.push(`show_lbp_price = $${paramCount}`);
+      values.push(settings.show_lbp_price);
     }
 
     if (fields.length === 0) {

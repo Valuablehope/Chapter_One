@@ -50,7 +50,9 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
   if (!sale) return null;
 
   const grand = Number(sale.grand_total);
-  const lbp = formatLbpGrand(grand, settings?.lbp_exchange_rate);
+  const lbp = settings?.show_lbp_price !== false
+    ? formatLbpGrand(grand, settings?.lbp_exchange_rate)
+    : null;
 
   const lineRows = items.map((item) => ({
     description: item.product?.name || (item as any).product_name || '—',

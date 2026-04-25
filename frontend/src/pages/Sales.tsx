@@ -173,7 +173,8 @@ export default function Sales() {
     setPosSettingsStatus('loading');
     try {
       const settings = await storeService.getDefaultStore();
-      const rate = Math.max(0, Number(settings.lbp_exchange_rate ?? 0) || 0);
+      const showLbp = settings.show_lbp_price !== false;
+      const rate = showLbp ? Math.max(0, Number(settings.lbp_exchange_rate ?? 0) || 0) : 0;
       setLbpExchangeRatePerUsd(rate);
       setStoreSettings({
         ...settings,
@@ -1392,27 +1393,29 @@ export default function Sales() {
           </Card>
 
           {/* LBP exchange rate (same value as all ≈ LBP math on this page) */}
-          <Card className="border border-amber-100 bg-amber-50/80 shadow-sm overflow-hidden">
-            <div className="p-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="p-1.5 bg-amber-500/90 rounded-lg">
-                  <GlobeAltIcon className="w-4 h-4 text-white" />
+          {storeSettings?.show_lbp_price !== false && (
+            <Card className="border border-amber-100 bg-amber-50/80 shadow-sm overflow-hidden">
+              <div className="p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="p-1.5 bg-amber-500/90 rounded-lg">
+                    <GlobeAltIcon className="w-4 h-4 text-white" />
+                  </div>
+                  <h2 className="text-sm font-bold text-amber-950">{t('pos_sales.exchange_rate_title')}</h2>
                 </div>
-                <h2 className="text-sm font-bold text-amber-950">{t('pos_sales.exchange_rate_title')}</h2>
+                {lbpExchangeRatePerUsd > 0 ? (
+                  <p className="text-sm font-semibold tabular-nums text-amber-950 pl-0.5">
+                    {t('pos_sales.exchange_rate_value', {
+                      amount: lbpExchangeRatePerUsd.toLocaleString(),
+                      currency: storeSettings?.currency_code || 'USD',
+                    })}
+                  </p>
+                ) : (
+                  <p className="text-sm font-medium text-amber-900/80">{t('pos_sales.exchange_rate_not_set')}</p>
+                )}
+                <p className="text-[10px] text-amber-900/70 mt-1.5 leading-snug">{t('pos_sales.exchange_rate_hint')}</p>
               </div>
-              {lbpExchangeRatePerUsd > 0 ? (
-                <p className="text-sm font-semibold tabular-nums text-amber-950 pl-0.5">
-                  {t('pos_sales.exchange_rate_value', {
-                    amount: lbpExchangeRatePerUsd.toLocaleString(),
-                    currency: storeSettings?.currency_code || 'USD',
-                  })}
-                </p>
-              ) : (
-                <p className="text-sm font-medium text-amber-900/80">{t('pos_sales.exchange_rate_not_set')}</p>
-              )}
-              <p className="text-[10px] text-amber-900/70 mt-1.5 leading-snug">{t('pos_sales.exchange_rate_hint')}</p>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* Totals */}
           <Card className="border border-[#e2e8f0] bg-white shadow-medium overflow-hidden">
@@ -1735,7 +1738,7 @@ export default function Sales() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cash Received</p>
 
             {/* Two-column layout for currency fields */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${lbpRate > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
 
               {/* USD field */}
               <div>
@@ -1755,33 +1758,26 @@ export default function Sales() {
               </div>
 
               {/* LBP field */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
-                  <span className="text-xs">🇱🇧</span>
-                  Amount (LBP)
-                </label>
-                <input
-                  type="number"
-                  step="500"
-                  min="0"
-                  value={paymentAmountLBP}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentAmountLBPChange(e.target.value)}
-                  placeholder={lbpRate > 0 ? '0' : t('pos_sales.exchange_rate_not_set')}
-                  disabled={lbpRate <= 0}
-                  title={lbpRate <= 0 ? t('pos_sales.lbp_field_hint') : undefined}
-                  className={`w-full px-3 py-2.5 text-sm font-bold rounded-lg border transition-all
-                    ${lbpRate > 0
-                      ? 'border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500'
-                      : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                    }`}
-                />
-                {lbpRate > 0 && lbpPaid > 0 && (
-                  <p className="mt-1 text-[10px] text-gray-500 font-medium">≈ ${lbpPaidInUSD.toFixed(2)}</p>
-                )}
-                {lbpRate <= 0 && (
-                  <p className="mt-1 text-[10px] text-gray-400">{t('pos_sales.exchange_rate_hint')}</p>
-                )}
-              </div>
+              {lbpRate > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                    <span className="text-xs">🇱🇧</span>
+                    Amount (LBP)
+                  </label>
+                  <input
+                    type="number"
+                    step="500"
+                    min="0"
+                    value={paymentAmountLBP}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentAmountLBPChange(e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2.5 text-sm font-bold rounded-lg border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
+                  />
+                  {lbpPaid > 0 && (
+                    <p className="mt-1 text-[10px] text-gray-500 font-medium">≈ ${lbpPaidInUSD.toFixed(2)}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Live total received row — shown when at least one field is filled and rate exists */}
