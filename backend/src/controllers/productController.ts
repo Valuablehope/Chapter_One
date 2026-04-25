@@ -134,6 +134,26 @@ export const validateBarcode = asyncHandler(async (req: Request, res: Response) 
   });
 });
 
+export const bulkImportProducts = asyncHandler(async (req: Request, res: Response) => {
+  const { products } = req.body;
+
+  if (!Array.isArray(products) || products.length === 0) {
+    throw new CustomError('products array is required and must not be empty', 400);
+  }
+
+  if (products.length > 50000) {
+    throw new CustomError('Cannot import more than 50,000 products at once', 400);
+  }
+
+  const result = await ProductModel.bulkCreate(products);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+
 
 
 

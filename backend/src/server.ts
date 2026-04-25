@@ -129,8 +129,8 @@ app.use(cookieParser()); // Parse cookies
 // Use appropriate logging format based on environment
 app.use(morgan(isProduction ? 'combined' : 'dev')); // HTTP request logging
 app.use(requestLogger); // Custom request/response logging
-app.use(express.json({ limit: '10mb' })); // Request size limit
-app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Request size limit
+app.use(express.json({ limit: '50mb' })); // Request size limit
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Request size limit
 app.use(sanitizeMiddleware); // XSS protection - sanitize all inputs
 app.use(csrfProtection); // CSRF protection - generates tokens on GET, validates on POST/PUT/DELETE/PATCH
 

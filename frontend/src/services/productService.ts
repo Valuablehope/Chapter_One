@@ -127,6 +127,15 @@ export const productService = {
     );
     return response.data.data.valid;
   },
+
+  // Bulk import products from parsed CSV/XLSX data
+  async bulkImport(products: CreateProductData[]): Promise<{ created: number; skipped: number; errors: string[] }> {
+    const response = await api.post<{ success: boolean; data: { created: number; skipped: number; errors: string[] } }>(
+      '/products/bulk-import',
+      { products }
+    );
+    return response.data.data;
+  },
 };
 
 

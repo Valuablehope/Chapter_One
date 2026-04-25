@@ -14,6 +14,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import PageBanner from '../components/ui/PageBanner';
 import { ProductRow } from './Products/components/ProductRow';
+import ProductImportModal from './Products/components/ProductImportModal';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -26,6 +27,7 @@ import {
   TrashIcon,
   PencilIcon,
   AdjustmentsVerticalIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../i18n/I18nContext';
@@ -87,6 +89,7 @@ export default function Products() {
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false });
   const [editingProductType, setEditingProductType] = useState<ProductType | null>(null);
   const [typeSubmitting, setTypeSubmitting] = useState(false);
@@ -711,7 +714,14 @@ export default function Products() {
         subtitle={t('products.subtitle')}
         icon={<BookOpenIcon className="w-5 h-5 text-white" />}
         action={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={() => setShowImportModal(true)}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+              leftIcon={<ArrowUpTrayIcon className="w-4 h-4" />}
+            >
+              Import
+            </Button>
             <Button
               onClick={() => {
                 setShowTypeModal(true);
@@ -1294,6 +1304,16 @@ export default function Products() {
           </div>
         </div>
       </Modal>
+
+      {/* ── Import Modal ── */}
+      <ProductImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImported={() => {
+          loadProducts();
+          loadConfigData();
+        }}
+      />
     </>
   );
 }
