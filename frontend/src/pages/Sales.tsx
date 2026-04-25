@@ -884,10 +884,8 @@ export default function Sales() {
     setCart([]);
     setSelectedCustomer(null);
     setDiscountRate(''); // Clear discount
-    // Focus barcode input instead of search
-    if (barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
-    }
+    // Defer focus so React finishes flushing state before we call .focus()
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, [storeSettings]);
 
   // Print receipt
@@ -923,11 +921,30 @@ export default function Sales() {
     return posProducts.filter(p => p.product_type === activeCategory);
   }, [posProducts, activeCategory]);
 
-  // Focus barcode once POS settings (and LBP rate) have loaded
+  // Focus barcode once POS settings (and LBP rate) have loaded.
+  // Deferred 150 ms so Electron finishes the BrowserWindow show/maximize sequence
+  // before we request DOM focus — prevents the OS-level focus desync that causes
+  // inputs to appear focused but not accept keyboard input until minimize/restore.
   useEffect(() => {
     if (posSettingsStatus !== 'ready') return;
-    barcodeInputRef.current?.focus();
+    const t = setTimeout(() => barcodeInputRef.current?.focus(), 150);
+    return () => clearTimeout(t);
   }, [posSettingsStatus]);
+
+  // Re-focus barcode when the Electron window regains OS-level focus.
+  // Handles: alt-tab back, minimize → restore, Windows task-switcher.
+  // Without this the DOM element stays "focused" but the OS routes keystrokes
+  // elsewhere and inputs remain frozen until the user clicks inside the window.
+  useEffect(() => {
+    if (posSettingsStatus !== 'ready') return;
+    const refocus = () => {
+      if (!completedSale && !showPaymentModal && !showCustomerModal && !quickAddProduct) {
+        barcodeInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('focus', refocus);
+    return () => window.removeEventListener('focus', refocus);
+  }, [posSettingsStatus, completedSale, showPaymentModal, showCustomerModal, quickAddProduct]);
 
   // Search is now debounced via useDebouncedCallback
 

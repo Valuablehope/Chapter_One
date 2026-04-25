@@ -478,6 +478,9 @@ function createWindow(isSetupMode = false): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.maximize(); // Maximize window on startup
+    mainWindow?.focus();    // Explicitly transfer OS keyboard focus — without this,
+                            // maximize() on Windows does not guarantee input focus,
+                            // leaving inputs frozen until the user clicks the window.
 
     // Open dev tools in development
     if (isDev) {
