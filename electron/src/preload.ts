@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openLogs: () => ipcRenderer.invoke('app:openLogs'),
   customerDisplayShow: (payload: { storeName: string; amount: number }) =>
     ipcRenderer.invoke('customer-display:show', payload),
+  // Setup Wizard Methods
+  setupIsComplete: () => ipcRenderer.invoke('setup:isComplete'),
+  setupSaveConfig: (config: Record<string, string>) => ipcRenderer.invoke('setup:saveConfig', config),
+  setupInstallPostgres: (args: { password: string, port: string }) => ipcRenderer.invoke('setup:installPostgres', args),
+  setupRunMigrations: (args: { password: string, port: string }) => ipcRenderer.invoke('setup:runMigrations', args),
+  setupCreateAdmin: (args: { password: string, port: string }) => ipcRenderer.invoke('setup:createAdmin', args),
+  setupInitializeStore: (args: { storeName: string, password: string, port: string }) => ipcRenderer.invoke('setup:initializeStore', args),
+  setupInstallService: () => ipcRenderer.invoke('setup:installService'),
+  setupComplete: () => ipcRenderer.invoke('setup:complete'),
   ipcRenderer: {
     on: (channel: string, callback: (...args: any[]) => void) => {
       ipcRenderer.on(channel, (_event, ...args) => callback(...args));
@@ -35,6 +44,14 @@ declare global {
         storeName: string;
         amount: number;
       }) => Promise<{ ok: boolean }>;
+      setupIsComplete: () => Promise<boolean>;
+      setupSaveConfig: (config: Record<string, string>) => Promise<{success: boolean, error?: string}>;
+      setupInstallPostgres: (args: { password: string, port: string }) => Promise<{success: boolean, skipped?: boolean, error?: string}>;
+      setupRunMigrations: (args: { password: string, port: string }) => Promise<{success: boolean, error?: string}>;
+      setupCreateAdmin: (args: { password: string, port: string }) => Promise<{success: boolean, error?: string}>;
+      setupInitializeStore: (args: { storeName: string, password: string, port: string }) => Promise<{success: boolean, error?: string}>;
+      setupInstallService: () => Promise<{success: boolean, error?: string}>;
+      setupComplete: () => Promise<void>;
       ipcRenderer: {
         on: (channel: string, callback: (...args: any[]) => void) => void;
         removeListener: (channel: string, callback: (...args: any[]) => void) => void;
