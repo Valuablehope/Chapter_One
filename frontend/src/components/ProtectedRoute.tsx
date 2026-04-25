@@ -3,8 +3,8 @@ import { useAuthStore } from '../store/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'cashier' | 'manager' | 'admin';
-  blockedRoles?: ('cashier' | 'manager' | 'admin')[];
+  requiredRole?: 'cashier' | 'manager' | 'admin' | 'self_checkout';
+  blockedRoles?: ('cashier' | 'manager' | 'admin' | 'self_checkout')[];
 }
 
 export default function ProtectedRoute({
@@ -26,6 +26,7 @@ export default function ProtectedRoute({
   if (requiredRole && user && user.role !== requiredRole) {
     // Check role hierarchy: admin > manager > cashier
     const roleHierarchy: Record<string, number> = {
+      self_checkout: 0,
       cashier: 1,
       manager: 2,
       admin: 3,

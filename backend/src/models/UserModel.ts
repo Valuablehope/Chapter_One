@@ -4,14 +4,14 @@ export interface AppUser {
   user_id: string;
   username: string;
   full_name: string;
-  role: 'cashier' | 'manager' | 'admin';
+  role: 'cashier' | 'manager' | 'admin' | 'self_checkout';
   is_active: boolean;
   created_at: string;
 }
 
 export interface UserFilters {
   search?: string;
-  role?: 'cashier' | 'manager' | 'admin';
+  role?: 'cashier' | 'manager' | 'admin' | 'self_checkout';
   is_active?: boolean;
   page?: number;
   limit?: number;

@@ -12,6 +12,7 @@ import { logger } from '../utils/logger';
 import { gradients } from '../styles/tokens';
 import { useTranslation } from '../i18n/I18nContext';
 import { useSaleSessions } from '../hooks/useSaleSessions';
+import { useAuthStore } from '../store/authStore';
 import HeldSalesPanel from './Sales/HeldSalesPanel';
 
 import Button from '../components/ui/Button';
@@ -54,6 +55,7 @@ import {
 } from '../utils/saleTotals';
 
 export default function Sales() {
+  const { user } = useAuthStore();
   const { t } = useTranslation();
 
   // ── Multi-sale session management ──────────────────────────────────────────
@@ -80,7 +82,9 @@ export default function Sales() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    user?.role === 'self_checkout' ? 'card' : 'cash'
+  );
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentAmountLBP, setPaymentAmountLBP] = useState('');
   const [discountRate, setDiscountRate] = useState(
@@ -1465,32 +1469,34 @@ export default function Sales() {
                 )}
 
                 {/* Discount Percentage Input */}
-                <div className="p-2 bg-white/60 rounded-lg">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-medium text-xs text-gray-700">{t('pos_sales.discount_pct')}</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={discountRate}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
-                          setDiscountRate(value);
-                        }
-                      }}
-                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold"
-                      placeholder="0.00"
-                    />
+                {user?.role !== 'self_checkout' && (
+                  <div className="p-2 bg-white/60 rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-medium text-xs text-gray-700">{t('pos_sales.discount_pct')}</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={discountRate}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
+                            setDiscountRate(value);
+                          }
+                        }}
+                        className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
+                      <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>{t('pos_sales.discount_amount')}</span>
+                      <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                        {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                    <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>{t('pos_sales.discount_amount')}</span>
-                    <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                      {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                )}
 
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
                   <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
@@ -1723,7 +1729,9 @@ export default function Sales() {
               {t('pos_sales.payment_method')}
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).map((method) => {
+              {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[])
+                .filter(method => user?.role !== 'self_checkout' || method === 'card')
+                .map((method) => {
                 const active = paymentMethod === method;
                 return (
                   <button

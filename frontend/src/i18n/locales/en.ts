@@ -36,6 +36,7 @@ export const en = {
       cashier: "Cashier",
       manager: "Manager",
       admin: "Admin",
+      self_checkout: "Self-Checkout",
       add_user: "+ Add User",
       users_count: "Users",
       filtered_results: "Filtered: {{count}} results",
@@ -69,6 +70,7 @@ export const en = {
       role_cashier_desc: "POS access only",
       role_manager_desc: "Reports & inventory",
       role_admin_desc: "Full access",
+      role_self_checkout_desc: "Self-checkout POS only",
       account_active: "Account Active",
       inactive_user_desc: "Inactive users cannot sign in to the POS"
     },

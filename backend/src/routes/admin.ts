@@ -52,7 +52,7 @@ router.get(
   '/users',
   [
     query('search').optional().isString(),
-    query('role').optional().isIn(['cashier', 'manager', 'admin']),
+    query('role').optional().isIn(['cashier', 'manager', 'admin', 'self_checkout']),
     query('is_active').optional().isBoolean(),
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
@@ -75,7 +75,7 @@ router.post(
     body('username').trim().notEmpty().isLength({ min: 3, max: 50 }),
     body('full_name').trim().notEmpty(),
     body('password').isLength({ min: 6 }),
-    body('role').optional().isIn(['cashier', 'manager', 'admin']),
+    body('role').optional().isIn(['cashier', 'manager', 'admin', 'self_checkout']),
     body('is_active').optional().isBoolean(),
   ],
   validateRequest,
@@ -87,7 +87,7 @@ router.put(
   [
     param('id').isUUID(),
     body('full_name').optional().trim().notEmpty(),
-    body('role').optional().isIn(['cashier', 'manager', 'admin']),
+    body('role').optional().isIn(['cashier', 'manager', 'admin', 'self_checkout']),
     body('password').optional().isLength({ min: 6 }),
     body('is_active').optional().isBoolean(),
   ],

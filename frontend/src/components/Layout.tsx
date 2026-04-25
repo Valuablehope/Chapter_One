@@ -170,6 +170,9 @@ export default function Layout({ children }: LayoutProps) {
   ];
 
   const filteredNavItems = navItems.filter(item => {
+    if (user?.role === 'self_checkout') {
+      return item.path === '/sales' || item.path === '/restaurant';
+    }
     if (item.role && user?.role !== 'admin') return false;
     if (item.blockedRoles && user && item.blockedRoles.includes(user.role)) return false;
     return true;

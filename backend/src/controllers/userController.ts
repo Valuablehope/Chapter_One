@@ -6,7 +6,7 @@ import { hashPassword } from '../utils/password';
 export const getUsers = asyncHandler(async (req: Request, res: Response) => {
   const filters: UserFilters = {
     search: req.query.search as string,
-    role: req.query.role as 'cashier' | 'manager' | 'admin' | undefined,
+    role: req.query.role as 'cashier' | 'manager' | 'admin' | 'self_checkout' | undefined,
     is_active: req.query.is_active === 'true' ? true : req.query.is_active === 'false' ? false : undefined,
     page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
     limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
