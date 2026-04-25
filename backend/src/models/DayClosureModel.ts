@@ -12,6 +12,8 @@ export interface DayClosurePreview {
   card_total: number;
   other_payments: number;
   voucher_total: number;
+  currency_code: string;
+  lbp_exchange_rate: number | null;
 }
 
 export interface DayClosureRecord {
@@ -105,11 +107,24 @@ export class DayClosureModel {
   }
 
   static async preview(storeId: string): Promise<DayClosurePreview> {
-    const storeNameResult = await pool.query('SELECT name FROM stores WHERE store_id = $1', [storeId]);
-    const store_name = storeNameResult.rows[0]?.name ?? null;
+    const storeInfoResult = await pool.query(
+      `SELECT s.name, ss.currency_code, ss.lbp_exchange_rate 
+       FROM stores s
+       LEFT JOIN store_settings ss ON s.store_id = ss.store_id
+       WHERE s.store_id = $1`,
+      [storeId]
+    );
+    
+    const info = storeInfoResult.rows[0] || { name: null, currency_code: 'USD', lbp_exchange_rate: null };
 
     const data = await computePreview(pool, storeId);
-    return { store_id: storeId, store_name, ...data };
+    return { 
+      store_id: storeId, 
+      store_name: info.name, 
+      ...data,
+      currency_code: info.currency_code,
+      lbp_exchange_rate: info.lbp_exchange_rate ? Number(info.lbp_exchange_rate) : null
+    };
   }
 
   static async close(

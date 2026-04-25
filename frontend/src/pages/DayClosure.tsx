@@ -299,6 +299,8 @@ export default function DayClosure() {
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">{t('day_closure.cash_actual_label')}</label>
               <CashBreakdown 
+                currencyCode={preview?.currency_code || 'USD'}
+                lbpRate={preview?.lbp_exchange_rate}
                 onChange={(total, breakdown) => {
                   setCashActualStr(total.toString());
                   setCashBreakdown(breakdown);

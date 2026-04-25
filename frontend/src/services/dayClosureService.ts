@@ -9,6 +9,8 @@ export interface DayClosurePreview {
   card_total: number;
   other_payments: number;
   voucher_total: number;
+  currency_code: string;
+  lbp_exchange_rate: number | null;
 }
 
 export interface DayClosureRecord {
