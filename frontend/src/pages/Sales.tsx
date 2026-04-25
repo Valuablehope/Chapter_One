@@ -105,7 +105,7 @@ export default function Sales() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const cartListContainerRef = useRef<HTMLDivElement>(null);
-  const [cartListWidth, setCartListWidth] = useState(400);
+  const [cartListWidth, setCartListWidth] = useState(800);
 
   // Quick Add / Weigh Item Modal State
   const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
@@ -304,7 +304,7 @@ export default function Sales() {
 
   useEffect(() => {
     const el = cartListContainerRef.current;
-    if (!el || cart.length === 0) return;
+    if (!el) return;
 
     const measure = () => {
       const w = el.getBoundingClientRect().width;
@@ -320,7 +320,7 @@ export default function Sales() {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [cart.length]);
+  }, []);
 
   // Search abort controller
   const searchAbortController = useRef<AbortController | null>(null);
@@ -1243,21 +1243,22 @@ export default function Sales() {
               </div>
             </div>
 
-            {cart.length === 0 ? (
-              <div className="p-8">
-                <EmptyState
-                  icon={<BookOpenIcon className="w-12 h-12" />}
-                  title={t('pos_sales.no_items')}
-                  description={t('pos_sales.scan_to_add')}
-                />
-              </div>
-            ) : (
-              <div ref={cartListContainerRef} className="bg-white w-full min-w-0">
+            <div ref={cartListContainerRef} className="bg-white w-full flex-1 min-h-0">
+              {cart.length === 0 ? (
+                <div className="p-8">
+                  <EmptyState
+                    icon={<BookOpenIcon className="w-12 h-12" />}
+                    title={t('pos_sales.no_items')}
+                    description={t('pos_sales.scan_to_add')}
+                  />
+                </div>
+              ) : (
                 <FixedSizeList
                   height={Math.min(cart.length * CART_ROW_HEIGHT, CART_LIST_MAX_HEIGHT)}
                   width={cartListWidth}
                   itemCount={cart.length}
                   itemSize={CART_ROW_HEIGHT}
+                  className="w-full"
                 >
                   {({ index, style }: ListChildComponentProps) => {
                     const item = cart[index];
@@ -1357,8 +1358,8 @@ export default function Sales() {
                   );
                 }}
                 </FixedSizeList>
-              </div>
-            )}
+              )}
+            </div>
           </Card>
         </div>
 
