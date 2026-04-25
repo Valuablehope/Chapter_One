@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "create-user": "tsx src/scripts/createTestUser.ts",
-    "create-license": "tsx src/scripts/createLicense.ts"
+    "create-license": "tsx src/scripts/createLicense.ts",
+    "migrate": "tsx src/scripts/migrate.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

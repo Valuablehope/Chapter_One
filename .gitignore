@@ -47,13 +47,5 @@ tmp/
 temp/
 update-server/releases/
 
-
-
-
-
-
-
-
-
-
-
+# Installers
+installers/*.exe
