@@ -239,12 +239,12 @@ export default function Sales() {
 
   const taxMode: SaleTaxMode = storeSettings?.tax_inclusive ? 'inclusive' : 'exclusive';
 
-  // LBP conversion — single source: lbpExchangeRatePerUsd (set from DB on load / after sale refresh)
   const lbpRate = lbpExchangeRatePerUsd;
-  const formatLBP = (amount: number): string | null => {
-    if (!lbpRate || lbpRate <= 0) return null;
-    return Math.round(amount * lbpRate).toLocaleString() + ' LBP';
-  };
+
+  const formatLBP = useCallback((amount: number): string | null => {
+    if (!lbpExchangeRatePerUsd || lbpExchangeRatePerUsd <= 0) return null;
+    return Math.round(amount * lbpExchangeRatePerUsd).toLocaleString() + ' LBP';
+  }, [lbpExchangeRatePerUsd]);
 
 
   const cartAmounts = useMemo(
@@ -476,18 +476,21 @@ export default function Sales() {
 
   // Add product to cart
   const addToCart = async (product: Product, quantity: number = 1) => {
-    // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false
-    // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
+    // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false.
+    // Use the already-fetched stockBalances map to avoid an API/IndexedDB round-trip on every tap.
+    // If the product is not yet in the map, fall back to a single async fetch to prime it.
     if (product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
       try {
-        const balance = await stockService.getStockBalance(product.product_id);
-        const availableStock = balance?.qty_on_hand || 0;
-
-        // Update stock balance in state
-        if (balance) {
-          setStockBalances(prev => new Map(prev).set(product.product_id, balance));
+        let balance = stockBalances.get(product.product_id);
+        if (!balance) {
+          const fetched = await stockService.getStockBalance(product.product_id);
+          if (fetched) {
+            balance = fetched;
+            setStockBalances(prev => new Map(prev).set(product.product_id, fetched));
+          }
         }
 
+        const availableStock = balance?.qty_on_hand || 0;
         const existingItem = cart.find((item) => item.product.product_id === product.product_id);
         const requestedQty = existingItem ? existingItem.qty + quantity : quantity;
 
@@ -499,7 +502,6 @@ export default function Sales() {
         }
       } catch (error) {
         logger.warn('Failed to check stock, allowing add to cart', { error, productId: product.product_id });
-        // Continue if stock check fails (graceful degradation)
       }
     }
 
@@ -547,20 +549,22 @@ export default function Sales() {
       return;
     }
 
-    // Check stock availability ONLY if product tracks inventory AND allow_negative is explicitly false
-    // If allow_negative is true, undefined, or null, skip stock check (allow negative stock)
+    // Check stock from in-memory map (same approach as addToCart — no API call on every +/-)
     const item = cart.find(i => i.product.product_id === productId);
     if (!item) return;
 
     if (item.product.track_inventory && storeSettings && storeSettings.allow_negative === false) {
       try {
-        const balance = await stockService.getStockBalance(productId);
-        const availableStock = balance?.qty_on_hand || 0;
-
-        if (balance) {
-          setStockBalances(prev => new Map(prev).set(productId, balance));
+        let balance = stockBalances.get(productId);
+        if (!balance) {
+          const fetched = await stockService.getStockBalance(productId);
+          if (fetched) {
+            balance = fetched;
+            setStockBalances(prev => new Map(prev).set(productId, fetched));
+          }
         }
 
+        const availableStock = balance?.qty_on_hand || 0;
         if (availableStock < qty) {
           toast.error(
             `Insufficient stock for ${item.product.name}. Available: ${availableStock}, Requested: ${qty}`
@@ -569,7 +573,6 @@ export default function Sales() {
         }
       } catch (error) {
         logger.warn('Failed to check stock, allowing quantity update', { error, productId });
-        // Continue if stock check fails (graceful degradation)
       }
     }
 

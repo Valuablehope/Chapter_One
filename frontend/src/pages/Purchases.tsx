@@ -75,13 +75,15 @@ export default function Purchases() {
   const productSearchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const purchasesAbortController = useRef<AbortController | null>(null);
+  const supplierSearchAbortController = useRef<AbortController | null>(null);
+  const productSearchAbortController = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (purchasesAbortController.current) {
-        purchasesAbortController.current.abort();
-      }
+      purchasesAbortController.current?.abort();
+      supplierSearchAbortController.current?.abort();
+      productSearchAbortController.current?.abort();
     };
   }, []);
 
@@ -142,39 +144,43 @@ export default function Purchases() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Search suppliers
+  // Search suppliers — abort any in-flight request before starting a new one
   const handleSupplierSearch = async (query: string) => {
     if (!query.trim()) {
       setSupplierResults([]);
       return;
     }
 
+    supplierSearchAbortController.current?.abort();
+    supplierSearchAbortController.current = new AbortController();
+    const signal = supplierSearchAbortController.current.signal;
+
     try {
-      const response = await supplierService.getSuppliers({
-        search: query,
-        limit: 10,
-      });
-      setSupplierResults(response.data);
+      const response = await supplierService.getSuppliers({ search: query, limit: 10 }, signal);
+      if (!signal.aborted) setSupplierResults(response.data);
     } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       toast.error(t('purchases.errors.search_suppliers'));
       logger.error('Error searching suppliers:', err);
     }
   };
 
-  // Search products
+  // Search products — abort any in-flight request before starting a new one
   const handleProductSearch = async (query: string) => {
     if (!query.trim()) {
       setProductResults([]);
       return;
     }
 
+    productSearchAbortController.current?.abort();
+    productSearchAbortController.current = new AbortController();
+    const signal = productSearchAbortController.current.signal;
+
     try {
-      const response = await productService.getProducts({
-        search: query,
-        limit: 10,
-      });
-      setProductResults(response.data);
+      const response = await productService.getProducts({ search: query, limit: 10 }, signal);
+      if (!signal.aborted) setProductResults(response.data);
     } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       toast.error(t('purchases.errors.search_products'));
       logger.error('Error searching products:', err);
     }
@@ -602,8 +608,8 @@ export default function Purchases() {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
-                          <Badge variant="primary" size="sm">{po.items.length}</Badge>
-                           <span className="text-xs text-gray-600">{t('purchases.table.items_count', { count: po.items.length })}</span>
+                          <Badge variant="primary" size="sm">{po.items_count ?? po.items.length}</Badge>
+                           <span className="text-xs text-gray-600">{t('purchases.table.items_count', { count: po.items_count ?? po.items.length })}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">

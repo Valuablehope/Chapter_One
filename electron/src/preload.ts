@@ -20,14 +20,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setupInitializeStore: (args: { storeName: string, password: string, port: string }) => ipcRenderer.invoke('setup:initializeStore', args),
   setupInstallService: () => ipcRenderer.invoke('setup:installService'),
   setupComplete: () => ipcRenderer.invoke('setup:complete'),
-  ipcRenderer: {
-    on: (channel: string, callback: (...args: any[]) => void) => {
-      ipcRenderer.on(channel, (_event, ...args) => callback(...args));
-    },
-    removeListener: (channel: string, callback: (...args: any[]) => void) => {
-      ipcRenderer.removeListener(channel, callback);
-    },
-  },
+  ipcRenderer: (() => {
+    // Map original callbacks → their ipcRenderer wrappers so removeListener works correctly.
+    // Without this, removeListener(channel, callback) would try to remove the user callback
+    // directly, but ipcRenderer.on registered an anonymous wrapper — so the removal was a no-op
+    // and listeners leaked on every Layout mount/unmount.
+    const wrapperMap = new Map<(...args: any[]) => void, (...args: any[]) => void>();
+    return {
+      on: (channel: string, callback: (...args: any[]) => void) => {
+        const wrapper = (_event: Electron.IpcRendererEvent, ...args: any[]) => callback(...args);
+        wrapperMap.set(callback, wrapper);
+        ipcRenderer.on(channel, wrapper);
+      },
+      removeListener: (channel: string, callback: (...args: any[]) => void) => {
+        const wrapper = wrapperMap.get(callback);
+        if (wrapper) {
+          ipcRenderer.removeListener(channel, wrapper);
+          wrapperMap.delete(callback);
+        }
+      },
+    };
+  })(),
 });
 
 // Type definitions for TypeScript

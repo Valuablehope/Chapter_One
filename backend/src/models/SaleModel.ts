@@ -5,6 +5,9 @@ import { withRetry } from '../utils/retry';
 import { logger } from '../utils/logger';
 import { cache } from '../utils/cache';
 import { StoreSettingsModel } from './StoreSettingsModel';
+
+// Cached once at runtime — information_schema is stable after migrations complete
+let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean } | null = null;
 import {
   aggregateLines,
   computeLineAmounts,
@@ -406,20 +409,26 @@ export class SaleModel extends BaseModel {
           }
 
           // Create sale
-          // Check if client_sale_id and discount_rate columns exist before including them
+          // Check if client_sale_id and discount_rate columns exist before including them.
+          // Result is cached for the process lifetime — schema is stable after migrations.
           let saleQuery: string;
           let saleValues: any[];
 
           try {
-            // Check if columns exist
-            const columnCheck = await client.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate')
-        `);
+            if (!salesColumnsCache) {
+              const columnCheck = await client.query(`
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate')
+              `);
+              salesColumnsCache = {
+                hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
+                hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
+              };
+            }
 
-            const hasClientSaleId = columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id');
-            const hasDiscountRate = columnCheck.rows.some((r: any) => r.column_name === 'discount_rate');
+            const hasClientSaleId = salesColumnsCache.hasClientSaleId;
+            const hasDiscountRate = salesColumnsCache.hasDiscountRate;
 
             let paramCount = 11; // Base parameters
             const columns: string[] = [

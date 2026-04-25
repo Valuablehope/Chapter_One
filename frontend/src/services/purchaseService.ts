@@ -24,6 +24,8 @@ export interface PurchaseOrder {
   expected_at?: string;
   received_at?: string;
   items: PurchaseOrderItem[];
+  /** Populated in list responses; full items array is populated only on detail fetch. */
+  items_count?: number;
   supplier?: {
     supplier_id: string;
     name: string;

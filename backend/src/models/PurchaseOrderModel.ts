@@ -50,6 +50,8 @@ export interface UpdatePurchaseOrderData {
 
 export interface PurchaseOrderWithDetails extends PurchaseOrder {
   items: PurchaseOrderItem[];
+  /** Populated only on detail fetch (findById). In list results use items_count. */
+  items_count?: number;
   supplier?: {
     supplier_id: string;
     name: string;
@@ -267,18 +269,29 @@ export class PurchaseOrderModel extends BaseModel {
     );
   }
 
-  // Get all purchase orders with filters
+  // Get all purchase orders with filters.
+  // Items are NOT fetched here — the list view only needs items_count and total_cost,
+  // both computed via SQL aggregates. Full items are loaded on demand via findById.
   static async findAll(filters: PurchaseOrderFilters = {}): Promise<PaginatedResult<PurchaseOrderWithDetails>> {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
-    
+
     let query = `
-      SELECT 
+      SELECT
         po.*,
         s.name as supplier_name,
         s.contact_name as supplier_contact,
-        s.phone as supplier_phone
+        s.phone as supplier_phone,
+        COALESCE(agg.items_count, 0)::integer as items_count,
+        COALESCE(agg.total_cost, 0) as total_cost
       FROM purchase_orders po
       LEFT JOIN suppliers s ON s.supplier_id = po.supplier_id
+      LEFT JOIN (
+        SELECT po_id,
+               COUNT(*)::integer       AS items_count,
+               SUM(qty_ordered * unit_cost) AS total_cost
+        FROM purchase_order_items
+        GROUP BY po_id
+      ) agg ON agg.po_id = po.po_id
       WHERE 1=1
     `;
     const params: any[] = [];
@@ -305,12 +318,10 @@ export class PurchaseOrderModel extends BaseModel {
       params.push(`%${filters.search}%`);
     }
 
-    // Get total count
     const countQuery = this.buildCountQuery(query);
     const countResult = await this.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count, 10);
 
-    // Add pagination
     paramCount++;
     query += ` ORDER BY po.ordered_at DESC LIMIT $${paramCount}`;
     params.push(limit);
@@ -318,54 +329,20 @@ export class PurchaseOrderModel extends BaseModel {
     query += ` OFFSET $${paramCount}`;
     params.push(offset);
 
-    const result = await this.query<PurchaseOrderWithSupplierFields>(query, params);
-    const purchaseOrders = result.rows;
+    const result = await this.query<PurchaseOrderWithSupplierFields & { items_count: number; total_cost: number }>(query, params);
 
-    // If no purchase orders, return empty result
-    if (purchaseOrders.length === 0) {
-      return this.buildPaginatedResult([], total, page, limit);
-    }
-
-    // Get all items for all purchase orders in a single query (fixes N+1 problem)
-    const poIds = purchaseOrders.map((po: PurchaseOrderWithSupplierFields) => po.po_id);
-    const itemsQuery = `
-      SELECT poi.*, p.name as product_name, p.barcode, p.unit_of_measure
-      FROM purchase_order_items poi
-      LEFT JOIN products p ON p.product_id = poi.product_id
-      WHERE poi.po_id = ANY($1)
-      ORDER BY poi.po_id
-    `;
-    const itemsResult = await this.query(itemsQuery, [poIds]);
-    const allItems = itemsResult.rows;
-
-    // Group items by po_id
-    const itemsByPoId = new Map<string, typeof allItems>();
-    for (const item of allItems) {
-      if (!itemsByPoId.has(item.po_id)) {
-        itemsByPoId.set(item.po_id, []);
-      }
-      itemsByPoId.get(item.po_id)!.push(item);
-    }
-
-    // Build purchase orders with details
-    const purchaseOrdersWithDetails: PurchaseOrderWithDetails[] = purchaseOrders.map((po: PurchaseOrderWithSupplierFields) => {
-      const items = itemsByPoId.get(po.po_id) || [];
-      const totalCost = items.reduce((sum: number, item: PurchaseOrderItem & { product_name?: string; barcode?: string }) => {
-        return sum + (item.qty_ordered * item.unit_cost);
-      }, 0);
-
-      return {
-        ...po,
-        items,
-        supplier: po.supplier_name ? {
-          supplier_id: po.supplier_id,
-          name: po.supplier_name,
-          contact_name: po.supplier_contact,
-          phone: po.supplier_phone,
-        } : undefined,
-        total_cost: totalCost,
-      };
-    });
+    const purchaseOrdersWithDetails: PurchaseOrderWithDetails[] = result.rows.map((po) => ({
+      ...po,
+      items: [],
+      items_count: po.items_count,
+      total_cost: Number(po.total_cost),
+      supplier: po.supplier_name ? {
+        supplier_id: po.supplier_id,
+        name: po.supplier_name,
+        contact_name: po.supplier_contact,
+        phone: po.supplier_phone,
+      } : undefined,
+    }));
 
     return this.buildPaginatedResult(purchaseOrdersWithDetails, total, page, limit);
   }
