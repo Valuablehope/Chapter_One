@@ -126,6 +126,7 @@ export const en = {
   receipt: {
     receipt_no: "Receipt #",
     po_no: "PO #",
+    invoice_no: "Invoice #",
     date: "Date",
     customer: "Customer",
     description: "Description",
@@ -778,6 +779,7 @@ export const en = {
     },
     table: {
       po_number: "PO Number",
+      invoice_no: "Inv. No",
       supplier: "Supplier",
       status: "Status",
       items: "Items",
@@ -807,6 +809,7 @@ export const en = {
     },
     form: {
       supplier: "Supplier",
+      invoice_no: "Purchase Invoice Number (Optional)",
       expected_delivery_optional: "Expected Delivery Date (Optional)",
       items: "Items",
       scan_barcode_placeholder: "Scan barcode...",

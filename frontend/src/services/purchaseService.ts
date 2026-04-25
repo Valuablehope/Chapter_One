@@ -23,6 +23,7 @@ export interface PurchaseOrder {
   ordered_at: string;
   expected_at?: string;
   received_at?: string;
+  invoice_no?: string;
   items: PurchaseOrderItem[];
   /** Populated in list responses; full items array is populated only on detail fetch. */
   items_count?: number;
@@ -43,6 +44,7 @@ export interface CreatePurchaseOrderData {
     qty_ordered: number;
     unit_cost: number;
   }[];
+  invoice_no?: string;
 }
 
 export interface UpdatePurchaseOrderData {
@@ -53,6 +55,7 @@ export interface UpdatePurchaseOrderData {
     qty_ordered: number;
     unit_cost: number;
   }[];
+  invoice_no?: string;
 }
 
 export interface PurchaseOrderFilters {

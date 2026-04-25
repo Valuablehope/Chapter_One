@@ -68,6 +68,7 @@ export default function Purchases() {
   const [productSearch, setProductSearch] = useState('');
   const [productResults, setProductResults] = useState<Product[]>([]);
   const [expectedAt, setExpectedAt] = useState('');
+  const [invoiceNo, setInvoiceNo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -261,6 +262,7 @@ export default function Purchases() {
     setSelectedSupplier(null);
     setItems([]);
     setExpectedAt('');
+    setInvoiceNo('');
     setShowModal(true);
   };
 
@@ -291,6 +293,7 @@ export default function Purchases() {
       }));
       setItems(formItems);
       setExpectedAt(fullPO.expected_at ? fullPO.expected_at.split('T')[0] : '');
+      setInvoiceNo(fullPO.invoice_no || '');
       setShowModal(true);
 
       // Load store settings for printing
@@ -315,6 +318,7 @@ export default function Purchases() {
     setSelectedSupplier(null);
     setItems([]);
     setExpectedAt('');
+    setInvoiceNo('');
     setShowPrintPreview(false);
   };
 
@@ -346,6 +350,7 @@ export default function Purchases() {
       const purchaseOrderData = {
         supplier_id: selectedSupplier.supplier_id,
         expected_at: expectedAt || undefined,
+        invoice_no: invoiceNo || undefined,
         items: items.map((item) => ({
           product_id: item.product.product_id,
           qty_ordered: item.qty_ordered,
@@ -573,6 +578,7 @@ export default function Purchases() {
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.po_number')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.invoice_no')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.supplier')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.status')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.items')}</th>
@@ -596,6 +602,11 @@ export default function Purchases() {
                           <div className="text-xs font-bold text-gray-900 font-mono">
                             {po.po_number}
                           </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <div className="text-xs font-medium text-gray-600">
+                          {po.invoice_no || '-'}
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -775,6 +786,34 @@ export default function Purchases() {
           // Editable Form
           <form id="purchase-order-form" onSubmit={handleSubmit}>
             {/* Enhanced Supplier Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  {t('purchases.form.invoice_no')}
+                </label>
+                <Input
+                  type="text"
+                  value={invoiceNo}
+                  onChange={(e) => setInvoiceNo(e.target.value)}
+                  placeholder="Enter vendor invoice number..."
+                  className="w-full"
+                  readOnly={editingPO?.status !== 'OPEN' && !!editingPO}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  {t('purchases.form.expected_delivery_optional')}
+                </label>
+                <Input
+                  type="date"
+                  value={expectedAt}
+                  onChange={(e) => setExpectedAt(e.target.value)}
+                  className="w-full"
+                  readOnly={editingPO?.status !== 'OPEN' && !!editingPO}
+                />
+              </div>
+            </div>
+
             <div className="mb-4">
               <label className="block text-xs font-semibold text-gray-700 mb-2">
                 {t('purchases.form.supplier')} <span className="text-red-500">*</span>
@@ -816,21 +855,6 @@ export default function Purchases() {
               )}
             </div>
 
-            {/* Enhanced Expected Date */}
-            <div className="mb-4">
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <CalendarIcon className="w-4 h-4" />
-                </div>
-                <input
-                  type="date"
-                  value={expectedAt}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExpectedAt(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
-                />
-              </div>
-              <p className="text-[10px] text-gray-500 mt-1 ml-3">{t('purchases.form.expected_delivery_optional')}</p>
-            </div>
 
             {/* Enhanced Items Section */}
             <div className="mb-4">
