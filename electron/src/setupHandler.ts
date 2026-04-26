@@ -99,6 +99,10 @@ export function setupIpcHandlers(
         }
 
         if (!fs.existsSync(installerPath)) {
+          if (!app.isPackaged) {
+            log.warn(`PostgreSQL installer not found at ${installerPath}. Bypassing installation in development mode.`);
+            return resolve({ success: true, skipped: true });
+          }
           throw new Error(`PostgreSQL installer not found at ${installerPath}. Please place postgresql-installer.exe in the installers folder.`);
         }
 
@@ -178,7 +182,7 @@ export function setupIpcHandlers(
         log.info(`Migration env: DB_HOST=${env.DB_HOST}, DB_PORT=${env.DB_PORT}, DB_USER=${env.DB_USER}, DB_NAME=${env.DB_NAME}`);
         log.info(`Port argument received from UI: ${port}`);
 
-        const migrateProcess = spawn(runner, runnerArgs, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const migrateProcess = spawn(runner, runnerArgs, { env, stdio: ['ignore', 'pipe', 'pipe'], shell: !app.isPackaged && process.platform === 'win32' });
 
         let errorOutput = '';
 
@@ -241,7 +245,7 @@ export function setupIpcHandlers(
 
         log.info(`Executing create-user script: ${runner} ${runnerArgs.join(' ')}`);
 
-        const cp = spawn(runner, runnerArgs, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const cp = spawn(runner, runnerArgs, { env, stdio: ['ignore', 'pipe', 'pipe'], shell: !app.isPackaged && process.platform === 'win32' });
 
         cp.on('close', (code) => {
           if (code === 0) {
@@ -290,7 +294,7 @@ export function setupIpcHandlers(
 
         log.info(`Executing initialize-store script: ${runner} ${runnerArgs.join(' ')}`);
 
-        const cp = spawn(runner, runnerArgs, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const cp = spawn(runner, runnerArgs, { env, stdio: ['ignore', 'pipe', 'pipe'], shell: !app.isPackaged && process.platform === 'win32' });
 
         cp.on('close', (code) => {
           if (code === 0) {

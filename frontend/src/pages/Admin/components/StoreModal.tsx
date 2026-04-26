@@ -610,25 +610,6 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <FieldLabel>Target UI Resolution</FieldLabel>
-                <select
-                  value={formData.ui_resolution}
-                  onChange={(e) => set('ui_resolution', e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="auto">Auto (Responsive)</option>
-                  <option value="1024x768">1024 x 768 (Compact)</option>
-                  <option value="1280x720">1280 x 720</option>
-                  <option value="1366x768">1366 x 768</option>
-                  <option value="1920x1080">1920 x 1080 (Full HD)</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-400">
-                  Optimizes the interface for a specific screen size. Use "Compact" for smaller POS screens.
-                </p>
-              </div>
-            </div>
 
             <SectionDivider>Receipt Content</SectionDivider>
 
