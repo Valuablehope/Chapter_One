@@ -79,6 +79,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [posModuleType, setPosModuleType] = useState<PosModuleType>('store');
+  const [uiResolution, setUiResolution] = useState<string>('auto');
   const { t } = useTranslation();
 
   useTokenRefresh();
@@ -89,6 +90,9 @@ export default function Layout({ children }: LayoutProps) {
       const s = await storeService.getDefaultStore();
       if (s.pos_module_type) {
         setPosModuleType(s.pos_module_type);
+      }
+      if (s.ui_resolution) {
+        setUiResolution(s.ui_resolution);
       }
     } catch {
       // Keep current value on fetch failure.
@@ -178,7 +182,7 @@ export default function Layout({ children }: LayoutProps) {
     return true;
   });
 
-  const sidebarExpanded = !isSidebarCollapsed || isSidebarHovered;
+  const sidebarExpanded = uiResolution !== '1024x768' && (!isSidebarCollapsed || isSidebarHovered);
 
   const userInitial = user?.fullName?.charAt(0)?.toUpperCase() || 'U';
   const roleLabel   = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
@@ -215,7 +219,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f4fa] flex">
+    <div className={`min-h-screen bg-[#f0f4fa] flex res-${uiResolution}`}>
 
       {/* ══════════════════════════════════
           Desktop Sidebar

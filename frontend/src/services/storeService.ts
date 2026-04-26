@@ -46,6 +46,7 @@ export interface StoreSettings {
   label_price_amount_weight?: number | null;
   /** Permutation of shelf label blocks: header, title, lbp, price */
   label_section_order?: unknown;
+  ui_resolution?: string;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

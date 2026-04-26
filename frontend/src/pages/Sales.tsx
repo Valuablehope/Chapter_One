@@ -299,8 +299,9 @@ export default function Sales() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, selectedCustomer, discountRate, grandTotal]);
 
-  const CART_ROW_HEIGHT = 90;
-  const CART_LIST_MAX_HEIGHT = 450;
+  const isCompact = storeSettings?.ui_resolution === '1024x768';
+  const CART_ROW_HEIGHT = isCompact ? 70 : 90;
+  const CART_LIST_MAX_HEIGHT = isCompact ? 210 : 450;
 
   useEffect(() => {
     const el = cartListContainerRef.current;
@@ -1110,7 +1111,7 @@ export default function Sales() {
               </div>
 
               {/* Product Search */}
-              <div>
+              <div className="relative">
                 <div className="flex items-center gap-2 mb-1.5">
                   <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
                   <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.search_by')}</span>
@@ -1128,11 +1129,10 @@ export default function Sales() {
                     className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
                 </div>
-              </div>
 
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="mt-3 border border-gray-200 rounded-xl max-h-52 overflow-y-auto divide-y divide-gray-50 bg-white shadow-sm">
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 border border-gray-200 rounded-xl max-h-60 overflow-y-auto divide-y divide-gray-50 bg-white shadow-xl z-50">
                   {searchResults.map((product) => (
                     <button
                       key={product.product_id}
@@ -1174,11 +1174,12 @@ export default function Sales() {
               )}
 
               {searching && (
-                <div className="mt-3 text-center py-3">
+                <div className="absolute left-0 right-0 top-full mt-1 border border-gray-200 rounded-xl py-3 bg-white shadow-xl z-50 text-center">
                   <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-secondary-200 border-t-secondary-500"></div>
                   <p className="mt-1.5 text-xs text-gray-500 font-medium">{t('pos_sales.searching')}</p>
                 </div>
               )}
+              </div>
             </div>
           </Card>
 
@@ -1366,6 +1367,7 @@ export default function Sales() {
         {/* Right Column - Customer & Totals */}
         <div className="space-y-4">
           {/* Customer Selection */}
+          {storeSettings?.ui_resolution !== '1024x768' && (
           <Card className="border border-[#e2e8f0] shadow-soft bg-white">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
@@ -1413,6 +1415,7 @@ export default function Sales() {
               )}
             </div>
           </Card>
+          )}
 
           {/* LBP exchange rate (same value as all ≈ LBP math on this page) */}
           {storeSettings?.show_lbp_price !== false && (
@@ -1443,10 +1446,22 @@ export default function Sales() {
           <Card className="border border-[#e2e8f0] bg-white shadow-medium overflow-hidden">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-secondary-500 rounded-lg">
-                  <CurrencyDollarIcon className="w-4 h-4 text-white" />
-                </div>
-                <h2 className="text-base font-bold text-gray-900">{t('pos_sales.totals')}</h2>
+                <h2 className="text-base font-bold text-gray-900 flex-1">{t('pos_sales.totals')}</h2>
+                {storeSettings?.ui_resolution === '1024x768' && (
+                  <Button
+                    onClick={() => setShowCustomerModal(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="!p-1 text-secondary-600 hover:bg-secondary-50"
+                    leftIcon={<UserIcon className="w-3.5 h-3.5" />}
+                  >
+                    {selectedCustomer ? (
+                      <span className="truncate max-w-[80px] font-bold">{selectedCustomer.full_name}</span>
+                    ) : (
+                      <span className="font-bold">+ {t('pos_sales.customer')}</span>
+                    )}
+                  </Button>
+                )}
               </div>
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
