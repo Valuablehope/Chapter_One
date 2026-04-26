@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
@@ -44,7 +45,6 @@ import {
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
-import { createPortal } from 'react-dom';
 import Receipt from '../components/Receipt';
 import {
   computeLineAmounts,
@@ -76,6 +76,8 @@ export default function Sales() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -325,6 +327,40 @@ export default function Sales() {
 
   // Search abort controller
   const searchAbortController = useRef<AbortController | null>(null);
+
+  // Update dropdown position for portal
+  const updateDropdownPosition = useCallback(() => {
+    if (searchContainerRef.current) {
+      const rect = searchContainerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (searchResults.length > 0 || searching) {
+      updateDropdownPosition();
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      window.addEventListener('resize', updateDropdownPosition);
+      
+      // Close on outside click
+      const handleClickOutside = (e: MouseEvent) => {
+        if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+          setSearchResults([]);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+
+      return () => {
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+        window.removeEventListener('resize', updateDropdownPosition);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [searchResults.length, searching, updateDropdownPosition]);
 
   // Perform search
   const performSearch = async (query: string) => {
@@ -1068,8 +1104,8 @@ export default function Sales() {
           )}
 
           {/* Product Search */}
-          <Card className="border border-[#e2e8f0] shadow-soft bg-white">
-            <div className="p-4">
+          <Card className="border border-[#e2e8f0] shadow-soft bg-white !overflow-visible">
+            <div className="p-4 !overflow-visible">
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
                   <MagnifyingGlassIcon className="w-4 h-4 text-white" />
@@ -1111,7 +1147,7 @@ export default function Sales() {
               </div>
 
               {/* Product Search */}
-              <div className="relative">
+              <div className="relative" ref={searchContainerRef}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
                   <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.search_by')}</span>
@@ -1130,55 +1166,74 @@ export default function Sales() {
                   />
                 </div>
 
-                {/* Search Results */}
-                {searchResults.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 border border-gray-200 rounded-xl max-h-60 overflow-y-auto divide-y divide-gray-50 bg-white shadow-xl z-50">
-                  {searchResults.map((product) => (
-                    <button
-                      key={product.product_id}
-                      onClick={() => addToCart(product)}
-                      className="w-full px-3 py-2.5 text-left hover:bg-secondary-50 transition-all duration-150 group"
-                    >
-                      <div className="flex justify-between items-center gap-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="p-1.5 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
-                            <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-xs text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {product.sku && (
-                                <span className="text-[10px] text-gray-400 font-mono">SKU {product.sku}</span>
-                              )}
-                              {product.barcode && (
-                                <Badge variant="gray" size="sm" className="font-mono text-[10px]">
-                                  {product.barcode}
-                                </Badge>
-                              )}
+                {/* Search Results Portal */}
+                {searchResults.length > 0 && createPortal(
+                  <div 
+                    className="fixed border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-50 bg-white shadow-2xl z-[9999]"
+                    style={{
+                      top: `${dropdownPosition.top - window.scrollY}px`,
+                      left: `${dropdownPosition.left - window.scrollX}px`,
+                      width: `${dropdownPosition.width}px`,
+                    }}
+                  >
+                    {searchResults.map((product) => (
+                      <button
+                        key={product.product_id}
+                        onClick={() => {
+                          addToCart(product);
+                          setSearchResults([]);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-all duration-150 group"
+                      >
+                        <div className="flex justify-between items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="p-2 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
+                              <BookOpenIcon className="w-4 h-4 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {product.sku && (
+                                  <span className="text-[11px] text-gray-400 font-mono">SKU {product.sku}</span>
+                                )}
+                                {product.barcode && (
+                                  <Badge variant="gray" size="sm" className="font-mono text-[10px]">
+                                    {product.barcode}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-bold text-sm text-secondary-500">
+                              ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                            </p>
+                            {product.track_inventory && (
+                              <p className="text-[10px] text-gray-400 mt-0.5">{t('pos_sales.in_stock')}</p>
+                            )}
+                          </div>
+                          <ArrowRightIcon className="w-4 h-4 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-sm text-secondary-500">
-                            ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                          </p>
-                          {product.track_inventory && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">{t('pos_sales.in_stock')}</p>
-                          )}
-                        </div>
-                        <ArrowRightIcon className="w-3 h-3 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                      </button>
+                    ))}
+                  </div>,
+                  document.body
+                )}
 
-              {searching && (
-                <div className="absolute left-0 right-0 top-full mt-1 border border-gray-200 rounded-xl py-3 bg-white shadow-xl z-50 text-center">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-secondary-200 border-t-secondary-500"></div>
-                  <p className="mt-1.5 text-xs text-gray-500 font-medium">{t('pos_sales.searching')}</p>
-                </div>
-              )}
+                {searching && createPortal(
+                  <div 
+                    className="fixed border border-gray-200 rounded-xl py-4 bg-white shadow-2xl z-[9999] text-center"
+                    style={{
+                      top: `${dropdownPosition.top - window.scrollY}px`,
+                      left: `${dropdownPosition.left - window.scrollX}px`,
+                      width: `${dropdownPosition.width}px`,
+                    }}
+                  >
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-secondary-200 border-t-secondary-500"></div>
+                    <p className="mt-2 text-sm text-gray-500 font-medium">{t('pos_sales.searching')}</p>
+                  </div>,
+                  document.body
+                )}
               </div>
             </div>
           </Card>

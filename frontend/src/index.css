@@ -407,17 +407,19 @@ select:focus {
 .res-1024x768 .lg\:grid-cols-3 > div:first-child > *:nth-child(2) { 
   grid-area: search; 
   position: relative !important;
-  z-index: 50 !important;
+  z-index: 100 !important;
   overflow: visible !important;
 }
-.res-1024x768 .lg\:grid-cols-3 > div:first-child > *:nth-child(2) > div {
+
+/* Ensure ALL nested containers in the Search card allow overflow */
+.res-1024x768 .lg\:grid-cols-3 > div:first-child > *:nth-child(2) div {
   overflow: visible !important;
 }
 
 /* Row 3: Cart */
 .res-1024x768 .lg\:grid-cols-3 > div:first-child > *:nth-child(3) { 
   grid-area: cart; 
-  min-height: 150px !important;
+  min-height: 200px !important;
   position: relative !important;
   z-index: 10 !important;
 }
