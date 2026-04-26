@@ -266,8 +266,24 @@ export default function Layout({ children }: LayoutProps) {
         style={{ boxShadow: shadows.sidebar }}
       >
         {/* Logo */}
-        <div className={`h-16 flex items-center border-b border-sidebar-border flex-shrink-0 ${sidebarExpanded ? 'px-4 justify-between' : 'justify-center px-2'}`}>
-          {sidebarExpanded ? (
+        <div className={`flex items-center border-b border-sidebar-border flex-shrink-0 ${
+          isCompact 
+            ? 'h-24 flex-col justify-center px-2' 
+            : (sidebarExpanded ? 'h-16 px-4 justify-between' : 'h-16 justify-center px-2')
+        }`}>
+          {isCompact ? (
+            <Link to="/dashboard" className="flex flex-col items-center space-y-1.5">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-white/15 shadow-sm">
+                <img src="icon.png" alt="Logo" className="w-9 h-9 object-contain" onError={e => (e.currentTarget.style.display='none')} />
+              </div>
+              <div className="text-center px-1">
+                <p className="text-white text-[11px] font-bold leading-tight truncate max-w-[140px]" style={{ fontFamily: fonts.display }}>
+                  {APP_BRAND_POS_LINE}
+                </p>
+                <p className="text-sidebar-muted text-[8px] uppercase tracking-tighter">Point of Sale</p>
+              </div>
+            </Link>
+          ) : sidebarExpanded ? (
             <>
               <Link to="/dashboard" className="flex items-center space-x-2.5 min-w-0 flex-1">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden bg-white/10">
