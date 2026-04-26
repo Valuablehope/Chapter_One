@@ -367,6 +367,117 @@ export class ProductModel extends BaseModel {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
+  static async bulkCreate(
+    rows: Array<{
+      name: string;
+      sku?: string;
+      barcode?: string;
+      product_type?: string;
+      unit_of_measure?: string;
+      list_price?: number;
+      sale_price?: number;
+      margin_pct?: number;
+      tax_rate?: number;
+      track_inventory?: boolean;
+    }>
+  ): Promise<{ created: number; skipped: number; errors: string[] }> {
+    const client = await this.getClient();
+
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2; // 1-indexed, +1 for header
+
+        try {
+          if (!row.name || !row.name.trim()) {
+            errors.push(`Row ${rowNum}: name is required`);
+            skipped++;
+            continue;
+          }
+
+          // Auto-create product type if provided and not existing
+          if (row.product_type && row.product_type.trim()) {
+            const typeName = row.product_type.trim().toUpperCase();
+            const typeExists = await client.query(
+              'SELECT id FROM product_types WHERE UPPER(name) = $1',
+              [typeName]
+            );
+            if (typeExists.rows.length === 0) {
+              await client.query(
+                'INSERT INTO product_types (name, display_on_pos) VALUES ($1, false)',
+                [typeName]
+              );
+            }
+            row.product_type = typeName;
+          }
+
+          // Check SKU uniqueness
+          if (row.sku && row.sku.trim()) {
+            const skuCheck = await client.query(
+              'SELECT product_id FROM products WHERE sku = $1',
+              [row.sku.trim()]
+            );
+            if (skuCheck.rows.length > 0) {
+              errors.push(`Row ${rowNum}: SKU "${row.sku}" already exists — skipped`);
+              skipped++;
+              continue;
+            }
+          }
+
+          // Check barcode uniqueness
+          if (row.barcode && row.barcode.trim()) {
+            const bcCheck = await client.query(
+              'SELECT product_id FROM products WHERE barcode = $1',
+              [row.barcode.trim()]
+            );
+            if (bcCheck.rows.length > 0) {
+              errors.push(`Row ${rowNum}: Barcode "${row.barcode}" already exists — skipped`);
+              skipped++;
+              continue;
+            }
+          }
+
+          await client.query(
+            `INSERT INTO products
+               (sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct, tax_rate, track_inventory)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            [
+              row.sku?.trim() || null,
+              row.barcode?.trim() || null,
+              row.name.trim(),
+              row.product_type || 'OTHER',
+              row.unit_of_measure?.trim() || 'each',
+              row.list_price ?? 0,
+              row.sale_price ?? null,
+              row.margin_pct ?? null,
+              row.tax_rate ?? null,
+              row.track_inventory !== undefined ? row.track_inventory : true,
+            ]
+          );
+          created++;
+        } catch (rowErr: any) {
+          errors.push(`Row ${rowNum}: ${rowErr.message}`);
+          skipped++;
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return { created, skipped, errors };
+  }
+
   static async checkBarcodeUnique(barcode: string, excludeProductId?: string): Promise<boolean> {
     let query = 'SELECT COUNT(*) FROM products WHERE barcode = $1';
     const params: any[] = [barcode];

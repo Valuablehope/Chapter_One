@@ -14,6 +14,7 @@ export interface PurchaseOrder {
   ordered_at: string;
   expected_at?: string;
   received_at?: string;
+  invoice_no?: string;
 }
 
 export interface PurchaseOrderItem {
@@ -36,6 +37,7 @@ export interface CreatePurchaseOrderData {
     qty_ordered: number;
     unit_cost: number;
   }[];
+  invoice_no?: string;
 }
 
 export interface UpdatePurchaseOrderData {
@@ -46,6 +48,7 @@ export interface UpdatePurchaseOrderData {
     qty_ordered: number;
     unit_cost: number;
   }[];
+  invoice_no?: string;
 }
 
 export interface PurchaseOrderWithDetails extends PurchaseOrder {
@@ -166,9 +169,9 @@ export class PurchaseOrderModel extends BaseModel {
       // Create purchase order
       const poQuery = `
         INSERT INTO purchase_orders (
-          supplier_id, store_id, po_number, status, expected_at
+          supplier_id, store_id, po_number, status, expected_at, invoice_no
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `;
       const poValues = [
@@ -177,6 +180,7 @@ export class PurchaseOrderModel extends BaseModel {
         poNumber,
         'OPEN',
         data.expected_at || null,
+        data.invoice_no || null,
       ];
       const poResult = await client.query(poQuery, poValues);
       const purchaseOrder = poResult.rows[0];
@@ -427,6 +431,14 @@ export class PurchaseOrderModel extends BaseModel {
         await client.query(
           'UPDATE purchase_orders SET expected_at = $1 WHERE po_id = $2',
           [data.expected_at || null, poId]
+        );
+      }
+      
+      // Update invoice_no if provided
+      if (data.invoice_no !== undefined) {
+        await client.query(
+          'UPDATE purchase_orders SET invoice_no = $1 WHERE po_id = $2',
+          [data.invoice_no || null, poId]
         );
       }
 

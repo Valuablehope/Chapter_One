@@ -39,17 +39,25 @@ class StockService {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
+        // Reset so the next call can retry rather than re-using a permanently rejected promise
+        this.initPromise = null;
         reject(new Error('Failed to open stock cache database'));
       };
 
       request.onsuccess = () => {
         this.db = request.result;
+        // If another context upgrades the DB, close and reset so we re-open cleanly
+        this.db.onversionchange = () => {
+          this.db?.close();
+          this.db = null;
+          this.initPromise = null;
+        };
         resolve();
       };
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        
+
         // Create object store if it doesn't exist
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'product_id' });
@@ -180,7 +188,7 @@ class StockService {
 
     const cached = await this.getFromCache(productId);
     if (cached) {
-      cached.qty_on_hand = Math.max(0, cached.qty_on_hand + qtyChange);
+      cached.qty_on_hand = cached.qty_on_hand + qtyChange;
       cached.updated_at = Date.now();
       await this.saveToCache(cached);
     }

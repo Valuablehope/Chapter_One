@@ -48,6 +48,10 @@ export interface StoreFormData {
   lbp_exchange_rate: number | null;
   label_show_lbp: boolean;
   show_lbp_price: boolean;
+<<<<<<< HEAD
+=======
+  ui_resolution: string;
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -86,6 +90,10 @@ const initialFormData: StoreFormData = {
   lbp_exchange_rate: null,
   label_show_lbp: true,
   show_lbp_price: true,
+<<<<<<< HEAD
+=======
+  ui_resolution: 'auto',
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -124,6 +132,10 @@ function storeToFormData(s: Store): StoreFormData {
     lbp_exchange_rate: s.lbp_exchange_rate ?? null,
     label_show_lbp: s.label_show_lbp ?? true,
     show_lbp_price: s.show_lbp_price ?? true,
+<<<<<<< HEAD
+=======
+    ui_resolution: s.ui_resolution || 'auto',
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
   };
 }
 
@@ -295,6 +307,10 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       lbp_exchange_rate: formData.lbp_exchange_rate ?? null,
       label_show_lbp: formData.label_show_lbp,
       show_lbp_price: formData.show_lbp_price,
+<<<<<<< HEAD
+=======
+      ui_resolution: formData.ui_resolution,
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
     };
 
     setSubmitting(true);
@@ -607,6 +623,26 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   <option value="58mm">58 mm</option>
                   <option value="A4">A4</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel>Target UI Resolution</FieldLabel>
+                <select
+                  value={formData.ui_resolution}
+                  onChange={(e) => set('ui_resolution', e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="auto">Auto (Responsive)</option>
+                  <option value="1024x768">1024 x 768 (Compact)</option>
+                  <option value="1280x720">1280 x 720</option>
+                  <option value="1366x768">1366 x 768</option>
+                  <option value="1920x1080">1920 x 1080 (Full HD)</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  Optimizes the interface for a specific screen size. Use "Compact" for smaller POS screens.
+                </p>
               </div>
             </div>
 

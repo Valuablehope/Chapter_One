@@ -45,6 +45,10 @@ export interface StoreSettings {
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
   show_lbp_price: boolean;
+<<<<<<< HEAD
+=======
+  ui_resolution: string;
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 }
 
 export interface StoreSettingsInput {
@@ -86,6 +90,10 @@ export interface StoreSettingsInput {
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
   show_lbp_price?: boolean;
+<<<<<<< HEAD
+=======
+  ui_resolution?: string;
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 }
 
 interface StoreSettingsSchemaAudit {
@@ -426,6 +434,14 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('show_lbp_price');
       values.push(settings.show_lbp_price);
     }
+<<<<<<< HEAD
+=======
+    if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
+      paramCount++;
+      fields.push('ui_resolution');
+      values.push(settings.ui_resolution);
+    }
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -632,6 +648,14 @@ export class StoreSettingsModel extends BaseModel {
       fields.push(`show_lbp_price = $${paramCount}`);
       values.push(settings.show_lbp_price);
     }
+<<<<<<< HEAD
+=======
+    if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
+      paramCount++;
+      fields.push(`ui_resolution = $${paramCount}`);
+      values.push(settings.ui_resolution);
+    }
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 
     if (fields.length === 0) {
       // No fields to update, just return existing

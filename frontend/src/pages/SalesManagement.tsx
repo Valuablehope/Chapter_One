@@ -699,7 +699,7 @@ export default function SalesManagement() {
                           >
                             <PencilIcon className="w-4 h-4" />
                           </button>
-                          {user?.role === 'admin' && sale.status !== 'cancelled' && sale.status !== 'void' && (
+                          {sale.status !== 'cancelled' && sale.status !== 'void' && (
                             <button
                               title={t('sales_management.actions.cancel')}
                               aria-label={t('sales_management.actions.cancel')}

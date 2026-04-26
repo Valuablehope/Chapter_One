@@ -7,11 +7,13 @@ import {
   updateProduct,
   deleteProduct,
   validateBarcode,
+  bulkImportProducts,
 } from '../controllers/productController';
 import { authenticate } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
 import { body, query, param } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
+
 
 const router = Router();
 
@@ -47,6 +49,20 @@ router.get(
   [param('barcode').notEmpty()],
   validateRequest,
   getProductByBarcode
+);
+
+// Bulk import products (must be before /:id route)
+router.post(
+  '/bulk-import',
+  [
+    body('products').isArray({ min: 1, max: 50000 }).withMessage('products must be a non-empty array'),
+    body('products.*.name').trim().notEmpty().withMessage('Each product must have a name'),
+    body('products.*.list_price').optional().isFloat({ min: 0 }),
+    body('products.*.sale_price').optional().isFloat({ min: 0 }),
+    body('products.*.tax_rate').optional().isFloat({ min: 0, max: 100 }),
+  ],
+  validateRequest,
+  bulkImportProducts
 );
 
 // Create product

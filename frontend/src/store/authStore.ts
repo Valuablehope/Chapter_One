@@ -5,7 +5,7 @@ export interface User {
   userId: string;
   username: string;
   fullName: string;
-  role: 'cashier' | 'manager' | 'admin';
+  role: 'cashier' | 'manager' | 'admin' | 'self_checkout';
 }
 
 interface AuthState {

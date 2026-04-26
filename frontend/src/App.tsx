@@ -96,7 +96,7 @@ function App() {
         <Route
           path="/sales-management"
           element={
-            <ProtectedRoute blockedRoles={['cashier']}>
+            <ProtectedRoute>
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <SalesManagement />
@@ -108,7 +108,7 @@ function App() {
         <Route
           path="/day-closure"
           element={
-            <ProtectedRoute blockedRoles={['cashier']}>
+            <ProtectedRoute>
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <DayClosure />

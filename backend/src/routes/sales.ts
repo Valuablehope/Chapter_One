@@ -86,7 +86,7 @@ router.put(
 import { authorize } from '../middleware/auth';
 router.put(
   '/:id/cancel',
-  authorize('admin'),
+  authorize('cashier', 'manager', 'admin'),
   cancelSale
 );
 

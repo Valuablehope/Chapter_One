@@ -3,15 +3,20 @@ import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import { SaleModel } from './SaleModel';
 
-export interface DayClosurePreview {
-  store_id: string;
-  store_name: string | null;
+export interface DayClosureStats {
   total_sales: number;
   total_transactions: number;
   cash_expected: number;
   card_total: number;
   other_payments: number;
   voucher_total: number;
+}
+
+export interface DayClosurePreview extends DayClosureStats {
+  store_id: string;
+  store_name: string | null;
+  currency_code: string;
+  lbp_exchange_rate: number | null;
 }
 
 export interface DayClosureRecord {
@@ -29,6 +34,7 @@ export interface DayClosureRecord {
   closed_at: string;
   z_number: number;
   notes: string | null;
+  cash_breakdown: any | null;
   created_at: string;
 }
 
@@ -39,7 +45,7 @@ function roundMoney(n: number): number {
 async function computePreview(
   executor: Pick<PoolClient, 'query'>,
   storeId: string
-): Promise<Omit<DayClosurePreview, 'store_id' | 'store_name'>> {
+): Promise<DayClosureStats> {
   const saleAgg = await executor.query(
     `
       SELECT
@@ -104,18 +110,32 @@ export class DayClosureModel {
   }
 
   static async preview(storeId: string): Promise<DayClosurePreview> {
-    const storeNameResult = await pool.query('SELECT name FROM stores WHERE store_id = $1', [storeId]);
-    const store_name = storeNameResult.rows[0]?.name ?? null;
+    const storeInfoResult = await pool.query(
+      `SELECT s.name, ss.currency_code, ss.lbp_exchange_rate 
+       FROM stores s
+       LEFT JOIN store_settings ss ON s.store_id = ss.store_id
+       WHERE s.store_id = $1`,
+      [storeId]
+    );
+    
+    const info = storeInfoResult.rows[0] || { name: null, currency_code: 'USD', lbp_exchange_rate: null };
 
     const data = await computePreview(pool, storeId);
-    return { store_id: storeId, store_name, ...data };
+    return { 
+      store_id: storeId, 
+      store_name: info.name, 
+      ...data,
+      currency_code: info.currency_code,
+      lbp_exchange_rate: info.lbp_exchange_rate ? Number(info.lbp_exchange_rate) : null
+    };
   }
 
   static async close(
     storeId: string,
     closedByUserId: string,
     cashActual: number,
-    notes: string | null
+    notes: string | null,
+    cashBreakdown: any | null = null
   ): Promise<DayClosureRecord> {
     const client = await pool.connect();
     try {
@@ -151,7 +171,8 @@ export class DayClosureModel {
           other_payments,
           closed_by,
           z_number,
-          notes
+          notes,
+          cash_breakdown
         )
         VALUES (
           $1,
@@ -165,7 +186,8 @@ export class DayClosureModel {
           $8,
           $9,
           $10,
-          $11
+          $11,
+          $12
         )
         RETURNING *
       `,
@@ -181,6 +203,7 @@ export class DayClosureModel {
           closedByUserId,
           z_number,
           notes?.trim() || null,
+          cashBreakdown ? JSON.stringify(cashBreakdown) : null,
         ]
       );
 

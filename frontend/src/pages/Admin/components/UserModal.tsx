@@ -13,7 +13,7 @@ interface UserModalProps {
     username: string;
     full_name: string;
     password: string;
-    role: 'cashier' | 'manager' | 'admin';
+    role: 'cashier' | 'manager' | 'admin' | 'self_checkout';
     is_active: boolean;
   };
   formErrors: Record<string, string>;
@@ -93,9 +93,10 @@ export default function UserModal({
   const { t } = useTranslation();
 
   const ROLE_OPTIONS = [
-    { value: 'cashier',  label: t('admin.users.cashier'),  description: t('admin.users.role_cashier_desc') },
-    { value: 'manager',  label: t('admin.users.manager'),  description: t('admin.users.role_manager_desc') },
-    { value: 'admin',    label: t('admin.users.admin'),    description: t('admin.users.role_admin_desc') },
+    { value: 'cashier',       label: t('admin.users.cashier'),       description: t('admin.users.role_cashier_desc') },
+    { value: 'manager',       label: t('admin.users.manager'),       description: t('admin.users.role_manager_desc') },
+    { value: 'admin',         label: t('admin.users.admin'),         description: t('admin.users.role_admin_desc') },
+    { value: 'self_checkout', label: t('admin.users.self_checkout'), description: t('admin.users.role_self_checkout_desc') },
   ] as const;
 
   return (

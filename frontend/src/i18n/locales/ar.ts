@@ -36,6 +36,7 @@ export const ar = {
       cashier: "كاشير",
       manager: "مدير",
       admin: "مشرف",
+      self_checkout: "دفع ذاتي",
       add_user: "+ إضافة مستخدم",
       users_count: "المستخدمين",
       filtered_results: "تم الفلترة: {{count}} نتيجة",
@@ -69,6 +70,7 @@ export const ar = {
       role_cashier_desc: "الوصول لنقاط البيع فقط",
       role_manager_desc: "التقارير والمخزون",
       role_admin_desc: "وصول كامل",
+      role_self_checkout_desc: "نقاط بيع الخدمة الذاتية فقط",
       account_active: "الحساب نشط",
       inactive_user_desc: "المستخدمون غير النشطين لا يمكنهم تسجيل الدخول إلى نقاط البيع"
     },
@@ -124,6 +126,7 @@ export const ar = {
   receipt: {
     receipt_no: "إيصال رقم",
     po_no: "أمر شراء رقم",
+    invoice_no: "رقم الفاتورة",
     date: "التاريخ",
     customer: "العميل",
     description: "الوصف",
@@ -776,6 +779,7 @@ export const ar = {
     },
     table: {
       po_number: "رقم أمر الشراء",
+      invoice_no: "رقم الفاتورة",
       supplier: "المورد",
       status: "الحالة",
       items: "العناصر",
@@ -805,6 +809,7 @@ export const ar = {
     },
     form: {
       supplier: "المورد",
+      invoice_no: "رقم فاتورة الشراء (اختياري)",
       expected_delivery_optional: "تاريخ التسليم المتوقع (اختياري)",
       items: "العناصر",
       scan_barcode_placeholder: "امسح الباركود...",

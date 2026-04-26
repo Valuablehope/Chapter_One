@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
@@ -12,6 +13,7 @@ import { logger } from '../utils/logger';
 import { gradients } from '../styles/tokens';
 import { useTranslation } from '../i18n/I18nContext';
 import { useSaleSessions } from '../hooks/useSaleSessions';
+import { useAuthStore } from '../store/authStore';
 import HeldSalesPanel from './Sales/HeldSalesPanel';
 
 import Button from '../components/ui/Button';
@@ -43,7 +45,6 @@ import {
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
-import { createPortal } from 'react-dom';
 import Receipt from '../components/Receipt';
 import {
   computeLineAmounts,
@@ -54,6 +55,7 @@ import {
 } from '../utils/saleTotals';
 
 export default function Sales() {
+  const { user } = useAuthStore();
   const { t } = useTranslation();
 
   // ── Multi-sale session management ──────────────────────────────────────────
@@ -74,13 +76,17 @@ export default function Sales() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    user?.role === 'self_checkout' ? 'card' : 'cash'
+  );
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentAmountLBP, setPaymentAmountLBP] = useState('');
   const [discountRate, setDiscountRate] = useState(
@@ -101,7 +107,7 @@ export default function Sales() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const cartListContainerRef = useRef<HTMLDivElement>(null);
-  const [cartListWidth, setCartListWidth] = useState(400);
+  const [cartListWidth, setCartListWidth] = useState(800);
 
   // Quick Add / Weigh Item Modal State
   const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
@@ -295,12 +301,13 @@ export default function Sales() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, selectedCustomer, discountRate, grandTotal]);
 
-  const CART_ROW_HEIGHT = 90;
-  const CART_LIST_MAX_HEIGHT = 450;
+  const isCompact = storeSettings?.ui_resolution === '1024x768';
+  const CART_ROW_HEIGHT = isCompact ? 70 : 90;
+  const CART_LIST_MAX_HEIGHT = isCompact ? 210 : 450;
 
   useEffect(() => {
     const el = cartListContainerRef.current;
-    if (!el || cart.length === 0) return;
+    if (!el) return;
 
     const measure = () => {
       const w = el.getBoundingClientRect().width;
@@ -316,10 +323,44 @@ export default function Sales() {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [cart.length]);
+  }, []);
 
   // Search abort controller
   const searchAbortController = useRef<AbortController | null>(null);
+
+  // Update dropdown position for portal
+  const updateDropdownPosition = useCallback(() => {
+    if (searchContainerRef.current) {
+      const rect = searchContainerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (searchResults.length > 0 || searching) {
+      updateDropdownPosition();
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      window.addEventListener('resize', updateDropdownPosition);
+      
+      // Close on outside click
+      const handleClickOutside = (e: MouseEvent) => {
+        if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+          setSearchResults([]);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+
+      return () => {
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+        window.removeEventListener('resize', updateDropdownPosition);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [searchResults.length, searching, updateDropdownPosition]);
 
   // Perform search
   const performSearch = async (query: string) => {
@@ -884,10 +925,8 @@ export default function Sales() {
     setCart([]);
     setSelectedCustomer(null);
     setDiscountRate(''); // Clear discount
-    // Focus barcode input instead of search
-    if (barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
-    }
+    // Defer focus so React finishes flushing state before we call .focus()
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, [storeSettings]);
 
   // Print receipt
@@ -923,11 +962,30 @@ export default function Sales() {
     return posProducts.filter(p => p.product_type === activeCategory);
   }, [posProducts, activeCategory]);
 
-  // Focus barcode once POS settings (and LBP rate) have loaded
+  // Focus barcode once POS settings (and LBP rate) have loaded.
+  // Deferred 150 ms so Electron finishes the BrowserWindow show/maximize sequence
+  // before we request DOM focus — prevents the OS-level focus desync that causes
+  // inputs to appear focused but not accept keyboard input until minimize/restore.
   useEffect(() => {
     if (posSettingsStatus !== 'ready') return;
-    barcodeInputRef.current?.focus();
+    const t = setTimeout(() => barcodeInputRef.current?.focus(), 150);
+    return () => clearTimeout(t);
   }, [posSettingsStatus]);
+
+  // Re-focus barcode when the Electron window regains OS-level focus.
+  // Handles: alt-tab back, minimize → restore, Windows task-switcher.
+  // Without this the DOM element stays "focused" but the OS routes keystrokes
+  // elsewhere and inputs remain frozen until the user clicks inside the window.
+  useEffect(() => {
+    if (posSettingsStatus !== 'ready') return;
+    const refocus = () => {
+      if (!completedSale && !showPaymentModal && !showCustomerModal && !quickAddProduct) {
+        barcodeInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('focus', refocus);
+    return () => window.removeEventListener('focus', refocus);
+  }, [posSettingsStatus, completedSale, showPaymentModal, showCustomerModal, quickAddProduct]);
 
   // Search is now debounced via useDebouncedCallback
 
@@ -1046,8 +1104,8 @@ export default function Sales() {
           )}
 
           {/* Product Search */}
-          <Card className="border border-[#e2e8f0] shadow-soft bg-white">
-            <div className="p-4">
+          <Card className="border border-[#e2e8f0] shadow-soft bg-white !overflow-visible">
+            <div className="p-4 !overflow-visible">
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="p-1.5 bg-secondary-500 rounded-lg">
                   <MagnifyingGlassIcon className="w-4 h-4 text-white" />
@@ -1089,7 +1147,7 @@ export default function Sales() {
               </div>
 
               {/* Product Search */}
-              <div>
+              <div className="relative" ref={searchContainerRef}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
                   <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.search_by')}</span>
@@ -1107,57 +1165,76 @@ export default function Sales() {
                     className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
                 </div>
-              </div>
 
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="mt-3 border border-gray-200 rounded-xl max-h-52 overflow-y-auto divide-y divide-gray-50 bg-white shadow-sm">
-                  {searchResults.map((product) => (
-                    <button
-                      key={product.product_id}
-                      onClick={() => addToCart(product)}
-                      className="w-full px-3 py-2.5 text-left hover:bg-secondary-50 transition-all duration-150 group"
-                    >
-                      <div className="flex justify-between items-center gap-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="p-1.5 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
-                            <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-xs text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {product.sku && (
-                                <span className="text-[10px] text-gray-400 font-mono">SKU {product.sku}</span>
-                              )}
-                              {product.barcode && (
-                                <Badge variant="gray" size="sm" className="font-mono text-[10px]">
-                                  {product.barcode}
-                                </Badge>
-                              )}
+                {/* Search Results Portal */}
+                {searchResults.length > 0 && createPortal(
+                  <div 
+                    className="fixed border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-50 bg-white shadow-2xl z-[9999]"
+                    style={{
+                      top: `${dropdownPosition.top - window.scrollY}px`,
+                      left: `${dropdownPosition.left - window.scrollX}px`,
+                      width: `${dropdownPosition.width}px`,
+                    }}
+                  >
+                    {searchResults.map((product) => (
+                      <button
+                        key={product.product_id}
+                        onClick={() => {
+                          addToCart(product);
+                          setSearchResults([]);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-all duration-150 group"
+                      >
+                        <div className="flex justify-between items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="p-2 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
+                              <BookOpenIcon className="w-4 h-4 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {product.sku && (
+                                  <span className="text-[11px] text-gray-400 font-mono">SKU {product.sku}</span>
+                                )}
+                                {product.barcode && (
+                                  <Badge variant="gray" size="sm" className="font-mono text-[10px]">
+                                    {product.barcode}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-bold text-sm text-secondary-500">
+                              ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                            </p>
+                            {product.track_inventory && (
+                              <p className="text-[10px] text-gray-400 mt-0.5">{t('pos_sales.in_stock')}</p>
+                            )}
+                          </div>
+                          <ArrowRightIcon className="w-4 h-4 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-sm text-secondary-500">
-                            ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                          </p>
-                          {product.track_inventory && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">{t('pos_sales.in_stock')}</p>
-                          )}
-                        </div>
-                        <ArrowRightIcon className="w-3 h-3 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                      </button>
+                    ))}
+                  </div>,
+                  document.body
+                )}
 
-              {searching && (
-                <div className="mt-3 text-center py-3">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-secondary-200 border-t-secondary-500"></div>
-                  <p className="mt-1.5 text-xs text-gray-500 font-medium">{t('pos_sales.searching')}</p>
-                </div>
-              )}
+                {searching && createPortal(
+                  <div 
+                    className="fixed border border-gray-200 rounded-xl py-4 bg-white shadow-2xl z-[9999] text-center"
+                    style={{
+                      top: `${dropdownPosition.top - window.scrollY}px`,
+                      left: `${dropdownPosition.left - window.scrollX}px`,
+                      width: `${dropdownPosition.width}px`,
+                    }}
+                  >
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-secondary-200 border-t-secondary-500"></div>
+                    <p className="mt-2 text-sm text-gray-500 font-medium">{t('pos_sales.searching')}</p>
+                  </div>,
+                  document.body
+                )}
+              </div>
             </div>
           </Card>
 
@@ -1222,21 +1299,22 @@ export default function Sales() {
               </div>
             </div>
 
-            {cart.length === 0 ? (
-              <div className="p-8">
-                <EmptyState
-                  icon={<BookOpenIcon className="w-12 h-12" />}
-                  title={t('pos_sales.no_items')}
-                  description={t('pos_sales.scan_to_add')}
-                />
-              </div>
-            ) : (
-              <div ref={cartListContainerRef} className="bg-white w-full min-w-0">
+            <div ref={cartListContainerRef} className="bg-white w-full flex-1 min-h-0">
+              {cart.length === 0 ? (
+                <div className="p-8">
+                  <EmptyState
+                    icon={<BookOpenIcon className="w-12 h-12" />}
+                    title={t('pos_sales.no_items')}
+                    description={t('pos_sales.scan_to_add')}
+                  />
+                </div>
+              ) : (
                 <FixedSizeList
                   height={Math.min(cart.length * CART_ROW_HEIGHT, CART_LIST_MAX_HEIGHT)}
                   width={cartListWidth}
                   itemCount={cart.length}
                   itemSize={CART_ROW_HEIGHT}
+                  className="w-full"
                 >
                   {({ index, style }: ListChildComponentProps) => {
                     const item = cart[index];
@@ -1336,14 +1414,15 @@ export default function Sales() {
                   );
                 }}
                 </FixedSizeList>
-              </div>
-            )}
+              )}
+            </div>
           </Card>
         </div>
 
         {/* Right Column - Customer & Totals */}
         <div className="space-y-4">
           {/* Customer Selection */}
+          {storeSettings?.ui_resolution !== '1024x768' && (
           <Card className="border border-[#e2e8f0] shadow-soft bg-white">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
@@ -1391,6 +1470,7 @@ export default function Sales() {
               )}
             </div>
           </Card>
+          )}
 
           {/* LBP exchange rate (same value as all ≈ LBP math on this page) */}
           {storeSettings?.show_lbp_price !== false && (
@@ -1421,10 +1501,22 @@ export default function Sales() {
           <Card className="border border-[#e2e8f0] bg-white shadow-medium overflow-hidden">
             <div className="p-3">
               <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-secondary-500 rounded-lg">
-                  <CurrencyDollarIcon className="w-4 h-4 text-white" />
-                </div>
-                <h2 className="text-base font-bold text-gray-900">{t('pos_sales.totals')}</h2>
+                <h2 className="text-base font-bold text-gray-900 flex-1">{t('pos_sales.totals')}</h2>
+                {storeSettings?.ui_resolution === '1024x768' && (
+                  <Button
+                    onClick={() => setShowCustomerModal(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="!p-1 text-secondary-600 hover:bg-secondary-50"
+                    leftIcon={<UserIcon className="w-3.5 h-3.5" />}
+                  >
+                    {selectedCustomer ? (
+                      <span className="truncate max-w-[80px] font-bold">{selectedCustomer.full_name}</span>
+                    ) : (
+                      <span className="font-bold">+ {t('pos_sales.customer')}</span>
+                    )}
+                  </Button>
+                )}
               </div>
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
@@ -1448,32 +1540,34 @@ export default function Sales() {
                 )}
 
                 {/* Discount Percentage Input */}
-                <div className="p-2 bg-white/60 rounded-lg">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-medium text-xs text-gray-700">{t('pos_sales.discount_pct')}</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={discountRate}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
-                          setDiscountRate(value);
-                        }
-                      }}
-                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold"
-                      placeholder="0.00"
-                    />
+                {user?.role !== 'self_checkout' && (
+                  <div className="p-2 bg-white/60 rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-medium text-xs text-gray-700">{t('pos_sales.discount_pct')}</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={discountRate}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
+                            setDiscountRate(value);
+                          }
+                        }}
+                        className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
+                      <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>{t('pos_sales.discount_amount')}</span>
+                      <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                        {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center mt-1 pt-1 border-t border-gray-200">
-                    <span className={`font-medium text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-600'}`}>{t('pos_sales.discount_amount')}</span>
-                    <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                      {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                )}
 
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
                   <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
@@ -1706,7 +1800,9 @@ export default function Sales() {
               {t('pos_sales.payment_method')}
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).map((method) => {
+              {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[])
+                .filter(method => user?.role !== 'self_checkout' || method === 'card')
+                .map((method) => {
                 const active = paymentMethod === method;
                 return (
                   <button

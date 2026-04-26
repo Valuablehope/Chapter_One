@@ -26,7 +26,6 @@ import {
   PencilIcon,
   TrashIcon,
   FunnelIcon,
-  CalendarIcon,
   ArrowRightIcon,
   SparklesIcon,
   ArrowPathIcon,
@@ -68,6 +67,7 @@ export default function Purchases() {
   const [productSearch, setProductSearch] = useState('');
   const [productResults, setProductResults] = useState<Product[]>([]);
   const [expectedAt, setExpectedAt] = useState('');
+  const [invoiceNo, setInvoiceNo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -119,6 +119,19 @@ export default function Purchases() {
       }
     }
   }, [filters, t]);
+
+  // Load store settings for resolution checks
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await storeService.getDefaultStore();
+        setStoreSettings(settings);
+      } catch (err) {
+        logger.error('Error loading store settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   // Load purchase orders
   useEffect(() => {
@@ -261,6 +274,7 @@ export default function Purchases() {
     setSelectedSupplier(null);
     setItems([]);
     setExpectedAt('');
+    setInvoiceNo('');
     setShowModal(true);
   };
 
@@ -291,6 +305,7 @@ export default function Purchases() {
       }));
       setItems(formItems);
       setExpectedAt(fullPO.expected_at ? fullPO.expected_at.split('T')[0] : '');
+      setInvoiceNo(fullPO.invoice_no || '');
       setShowModal(true);
 
       // Load store settings for printing
@@ -315,6 +330,7 @@ export default function Purchases() {
     setSelectedSupplier(null);
     setItems([]);
     setExpectedAt('');
+    setInvoiceNo('');
     setShowPrintPreview(false);
   };
 
@@ -346,6 +362,7 @@ export default function Purchases() {
       const purchaseOrderData = {
         supplier_id: selectedSupplier.supplier_id,
         expected_at: expectedAt || undefined,
+        invoice_no: invoiceNo || undefined,
         items: items.map((item) => ({
           product_id: item.product.product_id,
           qty_ordered: item.qty_ordered,
@@ -483,49 +500,57 @@ export default function Purchases() {
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            {t('purchases.actions.new_order')}
+            {storeSettings?.ui_resolution === '1024x768' ? '+ Add' : t('purchases.actions.new_order')}
           </Button>
         }
       />
 
-      {/* Enhanced Filters */}
-      <Card className="mb-3 border-2 border-gray-100 shadow-md">
-        <div className="p-3">
-          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <MagnifyingGlassIcon className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder={t('purchases.filters.search_placeholder')}
-                  value={searchQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
-                />
-              </div>
+      {/* Compact Filters for 1024x768 */}
+      <div className={`mb-3 ${storeSettings?.ui_resolution === '1024x768' ? 'px-1' : 'p-3 bg-white border-2 border-gray-100 shadow-sm rounded-xl'}`}>
+        <div className="flex flex-col md:flex-row gap-2 items-center">
+          <div className="relative flex-1 w-full">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <MagnifyingGlassIcon className="w-4 h-4" />
             </div>
-
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <FunnelIcon className="w-4 h-4" />
-              </div>
-              <select
-                value={filters.status || ''}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('status', e.target.value || undefined)}
-                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium"
-              >
-                <option value="">{t('purchases.filters.all_statuses')}</option>
-                <option value="OPEN">{t('purchases.status.open')}</option>
-                <option value="PENDING">{t('purchases.status.pending')}</option>
-                <option value="RECEIVED">{t('purchases.status.received')}</option>
-                <option value="CANCELLED">{t('purchases.status.cancelled')}</option>
-              </select>
-            </div>
+            <input
+              type="text"
+              placeholder={t('purchases.filters.search_placeholder')}
+              value={searchQuery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium shadow-sm"
+            />
           </div>
 
-          <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+          <div className="relative w-full md:w-48">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <FunnelIcon className="w-4 h-4" />
+            </div>
+            <select
+              value={filters.status || ''}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('status', e.target.value || undefined)}
+              className="w-full pl-9 pr-8 py-1.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 appearance-none bg-white font-medium shadow-sm"
+            >
+              <option value="">{t('purchases.filters.all_statuses')}</option>
+              <option value="OPEN">{t('purchases.status.open')}</option>
+              <option value="PENDING">{t('purchases.status.pending')}</option>
+              <option value="RECEIVED">{t('purchases.status.received')}</option>
+              <option value="CANCELLED">{t('purchases.status.cancelled')}</option>
+            </select>
+          </div>
+
+          {storeSettings?.ui_resolution === '1024x768' && (
+             <button
+              onClick={loadPurchaseOrders}
+              className="p-2 rounded-lg bg-white border-2 border-gray-200 text-gray-600 hover:text-secondary-500 transition-all shadow-sm"
+              title={t('purchases.actions.refresh')}
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {storeSettings?.ui_resolution !== '1024x768' && (
+          <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Badge variant="warning" size="sm">{t('purchases.filters.orders_count', { count: pagination.total })}</Badge>
               {filters.search && (
@@ -542,8 +567,8 @@ export default function Purchases() {
               <span>{t('purchases.actions.refresh')}</span>
             </button>
           </div>
-        </div>
-      </Card>
+        )}
+      </div>
 
       {/* Purchase Orders Table */}
       <div className="overflow-x-auto -mx-3 sm:mx-0">
@@ -573,11 +598,16 @@ export default function Purchases() {
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.po_number')}</th>
+                    {storeSettings?.ui_resolution !== '1024x768' && (
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.invoice_no')}</th>
+                    )}
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.supplier')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.status')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.items')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.total_cost')}</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.ordered_at')}</th>
+                    {storeSettings?.ui_resolution !== '1024x768' && (
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.ordered_at')}</th>
+                    )}
                     <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.actions')}</th>
                   </tr>
                 </thead>
@@ -598,6 +628,13 @@ export default function Purchases() {
                           </div>
                         </div>
                       </td>
+                      {storeSettings?.ui_resolution !== '1024x768' && (
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-xs font-medium text-gray-600">
+                            {po.invoice_no || '-'}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="text-xs font-semibold text-gray-900">
                           {po.supplier?.name || <span className="text-gray-400">{t('purchases.common.unknown')}</span>}
@@ -609,7 +646,11 @@ export default function Purchases() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
                           <Badge variant="primary" size="sm">{po.items_count ?? po.items.length}</Badge>
+<<<<<<< HEAD
                            <span className="text-xs text-gray-600">{t('purchases.table.items_count', { count: po.items_count ?? po.items.length })}</span>
+=======
+                           <span className="text-xs text-gray-600 sm:hidden lg:inline">{t('purchases.table.items_count', { count: po.items_count ?? po.items.length })}</span>
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -617,11 +658,13 @@ export default function Purchases() {
                           {formatCurrency(Number(po.total_cost))}
                         </div>
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <div className="text-xs text-gray-600">
-                          {new Date(po.ordered_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
-                        </div>
-                      </td>
+                      {storeSettings?.ui_resolution !== '1024x768' && (
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-xs text-gray-600">
+                            {new Date(po.ordered_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-3 py-2 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1">
                           {po.status !== 'RECEIVED' && po.status !== 'CANCELLED' && (
@@ -775,6 +818,34 @@ export default function Purchases() {
           // Editable Form
           <form id="purchase-order-form" onSubmit={handleSubmit}>
             {/* Enhanced Supplier Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  {t('purchases.form.invoice_no')}
+                </label>
+                <Input
+                  type="text"
+                  value={invoiceNo}
+                  onChange={(e) => setInvoiceNo(e.target.value)}
+                  placeholder="Enter vendor invoice number..."
+                  className="w-full"
+                  readOnly={editingPO?.status !== 'OPEN' && !!editingPO}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  {t('purchases.form.expected_delivery_optional')}
+                </label>
+                <Input
+                  type="date"
+                  value={expectedAt}
+                  onChange={(e) => setExpectedAt(e.target.value)}
+                  className="w-full"
+                  readOnly={editingPO?.status !== 'OPEN' && !!editingPO}
+                />
+              </div>
+            </div>
+
             <div className="mb-4">
               <label className="block text-xs font-semibold text-gray-700 mb-2">
                 {t('purchases.form.supplier')} <span className="text-red-500">*</span>
@@ -816,21 +887,6 @@ export default function Purchases() {
               )}
             </div>
 
-            {/* Enhanced Expected Date */}
-            <div className="mb-4">
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <CalendarIcon className="w-4 h-4" />
-                </div>
-                <input
-                  type="date"
-                  value={expectedAt}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExpectedAt(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
-                />
-              </div>
-              <p className="text-[10px] text-gray-500 mt-1 ml-3">{t('purchases.form.expected_delivery_optional')}</p>
-            </div>
 
             {/* Enhanced Items Section */}
             <div className="mb-4">
@@ -847,7 +903,7 @@ export default function Purchases() {
                     <input
                       ref={barcodeInputRef}
                       type="text"
-                       placeholder={t('purchases.form.scan_barcode_placeholder')}
+                       placeholder={storeSettings?.ui_resolution === '1024x768' ? 'Barcode' : t('purchases.form.scan_barcode_placeholder')}
                       onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                         if (e.key === 'Enter') {
                           e.preventDefault(); // Prevent form submission
@@ -858,7 +914,7 @@ export default function Purchases() {
                           }
                         }
                       }}
-                      className="w-40 pl-9 pr-2.5 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+                      className={`${storeSettings?.ui_resolution === '1024x768' ? 'w-24' : 'w-40'} pl-8 pr-2 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium`}
                     />
                   </div>
                   {/* Product Search */}
@@ -871,8 +927,8 @@ export default function Purchases() {
                       type="text"
                       value={productSearch}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProductSearch(e.target.value)}
-                       placeholder={t('purchases.form.search_products_placeholder')}
-                      className="w-56 pl-9 pr-2.5 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+                       placeholder={storeSettings?.ui_resolution === '1024x768' ? 'Search...' : t('purchases.form.search_products_placeholder')}
+                      className={`${storeSettings?.ui_resolution === '1024x768' ? 'w-32' : 'w-56'} pl-8 pr-2 py-2 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium`}
                     />
                   </div>
                 </div>

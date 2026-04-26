@@ -18,7 +18,7 @@ export const postDayClosure = asyncHandler(async (req: Request, res: Response, _
     throw new CustomError('User not authenticated', 401);
   }
 
-  const { cash_actual, notes } = req.body as { cash_actual?: number; notes?: string };
+  const { cash_actual, notes, cash_breakdown } = req.body as { cash_actual?: number; notes?: string; cash_breakdown?: any };
   if (cash_actual === undefined || cash_actual === null || typeof cash_actual !== 'number') {
     throw new CustomError('cash_actual is required', 400);
   }
@@ -34,7 +34,8 @@ export const postDayClosure = asyncHandler(async (req: Request, res: Response, _
       storeId,
       userId,
       round2(cash_actual),
-      typeof notes === 'string' ? notes : null
+      typeof notes === 'string' ? notes : null,
+      cash_breakdown
     );
     logger.info(`Day closure Z-${closure.z_number} for store ${storeId} by ${userId}`);
     res.status(201).json({ success: true, data: closure });

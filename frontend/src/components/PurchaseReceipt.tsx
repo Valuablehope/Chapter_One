@@ -75,8 +75,16 @@ export default function PurchaseReceipt({ settings, purchaseOrder, supplier }: P
 
   const metaRows = [
     { label: t('receipt.po_no'), value: purchaseOrder.po_number || '—' },
-    { label: t('receipt.date'), value: formatDate(purchaseOrder.ordered_at || new Date().toISOString()) },
   ];
+  
+  if (purchaseOrder.invoice_no) {
+    metaRows.push({
+      label: t('receipt.invoice_no'),
+      value: purchaseOrder.invoice_no,
+    });
+  }
+  
+  metaRows.push({ label: t('receipt.date'), value: formatDate(purchaseOrder.ordered_at || new Date().toISOString()) });
 
   if (purchaseOrder.expected_at) {
     metaRows.push({

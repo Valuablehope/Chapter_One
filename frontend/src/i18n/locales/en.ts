@@ -36,6 +36,7 @@ export const en = {
       cashier: "Cashier",
       manager: "Manager",
       admin: "Admin",
+      self_checkout: "Self-Checkout",
       add_user: "+ Add User",
       users_count: "Users",
       filtered_results: "Filtered: {{count}} results",
@@ -69,6 +70,7 @@ export const en = {
       role_cashier_desc: "POS access only",
       role_manager_desc: "Reports & inventory",
       role_admin_desc: "Full access",
+      role_self_checkout_desc: "Self-checkout POS only",
       account_active: "Account Active",
       inactive_user_desc: "Inactive users cannot sign in to the POS"
     },
@@ -124,6 +126,7 @@ export const en = {
   receipt: {
     receipt_no: "Receipt #",
     po_no: "PO #",
+    invoice_no: "Invoice #",
     date: "Date",
     customer: "Customer",
     description: "Description",
@@ -776,6 +779,7 @@ export const en = {
     },
     table: {
       po_number: "PO Number",
+      invoice_no: "Inv. No",
       supplier: "Supplier",
       status: "Status",
       items: "Items",
@@ -805,6 +809,7 @@ export const en = {
     },
     form: {
       supplier: "Supplier",
+      invoice_no: "Purchase Invoice Number (Optional)",
       expected_delivery_optional: "Expected Delivery Date (Optional)",
       items: "Items",
       scan_barcode_placeholder: "Scan barcode...",

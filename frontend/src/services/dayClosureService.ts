@@ -9,6 +9,8 @@ export interface DayClosurePreview {
   card_total: number;
   other_payments: number;
   voucher_total: number;
+  currency_code: string;
+  lbp_exchange_rate: number | null;
 }
 
 export interface DayClosureRecord {
@@ -26,6 +28,7 @@ export interface DayClosureRecord {
   closed_at: string;
   z_number: number;
   notes: string | null;
+  cash_breakdown: any | null;
   created_at: string;
 }
 
@@ -39,11 +42,11 @@ export const dayClosureService = {
     return res.data.data;
   },
 
-  async close(cashActual: number, notes: string | undefined, storeId?: string): Promise<DayClosureRecord> {
+  async close(cashActual: number, notes: string | undefined, cashBreakdown?: any, storeId?: string): Promise<DayClosureRecord> {
     const params = storeId ? { store_id: storeId } : {};
     const res = await api.post<{ success: boolean; data: DayClosureRecord }>(
       '/day-closure/close',
-      { cash_actual: cashActual, notes: notes || undefined },
+      { cash_actual: cashActual, notes: notes || undefined, cash_breakdown: cashBreakdown },
       { params }
     );
     return res.data.data;

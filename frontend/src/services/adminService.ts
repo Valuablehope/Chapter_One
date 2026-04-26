@@ -95,6 +95,7 @@ export interface Store {
   label_currency_weight?: number | null;
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
+  ui_resolution?: string;
 }
 
 export interface Terminal {

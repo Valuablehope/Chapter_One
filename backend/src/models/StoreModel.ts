@@ -49,6 +49,10 @@ export interface Store {
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
   show_lbp_price?: boolean;
+<<<<<<< HEAD
+=======
+  ui_resolution?: string;
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 }
 
 export interface StoreFilters {
@@ -137,6 +141,10 @@ export class StoreModel extends BaseModel {
       label_price_amount_weight: 'ss.label_price_amount_weight',
       label_section_order: 'ss.label_section_order',
       show_lbp_price: 'ss.show_lbp_price',
+<<<<<<< HEAD
+=======
+      ui_resolution: 'ss.ui_resolution',
+>>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

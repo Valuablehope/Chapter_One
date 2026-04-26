@@ -46,7 +46,7 @@ export const getPurchaseOrderById = asyncHandler(
 // Create purchase order
 export const createPurchaseOrder = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { supplier_id, expected_at, items } = req.body;
+    const { supplier_id, expected_at, items, invoice_no } = req.body;
 
     // Validate input
     if (!supplier_id) {
@@ -80,6 +80,7 @@ export const createPurchaseOrder = asyncHandler(
       supplier_id,
       expected_at,
       items,
+      invoice_no,
     };
 
     const purchaseOrder = await PurchaseOrderModel.create(purchaseOrderData);
@@ -97,7 +98,7 @@ export const createPurchaseOrder = asyncHandler(
 export const updatePurchaseOrder = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { supplier_id, expected_at, items } = req.body;
+    const { supplier_id, expected_at, items, invoice_no } = req.body;
 
     // Validate items if provided
     if (items && Array.isArray(items)) {
@@ -128,6 +129,7 @@ export const updatePurchaseOrder = asyncHandler(
       supplier_id,
       expected_at,
       items,
+      invoice_no,
     };
 
     const purchaseOrder = await PurchaseOrderModel.update(id, updateData);
