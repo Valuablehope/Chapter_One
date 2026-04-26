@@ -185,11 +185,7 @@ export function useOfflineSync() {
     // Only run the periodic sync when there are actually pending sales to avoid
     // unnecessary IndexedDB reads on every interval tick.
     const syncInterval = setInterval(() => {
-<<<<<<< HEAD
       if (navigator.onLine && pendingCount > 0) {
-=======
-      if (navigator.onLine && pendingCountRef.current > 0) {
->>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
         syncPendingSales();
       }
     }, 60000);
@@ -215,11 +211,7 @@ export function useOfflineSync() {
       clearInterval(syncInterval);
       clearInterval(countInterval);
     };
-<<<<<<< HEAD
   }, [syncPendingSales, updatePendingCount, pendingCount]);
-=======
-  }, [syncPendingSales, updatePendingCount]);
->>>>>>> eb77ce8d706755e7556cca22e82bfea324f812d3
 
   return {
     pendingCount,
