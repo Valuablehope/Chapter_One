@@ -74,12 +74,55 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+interface NavItemProps {
+  item: any;
+  active: boolean;
+  sidebarExpanded: boolean;
+  isCompact: boolean;
+  onClick?: () => void;
+}
+
+const NavItem = ({ item, active, sidebarExpanded, isCompact, onClick }: NavItemProps) => {
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.path}
+      onClick={onClick}
+      title={!sidebarExpanded ? item.label : undefined}
+      className={`
+        relative flex items-center
+        ${sidebarExpanded && !isCompact ? 'px-3' : 'justify-center px-2'}
+        py-2.5 rounded-lg text-sm font-medium
+        transition-all duration-200 group
+        ${active
+          ? 'text-white bg-sidebar-active'
+          : 'text-sidebar-text hover:text-white hover:bg-sidebar-hover'}
+      `}
+    >
+      {/* Blue left-bar indicator for active */}
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-secondary-400 rounded-r-full" />
+      )}
+      <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${active ? '!text-white' : ''}`} />
+      {sidebarExpanded && (
+        <span className={`truncate ${active ? '!text-white' : ''} ${sidebarExpanded && !isCompact ? 'ml-3' : ''}`}>
+          {item.label}
+        </span>
+      )}
+    </Link>
+  );
+};
+
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const [posModuleType, setPosModuleType] = useState<PosModuleType>('store');
-  const [uiResolution, setUiResolution] = useState<string>('auto');
+  const [posModuleType, setPosModuleType] = useState<PosModuleType>(
+    (localStorage.getItem('pos-module-type') as PosModuleType) || 'store'
+  );
+  const [uiResolution, setUiResolution] = useState<string>(
+    localStorage.getItem('ui-resolution') || 'auto'
+  );
   const { t } = useTranslation();
 
   useTokenRefresh();
@@ -90,9 +133,11 @@ export default function Layout({ children }: LayoutProps) {
       const s = await storeService.getDefaultStore();
       if (s.pos_module_type) {
         setPosModuleType(s.pos_module_type);
+        localStorage.setItem('pos-module-type', s.pos_module_type);
       }
       if (s.ui_resolution) {
         setUiResolution(s.ui_resolution);
+        localStorage.setItem('ui-resolution', s.ui_resolution);
       }
     } catch {
       // Keep current value on fetch failure.
@@ -182,41 +227,11 @@ export default function Layout({ children }: LayoutProps) {
     return true;
   });
 
-  const sidebarExpanded = uiResolution !== '1024x768' && (!isSidebarCollapsed || isSidebarHovered);
+  const isCompact = uiResolution === '1024x768';
+  const sidebarExpanded = isCompact || (!isSidebarCollapsed || isSidebarHovered);
 
   const userInitial = user?.fullName?.charAt(0)?.toUpperCase() || 'U';
   const roleLabel   = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
-
-  /* ── Nav item renderer ── */
-  const NavItem = ({ item, onClick }: { item: typeof navItems[0]; onClick?: () => void }) => {
-    const active = isActive(item.path);
-    const Icon   = active ? item.iconSolid : item.icon;
-    return (
-      <Link
-        to={item.path}
-        onClick={onClick}
-        title={!sidebarExpanded ? item.label : undefined}
-        className={`
-          relative flex items-center
-          ${sidebarExpanded ? 'px-3' : 'justify-center px-2'}
-          py-2.5 rounded-lg text-sm font-medium
-          transition-all duration-200 group
-          ${active
-            ? 'text-white bg-sidebar-active'
-            : 'text-sidebar-text hover:text-white hover:bg-sidebar-hover'}
-        `}
-      >
-        {/* Blue left-bar indicator for active */}
-        {active && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-secondary-400 rounded-r-full" />
-        )}
-        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-white' : ''}`} />
-        {sidebarExpanded && (
-          <span className="ml-3 truncate">{item.label}</span>
-        )}
-      </Link>
-    );
-  };
 
   return (
     <div className={`min-h-screen bg-[#f0f4fa] flex res-${uiResolution}`}>
@@ -273,7 +288,15 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 sidebar-dark">
-          {filteredNavItems.map(item => <NavItem key={item.path} item={item} />)}
+          {filteredNavItems.map(item => (
+            <NavItem 
+              key={item.path} 
+              item={item} 
+              active={isActive(item.path)} 
+              sidebarExpanded={sidebarExpanded}
+              isCompact={isCompact}
+            />
+          ))}
         </nav>
 
         {/* User section */}
@@ -391,7 +414,16 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Nav */}
             <nav className="flex-1 px-2 py-3 space-y-0.5 sidebar-dark overflow-y-auto">
-              {filteredNavItems.map(item => <NavItem key={item.path} item={item} onClick={() => setIsMobileMenuOpen(false)} />)}
+              {filteredNavItems.map(item => (
+                <NavItem 
+                  key={item.path} 
+                  item={item} 
+                  active={isActive(item.path)} 
+                  sidebarExpanded={true}
+                  isCompact={false}
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                />
+              ))}
             </nav>
 
             {/* Footer */}

@@ -719,8 +719,9 @@ export default function Products() {
               onClick={() => setShowImportModal(true)}
               className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<ArrowUpTrayIcon className="w-4 h-4" />}
+              title={storeSettings?.ui_resolution === '1024x768' ? 'Import' : undefined}
             >
-              Import
+              {storeSettings?.ui_resolution === '1024x768' ? '' : 'Import'}
             </Button>
             <Button
               onClick={() => {
@@ -731,14 +732,14 @@ export default function Products() {
               className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<TagIcon className="w-4 h-4" />}
             >
-              {t('products.actions.manage_product_types')}
+              {storeSettings?.ui_resolution === '1024x768' ? 'Manage Types' : t('products.actions.manage_product_types')}
             </Button>
             <Button
               onClick={openAddModal}
               className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<PlusIcon className="w-4 h-4" />}
             >
-              {t('products.actions.add_product')}
+              {storeSettings?.ui_resolution === '1024x768' ? '+ Add' : t('products.actions.add_product')}
             </Button>
           </div>
         }

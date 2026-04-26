@@ -513,12 +513,72 @@ select:focus {
 /* ── Icon sizes inside icon-badge containers ── */
 .res-1024x768 .w-6.h-6 { width: 14px !important; height: 14px !important; }
 
-/* ── Sidebar header: centre the icon in icon-only mode ── */
+
+/* ── Sidebar: Wider with vertical labels for Compact ── */
+.res-1024x768 aside.md\:flex {
+  width: 82px !important;
+}
 .res-1024x768 aside .h-16 {
-  height: 46px !important;
   justify-content: center !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+  padding: 0 !important;
+}
+.res-1024x768 aside .h-16 a span, 
+.res-1024x768 aside .h-16 button {
+  display: none !important; /* Hide pin and text in logo area to save space */
+}
+.res-1024x768 aside nav {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  overflow-y: auto !important;
+}
+.res-1024x768 aside nav a {
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 2px !important;
+  min-height: 60px !important;
+}
+.res-1024x768 aside nav a svg {
+  width: 20px !important;
+  height: 20px !important;
+  margin-bottom: 2px !important;
+}
+.res-1024x768 aside nav a span {
+  margin-left: 0 !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  line-height: 1.1 !important;
+  display: block !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* User section at bottom */
+.res-1024x768 aside .border-t {
+  padding: 10px 4px !important;
+}
+.res-1024x768 aside .border-t .flex.items-center {
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+.res-1024x768 aside .border-t .flex.items-center span,
+.res-1024x768 aside .border-t .flex.items-center p {
+  display: none !important; /* Hide user names in compact footer */
+}
+.res-1024x768 aside .border-t button {
+  padding: 6px !important;
+  width: 100% !important;
+  justify-content: center !important;
+}
+.res-1024x768 aside .border-t button span {
+  display: none !important;
+}
+
+/* Adjust main content margin to match new sidebar width */
+.res-1024x768 .flex-1.flex-col {
+  margin-left: 82px !important;
 }
 
 /* ── HD Mode (1280×720 / 1366×768) ── */
