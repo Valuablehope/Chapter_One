@@ -1325,92 +1325,101 @@ export default function Sales() {
 
                     return (
                       <div style={style}>
-                        <div className={`h-full border-b border-gray-100 px-3 py-2.5 hover:bg-secondary-50 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
-                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-1.5 mb-1">
-                            <div className="p-1 bg-secondary-50 rounded-lg">
-                              <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400" />
+                        <div className={`h-full border-b border-gray-100 px-3 py-2 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 h-full">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-1.5 mb-0.5">
+                                <div className="p-1 bg-secondary-50 rounded-lg flex-shrink-0">
+                                  <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400" />
+                                </div>
+                                <p className="font-semibold text-xs text-gray-900 truncate">{item.product.name}</p>
+                              </div>
+                              {!isCompact ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs font-medium text-gray-600">
+                                    ${Number(item.unit_price).toFixed(2)}{' '}
+                                    <span className="font-semibold text-blue-500">
+                                      {item.product.unit_of_measure || t('pos_sales.each')}
+                                    </span>
+                                  </span>
+                                  {item.product.track_inventory && availableStock !== null && (
+                                    <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                      {t('pos_sales.stock')}: {availableStock}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                item.product.track_inventory && availableStock !== null && (
+                                  <span className={`text-[10px] font-medium ml-6 ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                    {t('pos_sales.stock')}: {availableStock}
+                                  </span>
+                                )
+                              )}
                             </div>
-                            <p className="font-semibold text-xs text-gray-900">{item.product.name}</p>
+
+                            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                              {/* Quantity Controls */}
+                              <div className="flex items-center gap-0 border-2 border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">
+                                <Button
+                                  onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="!p-1.5 hover:bg-gray-100 rounded-none border-r border-gray-200"
+                                >
+                                  <MinusIcon className="w-3 h-3 text-gray-500" />
+                                </Button>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={item.qty}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val) && val > 0) {
+                                      updateCartItemQuantity(item.product.product_id, val);
+                                    }
+                                  }}
+                                  className="w-12 text-center font-bold text-xs text-gray-900 py-1 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <Button
+                                  onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="!p-1.5 hover:bg-gray-100 rounded-none border-l border-gray-200"
+                                >
+                                  <PlusIcon className="w-3 h-3 text-gray-500" />
+                                </Button>
+                              </div>
+
+                              {/* Price Display */}
+                              <div className="text-right min-w-[70px] sm:min-w-[90px]">
+                                {isCompact && (
+                                  <p className="text-[10px] font-medium text-gray-400 leading-none mb-0.5">
+                                    {item.qty} x ${Number(item.unit_price).toFixed(2)}
+                                  </p>
+                                )}
+                                <p className="font-bold text-sm text-secondary-600 leading-tight">
+                                  ${Number(item.line_total).toFixed(2)}
+                                </p>
+                                {formatLBP(Number(item.line_total)) && (
+                                  <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
+                                    ≈ {formatLBP(Number(item.line_total))}
+                                  </p>
+                                )}
+                              </div>
+
+                              <Button
+                                onClick={() => removeFromCart(item.product.product_id)}
+                                variant="danger"
+                                size="sm"
+                                className="!p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              >
+                                <XMarkIcon className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs font-medium text-gray-600">
-                              ${Number(item.unit_price).toFixed(2)}{' '}
-                              <span className="font-semibold text-blue-500">
-                                {item.product.unit_of_measure || t('pos_sales.each')}
-                              </span>
-                            </span>
-                            {item.product.track_inventory && availableStock !== null && (
-                              <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                {t('pos_sales.stock')}: {availableStock}
-                              </span>
-                            )}
-                            {Number(item.tax_rate) > 0 && (
-                              <Badge variant="info" size="sm">
-                                {t('pos_sales.tax')}: {Number(item.tax_rate)}%
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-end">
-                          <div className="flex items-center gap-0 border-2 border-gray-200 rounded-lg bg-white overflow-hidden">
-                            <Button
-                              onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
-                              variant="ghost"
-                              size="sm"
-                              className="!p-1.5 hover:bg-gray-100 rounded-none border-r border-gray-200"
-                            >
-                              <MinusIcon className="w-3 h-3" />
-                            </Button>
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              value={item.qty}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (!isNaN(val) && val > 0) {
-                                  updateCartItemQuantity(item.product.product_id, val);
-                                } else if (e.target.value === '') {
-                                  // Optional: allow empty temporary state if needed, 
-                                  // but usually safer to just ignore or set to 1 on blur.
-                                  // For now, let's just not update if invalid
-                                }
-                              }}
-                              className="w-14 text-center font-bold text-xs text-gray-900 py-1.5 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <Button
-                              onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
-                              variant="ghost"
-                              size="sm"
-                              className="!p-1.5 hover:bg-gray-100 rounded-none border-l border-gray-200"
-                            >
-                              <PlusIcon className="w-3 h-3" />
-                            </Button>
-                          </div>
-                          <div className="text-right min-w-[80px]">
-                            <p className="font-bold text-sm text-secondary-500">
-                              ${Number(item.line_total).toFixed(2)}
-                            </p>
-                            {formatLBP(Number(item.line_total)) && (
-                              <p className="text-[10px] text-amber-600 font-semibold mt-0.5">
-                                ≈ {formatLBP(Number(item.line_total))}
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            onClick={() => removeFromCart(item.product.product_id)}
-                            variant="danger"
-                            size="sm"
-                            className="!p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                          >
-                            <XMarkIcon className="w-3 h-3" />
-                          </Button>
                         </div>
                       </div>
-                    </div>
-                  </div>
                   );
                 }}
                 </FixedSizeList>
