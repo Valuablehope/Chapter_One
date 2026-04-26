@@ -56,7 +56,7 @@ export default function Dashboard() {
         todayTransactions: salesSummary[0]?.transaction_count || 0,
         totalProducts:    0,
         totalCustomers:   0,
-        lowStockCount:    lowStock.length,
+        lowStockCount:    lowStock.pagination?.total || 0,
       });
     } catch (err: any) {
       logger.error('Error loading dashboard data:', err);
