@@ -48,8 +48,11 @@ export class ProductModel extends BaseModel {
     const defaultStore = await SaleModel.getDefaultStore();
     const storeId = defaultStore?.store_id || null;
 
+    // Use stock_balances (maintained via UPSERT on every sale/purchase) instead of
+    // aggregating stock_movements. This replaces an O(movements) GROUP BY with a single
+    // indexed lookup per product, eliminating the main cause of Products page freeze.
     let query = `
-      SELECT 
+      SELECT
         p.*,
         pb.book_id,
         pb.isbn13,
@@ -59,17 +62,11 @@ export class ProductModel extends BaseModel {
         pb.edition,
         pb.language`;
 
-    // Add stock movement aggregations only if store_id exists
     if (storeId) {
       query += `,
-      COALESCE(SUM(CASE WHEN sm.reason = 'purchase' THEN sm.qty ELSE 0 END), 0)::integer as qty_in,
-      COALESCE(SUM(CASE WHEN sm.reason = 'sale' THEN ABS(sm.qty) ELSE 0 END), 0)::integer as qty_out,
-      (COALESCE(SUM(CASE WHEN sm.reason = 'purchase' THEN sm.qty ELSE 0 END), 0)::integer - 
-       COALESCE(SUM(CASE WHEN sm.reason = 'sale' THEN ABS(sm.qty) ELSE 0 END), 0)::integer) as balance`;
+      COALESCE(sb.qty_on_hand, 0)::integer as balance`;
     } else {
       query += `,
-      0::integer as qty_in,
-      0::integer as qty_out,
       0::integer as balance`;
     }
 
@@ -77,10 +74,9 @@ export class ProductModel extends BaseModel {
       FROM products p
       LEFT JOIN product_books pb ON pb.product_id = p.product_id`;
 
-    // Add stock_movements JOIN only if store_id exists
     if (storeId) {
       query += `
-      LEFT JOIN stock_movements sm ON sm.product_id = p.product_id AND sm.store_id = $1`;
+      LEFT JOIN stock_balances sb ON sb.product_id = p.product_id AND sb.store_id = $1`;
     }
 
     query += `
@@ -89,7 +85,6 @@ export class ProductModel extends BaseModel {
     const params: any[] = [];
     let paramCount = storeId ? 1 : 0;
 
-    // Add store_id as first parameter if it exists
     if (storeId) {
       params.push(storeId);
     }
@@ -135,13 +130,7 @@ export class ProductModel extends BaseModel {
       query += ` AND p.product_type IN (SELECT name FROM product_types WHERE display_on_pos = true)`;
     }
 
-    // Add GROUP BY clause if we're aggregating stock movements
-    if (storeId) {
-      query += `
-      GROUP BY p.product_id, pb.book_id, pb.isbn13, pb.subtitle, pb.publisher_id, pb.publish_year, pb.edition, pb.language`;
-    }
-
-    // Get total count - buildCountQuery will handle the GROUP BY properly by wrapping in subquery
+    // No GROUP BY needed — stock_balances is a single row per product+store
     const countQuery = this.buildCountQuery(query);
     const countResult = await this.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count, 10);

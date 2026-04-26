@@ -146,15 +146,46 @@ export function useSaleSessions(): UseSaleSessionsReturn {
 
   // Keep a ref so callbacks close over the latest state without stale closures
   const stateRef = useRef(state);
+  // Debounce timer for localStorage writes — avoids synchronous serialization on every keystroke
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending state to flush on unmount
+  const pendingPersistRef = useRef<SessionState | null>(null);
+
+  const schedulePersist = useCallback((next: SessionState) => {
+    pendingPersistRef.current = next;
+    if (persistTimerRef.current !== null) {
+      clearTimeout(persistTimerRef.current);
+    }
+    persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null;
+      if (pendingPersistRef.current !== null) {
+        saveToStorage(pendingPersistRef.current);
+        pendingPersistRef.current = null;
+      }
+    }, 300);
+  }, []);
+
+  // Flush any pending localStorage write on unmount so sessions are never lost
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current !== null) {
+        clearTimeout(persistTimerRef.current);
+      }
+      if (pendingPersistRef.current !== null) {
+        saveToStorage(pendingPersistRef.current);
+        pendingPersistRef.current = null;
+      }
+    };
+  }, []);
 
   const setState = useCallback((updater: SessionState | ((prev: SessionState) => SessionState)) => {
     setStateRaw((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       stateRef.current = next;
-      saveToStorage(next);
+      schedulePersist(next);
       return next;
     });
-  }, []);
+  }, [schedulePersist]);
 
   // On mount: load from storage (already done in useState initialiser above)
   useEffect(() => {

@@ -271,12 +271,24 @@ export default function Products() {
         if (!pending) return;
 
         pendingResizeRef.current = null;
-        const nextConfig = columnsConfigRef.current.map(column =>
+
+        // Update the <col> element directly — avoids React reconciliation and prevents
+        // all ProductRows from re-rendering at 60fps during drag.
+        // setColumnsConfig is called once on mouseup via stopColumnResize.
+        if (tableRef.current) {
+          const colgroup = tableRef.current.querySelector('colgroup');
+          if (colgroup) {
+            const visibleCols = columnsConfigRef.current.filter(column => column.visible);
+            const colIndex = visibleCols.findIndex(column => column.id === pending.id);
+            const colEl = colgroup.children[colIndex] as HTMLTableColElement | undefined;
+            if (colEl) colEl.style.width = `${pending.width}px`;
+          }
+        }
+
+        // Keep ref in sync so stopColumnResize commits the correct final width
+        columnsConfigRef.current = columnsConfigRef.current.map(column =>
           column.id === pending.id ? { ...column, width: pending.width } : column
         );
-
-        columnsConfigRef.current = nextConfig;
-        setColumnsConfig(nextConfig);
       });
     };
 

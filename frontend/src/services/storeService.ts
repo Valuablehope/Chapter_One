@@ -27,6 +27,7 @@ export interface StoreSettings {
   restaurant_track_guests_per_table?: boolean;
   lbp_exchange_rate?: number | null;
   label_show_lbp?: boolean;
+  show_lbp_price?: boolean;
   label_store_name_size?: number | null;
   label_product_name_size?: number | null;
   label_lbp_size?: number | null;

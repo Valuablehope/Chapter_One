@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import log from 'electron-log';
 import { closeCustomerDisplayPort, showCustomerDisplay } from './customerDisplay';
 require('dotenv').config();
+import { setupIpcHandlers } from './setupHandler';
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -45,40 +46,48 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function checkBackendHealth(): Promise<boolean> {
+interface HealthResult {
+  ok: boolean;
+  statusCode?: number;
+  error?: string;
+}
+
+function checkBackendHealth(): Promise<HealthResult> {
   return new Promise((resolve) => {
     const request = http.get(BACKEND_HEALTH_URL, (response) => {
       response.resume();
-      // Allow 503 Service Unavailable because it means the HTTP server is up, 
-      // even if the database connection isn't ready.
-      resolve(response.statusCode === 200 || response.statusCode === 503);
+      // 200 = healthy, 503 = server up but database disconnected
+      resolve({
+        ok: response.statusCode === 200 || response.statusCode === 503,
+        statusCode: response.statusCode,
+      });
     });
 
-    request.on('error', () => resolve(false));
+    request.on('error', (err) => resolve({ ok: false, error: err.message }));
     request.setTimeout(1500, () => {
       request.destroy();
-      resolve(false);
+      resolve({ ok: false, error: 'Timeout' });
     });
   });
 }
 
-async function waitForBackendReady(timeoutMs = 45000, pollMs = 500): Promise<boolean> {
+async function waitForBackendReady(timeoutMs = 45000, pollMs = 500): Promise<HealthResult> {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     if (!backendProcess || backendProcess.killed) {
-      return false;
+      return { ok: false, error: 'Backend process died' };
     }
 
-    const healthy = await checkBackendHealth();
-    if (healthy) {
-      return true;
+    const result = await checkBackendHealth();
+    if (result.ok) {
+      return result;
     }
 
     await delay(pollMs);
   }
 
-  return false;
+  return { ok: false, error: 'Timeout waiting for backend' };
 }
 
 // Function to get backend paths based on dev/production
@@ -127,6 +136,18 @@ function getEnvPath(): string | null {
   }
 
   return envPath;
+}
+
+export function isSetupComplete(envPath: string | null): boolean {
+  if (!envPath || !fs.existsSync(envPath)) return false;
+  try {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    // Simple check: if DB_HOST is defined, we assume setup is complete.
+    // This allows manual .env edits to bypass setup too.
+    return content.includes('DB_HOST=') || content.includes('SETUP_COMPLETED=true');
+  } catch {
+    return false;
+  }
 }
 
 function generateSecret(minLength = 32): string {
@@ -256,6 +277,8 @@ function startBackendServer(): boolean {
     NODE_PATH: nodeModulesPath,
     // Add node_modules to PATH for native modules
     PATH: `${nodeModulesPath}/.bin${path.delimiter}${process.env.PATH || ''}`,
+    // Explicitly pass userData path so backend can find .env
+    USER_DATA_PATH: app.getPath('userData'),
   };
 
   // Load .env file if it exists
@@ -384,7 +407,7 @@ function stopBackendServer(): void {
   }
 }
 
-function createWindow(): void {
+function createWindow(isSetupMode = false): void {
   // Get preload script path
   const preloadPath = path.join(__dirname, 'preload.js');
 
@@ -426,7 +449,8 @@ function createWindow(): void {
   if (isDev) {
     // Development: Load from Vite dev server
     log.info('🔧 Development mode: Loading from http://127.0.0.1:5173');
-    mainWindow.loadURL('http://127.0.0.1:5173').catch((err: Error) => {
+    const url = isSetupMode ? 'http://127.0.0.1:5173/#/setup' : 'http://127.0.0.1:5173';
+    mainWindow.loadURL(url).catch((err: Error) => {
       log.error('Failed to load frontend:', err);
     });
   } else {
@@ -444,7 +468,8 @@ function createWindow(): void {
 
     // Use loadFile() instead of loadURL() with file:// protocol
     // loadFile() properly handles app.asar paths and is the recommended way
-    mainWindow.loadFile(indexPath).catch((err: Error) => {
+    const hash = isSetupMode ? '#/setup' : '';
+    mainWindow.loadFile(indexPath, { hash }).catch((err: Error) => {
       log.error('Failed to load frontend:', err);
     });
   }
@@ -535,17 +560,30 @@ function createWindow(): void {
 
 // App event handlers
 app.whenReady().then(async () => {
+  // Register setup IPC handlers
+  setupIpcHandlers(app, getEnvPath, startBackendServer);
+
+  const envPath = getEnvPath();
+  const setupComplete = isSetupComplete(envPath);
+
   // Start backend server first (only in production)
   if (!isDev) {
+    if (!setupComplete) {
+      log.info('⚠️ App requires setup. Starting in setup mode...');
+      createWindow(true);
+      setupApplicationMenu();
+      return;
+    }
+
     log.info('🚀 Starting backend server...');
     const backendStarted = startBackendServer();
     if (!backendStarted) {
       return;
     }
 
-    const backendReady = await waitForBackendReady();
-    if (!backendReady) {
-      const detail = `Unable to reach ${BACKEND_HEALTH_URL} after startup.`;
+    const health = await waitForBackendReady();
+    if (!health.ok) {
+      const detail = health.error || `Unable to reach ${BACKEND_HEALTH_URL} after startup.`;
       showStartupErrorAndQuit(
         'Backend Unavailable',
         `${detail}\n\nPlease check the application logs and verify your installation integrity.`
@@ -553,19 +591,47 @@ app.whenReady().then(async () => {
       return;
     }
 
+    // If backend is up but database is disconnected (503), ask user if they want to re-run setup
+    if (health.statusCode === 503) {
+      log.warn('⚠️ Backend is running but database is disconnected.');
+      const choice = dialog.showMessageBoxSync({
+        type: 'warning',
+        title: 'Database Connection Failed',
+        message: 'The application is configured but cannot connect to the database.',
+        detail: 'This often happens if PostgreSQL was uninstalled or the connection settings changed. Would you like to re-run the Setup Wizard or try to start anyway?',
+        buttons: ['Re-run Setup Wizard', 'Try Anyway', 'Exit'],
+        defaultId: 0,
+        cancelId: 2,
+      });
+
+      if (choice === 0) {
+        log.info('User chose to re-run setup wizard.');
+        createWindow(true); // Open in setup mode
+        setupApplicationMenu();
+        return;
+      } else if (choice === 2) {
+        app.quit();
+        return;
+      }
+    }
+
     createWindow();
     setupApplicationMenu();
     require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
   } else {
     // In dev mode, backend is started separately
-    createWindow();
+    createWindow(!setupComplete);
     setupApplicationMenu();
-    require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
+    const updaterPath = isDev 
+      ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+      : path.join(app.getAppPath(), 'updater/updateManager.js');
+    require(updaterPath).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
   }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      const currentSetupComplete = isSetupComplete(getEnvPath());
+      createWindow(!isDev && !currentSetupComplete);
     }
   });
 });
@@ -628,11 +694,17 @@ ipcMain.handle('app:getVersion', () => {
 });
 
 ipcMain.handle('app:installUpdate', () => {
-  require(path.join(app.getAppPath(), 'updater/updateManager.js')).manualQuitAndInstall();
+  const updaterPath = isDev 
+    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+    : path.join(app.getAppPath(), 'updater/updateManager.js');
+  require(updaterPath).manualQuitAndInstall();
 });
 
 ipcMain.handle('app:getUpdateStatus', () => {
-  return require(path.join(app.getAppPath(), 'updater/updateManager.js')).getLastStatus();
+  const updaterPath = isDev 
+    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+    : path.join(app.getAppPath(), 'updater/updateManager.js');
+  return require(updaterPath).getLastStatus();
 });
 
 ipcMain.handle('app:getPlatform', () => {
@@ -641,6 +713,46 @@ ipcMain.handle('app:getPlatform', () => {
 
 ipcMain.handle('app:getEnvPath', () => {
   return getEnvPath();
+});
+
+ipcMain.handle('app:resetSetup', async () => {
+  const envPath = getEnvPath();
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning',
+    title: 'Reset Configuration',
+    message: 'Are you sure you want to reset the application configuration?',
+    detail: 'This will delete your database connection settings and restart the Setup Wizard. Your actual database data will not be deleted.',
+    buttons: ['Reset and Restart', 'Cancel'],
+    defaultId: 1,
+  });
+
+  if (choice === 0) {
+    log.info('Resetting setup configuration...');
+    try {
+      // Delete .env from all possible locations
+      const locations = [
+        envPath,
+        path.join(app.getPath('userData'), '.env'),
+        path.join(path.dirname(app.getPath('exe')), '.env')
+      ].filter(p => p && fs.existsSync(p)) as string[];
+
+      locations.forEach(p => {
+        try {
+          fs.unlinkSync(p);
+          log.info(`Deleted config: ${p}`);
+        } catch (e) {
+          log.error(`Failed to delete ${p}:`, e);
+        }
+      });
+
+      app.relaunch();
+      app.exit(0);
+    } catch (error) {
+      log.error('Failed to reset setup:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  }
+  return { success: false };
 });
 
 ipcMain.on('app:log', (_event, { level, message }) => {

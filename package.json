@@ -51,10 +51,12 @@
     "asar": true,
     "asarUnpack": [
       "**/node_modules/serialport/**/*",
-      "**/node_modules/@serialport/**/*"
+      "**/node_modules/@serialport/**/*",
+      "**/node_modules/node-windows/**/*"
     ],
     "files": [
       "electron/dist/**/*",
+      "electron/node_modules/**/*",
       "frontend/dist/**/*",
       "updater/**/*",
       "config/**/*",
@@ -100,6 +102,14 @@
           "!backend/**",
           "!frontend/**"
         ]
+      },
+      {
+        "from": "installers",
+        "to": "installers"
+      },
+      {
+        "from": "database",
+        "to": "database"
       }
     ],
     "win": {
@@ -122,7 +132,8 @@
       "uninstallerIcon": "frontend/public/icon.ico",
       "installerHeaderIcon": "frontend/public/icon.ico",
       "artifactName": "${productName} Setup ${version}.${ext}",
-      "shortcutName": "${productName}"
+      "shortcutName": "${productName}",
+      "deleteAppDataOnUninstall": true
     },
     "publish": {
       "provider": "github",

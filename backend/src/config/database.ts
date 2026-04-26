@@ -21,6 +21,12 @@ function findEnvFile(): string | null {
     if (parentDir === currentDir) break;
     currentDir = parentDir;
   }
+  
+  // 1.5 Check explicitly provided USER_DATA_PATH (from Electron)
+  if (process.env.USER_DATA_PATH) {
+    const userDataEnvPath = path.join(process.env.USER_DATA_PATH, '.env');
+    if (fs.existsSync(userDataEnvPath)) return userDataEnvPath;
+  }
 
   // 2. Check explicitly provided RESOURCES_PATH (from Electron main process)
   if (process.env.RESOURCES_PATH) {

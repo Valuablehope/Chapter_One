@@ -115,20 +115,23 @@ export function useOfflineSync() {
 
   // Monitor online/offline status and visibility changes (sleep/wake)
   useEffect(() => {
+    // Track pending one-shot timeouts so they can be cancelled on unmount
+    const pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+    const scheduleOnce = (fn: () => void, delay: number) => {
+      const id = setTimeout(fn, delay);
+      pendingTimeouts.push(id);
+      return id;
+    };
+
     const handleOnline = () => {
       setIsOnline(true);
       logger.info('Connection restored, syncing pending sales and stock...');
-      // Small delay to ensure connection is stable
-      setTimeout(async () => {
-        // Sync stock balances first (needed for validation)
+      scheduleOnce(async () => {
         try {
-          // Get product IDs from pending sales for targeted sync
           const pending = await offlineQueue.getPendingSales();
           const productIds = new Set<string>();
           pending.forEach(sale => {
-            sale.saleData.items.forEach(item => {
-              productIds.add(item.product_id);
-            });
+            sale.saleData.items.forEach(item => productIds.add(item.product_id));
           });
           if (productIds.size > 0) {
             await stockService.syncStockBalances(Array.from(productIds));
@@ -145,70 +148,64 @@ export function useOfflineSync() {
       logger.warn('Connection lost, sales will be queued');
     };
 
-    // Handle visibility change (app wake from sleep, tab focus)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         logger.info('App became visible, checking for pending sales...');
-        // Small delay to ensure connection is stable after wake
-        setTimeout(() => {
-          syncPendingSales();
-        }, 2000);
+        scheduleOnce(() => syncPendingSales(), 2000);
       }
     };
 
-    // Handle Electron app ready event (wake from sleep)
     const handleAppReady = () => {
       if (navigator.onLine) {
         logger.info('App ready after wake, checking for pending sales...');
-        setTimeout(() => {
-          syncPendingSales();
-        }, 2000);
+        scheduleOnce(() => syncPendingSales(), 2000);
       }
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Listen for Electron app ready event
+
     if (window.electronAPI?.ipcRenderer) {
       window.electronAPI.ipcRenderer.on('app:ready', handleAppReady);
     }
 
-    // Initial sync check
     if (navigator.onLine) {
       syncPendingSales();
     }
 
-    // Initial pending count
     updatePendingCount();
 
-    // Periodic sync check (every 60 seconds when online - reduced frequency)
+    // Only run the periodic sync when there are actually pending sales to avoid
+    // unnecessary IndexedDB reads on every interval tick.
     const syncInterval = setInterval(() => {
-      if (navigator.onLine) {
+      if (navigator.onLine && pendingCount > 0) {
         syncPendingSales();
       }
-    }, 60000); // Changed from 30s to 60s
+    }, 60000);
 
-    // Update pending count periodically (every 30 seconds - reduced frequency)
     const countInterval = setInterval(() => {
       updatePendingCount();
-    }, 30000); // Changed from 5s to 30s
+    }, 30000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      
-      // Remove Electron event listener
+
       if (window.electronAPI?.ipcRenderer) {
         window.electronAPI.ipcRenderer.removeListener('app:ready', handleAppReady);
       }
-      
+
+      // Cancel any pending one-shot timeouts to prevent post-unmount state updates
+      for (const id of pendingTimeouts) {
+        clearTimeout(id);
+      }
+
       clearInterval(syncInterval);
       clearInterval(countInterval);
     };
-  }, [syncPendingSales, updatePendingCount]); // Now stable references
+  }, [syncPendingSales, updatePendingCount, pendingCount]);
 
   return {
     pendingCount,

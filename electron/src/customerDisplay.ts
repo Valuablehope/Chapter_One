@@ -7,6 +7,7 @@
  * Very long receipts: break-inside behavior is a browser concern; serial is independent.
  */
 import log from 'electron-log';
+// @ts-ignore
 import { SerialPort } from 'serialport';
 
 let port: SerialPort | null = null;
@@ -89,7 +90,7 @@ function openSerial(): Promise<SerialPort | null> {
       baudRate: getBaud(),
       autoOpen: false,
     });
-    p.open((err) => {
+    p.open((err: any) => {
       if (err) {
         log.error('[customerDisplay] Failed to open serial port', path, err);
         resolve(null);
@@ -98,7 +99,7 @@ function openSerial(): Promise<SerialPort | null> {
       port = p;
       openPath = path;
       log.info(`[customerDisplay] Opened ${path} @ ${getBaud()} baud (mode=${getMode()})`);
-      p.on('error', (e) => {
+      p.on('error', (e: any) => {
         log.error('[customerDisplay] Serial error', e);
       });
       resolve(p);
@@ -115,7 +116,7 @@ export async function showCustomerDisplay(storeName: string, amount: number): Pr
 
   const payload = buildPayload(storeName, amount);
   await new Promise<void>((resolve) => {
-    p.write(payload, (err) => {
+    p.write(payload, (err: any) => {
       if (err) log.error('[customerDisplay] Write failed', err);
       resolve();
     });

@@ -69,7 +69,9 @@ export default function PurchaseReceipt({ settings, purchaseOrder, supplier }: P
   if (!purchaseOrder) return null;
 
   const grand = Number(purchaseOrder.total_cost);
-  const lbp = formatLbpGrand(grand, settings?.lbp_exchange_rate);
+  const lbp = settings?.show_lbp_price !== false
+    ? formatLbpGrand(grand, settings?.lbp_exchange_rate)
+    : null;
 
   const metaRows = [
     { label: t('receipt.po_no'), value: purchaseOrder.po_number || '—' },
