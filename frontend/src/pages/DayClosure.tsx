@@ -9,7 +9,6 @@ import {
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
-import Input from '../components/ui/Input';
 import PageBanner from '../components/ui/PageBanner';
 import EmptyState from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeleton';

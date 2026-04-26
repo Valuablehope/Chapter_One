@@ -26,7 +26,6 @@ import {
   PencilIcon,
   TrashIcon,
   FunnelIcon,
-  CalendarIcon,
   ArrowRightIcon,
   SparklesIcon,
   ArrowPathIcon,

@@ -3,15 +3,18 @@ import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import { SaleModel } from './SaleModel';
 
-export interface DayClosurePreview {
-  store_id: string;
-  store_name: string | null;
+export interface DayClosureStats {
   total_sales: number;
   total_transactions: number;
   cash_expected: number;
   card_total: number;
   other_payments: number;
   voucher_total: number;
+}
+
+export interface DayClosurePreview extends DayClosureStats {
+  store_id: string;
+  store_name: string | null;
   currency_code: string;
   lbp_exchange_rate: number | null;
 }
@@ -42,7 +45,7 @@ function roundMoney(n: number): number {
 async function computePreview(
   executor: Pick<PoolClient, 'query'>,
   storeId: string
-): Promise<Omit<DayClosurePreview, 'store_id' | 'store_name'>> {
+): Promise<DayClosureStats> {
   const saleAgg = await executor.query(
     `
       SELECT
