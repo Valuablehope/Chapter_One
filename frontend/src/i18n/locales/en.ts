@@ -886,7 +886,10 @@ export const en = {
       unknown: "Unknown",
       not_available: "N/A",
       yes: "Yes",
-      no: "No"
+      no: "No",
+      showing_page: "Page {{current}} of {{total}}",
+      prev: "Prev",
+      next: "Next"
     },
     empty: {
       no_data_title: "No data available"
@@ -965,7 +968,8 @@ export const en = {
         product: "Product",
         quantity_on_hand: "Quantity on Hand",
         track_inventory: "Track Inventory",
-        no_data_description: "No stock data found"
+        no_data_description: "No stock data found",
+        search_placeholder: "Search products by name..."
       },
       low_stock: {
         restock_notice: "{{count}} item(s) need restocking",

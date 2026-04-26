@@ -84,28 +84,41 @@ interface NavItemProps {
 
 const NavItem = ({ item, active, sidebarExpanded, isCompact, onClick }: NavItemProps) => {
   const Icon = item.icon;
+  // Use a stronger brand color for the active background in compact mode for better visibility
+  const activeBgClass = isCompact ? 'bg-secondary-600' : 'bg-sidebar-active';
+  
   return (
     <Link
       to={item.path}
       onClick={onClick}
       title={!sidebarExpanded ? item.label : undefined}
       className={`
-        relative flex items-center
-        ${sidebarExpanded && !isCompact ? 'px-3' : 'justify-center px-2'}
-        py-2.5 rounded-lg text-sm font-medium
+        relative flex
+        ${isCompact ? 'flex-col items-center justify-center min-h-[64px] py-2 px-1' : 'items-center px-3 py-2.5'}
+        rounded-lg text-sm font-medium
         transition-all duration-200 group
         ${active
-          ? 'text-white bg-sidebar-active'
+          ? `text-white ${activeBgClass} shadow-md`
           : 'text-sidebar-text hover:text-white hover:bg-sidebar-hover'}
       `}
     >
-      {/* Blue left-bar indicator for active */}
-      {active && (
+      {/* Active Indicator Bar (only for desktop expanded mode) */}
+      {active && !isCompact && (
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-secondary-400 rounded-r-full" />
       )}
-      <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${active ? '!text-white' : ''}`} />
+      
+      <Icon className={`
+        ${isCompact ? 'w-6 h-6 mb-1' : 'w-[18px] h-[18px] mr-3'} 
+        flex-shrink-0 transition-colors
+        ${active ? 'text-white !opacity-100' : 'group-hover:text-white'}
+      `} />
+      
       {sidebarExpanded && (
-        <span className={`truncate ${active ? '!text-white' : ''} ${sidebarExpanded && !isCompact ? 'ml-3' : ''}`}>
+        <span className={`
+          truncate transition-all duration-200
+          ${isCompact ? 'text-[9px] uppercase font-bold text-center leading-tight w-full' : 'text-sm'}
+          ${active ? 'text-white' : ''}
+        `}>
           {item.label}
         </span>
       )}

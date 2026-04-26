@@ -886,7 +886,10 @@ export const ar = {
       unknown: "غير معروف",
       not_available: "غير متوفر",
       yes: "نعم",
-      no: "لا"
+      no: "لا",
+      showing_page: "صفحة {{current}} من {{total}}",
+      prev: "السابق",
+      next: "التالي"
     },
     empty: {
       no_data_title: "لا توجد بيانات"
@@ -965,7 +968,8 @@ export const ar = {
         product: "المنتج",
         quantity_on_hand: "الكمية المتاحة",
         track_inventory: "تتبع المخزون",
-        no_data_description: "لا توجد بيانات مخزون"
+        no_data_description: "لا توجد بيانات مخزون",
+        search_placeholder: "البحث عن المنتجات بالاسم..."
       },
       low_stock: {
         restock_notice: "{{count}} عنصر بحاجة لإعادة التخزين",
