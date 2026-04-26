@@ -343,12 +343,13 @@ select:focus {
 
 /* Sidebar: always icon-only — CSS safety net (JS also forces this) */
 .res-1024x768 aside {
-  width: 68px !important;
+  width: 82px !important;
 }
 
-/* Main content: always 68px left offset */
-.res-1024x768 div.md\:ml-60 {
-  margin-left: 68px !important;
+/* Main content: always 82px left offset */
+.res-1024x768 div.md\:ml-60,
+.res-1024x768 div.md\:ml-\[68px\] {
+  margin-left: 82px !important;
 }
 
 /* Main content wrapper: minimal padding */
@@ -358,21 +359,12 @@ select:focus {
 
 /* Sidebar width reduction for 1024x768 - Icon only mode or very narrow */
 .res-1024x768 aside.w-60 {
-  width: 68px !important;
+  width: 82px !important;
 }
 
-.res-1024x768 div.md\:ml-60 {
-  margin-left: 68px !important;
-}
-
-/* Hide text in sidebar for 1024x768 icon mode */
+/* Ensure sidebar items are visible */
 .res-1024x768 aside .truncate, 
-.res-1024x768 aside .text-sidebar-muted,
-.res-1024x768 aside .text-white.text-sm {
-  display: none !important;
-}
-
-.res-1024x768 aside button span {
+.res-1024x768 aside .text-sidebar-muted:not(nav a span) {
   display: none !important;
 }
 
@@ -518,13 +510,8 @@ select:focus {
 .res-1024x768 aside.md\:flex {
   width: 82px !important;
 }
-.res-1024x768 aside .h-16 {
+.res-1024x768 aside .flex-shrink-0 {
   justify-content: center !important;
-  padding: 0 !important;
-}
-.res-1024x768 aside .h-16 a span, 
-.res-1024x768 aside .h-16 button {
-  display: none !important; /* Hide pin and text in logo area to save space */
 }
 .res-1024x768 aside nav {
   padding-left: 4px !important;
