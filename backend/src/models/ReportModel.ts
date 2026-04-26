@@ -487,6 +487,7 @@ export class ReportModel extends BaseModel {
   // Stock Report with pagination
   static async getStockReport(
     storeId?: string,
+    search?: string,
     page?: number,
     limit?: number
   ): Promise<PaginatedResult<StockReport>> {
@@ -510,8 +511,15 @@ export class ReportModel extends BaseModel {
 
     if (storeId) {
       paramCount++;
-      query += ` WHERE sb.store_id = $${paramCount} OR sb.store_id IS NULL`;
+      query += ` WHERE (sb.store_id = $${paramCount} OR sb.store_id IS NULL)`;
       params.push(storeId);
+    }
+
+    if (search) {
+      paramCount++;
+      query += storeId ? ` AND` : ` WHERE`;
+      query += ` p.name ILIKE $${paramCount}`;
+      params.push(`%${search}%`);
     }
 
     // Get total count
@@ -537,6 +545,7 @@ export class ReportModel extends BaseModel {
   static async getLowStockReport(
     storeId?: string,
     threshold: number = 10,
+    search?: string,
     page?: number,
     limit?: number
   ): Promise<PaginatedResult<LowStockReport>> {
@@ -563,6 +572,12 @@ export class ReportModel extends BaseModel {
       paramCount++;
       query += ` AND (sb.store_id = $${paramCount} OR sb.store_id IS NULL)`;
       params.push(storeId);
+    }
+
+    if (search) {
+      paramCount++;
+      query += ` AND p.name ILIKE $${paramCount}`;
+      params.push(`%${search}%`);
     }
 
     paramCount++;

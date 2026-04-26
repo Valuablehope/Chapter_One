@@ -93,9 +93,10 @@ export const getSupplierPurchases = asyncHandler(async (req: Request, res: Respo
 
 export const getStockReport = asyncHandler(async (req: Request, res: Response) => {
   const storeId = req.query.store_id as string | undefined;
+  const search = req.query.search as string | undefined;
   const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
-  const result = await ReportModel.getStockReport(storeId, page, limit);
+  const result = await ReportModel.getStockReport(storeId, search, page, limit);
   res.json({
     success: true,
     data: result.data,
@@ -106,9 +107,10 @@ export const getStockReport = asyncHandler(async (req: Request, res: Response) =
 export const getLowStockReport = asyncHandler(async (req: Request, res: Response) => {
   const storeId = req.query.store_id as string | undefined;
   const threshold = req.query.threshold ? parseInt(req.query.threshold as string, 10) : 10;
+  const search = req.query.search as string | undefined;
   const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
-  const result = await ReportModel.getLowStockReport(storeId, threshold, page, limit);
+  const result = await ReportModel.getLowStockReport(storeId, threshold, search, page, limit);
   res.json({
     success: true,
     data: result.data,

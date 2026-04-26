@@ -48,6 +48,7 @@ export interface StoreFormData {
   lbp_exchange_rate: number | null;
   label_show_lbp: boolean;
   show_lbp_price: boolean;
+  ui_resolution: string;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -86,6 +87,7 @@ const initialFormData: StoreFormData = {
   lbp_exchange_rate: null,
   label_show_lbp: true,
   show_lbp_price: true,
+  ui_resolution: 'auto',
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -124,6 +126,7 @@ function storeToFormData(s: Store): StoreFormData {
     lbp_exchange_rate: s.lbp_exchange_rate ?? null,
     label_show_lbp: s.label_show_lbp ?? true,
     show_lbp_price: s.show_lbp_price ?? true,
+    ui_resolution: s.ui_resolution || 'auto',
   };
 }
 
@@ -295,6 +298,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       lbp_exchange_rate: formData.lbp_exchange_rate ?? null,
       label_show_lbp: formData.label_show_lbp,
       show_lbp_price: formData.show_lbp_price,
+      ui_resolution: formData.ui_resolution,
     };
 
     setSubmitting(true);

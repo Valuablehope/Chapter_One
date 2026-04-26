@@ -106,6 +106,9 @@ router.get(
   '/inventory/stock',
   [
     query('store_id').optional().isUUID(),
+    query('search').optional().isString(),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 1000 }),
   ],
   validateRequest,
   getStockReport
@@ -116,6 +119,9 @@ router.get(
   [
     query('store_id').optional().isUUID(),
     query('threshold').optional().isInt({ min: 0 }),
+    query('search').optional().isString(),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 1000 }),
   ],
   validateRequest,
   getLowStockReport

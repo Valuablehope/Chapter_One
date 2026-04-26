@@ -1074,15 +1074,16 @@ export default function Labels() {
   );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-x-hidden">
 
-      <PageBanner
-        title="Shelf Labels"
-        subtitle={`${paper.label} · ${cols} label${cols !== 1 ? 's' : ''} per row · ${LABEL_W_MM}×${LABEL_H_MM} mm each`}
-        icon={<TagIcon className="w-5 h-5 text-white" />}
+      <div className="px-3">
+        <PageBanner
+          title="Shelf Labels"
+          subtitle={store?.ui_resolution === '1024x768' ? `${cols} labels/row` : `${paper.label} · ${cols} labels/row · ${LABEL_W_MM}×${LABEL_H_MM} mm`}
+          icon={<TagIcon className="w-5 h-5 text-white" />}
         action={
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white/70 bg-white/10 border border-white/20 rounded-full px-3 py-1">
+            <span className="hidden sm:inline-block text-xs font-medium text-white/70 bg-white/10 border border-white/20 rounded-full px-3 py-1">
               {selected.size} selected
             </span>
             <Button
@@ -1090,27 +1091,28 @@ export default function Labels() {
               disabled={selected.size === 0}
               onClick={() => setShowPreview(true)}
               size="sm"
-              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40"
               leftIcon={<EyeIcon className="w-4 h-4" />}
             >
-              Preview
+              {store?.ui_resolution === '1024x768' ? 'View' : 'Preview'}
             </Button>
             <Button
               id="btn-print-labels"
               disabled={selected.size === 0}
               onClick={() => { setShowPreview(true); setTimeout(handlePrint, 100); }}
               size="sm"
-              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40"
               leftIcon={<PrinterIcon className="w-4 h-4" />}
             >
-              Print Labels
+              {store?.ui_resolution === '1024x768' ? 'Print' : 'Print Labels'}
             </Button>
           </div>
         }
       />
+      </div>
 
       {canEditLayout && layoutForm && (
-        <div className="px-4 pt-3 pb-4 flex-shrink-0">
+        <div className="px-3 pt-3 pb-4 flex-shrink-0">
           {/* Premium toggle header */}
           <button
             type="button"
@@ -1175,11 +1177,11 @@ export default function Labels() {
 
                 {/* Two-column body */}
                 <div
-                  className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-100"
+                  className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-100"
                   style={{ maxHeight: 'min(82vh, 600px)' }}
                 >
                   {/* ── Left column: navigator + form fields ── */}
-                  <div className="flex flex-col lg:w-80 flex-shrink-0 overflow-y-auto">
+                  <div className="flex flex-col md:w-64 lg:w-80 flex-shrink-0 overflow-y-auto">
 
                     {/* Section order navigator */}
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
@@ -1365,9 +1367,9 @@ export default function Labels() {
         </div>
       )}
 
-      <div className="flex flex-col xl:flex-row gap-5 flex-1 min-h-0 px-4 pb-4">
-
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 pb-3 -mx-4 lg:-mx-6">
+        {/* Product List - Starts from the absolute left edge */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white border-y md:border-r border-gray-200">
 
           <div className="p-4 border-b border-gray-100">
             <div className="relative">
@@ -1496,11 +1498,19 @@ export default function Labels() {
           )}
         </div>
 
-        <div className="w-full xl:w-72 xl:max-w-sm flex-shrink-0 flex flex-col gap-3 min-h-0">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Label Preview</p>
-          <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 overflow-auto flex flex-col gap-2">
+        {/* Label Preview Sidebar - With title directly above */}
+        <div className="w-full md:w-80 flex-shrink-0 flex flex-col min-h-0 bg-gray-50/50">
+          <div className="px-4 py-3 border-b border-gray-200 bg-white">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Label Preview</p>
+          </div>
+          <div className="flex-1 p-4 overflow-auto flex flex-col gap-3">
             {selectedProducts.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center mt-10">Select products to preview labels</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <TagIcon className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-400">No selection</p>
+              </div>
             ) : (
               selectedProducts.slice(0, 12).map(p => (
                 <LabelCard

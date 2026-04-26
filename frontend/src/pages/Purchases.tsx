@@ -646,7 +646,7 @@ export default function Purchases() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
                           <Badge variant="primary" size="sm">{po.items_count ?? po.items.length}</Badge>
-                           <span className="text-xs text-gray-600">{t('purchases.table.items_count', { count: po.items_count ?? po.items.length })}</span>
+                           <span className="text-xs text-gray-600 sm:hidden lg:inline">{t('purchases.table.items_count', { count: po.items_count ?? po.items.length })}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">

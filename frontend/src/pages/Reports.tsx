@@ -31,6 +31,7 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   MinusIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import {
   BarChart,
@@ -132,6 +133,13 @@ export default function Reports() {
   const [lowStock, setLowStock] = useState<LowStockReport[]>([]);
   const [profitReport, setProfitReport] = useState<ProfitReport | null>(null);
 
+  // Inventory pagination and search
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryQuery, setInventoryQuery] = useState('');
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [inventoryPagination, setInventoryPagination] = useState({ total: 0, totalPages: 1, limit: 50 });
+  const [inventorySearchTimeout, setInventorySearchTimeout] = useState<NodeJS.Timeout | null>(null);
+
   const loadReport = async () => {
     setLoading(true);
 
@@ -178,12 +186,14 @@ export default function Reports() {
       } else if (activeTab === 'inventory') {
         switch (inventoryReportType) {
           case 'stock':
-            const stock = await reportService.getStockReport();
-            setStockReport(stock);
+            const stockRes = await reportService.getStockReport(undefined, inventoryQuery, inventoryPage, 50);
+            setStockReport(stockRes.data);
+            setInventoryPagination(stockRes.pagination);
             break;
           case 'low-stock':
-            const low = await reportService.getLowStockReport(undefined, 10);
-            setLowStock(low);
+            const lowRes = await reportService.getLowStockReport(undefined, 10, inventoryQuery, inventoryPage, 50);
+            setLowStock(lowRes.data);
+            setInventoryPagination(lowRes.pagination);
             break;
         }
       }
@@ -203,7 +213,17 @@ export default function Reports() {
     }
     loadReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, salesReportType, purchaseReportType, inventoryReportType, startDate, endDate, isCashier]);
+  }, [activeTab, salesReportType, purchaseReportType, inventoryReportType, startDate, endDate, isCashier, inventoryQuery, inventoryPage]);
+
+  const handleInventorySearch = (val: string) => {
+    setInventorySearch(val);
+    if (inventorySearchTimeout) clearTimeout(inventorySearchTimeout);
+    const timeout = setTimeout(() => {
+      setInventoryQuery(val);
+      setInventoryPage(1);
+    }, 400);
+    setInventorySearchTimeout(timeout);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
@@ -1082,7 +1102,7 @@ export default function Reports() {
                       {t('reports.inventory.types.stock_levels')}
                     </button>
                     <button
-                      onClick={() => setInventoryReportType('low-stock')}
+                      onClick={() => { setInventoryReportType('low-stock'); setInventoryPage(1); }}
                       className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all flex items-center gap-1.5 ${inventoryReportType === 'low-stock'
                         ? 'bg-warning-500 text-white shadow-md'
                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-warning-300 hover:bg-warning-50'
@@ -1093,8 +1113,20 @@ export default function Reports() {
                     </button>
                   </div>
 
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder={t('reports.inventory.stock.search_placeholder') || 'Search products...'}
+                      value={inventorySearch}
+                      onChange={(e) => handleInventorySearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
+                    />
+                  </div>
+
                   {/* Stock Report */}
-                  {inventoryReportType === 'stock' && (
+                  {inventoryReportType === 'stock' ? (
                     <Card padding="none">
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -1149,18 +1181,43 @@ export default function Reports() {
                           </tbody>
                         </table>
                       </div>
-                    </Card>
-                  )}
 
-                  {/* Low Stock Report */}
-                  {inventoryReportType === 'low-stock' && (
+                      {/* Pagination */}
+                      {inventoryPagination.totalPages > 1 && (
+                        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                          <p className="text-xs text-gray-500 font-medium">
+                            {t('reports.common.showing_page', { current: inventoryPage, total: inventoryPagination.totalPages })}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              disabled={inventoryPage === 1}
+                              onClick={() => setInventoryPage(p => p - 1)}
+                            >
+                              {t('reports.common.prev')}
+                            </Button>
+                            <span className="text-xs font-bold text-gray-700 px-2">{inventoryPage}</span>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              disabled={inventoryPage >= inventoryPagination.totalPages}
+                              onClick={() => setInventoryPage(p => p + 1)}
+                            >
+                              {t('reports.common.next')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ) : (
                     <Card padding="none">
                       {lowStock.length > 0 && (
                         <div className="px-3 py-2.5 bg-warning-50 border-b border-warning-200">
                           <div className="flex items-center gap-1.5">
                             <ExclamationTriangleIcon className="w-4 h-4 text-warning-600" />
                             <p className="text-xs font-semibold text-warning-800">
-                              {t('reports.inventory.low_stock.restock_notice', { count: lowStock.length })}
+                              {t('reports.inventory.low_stock.restock_notice', { count: inventoryPagination.total })}
                             </p>
                           </div>
                         </div>
@@ -1221,6 +1278,34 @@ export default function Reports() {
                           </tbody>
                         </table>
                       </div>
+
+                      {/* Pagination */}
+                      {inventoryPagination.totalPages > 1 && (
+                        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                          <p className="text-xs text-gray-500 font-medium">
+                            {t('reports.common.showing_page', { current: inventoryPage, total: inventoryPagination.totalPages })}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              disabled={inventoryPage === 1}
+                              onClick={() => setInventoryPage(p => p - 1)}
+                            >
+                              {t('reports.common.prev')}
+                            </Button>
+                            <span className="text-xs font-bold text-gray-700 px-2">{inventoryPage}</span>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              disabled={inventoryPage >= inventoryPagination.totalPages}
+                              onClick={() => setInventoryPage(p => p + 1)}
+                            >
+                              {t('reports.common.next')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </Card>
                   )}
                 </div>

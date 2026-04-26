@@ -84,28 +84,41 @@ interface NavItemProps {
 
 const NavItem = ({ item, active, sidebarExpanded, isCompact, onClick }: NavItemProps) => {
   const Icon = item.icon;
+  // Use a stronger brand color for the active background in compact mode for better visibility
+  const activeBgClass = isCompact ? 'bg-secondary-600' : 'bg-sidebar-active';
+  
   return (
     <Link
       to={item.path}
       onClick={onClick}
       title={!sidebarExpanded ? item.label : undefined}
       className={`
-        relative flex items-center
-        ${sidebarExpanded && !isCompact ? 'px-3' : 'justify-center px-2'}
-        py-2.5 rounded-lg text-sm font-medium
+        relative flex
+        ${isCompact ? 'flex-col items-center justify-center min-h-[64px] py-2 px-1' : 'items-center px-3 py-2.5'}
+        rounded-lg text-sm font-medium
         transition-all duration-200 group
         ${active
-          ? 'text-white bg-sidebar-active'
+          ? `text-white ${activeBgClass} shadow-md`
           : 'text-sidebar-text hover:text-white hover:bg-sidebar-hover'}
       `}
     >
-      {/* Blue left-bar indicator for active */}
-      {active && (
+      {/* Active Indicator Bar (only for desktop expanded mode) */}
+      {active && !isCompact && (
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-secondary-400 rounded-r-full" />
       )}
-      <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${active ? '!text-white' : ''}`} />
+      
+      <Icon className={`
+        ${isCompact ? 'w-6 h-6 mb-1' : 'w-[18px] h-[18px] mr-3'} 
+        flex-shrink-0 transition-colors
+        ${active ? 'text-white !opacity-100' : 'group-hover:text-white'}
+      `} />
+      
       {sidebarExpanded && (
-        <span className={`truncate ${active ? '!text-white' : ''} ${sidebarExpanded && !isCompact ? 'ml-3' : ''}`}>
+        <span className={`
+          truncate transition-all duration-200
+          ${isCompact ? 'text-[9px] uppercase font-bold text-center leading-tight w-full' : 'text-sm'}
+          ${active ? 'text-white' : ''}
+        `}>
           {item.label}
         </span>
       )}
@@ -253,8 +266,24 @@ export default function Layout({ children }: LayoutProps) {
         style={{ boxShadow: shadows.sidebar }}
       >
         {/* Logo */}
-        <div className={`h-16 flex items-center border-b border-sidebar-border flex-shrink-0 ${sidebarExpanded ? 'px-4 justify-between' : 'justify-center px-2'}`}>
-          {sidebarExpanded ? (
+        <div className={`flex items-center border-b border-sidebar-border flex-shrink-0 ${
+          isCompact 
+            ? 'h-24 flex-col justify-center px-2' 
+            : (sidebarExpanded ? 'h-16 px-4 justify-between' : 'h-16 justify-center px-2')
+        }`}>
+          {isCompact ? (
+            <Link to="/dashboard" className="flex flex-col items-center space-y-1.5">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-white/15 shadow-sm">
+                <img src="icon.png" alt="Logo" className="w-9 h-9 object-contain" onError={e => (e.currentTarget.style.display='none')} />
+              </div>
+              <div className="text-center px-1">
+                <p className="text-white text-[11px] font-bold leading-tight truncate max-w-[140px]" style={{ fontFamily: fonts.display }}>
+                  {APP_BRAND_POS_LINE}
+                </p>
+                <p className="text-sidebar-muted text-[8px] uppercase tracking-tighter">Point of Sale</p>
+              </div>
+            </Link>
+          ) : sidebarExpanded ? (
             <>
               <Link to="/dashboard" className="flex items-center space-x-2.5 min-w-0 flex-1">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden bg-white/10">

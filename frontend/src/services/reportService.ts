@@ -167,25 +167,31 @@ export const reportService = {
   },
 
   // Inventory Reports
-  async getStockReport(storeId?: string) {
+  async getStockReport(storeId?: string, search?: string, page?: number, limit?: number) {
     const params = new URLSearchParams();
     if (storeId) params.append('store_id', storeId);
+    if (search) params.append('search', search);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
 
-    const response = await api.get<{ success: boolean; data: StockReport[] }>(
+    const response = await api.get<{ success: boolean; data: StockReport[]; pagination: any }>(
       `/reports/inventory/stock?${params.toString()}`
     );
-    return response.data.data;
+    return response.data;
   },
 
-  async getLowStockReport(storeId?: string, threshold: number = 10) {
+  async getLowStockReport(storeId?: string, threshold: number = 10, search?: string, page?: number, limit?: number) {
     const params = new URLSearchParams();
     if (storeId) params.append('store_id', storeId);
     params.append('threshold', threshold.toString());
+    if (search) params.append('search', search);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
 
-    const response = await api.get<{ success: boolean; data: LowStockReport[] }>(
+    const response = await api.get<{ success: boolean; data: LowStockReport[]; pagination: any }>(
       `/reports/inventory/low-stock?${params.toString()}`
     );
-    return response.data.data;
+    return response.data;
   },
 };
 

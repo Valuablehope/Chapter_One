@@ -49,6 +49,7 @@ export interface Store {
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
   show_lbp_price?: boolean;
+  ui_resolution?: string;
 }
 
 export interface StoreFilters {
@@ -137,6 +138,7 @@ export class StoreModel extends BaseModel {
       label_price_amount_weight: 'ss.label_price_amount_weight',
       label_section_order: 'ss.label_section_order',
       show_lbp_price: 'ss.show_lbp_price',
+      ui_resolution: 'ss.ui_resolution',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

@@ -56,7 +56,7 @@ export default function Dashboard() {
         todayTransactions: salesSummary[0]?.transaction_count || 0,
         totalProducts:    0,
         totalCustomers:   0,
-        lowStockCount:    lowStock.length,
+        lowStockCount:    lowStock.pagination?.total || 0,
       });
     } catch (err: any) {
       logger.error('Error loading dashboard data:', err);
@@ -211,7 +211,7 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold text-gray-900 tracking-tight">{t('dashboard.quick_access.title')}</h2>
           <p className="text-[11px] text-gray-400 mt-0.5 uppercase tracking-wider font-medium">{t('dashboard.quick_access.subtitle')}</p>
         </div>
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3">
           {quickLinks.map((link, i) => {
             const Icon = link.icon;
             return (
