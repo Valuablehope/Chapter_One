@@ -13,6 +13,8 @@ import {
   XMarkIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   PaintBrushIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -874,6 +876,7 @@ export default function Labels() {
   const [totalPages,            setTotalPages]            = useState(1);
   const [totalProducts,         setTotalProducts]         = useState(0);
   const [showPreview,           setShowPreview]           = useState(false);
+  const [carouselOffset,        setCarouselOffset]        = useState(0);
   const printRef        = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -912,6 +915,8 @@ export default function Labels() {
     })();
     return () => { active = false; controller.abort(); };
   }, [currentPage, searchQuery]);
+
+  useEffect(() => { setCarouselOffset(0); }, [selected]);
 
   const displayStore =
     store && layoutForm ? mergeLabelFormIntoStore(store, layoutForm) : store;
@@ -1072,6 +1077,14 @@ export default function Labels() {
       products[0]?.list_price ??
       9.99
   );
+
+  const CAROUSEL_VISIBLE  = 4;
+  const CAROUSEL_SCALE    = 0.85;
+  const scaledLabelW      = Math.round(mmToPx(LABEL_W_MM) * CAROUSEL_SCALE);
+  const scaledLabelH      = Math.round(mmToPx(LABEL_H_MM) * CAROUSEL_SCALE);
+  const visibleCarouselLabels = selectedProducts.slice(carouselOffset, carouselOffset + CAROUSEL_VISIBLE);
+  const canCarouselLeft   = carouselOffset > 0;
+  const canCarouselRight  = carouselOffset + CAROUSEL_VISIBLE < selectedProducts.length;
 
   return (
     <div className="flex flex-col h-full overflow-x-hidden">
@@ -1367,9 +1380,76 @@ export default function Labels() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 pb-3 -mx-4 lg:-mx-6">
-        {/* Product List - Starts from the absolute left edge */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white border-y md:border-r border-gray-200">
+      {/* ── Label Preview Carousel ── */}
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3">
+        <div className="flex items-center justify-between mb-2.5">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Label Preview</p>
+          {selectedProducts.length > 0 && (
+            <p className="text-[10px] text-gray-400 tabular-nums">
+              {carouselOffset + 1}–{Math.min(carouselOffset + CAROUSEL_VISIBLE, selectedProducts.length)} of {selectedProducts.length}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Left arrow */}
+          <button
+            type="button"
+            onClick={() => setCarouselOffset(o => Math.max(0, o - 1))}
+            disabled={!canCarouselLeft}
+            aria-label="Previous label"
+            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-25 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+          </button>
+
+          {/* Labels row */}
+          <div
+            className="flex-1 flex items-center justify-center gap-2 min-w-0 overflow-hidden"
+            style={{ height: scaledLabelH }}
+          >
+            {selectedProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center w-full gap-1.5">
+                <TagIcon className="w-6 h-6 text-gray-300" />
+                <p className="text-sm font-semibold text-gray-400">No selection</p>
+                <p className="text-xs text-gray-400">Select products below to preview labels</p>
+              </div>
+            ) : (
+              visibleCarouselLabels.map(p => (
+                <div
+                  key={p.product_id}
+                  style={{ width: scaledLabelW, height: scaledLabelH, flexShrink: 0, overflow: 'hidden', borderRadius: 5 }}
+                >
+                  <div style={{ transform: `scale(${CAROUSEL_SCALE})`, transformOrigin: 'top left', width: mmToPx(LABEL_W_MM), height: mmToPx(LABEL_H_MM) }}>
+                    <LabelCard
+                      storeName={previewStore?.name ?? ''}
+                      productName={p.name}
+                      price={Number(p.sale_price ?? p.list_price ?? 0)}
+                      currency={currency}
+                      store={previewStore}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Right arrow */}
+          <button
+            type="button"
+            onClick={() => setCarouselOffset(o => Math.min(o + 1, Math.max(0, selectedProducts.length - CAROUSEL_VISIBLE)))}
+            disabled={!canCarouselRight}
+            aria-label="Next label"
+            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-25 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+          >
+            <ChevronRightIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Product List (full width, below the carousel) ── */}
+      <div className="flex flex-col flex-1 min-h-0 pb-3">
+        <div className="flex-1 min-h-0 flex flex-col bg-white border-t border-gray-100">
 
           <div className="p-4 border-b border-gray-100">
             <div className="relative">
@@ -1498,36 +1578,6 @@ export default function Labels() {
           )}
         </div>
 
-        {/* Label Preview Sidebar - With title directly above */}
-        <div className="w-full md:w-80 flex-shrink-0 flex flex-col min-h-0 bg-gray-50/50">
-          <div className="px-4 py-3 border-b border-gray-200 bg-white">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Label Preview</p>
-          </div>
-          <div className="flex-1 p-4 overflow-auto flex flex-col gap-3">
-            {selectedProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                  <TagIcon className="w-6 h-6 text-gray-300" />
-                </div>
-                <p className="text-sm font-semibold text-gray-400">No selection</p>
-              </div>
-            ) : (
-              selectedProducts.slice(0, 12).map(p => (
-                <LabelCard
-                  key={p.product_id}
-                  storeName={previewStore?.name ?? ''}
-                  productName={p.name}
-                  price={p.sale_price ?? p.list_price ?? 0}
-                  currency={currency}
-                  store={previewStore}
-                />
-              ))
-            )}
-            {selectedProducts.length > 12 && (
-              <p className="text-xs text-gray-400 text-center">+{selectedProducts.length - 12} more…</p>
-            )}
-          </div>
-        </div>
       </div>
 
       {showPreview && store && previewStore && (

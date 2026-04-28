@@ -563,9 +563,15 @@ select:focus {
   display: none !important;
 }
 
-/* Adjust main content margin to match new sidebar width */
-.res-1024x768 .flex-1.flex-col {
-  margin-left: 82px !important;
+/* Compact: prevent touch-target expansion on table buttons (checkboxes) */
+.res-1024x768 table button {
+  min-height: 0 !important;
+  min-width: 0 !important;
+}
+/* Labels Select-All: explicit compact size */
+.res-1024x768 #labels-select-all {
+  width: 16px !important;
+  height: 16px !important;
 }
 
 /* ── HD Mode (1280×720 / 1366×768) ── */
