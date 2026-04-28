@@ -41,19 +41,20 @@ const WEIGHT_OPTIONS = [400, 500, 600, 700, 800, 900] as const;
 type TextAlignLR = 'left' | 'center' | 'right';
 type LbpRowAlign = 'between' | 'left' | 'center' | 'right';
 
-export type LabelSectionId = 'header' | 'title' | 'lbp' | 'price';
+export type LabelSectionId = 'header' | 'title' | 'lbp' | 'price' | 'barcode';
 
-const DEFAULT_LABEL_SECTION_ORDER: LabelSectionId[] = ['header', 'title', 'lbp', 'price'];
+const DEFAULT_LABEL_SECTION_ORDER: LabelSectionId[] = ['header', 'title', 'lbp', 'price', 'barcode'];
 
 const LABEL_SECTION_META: { id: LabelSectionId; label: string; short: string }[] = [
-  { id: 'header', label: 'Store name (top bar)', short: 'Store' },
-  { id: 'title', label: 'Product name', short: 'Product' },
-  { id: 'lbp', label: 'LBP line', short: 'LBP' },
-  { id: 'price', label: 'Price band', short: 'Price' },
+  { id: 'header',  label: 'Store name (top bar)', short: 'Store'    },
+  { id: 'title',   label: 'Product name',          short: 'Product'  },
+  { id: 'lbp',     label: 'LBP line',              short: 'LBP'      },
+  { id: 'price',   label: 'Price band',             short: 'Price'    },
+  { id: 'barcode', label: 'Barcode',                short: 'Barcode'  },
 ];
 
 function normalizeSectionOrder(raw: unknown): LabelSectionId[] {
-  const valid = new Set<LabelSectionId>(['header', 'title', 'lbp', 'price']);
+  const valid = new Set<LabelSectionId>(['header', 'title', 'lbp', 'price', 'barcode']);
   if (!Array.isArray(raw)) return [...DEFAULT_LABEL_SECTION_ORDER];
   const out: LabelSectionId[] = [];
   for (const x of raw) {
@@ -64,7 +65,7 @@ function normalizeSectionOrder(raw: unknown): LabelSectionId[] {
   for (const id of DEFAULT_LABEL_SECTION_ORDER) {
     if (!out.includes(id)) out.push(id);
   }
-  return out.slice(0, 4);
+  return out.slice(0, 5);
 }
 
 /** Separator between stacked blocks; keeps the usual gap-free join between header and product name. */
@@ -96,6 +97,14 @@ export interface LabelLayoutFormState {
   label_currency_size: number;
   label_currency_weight: number;
   label_price_amount_weight: number;
+  label_show_barcode: boolean;
+  label_barcode_height: number;
+  label_barcode_text_size: number;
+  label_header_pad_v: number;
+  label_title_pad_v: number;
+  label_lbp_pad_v: number;
+  label_price_pad_v: number;
+  label_barcode_pad_v: number;
   label_section_order: LabelSectionId[];
 }
 
@@ -172,6 +181,14 @@ function labelFormFromStore(s: StoreSettings): LabelLayoutFormState {
     label_currency_size: labelFontSize(s.label_currency_size, 11),
     label_currency_weight: clampWeight(s.label_currency_weight, 700),
     label_price_amount_weight: clampWeight(s.label_price_amount_weight, 900),
+    label_show_barcode: s.label_show_barcode ?? true,
+    label_barcode_height: labelFontSize(s.label_barcode_height, 22),
+    label_barcode_text_size: labelFontSize(s.label_barcode_text_size, 7),
+    label_header_pad_v: labelFontSize(s.label_header_pad_v, 2.5),
+    label_title_pad_v: labelFontSize(s.label_title_pad_v, 4),
+    label_lbp_pad_v: labelFontSize(s.label_lbp_pad_v, 2.5),
+    label_price_pad_v: labelFontSize(s.label_price_pad_v, 4.5),
+    label_barcode_pad_v: labelFontSize(s.label_barcode_pad_v, 3),
     label_section_order: normalizeSectionOrder(s.label_section_order),
   };
 }
@@ -196,12 +213,78 @@ function sectionRing(
   ].filter(Boolean).join(' ');
 }
 
+// ─── Code 128B barcode encoder ───────────────────────────────────────────────
+// Each entry = 6-char string of widths [bar,spc,bar,spc,bar,spc], sum = 11.
+// Indices 0–102 = data; 103 = Start A; 104 = Start B; 105 = Start C.
+const C128: readonly string[] = [
+  '212222','222122','222221','121223','121322','131222','122213','122312',
+  '132212','221213','221312','231212','112232','122132','122231','113222',
+  '123122','123221','223211','221132','221231','213212','223112','312131',
+  '311222','321122','321221','312212','322112','322211','212123','212321',
+  '232121','111323','131123','131321','112313','132113','132311','211313',
+  '231113','231311','112133','112331','132131','113123','113321','133121',
+  '313121','211331','231131','213113','213311','213131','311123','311321',
+  '331121','312113','312311','332111','314111','221411','431111','111224',
+  '111422','121124','121421','141122','141221','112214','112412','122114',
+  '122411','142112','142211','241211','221114','413111','241112','134111',
+  '111242','121142','121241','114212','124112','124211','411212','421112',
+  '421211','212141','214121','412121','111143','111341','131141','114113',
+  '114311','411113','411311','113141','114131','311141','411131',
+  '211412','211214','211232', // 103 Start A, 104 Start B, 105 Start C
+];
+const C128_STOP = '2331112'; // 7 elements, 13 modules
+
+function code128b(text: string): boolean[] {
+  if (!text) return [];
+  const START_B = 104;
+  let check = START_B;
+  const codes: number[] = [START_B];
+  for (let i = 0; i < text.length; i++) {
+    const v = Math.max(0, Math.min(95, text.charCodeAt(i) - 32));
+    codes.push(v);
+    check += v * (i + 1);
+  }
+  codes.push(check % 103);
+  const bits: boolean[] = [];
+  const push = (pat: string) => {
+    let bar = true;
+    for (const ch of pat) {
+      const w = parseInt(ch, 10);
+      for (let k = 0; k < w; k++) bits.push(bar);
+      bar = !bar;
+    }
+  };
+  for (const code of codes) push(C128[code] ?? '111111');
+  push(C128_STOP);
+  return bits;
+}
+
+function BarcodeRenderer({ bits, barHeight }: { bits: boolean[]; barHeight: number }) {
+  if (!bits.length) return null;
+  const rects: { x: number; w: number }[] = [];
+  for (let i = 0; i < bits.length; i++) {
+    if (!bits[i]) continue;
+    const last = rects[rects.length - 1];
+    if (last && last.x + last.w === i) last.w++;
+    else rects.push({ x: i, w: 1 });
+  }
+  return (
+    <svg viewBox={`0 0 ${bits.length} ${barHeight}`} width="100%" height={barHeight}
+      preserveAspectRatio="none" style={{ display: 'block' }} aria-hidden="true">
+      {rects.map((r, i) => (
+        <rect key={i} x={r.x} y={0} width={r.w} height={barHeight} fill="#000000" />
+      ))}
+    </svg>
+  );
+}
+
 // ─── Label card (single label) ───────────────────────────────────────────────
 interface LabelCardProps {
   storeName: string;
   productName: string;
   price: number;
   currency: string;
+  barcode?: string;
   /** When null, LBP line is omitted */
   store: StoreSettings | null;
   style?: React.CSSProperties;
@@ -215,18 +298,27 @@ function LabelCard({
   productName,
   price,
   currency,
+  barcode,
   store,
   style,
   interactive,
   activeSection,
   onSectionSelect,
 }: LabelCardProps) {
-  const lbpRate = store ? Number(store.lbp_exchange_rate ?? 0) : 0;
-  const showLbp =
-    !!store && lbpRate > 0 && (store.label_show_lbp ?? true);
-  const lbpAmount = showLbp ? Math.round(Number(price) * lbpRate) : 0;
-  const editorLbpPlaceholder = !!interactive && !showLbp;
-  const tightLayout = showLbp || editorLbpPlaceholder;
+  const lbpRate    = store ? Number(store.lbp_exchange_rate ?? 0) : 0;
+  const lbpEnabled = store?.label_show_lbp !== false; // toggle is on (default: true)
+  const showLbp    = !!store && lbpRate > 0 && lbpEnabled;
+  const lbpAmount  = showLbp ? Math.round(Number(price) * lbpRate) : 0;
+  // Placeholder only when toggle is ON but no exchange rate is configured
+  const editorLbpPlaceholder = !!interactive && !showLbp && lbpEnabled;
+
+  const showBarcode    = !!store && (store.label_show_barcode !== false);
+  const barcodeHeight  = labelFontSize(store?.label_barcode_height, 22);
+  const barcodeTextSz  = labelFontSize(store?.label_barcode_text_size, 7);
+  const barcodeBits    = showBarcode && barcode ? code128b(barcode) : [];
+  const editorBarcodePh = !!interactive && (!barcode || !showBarcode);
+
+  const tightLayout = showLbp || editorLbpPlaceholder || showBarcode || editorBarcodePh;
 
   const headerAlign = normalizeTextAlign(store?.label_header_align, 'center');
   const titleAlign = normalizeTextAlign(store?.label_title_align, 'center');
@@ -247,6 +339,12 @@ function LabelCard({
   const currencyW = clampWeight(store?.label_currency_weight, 700);
   const priceAmtW = clampWeight(store?.label_price_amount_weight, 900);
 
+  const headerPadV   = labelFontSize(store?.label_header_pad_v, 2.5);
+  const titlePadV    = labelFontSize(store?.label_title_pad_v, 4);
+  const lbpPadV      = labelFontSize(store?.label_lbp_pad_v, 2.5);
+  const pricePadV    = labelFontSize(store?.label_price_pad_v, 4.5);
+  const barcodePadV  = labelFontSize(store?.label_barcode_pad_v, 3);
+
   const pickLbp = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSectionSelect?.('lbp');
@@ -255,8 +353,10 @@ function LabelCard({
   const headerStyle: React.CSSProperties = {
     width: '100%',
     background: '#1a1a1a',
-    textAlign: headerAlign,
-    padding: '2.5px 6px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: flexJustify(headerAlign),
+    padding: `${headerPadV}px 6px`,
     boxSizing: 'border-box',
     flexShrink: 0,
     border: 'none',
@@ -271,7 +371,7 @@ function LabelCard({
     display: 'flex',
     alignItems: 'center',
     justifyContent: flexJustify(titleAlign),
-    padding: tightLayout ? '4px 8px 2px' : '5px 8px 4px',
+    padding: `${titlePadV}px 8px`,
     boxSizing: 'border-box',
     border: 'none',
     cursor: interactive ? 'pointer' : undefined,
@@ -416,6 +516,9 @@ function LabelCard({
         }
 
         if (sectionId === 'lbp') {
+          if (!lbpEnabled) {
+            return <Fragment key={`${index}-lbp-skip`} />;
+          }
           if (!showLbp && !interactive) {
             return <Fragment key={`${index}-lbp-skip`} />;
           }
@@ -464,7 +567,7 @@ function LabelCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: lbpRowJustify(lbpRowAlign),
-                padding: '2px 8px 3px',
+                padding: `${lbpPadV}px 8px`,
                 boxSizing: 'border-box',
                 gap: lbpRowAlign === 'center' ? 8 : 6,
                 border: 'none',
@@ -481,7 +584,7 @@ function LabelCard({
               style={{
                 width: '100%', flexShrink: 0, ...sepSolid, background: '#ffffff',
                 display: 'flex', alignItems: 'center', justifyContent: lbpRowJustify(lbpRowAlign),
-                padding: '2px 8px 3px', boxSizing: 'border-box', gap: lbpRowAlign === 'center' ? 8 : 6,
+                padding: `${lbpPadV}px 8px`, boxSizing: 'border-box', gap: lbpRowAlign === 'center' ? 8 : 6,
               }}
             >
               <span style={{ fontSize: lbpPrefixSize, fontWeight: lbpPrefixW, color: '#333333', fontFamily: 'Arial, Helvetica, sans-serif', letterSpacing: '0.04em', flexShrink: 0 }}>LBP</span>
@@ -491,8 +594,6 @@ function LabelCard({
         }
 
         if (sectionId === 'price') {
-          const pricePad = tightLayout ? '4px 6px 5px' : '5px 6px 6px';
-          const pricePadStatic = showLbp ? '4px 6px 5px' : '5px 6px 6px';
           return interactive ? (
             <button
               key={`${index}-price`}
@@ -511,7 +612,7 @@ function LabelCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: flexJustify(priceRowAlign),
-                padding: pricePad,
+                padding: `${pricePadV}px 6px`,
                 boxSizing: 'border-box',
                 flexShrink: 0,
                 gap: 3,
@@ -529,11 +630,73 @@ function LabelCard({
               key={`${index}-price`}
               style={{
                 width: '100%', background: '#f4f4f4', ...sepSolid, display: 'flex', alignItems: 'center',
-                justifyContent: flexJustify(priceRowAlign), padding: pricePadStatic, boxSizing: 'border-box', flexShrink: 0, gap: 3,
+                justifyContent: flexJustify(priceRowAlign), padding: `${pricePadV}px 6px`, boxSizing: 'border-box', flexShrink: 0, gap: 3,
               }}
             >
               <span style={{ fontSize: currencySize, fontWeight: currencyW, color: '#444444', fontFamily: 'Arial, Helvetica, sans-serif', letterSpacing: '0.02em' }}>{currency}</span>
               <span style={{ fontSize: priceNumSize, fontWeight: priceAmtW, color: '#111111', letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'Arial Black, Arial, Helvetica, sans-serif' }}>{Number(price).toFixed(2)}</span>
+            </div>
+          );
+        }
+
+        if (sectionId === 'barcode') {
+          const barcodeBase: React.CSSProperties = {
+            width: '100%', flexShrink: 0, boxSizing: 'border-box',
+            padding: `${barcodePadV}px 6px`, ...sepSolid,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+          };
+
+          if (!showBarcode && !interactive) {
+            return <Fragment key={`${index}-barcode-skip`} />;
+          }
+
+          if (editorBarcodePh) {
+            return (
+              <button
+                key={`${index}-barcode-ph`}
+                type="button"
+                aria-label="Edit barcode settings"
+                aria-pressed={activeSection === 'barcode'}
+                onClick={(e) => { e.stopPropagation(); onSectionSelect?.('barcode'); }}
+                className={sectionRing(true, activeSection === 'barcode')}
+                style={{ ...barcodeBase, background: '#fafafa', border: 'none', cursor: 'pointer', font: 'inherit', borderTop: sep ? '1px dashed #c4c4c4' : undefined }}
+              >
+                <span style={{ fontSize: 9, fontWeight: 600, color: '#aaa', fontFamily: 'Arial, sans-serif' }}>
+                  {!showBarcode ? 'Barcode hidden' : 'No barcode — assign one to this product'}
+                </span>
+              </button>
+            );
+          }
+
+          const bcContent = (
+            <>
+              <BarcodeRenderer bits={barcodeBits} barHeight={barcodeHeight} />
+              <span style={{
+                fontSize: barcodeTextSz, fontFamily: 'monospace', color: '#111111',
+                letterSpacing: '0.06em', lineHeight: 1, textAlign: 'center',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: '100%', display: 'block',
+              }}>
+                {barcode}
+              </span>
+            </>
+          );
+
+          return interactive ? (
+            <button
+              key={`${index}-barcode`}
+              type="button"
+              aria-label="Edit barcode"
+              aria-pressed={activeSection === 'barcode'}
+              onClick={(e) => { e.stopPropagation(); onSectionSelect?.('barcode'); }}
+              className={sectionRing(true, activeSection === 'barcode')}
+              style={{ ...barcodeBase, background: '#fff', border: 'none', cursor: 'pointer', font: 'inherit' }}
+            >
+              {bcContent}
+            </button>
+          ) : (
+            <div key={`${index}-barcode`} style={{ ...barcodeBase, background: '#fff' }}>
+              {bcContent}
             </div>
           );
         }
@@ -592,6 +755,7 @@ function PrintPreview({ products, store }: PrintPreviewProps) {
               productName={p.name}
               price={p.sale_price ?? p.list_price ?? 0}
               currency={currency}
+              barcode={p.barcode}
               store={store}
               style={{ width: labelWPx, height: labelHPx, flexShrink: 0 }}
             />
@@ -721,6 +885,10 @@ function LabelSectionFormFields({
             <WeightGrid value={layoutForm.label_header_font_weight}
               onChange={v => setField('label_header_font_weight', v)} />
           </ControlRow>
+          <ControlRow label="Section height">
+            <SizeSlider value={layoutForm.label_header_pad_v} min={0} max={12} step={0.5} fallback={2.5}
+              onChange={v => setField('label_header_pad_v', v)} />
+          </ControlRow>
         </div>
       );
 
@@ -741,6 +909,10 @@ function LabelSectionFormFields({
           <ControlRow label="Font weight">
             <WeightGrid value={layoutForm.label_title_font_weight}
               onChange={v => setField('label_title_font_weight', v)} />
+          </ControlRow>
+          <ControlRow label="Section height">
+            <SizeSlider value={layoutForm.label_title_pad_v} min={0} max={20} step={0.5} fallback={4}
+              onChange={v => setField('label_title_pad_v', v)} />
           </ControlRow>
         </div>
       );
@@ -809,6 +981,10 @@ function LabelSectionFormFields({
                 onChange={v => setField('label_lbp_amount_weight', v)} />
             </ControlRow>
           </div>
+          <ControlRow label="Section height">
+            <SizeSlider value={layoutForm.label_lbp_pad_v} min={0} max={12} step={0.5} fallback={2.5}
+              onChange={v => setField('label_lbp_pad_v', v)} />
+          </ControlRow>
         </div>
       );
 
@@ -846,6 +1022,47 @@ function LabelSectionFormFields({
                 onChange={v => setField('label_price_amount_weight', v)} />
             </ControlRow>
           </div>
+
+          <ControlRow label="Section height">
+            <SizeSlider value={layoutForm.label_price_pad_v} min={0} max={16} step={0.5} fallback={4.5}
+              onChange={v => setField('label_price_pad_v', v)} />
+          </ControlRow>
+        </div>
+      );
+
+    case 'barcode':
+      return (
+        <div className="space-y-4">
+          {/* Toggle show/hide */}
+          <button
+            type="button"
+            onClick={() => setField('label_show_barcode', !layoutForm.label_show_barcode)}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+              layoutForm.label_show_barcode
+                ? 'bg-secondary-50 border-secondary-200'
+                : 'bg-gray-50 border-gray-200'
+            }`}
+          >
+            <span className="text-xs font-semibold text-gray-700">Show barcode</span>
+            <div className={`w-9 h-5 rounded-full transition-colors relative ${layoutForm.label_show_barcode ? 'bg-secondary-500' : 'bg-gray-300'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${layoutForm.label_show_barcode ? 'left-[18px]' : 'left-0.5'}`} />
+            </div>
+          </button>
+
+          <ControlRow label="Bar height">
+            <SizeSlider value={layoutForm.label_barcode_height} min={10} max={36} step={1} fallback={22}
+              onChange={v => setField('label_barcode_height', v)} />
+          </ControlRow>
+
+          <ControlRow label="Number text size">
+            <SizeSlider value={layoutForm.label_barcode_text_size} min={4} max={14} step={0.5} fallback={7}
+              onChange={v => setField('label_barcode_text_size', v)} />
+          </ControlRow>
+
+          <ControlRow label="Section height">
+            <SizeSlider value={layoutForm.label_barcode_pad_v} min={0} max={12} step={0.5} fallback={3}
+              onChange={v => setField('label_barcode_pad_v', v)} />
+          </ControlRow>
         </div>
       );
 
@@ -1077,6 +1294,8 @@ export default function Labels() {
       products[0]?.list_price ??
       9.99
   );
+  const editorBarcode =
+    selectedProducts[0]?.barcode ?? products[0]?.barcode ?? '1234567890';
 
   const CAROUSEL_VISIBLE  = 4;
   const CAROUSEL_SCALE    = 0.85;
@@ -1307,6 +1526,7 @@ export default function Labels() {
                             productName={editorProductName}
                             price={editorPrice}
                             currency={currency}
+                            barcode={editorBarcode}
                             store={previewStore}
                             interactive
                             activeSection={activeLabelSection}
@@ -1426,6 +1646,7 @@ export default function Labels() {
                       productName={p.name}
                       price={Number(p.sale_price ?? p.list_price ?? 0)}
                       currency={currency}
+                      barcode={p.barcode}
                       store={previewStore}
                     />
                   </div>

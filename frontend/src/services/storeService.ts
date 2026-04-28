@@ -44,7 +44,15 @@ export interface StoreSettings {
   label_currency_size?: number | null;
   label_currency_weight?: number | null;
   label_price_amount_weight?: number | null;
-  /** Permutation of shelf label blocks: header, title, lbp, price */
+  label_show_barcode?: boolean;
+  label_barcode_height?: number | null;
+  label_barcode_text_size?: number | null;
+  label_header_pad_v?: number | null;
+  label_title_pad_v?: number | null;
+  label_lbp_pad_v?: number | null;
+  label_price_pad_v?: number | null;
+  label_barcode_pad_v?: number | null;
+  /** Permutation of shelf label blocks: header, title, lbp, price, barcode */
   label_section_order?: unknown;
   ui_resolution?: string;
 }
@@ -69,6 +77,14 @@ export type LabelLayoutPatch = Pick<
   | 'label_currency_size'
   | 'label_currency_weight'
   | 'label_price_amount_weight'
+  | 'label_show_barcode'
+  | 'label_barcode_height'
+  | 'label_barcode_text_size'
+  | 'label_header_pad_v'
+  | 'label_title_pad_v'
+  | 'label_lbp_pad_v'
+  | 'label_price_pad_v'
+  | 'label_barcode_pad_v'
   | 'label_section_order'
 >;
 
