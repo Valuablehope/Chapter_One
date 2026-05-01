@@ -1161,6 +1161,17 @@ export default function Sales() {
                     type="text"
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (searchResults.length > 0) {
+                          addToCart(searchResults[0]);
+                          setSearchResults([]);
+                          setSearchQuery('');
+                          debouncedSearch.cancel();
+                        }
+                      }
+                    }}
                     placeholder={t('pos_sales.search_placeholder')}
                     className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
                   />
@@ -1182,6 +1193,8 @@ export default function Sales() {
                         onClick={() => {
                           addToCart(product);
                           setSearchResults([]);
+                          setSearchQuery('');
+                          debouncedSearch.cancel();
                         }}
                         className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-all duration-150 group"
                       >
