@@ -144,7 +144,7 @@ export function isSetupComplete(envPath: string | null): boolean {
     const content = fs.readFileSync(envPath, 'utf-8');
     // Simple check: if DB_HOST is defined, we assume setup is complete.
     // This allows manual .env edits to bypass setup too.
-    return content.includes('DB_HOST=') || content.includes('SETUP_COMPLETED=true');
+    return content.includes('DB_HOST=') || content.includes('DATABASE_URL=') || content.includes('SETUP_COMPLETED=true');
   } catch {
     return false;
   }
