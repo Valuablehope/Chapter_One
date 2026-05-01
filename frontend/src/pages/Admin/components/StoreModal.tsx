@@ -49,6 +49,7 @@ export interface StoreFormData {
   label_show_lbp: boolean;
   show_lbp_price: boolean;
   ui_resolution: string;
+  receipt_printer: string;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -88,6 +89,7 @@ const initialFormData: StoreFormData = {
   label_show_lbp: true,
   show_lbp_price: true,
   ui_resolution: 'auto',
+  receipt_printer: '',
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -127,6 +129,7 @@ function storeToFormData(s: Store): StoreFormData {
     label_show_lbp: s.label_show_lbp ?? true,
     show_lbp_price: s.show_lbp_price ?? true,
     ui_resolution: s.ui_resolution || 'auto',
+    receipt_printer: s.receipt_printer || '',
   };
 }
 
@@ -230,7 +233,16 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('identity');
+  const [printers, setPrinters] = useState<any[]>([]);
   const { t, language, setLanguage } = useTranslation();
+
+  useEffect(() => {
+    if (window.electronAPI?.getPrinters) {
+      window.electronAPI.getPrinters().then(setPrinters).catch(err => {
+        logger.error('Failed to get printers', err);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -630,6 +642,27 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   {t('admin.stores.ui_resolution_helper')}
                 </p>
               </div>
+
+              {window.electronAPI?.getPrinters && (
+                <div>
+                  <FieldLabel>{t('admin.stores.receipt_printer')}</FieldLabel>
+                  <select
+                    value={formData.receipt_printer}
+                    onChange={(e) => set('receipt_printer', e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="">Default System Printer</option>
+                    {printers.map((p, i) => (
+                      <option key={i} value={p.name}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {t('admin.stores.receipt_printer_helper')}
+                  </p>
+                </div>
+              )}
             </div>
 
 

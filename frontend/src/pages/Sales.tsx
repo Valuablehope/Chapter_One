@@ -942,7 +942,17 @@ export default function Sales() {
         Number(completedSale.grand_total)
       );
     }
-    window.print();
+    if (window.electronAPI?.printSilent) {
+      window.electronAPI.printSilent(storeSettings?.receipt_printer || undefined).then(res => {
+        if (!res.success) {
+          toast.error(`Print failed: ${res.error || 'Unknown error'}`);
+          // Fallback to normal print if silent fails
+          window.print();
+        }
+      });
+    } else {
+      window.print();
+    }
   };
 
   // Refresh store settings + LBP rate from DB after a sale completes (receipt flow)

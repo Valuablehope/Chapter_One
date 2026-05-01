@@ -778,6 +778,40 @@ ipcMain.handle('app:openLogs', () => {
   return { success: false, error: 'Log directory not found' };
 });
 
+ipcMain.handle('app:getPrinters', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    return await win.webContents.getPrintersAsync();
+  }
+  return [];
+});
+
+ipcMain.handle('app:print-silent', async (event, deviceName?: string) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    return new Promise((resolve) => {
+      const options: Electron.WebContentsPrintOptions = { 
+        silent: true, 
+        printBackground: true 
+      };
+      
+      if (deviceName) {
+        options.deviceName = deviceName;
+      }
+
+      win.webContents.print(options, (success, failureReason) => {
+        if (!success) {
+          log.error('Silent print failed:', failureReason);
+          resolve({ success: false, error: failureReason });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    });
+  }
+  return { success: false, error: 'No window found' };
+});
+
 ipcMain.handle(
   'customer-display:show',
   async (_event, payload: { storeName: string; amount: number }) => {

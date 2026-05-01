@@ -55,6 +55,7 @@ export interface StoreSettings {
   /** Permutation of shelf label blocks: header, title, lbp, price, barcode */
   label_section_order?: unknown;
   ui_resolution?: string;
+  receipt_printer?: string | null;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

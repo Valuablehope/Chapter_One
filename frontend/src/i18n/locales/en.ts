@@ -93,7 +93,9 @@ export const en = {
       status: "Status",
       store_active: "Store Active",
       ui_resolution: "UI Resolution",
-      ui_resolution_helper: "Forces the interface to a specific scaling"
+      ui_resolution_helper: "Forces the interface to a specific scaling",
+      receipt_printer: 'Receipt Printer',
+      receipt_printer_helper: 'Select the specific printer for silent receipts. Leave as Default System Printer to use your computer\'s default printer.'
     },
     terminals: {
       search: "Search terminals...",

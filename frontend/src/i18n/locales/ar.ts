@@ -92,8 +92,10 @@ export const ar = {
       phone: "الهاتف",
       status: "الحالة",
       store_active: "المتجر نشط",
-      ui_resolution: "دقة الواجهة",
-      ui_resolution_helper: "فرض حجم محدد لواجهة المستخدم"
+      ui_resolution: 'دقة واجهة المستخدم',
+      ui_resolution_helper: 'يفرض واجهة المستخدم على مقياس معين',
+      receipt_printer: 'طابعة الإيصالات',
+      receipt_printer_helper: 'اختر الطابعة المخصصة للإيصالات. اتركها على الطابعة الافتراضية للنظام لاستخدام طابعة الكمبيوتر الافتراضية.',
     },
     terminals: {
       search: "البحث عن الأجهزة...",

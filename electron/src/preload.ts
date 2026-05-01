@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   log: (level: string, message: string) => ipcRenderer.send('app:log', { level, message }),
   openLogs: () => ipcRenderer.invoke('app:openLogs'),
+  getPrinters: () => ipcRenderer.invoke('app:getPrinters'),
+  printSilent: (deviceName?: string) => ipcRenderer.invoke('app:print-silent', deviceName),
   customerDisplayShow: (payload: { storeName: string; amount: number }) =>
     ipcRenderer.invoke('customer-display:show', payload),
   // Setup Wizard Methods
@@ -53,6 +55,8 @@ declare global {
       getPlatform: () => Promise<string>;
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;
+      getPrinters: () => Promise<any[]>;
+      printSilent: (deviceName?: string) => Promise<{ success: boolean; error?: string }>;
       customerDisplayShow: (payload: {
         storeName: string;
         amount: number;

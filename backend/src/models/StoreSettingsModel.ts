@@ -46,6 +46,7 @@ export interface StoreSettings {
   label_section_order?: unknown;
   show_lbp_price: boolean;
   ui_resolution: string;
+  receipt_printer?: string | null;
 }
 
 export interface StoreSettingsInput {
@@ -88,6 +89,7 @@ export interface StoreSettingsInput {
   label_section_order?: unknown;
   show_lbp_price?: boolean;
   ui_resolution?: string;
+  receipt_printer?: string | null;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -433,6 +435,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('ui_resolution');
       values.push(settings.ui_resolution);
     }
+    if (settings.receipt_printer !== undefined && availableColumns.has('receipt_printer')) {
+      paramCount++;
+      fields.push('receipt_printer');
+      values.push(settings.receipt_printer);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -643,6 +650,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`ui_resolution = $${paramCount}`);
       values.push(settings.ui_resolution);
+    }
+    if (settings.receipt_printer !== undefined && availableColumns.has('receipt_printer')) {
+      paramCount++;
+      fields.push(`receipt_printer = $${paramCount}`);
+      values.push(settings.receipt_printer);
     }
 
     if (fields.length === 0) {
