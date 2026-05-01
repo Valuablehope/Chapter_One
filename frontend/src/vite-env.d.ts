@@ -21,6 +21,8 @@ declare global {
       setupInitializeStore: (args: { storeName: string, password: string, port: string }) => Promise<{success: boolean, error?: string}>;
       setupInstallService: () => Promise<{success: boolean, error?: string}>;
       setupComplete: () => Promise<void>;
+      getPrinters?: () => Promise<string[]>;
+      printSilent?: (printerName?: string) => Promise<{ success: boolean; error?: string }>;
       ipcRenderer?: {
         on: (channel: string, callback: (...args: any[]) => void) => void;
         removeListener: (channel: string, callback: (...args: any[]) => void) => void;

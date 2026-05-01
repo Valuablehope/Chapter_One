@@ -311,6 +311,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       label_show_lbp: formData.label_show_lbp,
       show_lbp_price: formData.show_lbp_price,
       ui_resolution: formData.ui_resolution,
+      receipt_printer: formData.receipt_printer || undefined,
     };
 
     setSubmitting(true);
@@ -643,9 +644,9 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 </p>
               </div>
 
-              {window.electronAPI?.getPrinters && (
-                <div>
-                  <FieldLabel>{t('admin.stores.receipt_printer')}</FieldLabel>
+              <div>
+                <FieldLabel>{t('admin.stores.receipt_printer')}</FieldLabel>
+                {window.electronAPI?.getPrinters ? (
                   <select
                     value={formData.receipt_printer}
                     onChange={(e) => set('receipt_printer', e.target.value)}
@@ -658,11 +659,19 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-gray-400">
-                    {t('admin.stores.receipt_printer_helper')}
-                  </p>
-                </div>
-              )}
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.receipt_printer}
+                    onChange={(e) => set('receipt_printer', e.target.value)}
+                    placeholder="e.g. EPSON TM-T88VI"
+                    className={inputCls()}
+                  />
+                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  {t('admin.stores.receipt_printer_helper')}
+                </p>
+              </div>
             </div>
 
 
