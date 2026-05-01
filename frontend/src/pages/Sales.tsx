@@ -77,6 +77,7 @@ export default function Sales() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchResultsDropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -348,7 +349,11 @@ export default function Sales() {
       
       // Close on outside click
       const handleClickOutside = (e: MouseEvent) => {
-        if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        if (
+          searchContainerRef.current && 
+          !searchContainerRef.current.contains(e.target as Node) &&
+          (!searchResultsDropdownRef.current || !searchResultsDropdownRef.current.contains(e.target as Node))
+        ) {
           setSearchResults([]);
         }
       };
@@ -1180,6 +1185,7 @@ export default function Sales() {
                 {/* Search Results Portal */}
                 {searchResults.length > 0 && createPortal(
                   <div 
+                    ref={searchResultsDropdownRef}
                     className="fixed border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-50 bg-white shadow-2xl z-[9999]"
                     style={{
                       top: `${dropdownPosition.top - window.scrollY}px`,
