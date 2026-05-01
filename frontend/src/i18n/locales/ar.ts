@@ -91,7 +91,9 @@ export const ar = {
       address: "العنوان",
       phone: "الهاتف",
       status: "الحالة",
-      store_active: "المتجر نشط"
+      store_active: "المتجر نشط",
+      ui_resolution: "دقة الواجهة",
+      ui_resolution_helper: "فرض حجم محدد لواجهة المستخدم"
     },
     terminals: {
       search: "البحث عن الأجهزة...",

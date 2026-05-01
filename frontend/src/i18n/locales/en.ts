@@ -91,7 +91,9 @@ export const en = {
       address: "Address",
       phone: "Phone",
       status: "Status",
-      store_active: "Store Active"
+      store_active: "Store Active",
+      ui_resolution: "UI Resolution",
+      ui_resolution_helper: "Forces the interface to a specific scaling"
     },
     terminals: {
       search: "Search terminals...",

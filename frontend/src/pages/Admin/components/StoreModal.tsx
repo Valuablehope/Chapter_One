@@ -612,6 +612,24 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   <option value="A4">A4</option>
                 </select>
               </div>
+
+              <div>
+                <FieldLabel>{t('admin.stores.ui_resolution')}</FieldLabel>
+                <select
+                  value={formData.ui_resolution}
+                  onChange={(e) => set('ui_resolution', e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="auto">Auto (Default)</option>
+                  <option value="1024x768">1024x768 (Compact POS)</option>
+                  <option value="1280x720">1280x720 (HD)</option>
+                  <option value="1366x768">1366x768 (Standard)</option>
+                  <option value="1920x1080">1920x1080 (Full HD)</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  {t('admin.stores.ui_resolution_helper')}
+                </p>
+              </div>
             </div>
 
 
