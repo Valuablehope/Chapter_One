@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'; 
 import { createPortal } from 'react-dom';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
@@ -1048,224 +1048,213 @@ export default function Sales() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
         {/* Left Column - Product Search & Cart */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Quick Add POS Categories/Grid */}
-          {posCategories.length > 0 && (
-            <Card className="border border-[#e2e8f0] shadow-soft bg-white">
-              <div className="p-4">
-                {!activeCategory ? (
-                  <>
-                    <div className="flex items-center gap-2.5 mb-4">
-                      <div className="p-1.5 bg-secondary-500 rounded-lg">
-                         <BookOpenIcon className="w-4 h-4 text-white" />
-                      </div>
-                      <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.quick_add')}</h2>
-                    </div>
-                    {/* Categories Grid */}
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 border-b border-gray-100 pb-4 gap-2">
-                      {posCategories.map(category => (
-                        <button
-                          key={category}
-                          onClick={() => setActiveCategory(category)}
-                          className="h-20 bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-2 transition-all shadow-sm hover:shadow-md group"
-                        >
-                          <TagIcon className="w-6 h-6 text-secondary-500 mb-1.5 group-hover:scale-110 transition-transform" />
-                          <span className="font-bold text-secondary-900 text-[11px] text-center line-clamp-2 leading-tight">{category}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3 mb-4">
-                      <button 
-                        onClick={() => setActiveCategory(null)}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-                      >
-                        <ArrowLeftIcon className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} {t('pos_sales.items')}</h2>
-                    </div>
-                    {/* Products Grid */}
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 gap-2 cursor-pointer">
-                      {displayedPosProducts.map(product => (
-                        <button
-                          key={product.product_id}
-                          onClick={() => handlePosItemClick(product)}
-                          className="flex flex-col h-full min-h-[90px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-md rounded-xl p-2 items-center text-center transition-all group"
-                        >
-                          <div className="w-8 h-8 mb-1.5 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
-                            <span className="text-xs font-bold text-secondary-500">
-                              {product.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-0.5">
-                            {product.name}
-                          </span>
-                          <span className="text-xs font-bold text-secondary-500 mt-auto">
-                            ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                          </span>
-                          {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
-                            <span className="text-[9px] font-semibold text-amber-600 mt-0.5 leading-none">
-                              ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </Card>
-          )}
-
-          {/* Product Search */}
-          <Card className="border border-[#e2e8f0] shadow-soft bg-white !overflow-visible">
-            <div className="p-4 !overflow-visible">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="p-1.5 bg-secondary-500 rounded-lg">
-                  <MagnifyingGlassIcon className="w-4 h-4 text-white" />
-                </div>
-                <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.find_products')}</h2>
-              </div>
-
-              {/* Barcode Scanner */}
-              <div className="mb-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <QrCodeIcon className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.barcode_scan')}</span>
-                </div>
-                <div className="relative">
-                  <input
-                    ref={barcodeInputRef}
-                    type="text"
-                    placeholder={t('pos_sales.scan_placeholder')}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const barcode = (e.target as HTMLInputElement).value.trim();
-                        if (barcode) {
-                          handleBarcodeScan(barcode);
-                        }
-                      }
-                    }}
-                    className="input-premium w-full px-3 py-2.5 text-sm font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* OR divider */}
-              <div className="flex items-center gap-3 my-3">
-                <div className="flex-1 h-px bg-gray-100" />
-                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-widest">{t('pos_sales.or')}</span>
-                <div className="flex-1 h-px bg-gray-100" />
-              </div>
-
-              {/* Product Search */}
-              <div className="relative" ref={searchContainerRef}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('pos_sales.search_by')}</span>
-                </div>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
-                    <MagnifyingGlassIcon className="w-4 h-4" />
-                  </div>
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (searchResults.length > 0) {
-                          addToCart(searchResults[0]);
-                          setSearchResults([]);
-                          setSearchQuery('');
-                          debouncedSearch.cancel();
-                        }
-                      }
-                    }}
-                    placeholder={t('pos_sales.search_placeholder')}
-                    className="input-premium w-full pl-10 pr-3 py-2.5 text-sm font-medium"
-                  />
-                </div>
-
-                {/* Search Results Portal */}
-                {searchResults.length > 0 && createPortal(
-                  <div 
-                    ref={searchResultsDropdownRef}
-                    className="fixed border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-50 bg-white shadow-2xl z-[9999]"
-                    style={{
-                      top: `${dropdownPosition.top - window.scrollY}px`,
-                      left: `${dropdownPosition.left - window.scrollX}px`,
-                      width: `${dropdownPosition.width}px`,
-                    }}
-                  >
-                    {searchResults.map((product) => (
-                      <button
-                        key={product.product_id}
-                        onClick={() => {
-                          addToCart(product);
-                          setSearchResults([]);
-                          setSearchQuery('');
-                          debouncedSearch.cancel();
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-all duration-150 group"
-                      >
-                        <div className="flex justify-between items-center gap-3">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="p-2 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
-                              <BookOpenIcon className="w-4 h-4 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {product.sku && (
-                                  <span className="text-[11px] text-gray-400 font-mono">SKU {product.sku}</span>
-                                )}
-                                {product.barcode && (
-                                  <Badge variant="gray" size="sm" className="font-mono text-[10px]">
-                                    {product.barcode}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-bold text-sm text-secondary-500">
-                              ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                            </p>
-                            {product.track_inventory && (
-                              <p className="text-[10px] text-gray-400 mt-0.5">{t('pos_sales.in_stock')}</p>
-                            )}
-                          </div>
-                          <ArrowRightIcon className="w-4 h-4 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
+          {/* Product Selection & Quick Add */}
+          <Card className="border border-[#e2e8f0] shadow-soft bg-white overflow-visible">
+            <div className="p-4 overflow-visible">
+              {posCategories.length > 0 && (
+                <div className="mb-6">
+                  {!activeCategory ? (
+                    <>
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className="p-1.5 bg-secondary-500 rounded-lg">
+                           <BookOpenIcon className="w-4 h-4 text-white" />
                         </div>
-                      </button>
-                    ))}
-                  </div>,
-                  document.body
-                )}
+                        <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.quick_add')}</h2>
+                      </div>
+                      {/* Categories Grid */}
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                        {posCategories.map(category => (
+                          <button
+                            key={category}
+                            onClick={() => setActiveCategory(category)}
+                            className="h-20 bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-2 transition-all shadow-sm hover:shadow-md group"
+                          >
+                            <TagIcon className="w-6 h-6 text-secondary-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-secondary-900 text-[11px] text-center line-clamp-2 leading-tight">{category}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 mb-4">
+                        <button 
+                          onClick={() => setActiveCategory(null)}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                        >
+                          <ArrowLeftIcon className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} {t('pos_sales.items')}</h2>
+                      </div>
+                      {/* Products Grid */}
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 gap-2 cursor-pointer">
+                        {displayedPosProducts.map(product => (
+                          <button
+                            key={product.product_id}
+                            onClick={() => handlePosItemClick(product)}
+                            className="flex flex-col h-full min-h-[90px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-md rounded-xl p-2 items-center text-center transition-all group"
+                          >
+                            <div className="w-8 h-8 mb-1.5 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
+                              <span className="text-xs font-bold text-secondary-500">
+                                {product.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-0.5">
+                              {product.name}
+                            </span>
+                            <span className="text-xs font-bold text-secondary-500 mt-auto">
+                              ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                            </span>
+                            {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
+                              <span className="text-[9px] font-semibold text-amber-600 mt-0.5 leading-none">
+                                ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
-                {searching && createPortal(
-                  <div 
-                    className="fixed border border-gray-200 rounded-xl py-4 bg-white shadow-2xl z-[9999] text-center"
-                    style={{
-                      top: `${dropdownPosition.top - window.scrollY}px`,
-                      left: `${dropdownPosition.left - window.scrollX}px`,
-                      width: `${dropdownPosition.width}px`,
-                    }}
-                  >
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-secondary-200 border-t-secondary-500"></div>
-                    <p className="mt-2 text-sm text-gray-500 font-medium">{t('pos_sales.searching')}</p>
-                  </div>,
-                  document.body
-                )}
+              {/* Integrated Compact Search Section */}
+              <div className={posCategories.length > 0 ? "pt-6 border-t border-gray-100" : ""}>
+                <div className="flex flex-col md:flex-row items-start gap-4">
+                  {/* Barcode Scanner */}
+                  <div className="w-full md:w-1/3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <QrCodeIcon className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('pos_sales.barcode_scan')}</span>
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-secondary-500 transition-colors">
+                        <QrCodeIcon className="w-4 h-4" />
+                      </div>
+                      <input
+                        ref={barcodeInputRef}
+                        type="text"
+                        placeholder={t('pos_sales.scan_placeholder')}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const barcode = (e.target as HTMLInputElement).value.trim();
+                            if (barcode) {
+                              handleBarcodeScan(barcode);
+                            }
+                          }
+                        }}
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:bg-white focus:border-secondary-500 focus:ring-4 focus:ring-secondary-500/10 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Search by Name/SKU */}
+                  <div className="w-full md:w-2/3 relative" ref={searchContainerRef}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('pos_sales.search_by')}</span>
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-secondary-500 transition-colors">
+                        <MagnifyingGlassIcon className="w-4 h-4" />
+                      </div>
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (searchResults.length > 0) {
+                              addToCart(searchResults[0]);
+                              setSearchResults([]);
+                              setSearchQuery('');
+                              debouncedSearch.cancel();
+                            }
+                          }
+                        }}
+                        placeholder={t('pos_sales.search_placeholder')}
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:bg-white focus:border-secondary-500 focus:ring-4 focus:ring-secondary-500/10 outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Search Results Portal */}
+                    {searchResults.length > 0 && createPortal(
+                      <div 
+                        ref={searchResultsDropdownRef}
+                        className="fixed border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-50 bg-white shadow-2xl z-[9999]"
+                        style={{
+                          top: `${dropdownPosition.top - window.scrollY}px`,
+                          left: `${dropdownPosition.left - window.scrollX}px`,
+                          width: `${dropdownPosition.width}px`,
+                        }}
+                      >
+                        {searchResults.map((product) => (
+                          <button
+                            key={product.product_id}
+                            onClick={() => {
+                              addToCart(product);
+                              setSearchResults([]);
+                              setSearchQuery('');
+                              debouncedSearch.cancel();
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-all duration-150 group"
+                          >
+                            <div className="flex justify-between items-center gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="p-2 bg-secondary-50 group-hover:bg-secondary-100 rounded-lg flex-shrink-0 transition-colors">
+                                  <BookOpenIcon className="w-4 h-4 text-secondary-400 group-hover:text-secondary-500 transition-colors" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-sm text-gray-900 group-hover:text-secondary-600 transition-colors truncate">{product.name}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {product.sku && (
+                                      <span className="text-[11px] text-gray-400 font-mono">SKU {product.sku}</span>
+                                    )}
+                                    {product.barcode && (
+                                      <Badge variant="gray" size="sm" className="font-mono text-[10px]">
+                                        {product.barcode}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-bold text-sm text-secondary-500">
+                                  ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                                </p>
+                              </div>
+                              <ArrowRightIcon className="w-4 h-4 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
+
+                    {searching && createPortal(
+                      <div 
+                        className="fixed border border-gray-200 rounded-xl py-4 bg-white shadow-2xl z-[9999] text-center"
+                        style={{
+                          top: `${dropdownPosition.top - window.scrollY}px`,
+                          left: `${dropdownPosition.left - window.scrollX}px`,
+                          width: `${dropdownPosition.width}px`,
+                        }}
+                      >
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-secondary-200 border-t-secondary-500"></div>
+                        <p className="mt-2 text-sm text-gray-500 font-medium">{t('pos_sales.searching')}</p>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
+
 
 
           {/* Shopping Cart */}

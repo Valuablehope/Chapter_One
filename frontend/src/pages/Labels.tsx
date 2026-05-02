@@ -1550,7 +1550,7 @@ export default function Labels() {
             }
           </style>
         </head>
-        <body>\${html}</body>
+        <body>${html}</body>
       </html>
     `);
     win.document.close();
@@ -1597,7 +1597,7 @@ export default function Labels() {
       <div className="px-3">
         <PageBanner
           title="Labels"
-          subtitle={store?.ui_resolution === '1024x768' ? \`\${cols} labels/row\` : \`\${paper.label} · \${cols} labels/row · \${LABEL_W_MM}×\${LABEL_H_MM} mm\`}
+          subtitle={store?.ui_resolution === '1024x768' ? `${cols} labels/row` : `${paper.label} · ${cols} labels/row · ${LABEL_W_MM}×${LABEL_H_MM} mm`}
           icon={<TagIcon className="w-5 h-5 text-white" />}
           action={
             <div className="flex items-center gap-2">
@@ -1625,22 +1625,22 @@ export default function Labels() {
         <div className="bg-white p-1 rounded-2xl border border-gray-200 shadow-soft flex items-center gap-1">
           <button
             onClick={() => setActiveTab('shelf')}
-            className={\`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all \${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'shelf'
                 ? 'bg-secondary-600 text-white shadow-brand'
                 : 'text-gray-500 hover:bg-gray-50'
-            }\`}
+            }`}
           >
             <TagIcon className="w-4 h-4" />
             Shelf Label
           </button>
           <button
             onClick={() => setActiveTab('promotion')}
-            className={\`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all \${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'promotion'
                 ? 'bg-secondary-600 text-white shadow-brand'
                 : 'text-gray-500 hover:bg-gray-50'
-            }\`}
+            }`}
           >
             <PaintBrushIcon className="w-4 h-4" />
             Promotion Label
@@ -1691,11 +1691,11 @@ export default function Labels() {
                                   <button
                                     type="button"
                                     onClick={() => setActiveLabelSection(id)}
-                                    className={\`flex-1 flex items-center justify-between px-3 py-2 text-xs font-bold rounded-lg border transition-all \${
+                                    className={`flex-1 flex items-center justify-between px-3 py-2 text-xs font-bold rounded-lg border transition-all ${
                                       isActive
                                         ? 'bg-secondary-50 border-secondary-500 text-secondary-700 shadow-md ring-1 ring-secondary-500'
                                         : 'bg-white border-gray-200 text-gray-700 shadow-sm hover:border-secondary-300'
-                                    }\`}
+                                    }`}
                                   >
                                     <span>{meta?.label ?? id}</span>
                                     <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
@@ -1784,7 +1784,7 @@ export default function Labels() {
                   ) : (
                     visibleCarouselLabels.map(p => (
                       <div key={p.product_id} style={{ width: scaledLabelW, height: scaledLabelH, flexShrink: 0, overflow: 'hidden', borderRadius: 5 }}>
-                        <div style={{ transform: \`scale(\${CAROUSEL_SCALE})\`, transformOrigin: 'top left', width: mmToPx(LABEL_W_MM), height: mmToPx(LABEL_H_MM) }}>
+                        <div style={{ transform: `scale(${CAROUSEL_SCALE})`, transformOrigin: 'top left', width: mmToPx(LABEL_W_MM), height: mmToPx(LABEL_H_MM) }}>
                           <LabelCard storeName={previewStore?.name ?? ''} productName={p.name} price={Number(p.sale_price ?? p.list_price ?? 0)} currency={currency} barcode={p.barcode} store={previewStore} />
                         </div>
                       </div>
@@ -1824,7 +1824,7 @@ export default function Labels() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-gray-50 z-10">
                     <tr>
-                      <th className="w-10 px-4 py-3"><button onClick={toggleAll} className={\`w-5 h-5 rounded border-2 flex items-center justify-center \${allOnPageSelected ? 'bg-secondary-600 border-secondary-600' : 'border-gray-300'}\`}>{allOnPageSelected && <CheckIcon className="w-3 h-3 text-white" />}</button></th>
+                      <th className="w-10 px-4 py-3"><button onClick={toggleAll} className={`w-5 h-5 rounded border-2 flex items-center justify-center ${allOnPageSelected ? 'bg-secondary-600 border-secondary-600' : 'border-gray-300'}`}>{allOnPageSelected && <CheckIcon className="w-3 h-3 text-white" />}</button></th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-600">Product</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-600">SKU</th>
                       <th className="px-4 py-3 text-right font-semibold text-gray-600">Price</th>
@@ -1837,8 +1837,8 @@ export default function Labels() {
                       products.map(p => {
                         const isSelected = selected.has(p.product_id);
                         return (
-                          <tr key={p.product_id} onClick={() => toggleOne(p.product_id)} className={\`cursor-pointer transition-colors \${isSelected ? 'bg-secondary-50' : 'hover:bg-gray-50'}\`}>
-                            <td className="px-4 py-3"><div className={\`w-5 h-5 rounded border-2 flex items-center justify-center \${isSelected ? 'bg-secondary-600 border-secondary-600' : 'border-gray-300'}\`}>{isSelected && <CheckIcon className="w-3 h-3 text-white" />}</div></td>
+                          <tr key={p.product_id} onClick={() => toggleOne(p.product_id)} className={`cursor-pointer transition-colors ${isSelected ? 'bg-secondary-50' : 'hover:bg-gray-50'}`}>
+                            <td className="px-4 py-3"><div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? 'bg-secondary-600 border-secondary-600' : 'border-gray-300'}`}>{isSelected && <CheckIcon className="w-3 h-3 text-white" />}</div></td>
                             <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                             <td className="px-4 py-3 text-gray-400 text-xs font-mono">{p.sku || '—'}</td>
                             <td className="px-4 py-3 text-right font-semibold text-gray-800">{currency} {Number(p.sale_price ?? p.list_price ?? 0).toFixed(2)}</td>
@@ -1852,10 +1852,10 @@ export default function Labels() {
             </div>
             {totalPages > 1 && (
               <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between text-sm flex-shrink-0">
-                <span className="text-gray-500 text-xs">{totalProducts === 0 ? 'No products' : \`\${(currentPage - 1) * PAGE_SIZE + 1}–\${Math.min(currentPage * PAGE_SIZE, totalProducts)} of \${totalProducts}\`}</span>
+                <span className="text-gray-500 text-xs">{totalProducts === 0 ? 'No products' : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalProducts)} of ${totalProducts}`}</span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30">‹</button>
-                  {pageNumbers.map((n, i) => n === '...' ? <span key={\`ellipsis-\${i}\`} className="px-1 text-gray-400 text-xs">…</span> : <button key={n} onClick={() => setCurrentPage(n as number)} className={\`w-7 h-7 rounded text-xs font-medium \${n === currentPage ? 'bg-secondary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}\`}>{n}</button>)}
+                  {pageNumbers.map((n, i) => n === '...' ? <span key={`ellipsis-${i}`} className="px-1 text-gray-400 text-xs">…</span> : <button key={n} onClick={() => setCurrentPage(n as number)} className={`w-7 h-7 rounded text-xs font-medium ${n === currentPage ? 'bg-secondary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{n}</button>)}
                   <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30">›</button>
                 </div>
               </div>
