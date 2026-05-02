@@ -16,10 +16,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PaintBrushIcon,
+  BuildingOfficeIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
-// ─── Paper size dimensions (mm → pixels at 96 dpi, 1 mm ≈ 3.7795 px) ──────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Paper size dimensions (mm ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ pixels at 96 dpi, 1 mm ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€  3.7795 px) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 const MM_TO_PX = 3.7795;
 
 const PAPER_PRESETS: Record<string, { widthMM: number; heightMM: number; label: string }> = {
@@ -213,9 +214,9 @@ function sectionRing(
   ].filter(Boolean).join(' ');
 }
 
-// ─── Code 128B barcode encoder ───────────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Code 128B barcode encoder ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 // Each entry = 6-char string of widths [bar,spc,bar,spc,bar,spc], sum = 11.
-// Indices 0–102 = data; 103 = Start A; 104 = Start B; 105 = Start C.
+// Indices 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“102 = data; 103 = Start A; 104 = Start B; 105 = Start C.
 const C128: readonly string[] = [
   '212222','222122','222221','121223','121322','131222','122213','122312',
   '132212','221213','221312','231212','112232','122132','122231','113222',
@@ -278,7 +279,7 @@ function BarcodeRenderer({ bits, barHeight }: { bits: boolean[]; barHeight: numb
   );
 }
 
-// ─── Label card (single label) ───────────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Label card (single label) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 interface LabelCardProps {
   storeName: string;
   productName: string;
@@ -546,7 +547,7 @@ function LabelCard({
                 }}
               >
                 <span style={{ fontSize: 9, fontWeight: 600, color: '#888', textAlign: 'center', display: 'block', fontFamily: 'Arial, sans-serif', pointerEvents: 'none' }}>
-                  LBP line — set exchange rate in Admin to preview
+                  LBP line ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set exchange rate in Admin to preview
                 </span>
               </button>
             );
@@ -662,7 +663,7 @@ function LabelCard({
                 style={{ ...barcodeBase, background: '#fafafa', border: 'none', cursor: 'pointer', font: 'inherit', borderTop: sep ? '1px dashed #c4c4c4' : undefined }}
               >
                 <span style={{ fontSize: 9, fontWeight: 600, color: '#aaa', fontFamily: 'Arial, sans-serif' }}>
-                  {!showBarcode ? 'Barcode hidden' : 'No barcode — assign one to this product'}
+                  {!showBarcode ? 'Barcode hidden' : 'No barcode ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â assign one to this product'}
                 </span>
               </button>
             );
@@ -707,7 +708,109 @@ function LabelCard({
   );
 }
 
-// ─── Print layout ────────────────────────────────────────────────────────────
+
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Promotion Card (A4 Poster) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+interface PromotionCardProps {
+  storeName: string;
+  productName: string;
+  price: number;
+  unit: string;
+  origin?: string;
+  promoText: string;
+  style?: React.CSSProperties;
+}
+
+function PromotionCard({
+  storeName,
+  productName,
+  price,
+  unit,
+  origin,
+  promoText,
+  style,
+}: PromotionCardProps) {
+  return (
+    <div
+      className="promotion-poster bg-white flex flex-col items-center justify-between p-[5%] shadow-2xl relative overflow-hidden"
+      style={{
+        width: '210mm',
+        height: '297mm',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        ...style,
+      }}
+    >
+      {/* Top: Store Name */}
+      <div className="text-center w-full">
+        <h2 className="text-[24pt] font-medium tracking-[0.2em] text-gray-900 uppercase">
+          {storeName}
+        </h2>
+        <div className="h-[1px] w-1/4 bg-gray-200 mx-auto mt-2" />
+      </div>
+
+      {/* Center: Product Name & Origin */}
+      <div className="text-center w-full flex-1 flex flex-col justify-center">
+        <h1 className="text-[72pt] font-black text-green-800 uppercase leading-tight mb-4">
+          {productName}
+        </h1>
+        {origin && (
+          <p className="text-[18pt] font-light text-gray-500 uppercase tracking-widest italic">
+            ({origin})
+          </p>
+        )}
+      </div>
+
+      {/* Main Focus: Price */}
+      <div className="text-center w-full mb-12">
+        <div className="relative inline-block">
+          <span className="text-[220pt] font-black text-red-600 leading-[0.8] tracking-tighter">
+            <span className="text-[100pt] align-top mr-2 font-bold opacity-90">$</span>
+            {Number(price).toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom: Badge & Unit */}
+      <div className="w-full flex items-end justify-between px-4">
+        {/* Badge */}
+        <div className="relative">
+          <div className="bg-red-600 text-white px-10 py-6 rounded-full font-black text-[32pt] uppercase shadow-xl -rotate-12 border-4 border-white flex items-center justify-center">
+            {promoText}
+          </div>
+        </div>
+
+        {/* Unit */}
+        <div className="text-[54pt] font-black text-green-800 lowercase">
+          {unit}
+        </div>
+      </div>
+
+      {/* Border accent */}
+      <div className="absolute inset-[3%] border-[1px] border-gray-100 pointer-events-none rounded-sm" />
+    </div>
+  );
+}
+
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Promotion Print Preview ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+function PromotionPrintPreview({ products, store, promoText, origin }: { products: Product[]; store: StoreSettings; promoText: string; origin: string }) {
+  return (
+    <div id="labels-print-root" className="bg-gray-200 flex flex-col gap-8">
+      {products.map((p) => (
+        <div key={p.product_id} className="bg-white shadow-xl mx-auto" style={{ width: '210mm', height: '297mm', pageBreakAfter: 'always' }}>
+          <PromotionCard
+            storeName={store.name}
+            productName={p.name}
+            price={p.sale_price ?? p.list_price ?? 0}
+            unit={p.unit_of_measure || 'kilo'}
+            origin={origin}
+            promoText={promoText}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Print layout ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 interface PrintPreviewProps {
   products: Product[];
   store: StoreSettings;
@@ -768,7 +871,7 @@ function PrintPreview({ products, store }: PrintPreviewProps) {
 
 type SetLabelField = <K extends keyof LabelLayoutFormState>(key: K, value: LabelLayoutFormState[K]) => void;
 
-// ─── Reusable premium control sub-components ─────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Reusable premium control sub-components ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 function AlignSegment({ value, onChange, options }: {
   value: string;
@@ -860,218 +963,234 @@ function LabelSectionFormFields({
   layoutForm: LabelLayoutFormState;
   setField: SetLabelField;
 }) {
+  const meta = LABEL_SECTION_META.find(m => m.id === section);
   const alignOpts = [
     { value: 'left',   label: 'Left'   },
     { value: 'center', label: 'Center' },
     { value: 'right',  label: 'Right'  },
   ];
 
-  switch (section) {
-    case 'header':
-      return (
-        <div className="space-y-4">
-          <ControlRow label="Alignment">
-            <AlignSegment
-              value={layoutForm.label_header_align}
-              onChange={v => setField('label_header_align', v as TextAlignLR)}
-              options={alignOpts}
-            />
-          </ControlRow>
-          <ControlRow label="Font size">
-            <SizeSlider value={layoutForm.label_store_name_size} min={3} max={18} fallback={5.5}
-              onChange={v => setField('label_store_name_size', v)} />
-          </ControlRow>
-          <ControlRow label="Font weight">
-            <WeightGrid value={layoutForm.label_header_font_weight}
-              onChange={v => setField('label_header_font_weight', v)} />
-          </ControlRow>
-          <ControlRow label="Section height">
-            <SizeSlider value={layoutForm.label_header_pad_v} min={0} max={12} step={0.5} fallback={2.5}
-              onChange={v => setField('label_header_pad_v', v)} />
-          </ControlRow>
-        </div>
-      );
+  const renderContent = () => {
+    switch (section) {
+      case 'header':
+        return (
+          <div className="space-y-4">
+            <ControlRow label="Alignment">
+              <AlignSegment
+                value={layoutForm.label_header_align}
+                onChange={v => setField('label_header_align', v as TextAlignLR)}
+                options={alignOpts}
+              />
+            </ControlRow>
+            <ControlRow label="Font size">
+              <SizeSlider value={layoutForm.label_store_name_size} min={3} max={18} fallback={5.5}
+                onChange={v => setField('label_store_name_size', v)} />
+            </ControlRow>
+            <ControlRow label="Font weight">
+              <WeightGrid value={layoutForm.label_header_font_weight}
+                onChange={v => setField('label_header_font_weight', v)} />
+            </ControlRow>
+            <ControlRow label="Section height">
+              <SizeSlider value={layoutForm.label_header_pad_v} min={0} max={12} step={0.5} fallback={2.5}
+                onChange={v => setField('label_header_pad_v', v)} />
+            </ControlRow>
+          </div>
+        );
 
-    case 'title':
-      return (
-        <div className="space-y-4">
-          <ControlRow label="Alignment">
-            <AlignSegment
-              value={layoutForm.label_title_align}
-              onChange={v => setField('label_title_align', v as TextAlignLR)}
-              options={alignOpts}
-            />
-          </ControlRow>
-          <ControlRow label="Font size">
-            <SizeSlider value={layoutForm.label_product_name_size} min={6} max={36} fallback={15}
-              onChange={v => setField('label_product_name_size', v)} />
-          </ControlRow>
-          <ControlRow label="Font weight">
-            <WeightGrid value={layoutForm.label_title_font_weight}
-              onChange={v => setField('label_title_font_weight', v)} />
-          </ControlRow>
-          <ControlRow label="Section height">
-            <SizeSlider value={layoutForm.label_title_pad_v} min={0} max={20} step={0.5} fallback={4}
-              onChange={v => setField('label_title_pad_v', v)} />
-          </ControlRow>
-        </div>
-      );
+      case 'title':
+        return (
+          <div className="space-y-4">
+            <ControlRow label="Alignment">
+              <AlignSegment
+                value={layoutForm.label_title_align}
+                onChange={v => setField('label_title_align', v as TextAlignLR)}
+                options={alignOpts}
+              />
+            </ControlRow>
+            <ControlRow label="Font size">
+              <SizeSlider value={layoutForm.label_product_name_size} min={6} max={36} fallback={15}
+                onChange={v => setField('label_product_name_size', v)} />
+            </ControlRow>
+            <ControlRow label="Font weight">
+              <WeightGrid value={layoutForm.label_title_font_weight}
+                onChange={v => setField('label_title_font_weight', v)} />
+            </ControlRow>
+            <ControlRow label="Section height">
+              <SizeSlider value={layoutForm.label_title_pad_v} min={0} max={20} step={0.5} fallback={4}
+                onChange={v => setField('label_title_pad_v', v)} />
+            </ControlRow>
+          </div>
+        );
 
-    case 'lbp':
-      return (
-        <div className="space-y-4">
-          {/* Toggle switch for show/hide */}
-          <button
-            type="button"
-            onClick={() => setField('label_show_lbp', !layoutForm.label_show_lbp)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
-              layoutForm.label_show_lbp
-                ? 'bg-secondary-50 border-secondary-200'
-                : 'bg-gray-50 border-gray-200'
-            }`}
-          >
-            <span className="text-xs font-semibold text-gray-700">Show LBP line</span>
-            <div className={`w-9 h-5 rounded-full transition-colors relative ${layoutForm.label_show_lbp ? 'bg-secondary-500' : 'bg-gray-300'}`}>
-              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${layoutForm.label_show_lbp ? 'left-[18px]' : 'left-0.5'}`} />
+      case 'lbp':
+        return (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setField('label_show_lbp', !layoutForm.label_show_lbp)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+                layoutForm.label_show_lbp
+                  ? 'bg-secondary-50 border-secondary-200'
+                  : 'bg-gray-50 border-gray-200'
+              }`}
+            >
+              <span className="text-xs font-semibold text-gray-700">Show LBP line</span>
+              <div className={`w-9 h-5 rounded-full transition-colors relative ${layoutForm.label_show_lbp ? 'bg-secondary-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${layoutForm.label_show_lbp ? 'left-[18px]' : 'left-0.5'}`} />
+              </div>
+            </button>
+
+            <ControlRow label="Row layout">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-xl">
+                {([
+                  { value: 'between', label: 'Spread' },
+                  { value: 'left',    label: 'Left'   },
+                  { value: 'center',  label: 'Center' },
+                  { value: 'right',   label: 'Right'  },
+                ] as { value: LbpRowAlign; label: string }[]).map(o => (
+                  <button key={o.value} type="button"
+                    onClick={() => setField('label_lbp_row_align', o.value)}
+                    className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      layoutForm.label_lbp_row_align === o.value
+                        ? 'bg-white text-secondary-700 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </ControlRow>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Prefix "LBP"</p>
+              <ControlRow label="Size">
+                <SizeSlider value={layoutForm.label_lbp_prefix_size} min={4} max={20} fallback={10}
+                  onChange={v => setField('label_lbp_prefix_size', v)} />
+              </ControlRow>
+              <ControlRow label="Weight">
+                <WeightGrid value={layoutForm.label_lbp_prefix_weight}
+                  onChange={v => setField('label_lbp_prefix_weight', v)} />
+              </ControlRow>
             </div>
-          </button>
 
-          <ControlRow label="Row layout">
-            <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-xl">
-              {([
-                { value: 'between', label: 'Spread' },
-                { value: 'left',    label: 'Left'   },
-                { value: 'center',  label: 'Center' },
-                { value: 'right',   label: 'Right'  },
-              ] as { value: LbpRowAlign; label: string }[]).map(o => (
-                <button key={o.value} type="button"
-                  onClick={() => setField('label_lbp_row_align', o.value)}
-                  className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    layoutForm.label_lbp_row_align === o.value
-                      ? 'bg-white text-secondary-700 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LBP amount</p>
+              <ControlRow label="Size">
+                <SizeSlider value={layoutForm.label_lbp_size} min={6} max={36} fallback={14}
+                  onChange={v => setField('label_lbp_size', v)} />
+              </ControlRow>
+              <ControlRow label="Weight">
+                <WeightGrid value={layoutForm.label_lbp_amount_weight}
+                  onChange={v => setField('label_lbp_amount_weight', v)} />
+              </ControlRow>
             </div>
-          </ControlRow>
-
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Prefix "LBP"</p>
-            <ControlRow label="Size">
-              <SizeSlider value={layoutForm.label_lbp_prefix_size} min={4} max={20} fallback={10}
-                onChange={v => setField('label_lbp_prefix_size', v)} />
-            </ControlRow>
-            <ControlRow label="Weight">
-              <WeightGrid value={layoutForm.label_lbp_prefix_weight}
-                onChange={v => setField('label_lbp_prefix_weight', v)} />
+            <ControlRow label="Section height">
+              <SizeSlider value={layoutForm.label_lbp_pad_v} min={0} max={12} step={0.5} fallback={2.5}
+                onChange={v => setField('label_lbp_pad_v', v)} />
             </ControlRow>
           </div>
+        );
 
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LBP amount</p>
-            <ControlRow label="Size">
-              <SizeSlider value={layoutForm.label_lbp_size} min={6} max={36} fallback={14}
-                onChange={v => setField('label_lbp_size', v)} />
+      case 'price':
+        return (
+          <div className="space-y-4">
+            <ControlRow label="Alignment">
+              <AlignSegment
+                value={layoutForm.label_price_row_align}
+                onChange={v => setField('label_price_row_align', v as TextAlignLR)}
+                options={alignOpts}
+              />
             </ControlRow>
-            <ControlRow label="Weight">
-              <WeightGrid value={layoutForm.label_lbp_amount_weight}
-                onChange={v => setField('label_lbp_amount_weight', v)} />
-            </ControlRow>
-          </div>
-          <ControlRow label="Section height">
-            <SizeSlider value={layoutForm.label_lbp_pad_v} min={0} max={12} step={0.5} fallback={2.5}
-              onChange={v => setField('label_lbp_pad_v', v)} />
-          </ControlRow>
-        </div>
-      );
 
-    case 'price':
-      return (
-        <div className="space-y-4">
-          <ControlRow label="Alignment">
-            <AlignSegment
-              value={layoutForm.label_price_row_align}
-              onChange={v => setField('label_price_row_align', v as TextAlignLR)}
-              options={alignOpts}
-            />
-          </ControlRow>
-
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Currency code</p>
-            <ControlRow label="Size">
-              <SizeSlider value={layoutForm.label_currency_size} min={4} max={24} fallback={11}
-                onChange={v => setField('label_currency_size', v)} />
-            </ControlRow>
-            <ControlRow label="Weight">
-              <WeightGrid value={layoutForm.label_currency_weight}
-                onChange={v => setField('label_currency_weight', v)} />
-            </ControlRow>
-          </div>
-
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Price amount</p>
-            <ControlRow label="Size">
-              <SizeSlider value={layoutForm.label_price_size} min={8} max={52} fallback={30}
-                onChange={v => setField('label_price_size', v)} />
-            </ControlRow>
-            <ControlRow label="Weight">
-              <WeightGrid value={layoutForm.label_price_amount_weight}
-                onChange={v => setField('label_price_amount_weight', v)} />
-            </ControlRow>
-          </div>
-
-          <ControlRow label="Section height">
-            <SizeSlider value={layoutForm.label_price_pad_v} min={0} max={16} step={0.5} fallback={4.5}
-              onChange={v => setField('label_price_pad_v', v)} />
-          </ControlRow>
-        </div>
-      );
-
-    case 'barcode':
-      return (
-        <div className="space-y-4">
-          {/* Toggle show/hide */}
-          <button
-            type="button"
-            onClick={() => setField('label_show_barcode', !layoutForm.label_show_barcode)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
-              layoutForm.label_show_barcode
-                ? 'bg-secondary-50 border-secondary-200'
-                : 'bg-gray-50 border-gray-200'
-            }`}
-          >
-            <span className="text-xs font-semibold text-gray-700">Show barcode</span>
-            <div className={`w-9 h-5 rounded-full transition-colors relative ${layoutForm.label_show_barcode ? 'bg-secondary-500' : 'bg-gray-300'}`}>
-              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${layoutForm.label_show_barcode ? 'left-[18px]' : 'left-0.5'}`} />
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Currency code</p>
+              <ControlRow label="Size">
+                <SizeSlider value={layoutForm.label_currency_size} min={4} max={24} fallback={11}
+                  onChange={v => setField('label_currency_size', v)} />
+              </ControlRow>
+              <ControlRow label="Weight">
+                <WeightGrid value={layoutForm.label_currency_weight}
+                  onChange={v => setField('label_currency_weight', v)} />
+              </ControlRow>
             </div>
-          </button>
 
-          <ControlRow label="Bar height">
-            <SizeSlider value={layoutForm.label_barcode_height} min={10} max={36} step={1} fallback={22}
-              onChange={v => setField('label_barcode_height', v)} />
-          </ControlRow>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Price amount</p>
+              <ControlRow label="Size">
+                <SizeSlider value={layoutForm.label_price_size} min={8} max={52} fallback={30}
+                  onChange={v => setField('label_price_size', v)} />
+              </ControlRow>
+              <ControlRow label="Weight">
+                <WeightGrid value={layoutForm.label_price_amount_weight}
+                  onChange={v => setField('label_price_amount_weight', v)} />
+              </ControlRow>
+            </div>
 
-          <ControlRow label="Number text size">
-            <SizeSlider value={layoutForm.label_barcode_text_size} min={4} max={14} step={0.5} fallback={7}
-              onChange={v => setField('label_barcode_text_size', v)} />
-          </ControlRow>
+            <ControlRow label="Section height">
+              <SizeSlider value={layoutForm.label_price_pad_v} min={0} max={16} step={0.5} fallback={4.5}
+                onChange={v => setField('label_price_pad_v', v)} />
+            </ControlRow>
+          </div>
+        );
 
-          <ControlRow label="Section height">
-            <SizeSlider value={layoutForm.label_barcode_pad_v} min={0} max={12} step={0.5} fallback={3}
-              onChange={v => setField('label_barcode_pad_v', v)} />
-          </ControlRow>
+      case 'barcode':
+        return (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setField('label_show_barcode', !layoutForm.label_show_barcode)}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+                layoutForm.label_show_barcode
+                  ? 'bg-secondary-50 border-secondary-200'
+                  : 'bg-gray-50 border-gray-200'
+              }`}
+            >
+              <span className="text-xs font-semibold text-gray-700">Show barcode</span>
+              <div className={`w-9 h-5 rounded-full transition-colors relative ${layoutForm.label_show_barcode ? 'bg-secondary-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${layoutForm.label_show_barcode ? 'left-[18px]' : 'left-0.5'}`} />
+              </div>
+            </button>
+
+            <ControlRow label="Bar height">
+              <SizeSlider value={layoutForm.label_barcode_height} min={10} max={36} step={1} fallback={22}
+                onChange={v => setField('label_barcode_height', v)} />
+            </ControlRow>
+
+            <ControlRow label="Number text size">
+              <SizeSlider value={layoutForm.label_barcode_text_size} min={4} max={14} step={0.5} fallback={7}
+                onChange={v => setField('label_barcode_text_size', v)} />
+            </ControlRow>
+
+            <ControlRow label="Section height">
+              <SizeSlider value={layoutForm.label_barcode_pad_v} min={0} max={12} step={0.5} fallback={3}
+                onChange={v => setField('label_barcode_pad_v', v)} />
+            </ControlRow>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+        <div className="w-10 h-10 rounded-xl bg-secondary-50 flex items-center justify-center">
+          <PaintBrushIcon className="w-5 h-5 text-secondary-600" />
         </div>
-      );
-
-    default:
-      return null;
-  }
+        <div>
+          <h3 className="text-sm font-bold text-gray-900">{meta?.label || 'Select a section'}</h3>
+          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">Customizing {section} properties</p>
+        </div>
+      </div>
+      {renderContent()}
+    </div>
+  );
 }
 
-// ─── Main Labels page ─────────────────────────────────────────────────────────
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Main Labels page ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 export default function Labels() {
   const { user } = useAuthStore();
   const canEditLayout = user?.role === 'admin' || user?.role === 'manager';
@@ -1094,6 +1213,8 @@ export default function Labels() {
   const [totalProducts,         setTotalProducts]         = useState(0);
   const [showPreview,           setShowPreview]           = useState(false);
   const [activeTab,             setActiveTab]             = useState<'shelf' | 'promotion'>('shelf');
+  const [promoText,             setPromoText]             = useState('WEEKEND FRENZY!');
+  const [promoOrigin,           setPromoOrigin]           = useState('PRODUCT OF AUSTRALIA');
   const [carouselOffset,        setCarouselOffset]        = useState(0);
   const printRef        = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1312,592 +1433,292 @@ export default function Labels() {
       <div className="px-3">
         <PageBanner
           title="Labels"
-          subtitle={store?.ui_resolution === '1024x768' ? `${cols} labels/row` : `${paper.label} · ${cols} labels/row · ${LABEL_W_MM}×${LABEL_H_MM} mm`}
+          subtitle={store?.ui_resolution === '1024x768' ? `${cols} labels/row` : `${paper.label} Â· ${cols} labels/row Â· ${LABEL_W_MM}Ã—${LABEL_H_MM} mm`}
           icon={<TagIcon className="w-5 h-5 text-white" />}
-        action={
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-block text-xs font-medium text-white/70 bg-white/10 border border-white/20 rounded-full px-3 py-1">
-              {selected.size} selected
-            </span>
-            <Button
-              id="btn-preview-labels"
-              disabled={selected.size === 0}
-              onClick={() => setShowPreview(true)}
-              size="sm"
-              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40"
-              leftIcon={<EyeIcon className="w-4 h-4" />}
-            >
-              {store?.ui_resolution === '1024x768' ? 'View' : 'Preview'}
-            </Button>
-            <Button
-              id="btn-print-labels"
-              disabled={selected.size === 0}
-              onClick={() => { setShowPreview(true); setTimeout(handlePrint, 100); }}
-              size="sm"
-              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold disabled:opacity-40"
-              leftIcon={<PrinterIcon className="w-4 h-4" />}
-            >
-              {store?.ui_resolution === '1024x768' ? 'Print' : 'Print Labels'}
-            </Button>
-          </div>
-        }
-      />
+          action={
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-block text-xs font-medium text-white/70 bg-white/10 border border-white/20 rounded-full px-3 py-1">
+                {selected.size} selected
+              </span>
+              <Button
+                id="btn-preview-labels"
+                disabled={selected.size === 0}
+                onClick={() => setShowPreview(true)}
+                size="sm"
+                variant="primary"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/20 shadow-none"
+                leftIcon={<EyeIcon className="w-4 h-4" />}
+              >
+                Preview
+              </Button>
+            </div>
+          }
+        />
       </div>
-      {/* Tabs */}
+
+      {/* â”€â”€ Tabs â”€â”€ */}
       <div className="px-3 mb-4">
-        <div className="flex p-1 bg-gray-100/80 backdrop-blur-sm rounded-xl w-fit border border-gray-200/50 shadow-sm">
+        <div className="bg-white p-1 rounded-2xl border border-gray-200 shadow-soft flex items-center gap-1">
           <button
             onClick={() => setActiveTab('shelf')}
-            className={`px-6 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'shelf'
-                ? 'bg-white text-secondary-600 shadow-md ring-1 ring-black/5 scale-[1.02]'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                ? 'bg-secondary-600 text-white shadow-brand'
+                : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
+            <TagIcon className="w-4 h-4" />
             Shelf Label
           </button>
           <button
             onClick={() => setActiveTab('promotion')}
-            className={`px-6 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'promotion'
-                ? 'bg-white text-secondary-600 shadow-md ring-1 ring-black/5 scale-[1.02]'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                ? 'bg-secondary-600 text-white shadow-brand'
+                : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
+            <PaintBrushIcon className="w-4 h-4" />
             Promotion Label
           </button>
         </div>
       </div>
 
-      
-      {activeTab === 'shelf' && (
-        <>
-          {canEditLayout && layoutForm && (
-        <div className="px-3 pt-3 pb-4 flex-shrink-0">
-          {/* Premium toggle header */}
-          <button
-            type="button"
-            onClick={() => {
-              setLayoutOpen(o => {
-                const next = !o;
-                if (next) setActiveLabelSection(null);
-                return next;
-              });
-            }}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-200 ${
-              layoutOpen
-                ? 'bg-secondary-600 border-secondary-700 shadow-brand'
-                : 'bg-white border-gray-200 hover:border-secondary-300 hover:bg-secondary-50 shadow-soft'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`p-1.5 rounded-lg ${layoutOpen ? 'bg-white/20' : 'bg-secondary-500'}`}>
-                <PaintBrushIcon className="w-4 h-4 text-white" />
-              </div>
-              <div className="text-left">
-                <p className={`text-sm font-bold mb-0.5 ${layoutOpen ? 'text-white' : 'text-gray-900'}`}>Label Appearance</p>
-                <p className={`text-xs ${layoutOpen ? 'text-white/60' : 'text-gray-500'}`}>
-                  Font sizes, weights &amp; section layout
-                </p>
-              </div>
-            </div>
-            <ChevronDownIcon className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${layoutOpen ? 'rotate-180 text-white' : 'text-gray-400'}`} />
-          </button>
-
-          {layoutOpen && (
-            <div className="mt-3 mb-4">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-medium overflow-hidden">
-
-                {/* Panel header bar */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/70">
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">Label Designer</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Click any section on the label preview to edit its typography
-                    </p>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {activeTab === 'shelf' && canEditLayout && layoutForm && (
+          <div className="px-3 pt-3 pb-4 flex-shrink-0">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-soft overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setLayoutOpen(!layoutOpen)}
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-secondary-50 flex items-center justify-center">
+                    <PaintBrushIcon className="w-4 h-4 text-secondary-600" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={resetLayout}
-                      disabled={savingLayout}
-                      className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 transition-colors"
-                    >
-                      Reset
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void saveLayout()}
-                      disabled={savingLayout}
-                      className="px-4 py-1.5 text-xs font-bold text-white bg-secondary-600 rounded-lg hover:bg-secondary-700 disabled:opacity-50 transition-colors shadow-sm"
-                    >
-                      {savingLayout ? 'Saving…' : 'Save changes'}
-                    </button>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-gray-900">Label Designer</p>
+                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">Customize layout, fonts & barcodes</p>
                   </div>
                 </div>
+                {layoutOpen ? <ChevronUpIcon className="w-5 h-5 text-gray-400" /> : <ChevronDownIcon className="w-5 h-5 text-gray-400" />}
+              </button>
 
-                {/* Two-column body */}
-                <div
-                  className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-100"
-                  style={{ maxHeight: 'min(82vh, 600px)' }}
-                >
-                  {/* ── Left column: navigator + form fields ── */}
-                  <div className="flex flex-col md:w-64 lg:w-80 flex-shrink-0 overflow-y-auto">
-
-                    {/* Section order navigator */}
-                    <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">
-                        Section order  <span className="normal-case font-normal text-gray-300">top → bottom</span>
-                      </p>
-                      <div className="space-y-1.5">
-                        {layoutForm.label_section_order.map((id, idx) => {
-                          const meta = LABEL_SECTION_META.find(m => m.id === id);
-                          const isActive = activeLabelSection === id;
-                          return (
-                            <div
-                              key={id}
-                              onClick={() => setActiveLabelSection(id)}
-                              className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border cursor-pointer transition-all duration-150 ${
-                                isActive
-                                  ? 'bg-secondary-50 border-secondary-200 shadow-sm'
-                                  : 'bg-white border-gray-100 hover:border-secondary-200 hover:bg-secondary-50/40'
-                              }`}
-                            >
-                              <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0 transition-colors ${
-                                isActive ? 'bg-secondary-600 text-white' : 'bg-gray-200 text-gray-500'
-                              }`}>
-                                {idx + 1}
-                              </div>
-                              <span className={`text-xs font-semibold flex-1 truncate ${isActive ? 'text-secondary-700' : 'text-gray-700'}`}>
-                                {meta?.label ?? id}
-                              </span>
-                              <div className="flex items-center gap-0.5 flex-shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={e => { e.stopPropagation(); moveSectionInOrder(idx, -1); }}
-                                  disabled={idx === 0}
-                                  aria-label="Move up"
-                                  className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-25 disabled:pointer-events-none transition-colors"
-                                >
-                                  <ChevronUpIcon className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={e => { e.stopPropagation(); moveSectionInOrder(idx, 1); }}
-                                  disabled={idx >= layoutForm.label_section_order.length - 1}
-                                  aria-label="Move down"
-                                  className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-25 disabled:pointer-events-none transition-colors"
-                                >
-                                  <ChevronDownIcon className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
+              {layoutOpen && (
+                <div className="p-5 bg-white border-t border-gray-100">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                      <div className="space-y-6">
+                        <LabelSectionFormFields
+                          section={activeLabelSection || 'header'}
+                          layoutForm={layoutForm}
+                          setField={setField}
+                        />
                       </div>
-                    </div>
-
-                    {/* Form fields */}
-                    <div className="p-4 flex-1 overflow-y-auto">
-                      {activeLabelSection === null ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center">
-                          <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
-                            <TagIcon className="w-6 h-6 text-gray-300" />
+                      <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100/50 space-y-4">
+                        <ControlRow label="Stacking order">
+                          <div className="space-y-1.5">
+                            {layoutForm.label_section_order.map((id, i) => {
+                              const meta = LABEL_SECTION_META.find(m => m.id === id);
+                              const isActive = activeLabelSection === id;
+                              return (
+                                <div key={id} className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveLabelSection(id)}
+                                    className={`flex-1 flex items-center justify-between px-3 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                      isActive
+                                        ? 'bg-secondary-50 border-secondary-500 text-secondary-700 shadow-md ring-1 ring-secondary-500'
+                                        : 'bg-white border-gray-200 text-gray-700 shadow-sm hover:border-secondary-300'
+                                    }`}
+                                  >
+                                    <span>{meta?.label ?? id}</span>
+                                    <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                                      <button type="button" onClick={() => moveSectionInOrder(i, -1)} disabled={i === 0} className="p-1 hover:text-secondary-600 disabled:opacity-20"><ChevronUpIcon className="w-3 h-3" /></button>
+                                      <button type="button" onClick={() => moveSectionInOrder(i, 1)} disabled={i === 4} className="p-1 hover:text-secondary-600 disabled:opacity-20"><ChevronDownIcon className="w-3 h-3" /></button>
+                                    </div>
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <p className="text-sm font-semibold text-gray-500">No section selected</p>
-                          <p className="text-xs text-gray-400 mt-1.5 leading-snug max-w-[180px]">
-                            Pick a section from the list above or tap the label preview
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-4">
-                            <div className="p-1.5 bg-secondary-500 rounded-lg flex-shrink-0">
-                              <PaintBrushIcon className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-bold text-gray-900 leading-tight">
-                                {LABEL_SECTION_META.find(m => m.id === activeLabelSection)?.label}
-                              </h4>
-                              <p className="text-[10px] text-gray-400">Applies to all printed labels</p>
-                            </div>
-                          </div>
-                          <LabelSectionFormFields
-                            section={activeLabelSection}
-                            layoutForm={layoutForm}
-                            setField={setField}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ── Right column: live label preview ── */}
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-8 min-h-[300px] overflow-y-auto"
-                    style={{ background: 'linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)' }}
-                  >
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-5">Live Preview</p>
-
-                    {/* Paper mock */}
-                    <div className="relative p-5 rounded-2xl bg-white border border-gray-200 shadow-large">
-                      {/* Dot pattern background */}
-                      <div
-                        className="absolute inset-0 rounded-2xl opacity-[0.035] pointer-events-none"
-                        style={{
-                          backgroundImage: 'radial-gradient(circle, #334155 1.5px, transparent 1.5px)',
-                          backgroundSize: '14px 14px',
-                        }}
-                      />
-                      <div className="relative">
-                        {previewStore && (
-                          <LabelCard
-                            storeName={previewStore.name ?? ''}
-                            productName={editorProductName}
-                            price={editorPrice}
-                            currency={currency}
-                            barcode={editorBarcode}
-                            store={previewStore}
-                            interactive
-                            activeSection={activeLabelSection}
-                            onSectionSelect={setActiveLabelSection}
-                          />
-                        )}
-                      </div>
-                      {/* Paper edge indicator */}
-                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-[10px] text-gray-300 font-mono whitespace-nowrap select-none pointer-events-none">
-                        {LABEL_W_MM}×{LABEL_H_MM} mm
+                        </ControlRow>
                       </div>
                     </div>
 
-                    {/* Section shortcut pills */}
-                    <div className="flex flex-wrap justify-center gap-1.5 mt-8">
-                      {layoutForm.label_section_order.map(id => {
-                        const short = LABEL_SECTION_META.find(m => m.id === id)?.short ?? id;
-                        const isActive = activeLabelSection === id;
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => setActiveLabelSection(id)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${
-                              isActive
-                                ? 'bg-secondary-600 text-white border-secondary-600 shadow-brand'
-                                : 'bg-white text-gray-600 border-gray-200 hover:border-secondary-300 hover:text-secondary-600 shadow-soft'
-                            }`}
-                          >
-                            {short}
-                          </button>
-                        );
-                      })}
+                    <div className="lg:col-span-5 flex flex-col items-center">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-6">Live Designer Preview</p>
+                      <div className="relative group">
+                        <div className="relative">
+                          {previewStore && (
+                            <LabelCard
+                              storeName={previewStore.name ?? ''}
+                              productName={editorProductName}
+                              price={editorPrice}
+                              currency={currency}
+                              barcode={editorBarcode}
+                              store={previewStore}
+                              interactive
+                              activeSection={activeLabelSection}
+                              onSectionSelect={setActiveLabelSection}
+                            />
+                          )}
+                        </div>
+                      </div>
                     </div>
-
-                    {!previewStore?.lbp_exchange_rate && (
-                      <p className="text-[10px] text-gray-400 mt-4 text-center max-w-[200px] leading-snug">
-                        Set an exchange rate in Admin → Store → Regional to preview the LBP line
-                      </p>
-                    )}
+                  </div>
+                  
+                  <div className="mt-8 pt-5 border-t border-gray-100 flex items-center justify-between">
+                    <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">
+                      Changes affect all labels
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={resetLayout} disabled={savingLayout} className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">Reset</button>
+                      <button type="button" onClick={() => void saveLayout()} disabled={savingLayout} className="px-6 py-2 text-xs font-bold text-white bg-secondary-600 rounded-xl hover:bg-secondary-700 disabled:opacity-50 transition-colors shadow-lg">{savingLayout ? 'Saving…' : 'Save changes'}</button>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {/* Footer */}
-                <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/60">
-                  <p className="text-[11px] text-gray-400">
-                    Exchange rate required for LBP preview — Admin → Store → Regional
-                  </p>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                    <button
-                      type="button"
-                      onClick={resetLayout}
-                      disabled={savingLayout}
-                      className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 transition-colors"
-                    >
-                      Reset
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void saveLayout()}
-                      disabled={savingLayout}
-                      className="px-4 py-1.5 text-xs font-bold text-white bg-secondary-600 rounded-lg hover:bg-secondary-700 disabled:opacity-50 transition-colors shadow-sm"
-                    >
-                      {savingLayout ? 'Saving…' : 'Save changes'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Label Preview Carousel ── */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3">
-        <div className="flex items-center justify-between mb-2.5">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Label Preview</p>
-          {selectedProducts.length > 0 && (
-            <p className="text-[10px] text-gray-400 tabular-nums">
-              {carouselOffset + 1}–{Math.min(carouselOffset + CAROUSEL_VISIBLE, selectedProducts.length)} of {selectedProducts.length}
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Left arrow */}
-          <button
-            type="button"
-            onClick={() => setCarouselOffset(o => Math.max(0, o - 1))}
-            disabled={!canCarouselLeft}
-            aria-label="Previous label"
-            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-25 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-          >
-            <ChevronLeftIcon className="w-4 h-4" />
-          </button>
-
-          {/* Labels row */}
-          <div
-            className="flex-1 flex items-center justify-center gap-2 min-w-0 overflow-hidden"
-            style={{ height: scaledLabelH }}
-          >
-            {selectedProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center w-full gap-1.5">
-                <TagIcon className="w-6 h-6 text-gray-300" />
-                <p className="text-sm font-semibold text-gray-400">No selection</p>
-                <p className="text-xs text-gray-400">Select products below to preview labels</p>
-              </div>
-            ) : (
-              visibleCarouselLabels.map(p => (
-                <div
-                  key={p.product_id}
-                  style={{ width: scaledLabelW, height: scaledLabelH, flexShrink: 0, overflow: 'hidden', borderRadius: 5 }}
-                >
-                  <div style={{ transform: `scale(${CAROUSEL_SCALE})`, transformOrigin: 'top left', width: mmToPx(LABEL_W_MM), height: mmToPx(LABEL_H_MM) }}>
-                    <LabelCard
-                      storeName={previewStore?.name ?? ''}
-                      productName={p.name}
-                      price={Number(p.sale_price ?? p.list_price ?? 0)}
-                      currency={currency}
-                      barcode={p.barcode}
-                      store={previewStore}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Right arrow */}
-          <button
-            type="button"
-            onClick={() => setCarouselOffset(o => Math.min(o + 1, Math.max(0, selectedProducts.length - CAROUSEL_VISIBLE)))}
-            disabled={!canCarouselRight}
-            aria-label="Next label"
-            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-25 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-          >
-            <ChevronRightIcon className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Product List (full width, below the carousel) ── */}
-      <div className="flex flex-col flex-1 min-h-0 pb-3">
-        <div className="flex-1 min-h-0 flex flex-col bg-white border-t border-gray-100">
-
-          <div className="p-4 border-b border-gray-100">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                id="labels-search"
-                type="text"
-                placeholder="Search products by name, SKU or barcode…"
-                value={search}
-                onChange={e => handleSearchChange(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
-              />
             </div>
           </div>
+        )}
 
-          <div className="flex-1 overflow-auto">
-            {loading ? (
-              <div className="flex items-center justify-center h-40">
-                <div className="w-8 h-8 border-4 border-secondary-200 border-t-secondary-600 rounded-full animate-spin" />
+        {activeTab === 'promotion' && (
+          <div className="px-3 pb-4 flex-shrink-0">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-soft p-4 flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 ml-1">Promotion Text</label>
+                <div className="relative">
+                  <PaintBrushIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input type="text" value={promoText} onChange={(e) => setPromoText(e.target.value.toUpperCase())} className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-100 rounded-xl focus:ring-2 focus:ring-secondary-500 transition-all font-bold text-red-600" placeholder="WEEKEND FRENZY!" />
+                </div>
               </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-gray-50 z-10">
-                  <tr>
-                    <th className="w-10 px-4 py-3 text-left">
-                      <button
-                        id="labels-select-all"
-                        onClick={toggleAll}
-                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                          allOnPageSelected
-                            ? 'bg-secondary-600 border-secondary-600'
-                            : 'border-gray-300 hover:border-secondary-400'
-                        }`}
-                      >
-                        {allOnPageSelected && <CheckIcon className="w-3 h-3 text-white" />}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Product</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">SKU</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600 text-xs uppercase tracking-wide">Price</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {products.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-gray-400">
-                        No products found
-                      </td>
-                    </tr>
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 ml-1">Product Origin</label>
+                <div className="relative">
+                  <BuildingOfficeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input type="text" value={promoOrigin} onChange={(e) => setPromoOrigin(e.target.value)} className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-100 rounded-xl focus:ring-2 focus:ring-secondary-500 transition-all font-medium text-gray-700" placeholder="Product of Australia" />
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                 <Button onClick={() => setShowPreview(true)} disabled={selected.size === 0} variant="primary" size="sm" className="bg-secondary-600 hover:bg-secondary-700 h-[42px] px-6 rounded-xl shadow-lg transition-all" leftIcon={<PrinterIcon className="w-5 h-5" />}>Generate Posters</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {activeTab === 'shelf' && (
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-3">
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCarouselOffset(o => Math.max(0, o - 1))} disabled={!canCarouselLeft} className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-25 bg-white shadow-sm"><ChevronLeftIcon className="w-4 h-4" /></button>
+                <div className="flex-1 flex items-center justify-center gap-2 min-w-0 overflow-hidden" style={{ height: scaledLabelH }}>
+                  {selectedProducts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center w-full gap-1.5"><TagIcon className="w-6 h-6 text-gray-300" /><p className="text-sm font-semibold text-gray-400">No selection</p></div>
                   ) : (
-                    products.map(p => {
-                      const isSelected = selected.has(p.product_id);
-                      return (
-                        <tr
-                          key={p.product_id}
-                          onClick={() => toggleOne(p.product_id)}
-                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-secondary-50' : 'hover:bg-gray-50'}`}
-                        >
-                          <td className="px-4 py-3">
-                            <div
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                isSelected
-                                  ? 'bg-secondary-600 border-secondary-600'
-                                  : 'border-gray-300'
-                              }`}
-                            >
-                              {isSelected && <CheckIcon className="w-3 h-3 text-white" />}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
-                          <td className="px-4 py-3 text-gray-400 text-xs font-mono">{p.sku || '—'}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                            {currency} {Number(p.sale_price ?? p.list_price ?? 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      );
-                    })
+                    visibleCarouselLabels.map(p => (
+                      <div key={p.product_id} style={{ width: scaledLabelW, height: scaledLabelH, flexShrink: 0, overflow: 'hidden', borderRadius: 5 }}>
+                        <div style={{ transform: `scale(${CAROUSEL_SCALE})`, transformOrigin: 'top left', width: mmToPx(LABEL_W_MM), height: mmToPx(LABEL_H_MM) }}>
+                          <LabelCard storeName={previewStore?.name ?? ''} productName={p.name} price={Number(p.sale_price ?? p.list_price ?? 0)} currency={currency} barcode={p.barcode} store={previewStore} />
+                        </div>
+                      </div>
+                    ))
                   )}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Pagination controls */}
-          {totalPages > 1 && (
-            <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between text-sm flex-shrink-0">
-              <span className="text-gray-500 text-xs">
-                {totalProducts === 0
-                  ? 'No products'
-                  : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalProducts)} of ${totalProducts}`}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-base leading-none"
-                >
-                  ‹
-                </button>
-                {pageNumbers.map((n, i) =>
-                  n === '...' ? (
-                    <span key={`ellipsis-${i}`} className="px-1 text-gray-400 text-xs">…</span>
-                  ) : (
-                    <button
-                      key={n}
-                      onClick={() => setCurrentPage(n as number)}
-                      className={`w-7 h-7 rounded text-xs font-medium transition-colors ${
-                        n === currentPage
-                          ? 'bg-secondary-600 text-white'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  )
-                )}
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-base leading-none"
-                >
-                  ›
-                </button>
+                </div>
+                <button type="button" onClick={() => setCarouselOffset(o => Math.min(o + 1, Math.max(0, selectedProducts.length - CAROUSEL_VISIBLE)))} disabled={!canCarouselRight} className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-25 bg-white shadow-sm"><ChevronRightIcon className="w-4 h-4" /></button>
               </div>
             </div>
           )}
-        </div>
 
+          {activeTab === 'promotion' && (
+             <div className="flex-shrink-0 bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex flex-col items-center justify-center overflow-auto border-b border-gray-200">
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-4">Poster Preview</p>
+               {selected.size > 0 ? (
+                 <div className="relative shadow-2xl scale-[0.3] origin-center -my-[350px]">
+                   <PromotionCard storeName={store?.name ?? 'STORE NAME'} productName={selectedProducts[0]?.name ?? 'PRODUCT NAME'} price={selectedProducts[0]?.sale_price ?? selectedProducts[0]?.list_price ?? 0} unit={selectedProducts[0]?.unit_of_measure || 'kilo'} origin={promoOrigin} promoText={promoText} />
+                 </div>
+               ) : (
+                 <div className="flex flex-col items-center justify-center py-10 opacity-30 text-center"><TagIcon className="w-10 h-10 mb-2" /><p className="text-sm font-bold">Select products to preview poster</p></div>
+               )}
+             </div>
+          )}
+
+          {/* Product List */}
+          <div className="flex-1 flex flex-col min-h-0 bg-white">
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input id="labels-search" type="text" placeholder="Search products..." value={search} onChange={e => handleSearchChange(e.target.value)} className="w-full pl-9 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 outline-none" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {loading ? (
+                <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-secondary-200 border-t-secondary-600 rounded-full animate-spin" /></div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-50 z-10">
+                    <tr>
+                      <th className="w-10 px-4 py-3"><button onClick={toggleAll} className={`w-5 h-5 rounded border-2 flex items-center justify-center ${allOnPageSelected ? 'bg-secondary-600 border-secondary-600' : 'border-gray-300'}`}>{allOnPageSelected && <CheckIcon className="w-3 h-3 text-white" />}</button></th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Product</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">SKU</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {products.length === 0 ? (
+                      <tr><td colSpan={4} className="px-4 py-10 text-center text-gray-400">No products found</td></tr>
+                    ) : (
+                      products.map(p => {
+                        const isSelected = selected.has(p.product_id);
+                        return (
+                          <tr key={p.product_id} onClick={() => toggleOne(p.product_id)} className={`cursor-pointer transition-colors ${isSelected ? 'bg-secondary-50' : 'hover:bg-gray-50'}`}>
+                            <td className="px-4 py-3"><div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? 'bg-secondary-600 border-secondary-600' : 'border-gray-300'}`}>{isSelected && <CheckIcon className="w-3 h-3 text-white" />}</div></td>
+                            <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
+                            <td className="px-4 py-3 text-gray-400 text-xs font-mono">{p.sku || 'â€”'}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-gray-800">{currency} {Number(p.sale_price ?? p.list_price ?? 0).toFixed(2)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {totalPages > 1 && (
+              <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between text-sm flex-shrink-0">
+                <span className="text-gray-500 text-xs">{totalProducts === 0 ? 'No products' : `${(currentPage - 1) * PAGE_SIZE + 1}â€“${Math.min(currentPage * PAGE_SIZE, totalProducts)} of ${totalProducts}`}</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30">â€¹</button>
+                  {pageNumbers.map((n, i) => n === '...' ? <span key={`ellipsis-${i}`} className="px-1 text-gray-400 text-xs">â€¦</span> : <button key={n} onClick={() => setCurrentPage(n as number)} className={`w-7 h-7 rounded text-xs font-medium ${n === currentPage ? 'bg-secondary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{n}</button>)}
+                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 disabled:opacity-30">â€º</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      
-        </>
-      )}
-  
-      {activeTab === 'promotion' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-          <div className="w-20 h-20 bg-secondary-50 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-secondary-100">
-            <PaintBrushIcon className="w-10 h-10 text-secondary-500" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Promotion Labels</h3>
-          <p className="text-gray-500 max-w-md leading-relaxed">
-            Create high-impact promotional labels with custom layouts, discount badges, and sale prices. 
-            This feature is coming soon to help you boost your sales.
-          </p>
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl">
-            {['Custom Gradients', 'Discount Badges', 'Bulk Printing'].map((feat) => (
-              <div key={feat} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-secondary-500" />
-                <span className="text-xs font-bold text-gray-700">{feat}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-  {showPreview && store && previewStore && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowPreview(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
-            onClick={e => e.stopPropagation()}
-          >
+      {showPreview && store && previewStore && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowPreview(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-secondary-50 flex items-center justify-center flex-shrink-0">
-                  <PrinterIcon className="w-4 h-4 text-secondary-600" />
-                </div>
+                <div className="w-8 h-8 rounded-lg bg-secondary-50 flex items-center justify-center flex-shrink-0"><PrinterIcon className="w-4 h-4 text-secondary-600" /></div>
                 <div>
                   <h2 className="font-bold text-gray-900 text-sm leading-tight">Print Preview</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {selectedProducts.length} label{selectedProducts.length !== 1 ? 's' : ''} · {paper.label} · {cols} per row
-                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{selectedProducts.length} label{selectedProducts.length !== 1 ? 's' : ''} Â· {paper.label} Â· {cols} per row</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 ml-6">
-                <button
-                  id="modal-print-labels"
-                  onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-semibold hover:bg-secondary-700 transition-colors shadow-sm"
-                >
-                  <PrinterIcon className="w-4 h-4" />
-                  Print
-                </button>
-                <button
-                  id="modal-close-preview"
-                  onClick={() => setShowPreview(false)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                >
-                  <XMarkIcon className="w-4 h-4" />
-                </button>
+                <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-secondary-600 text-white rounded-lg text-sm font-semibold hover:bg-secondary-700 shadow-sm"><PrinterIcon className="w-4 h-4" />Print</button>
+                <button onClick={() => setShowPreview(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100"><XMarkIcon className="w-4 h-4" /></button>
               </div>
             </div>
-
             <div className="overflow-auto bg-gray-100 p-6 flex-1">
               <div ref={printRef} className="shadow-lg mx-auto" style={{ width: 'fit-content' }}>
-                <PrintPreview products={selectedProducts} store={previewStore} />
+                {activeTab === 'shelf' ? <PrintPreview products={selectedProducts} store={previewStore} /> : <PromotionPrintPreview products={selectedProducts} store={previewStore} promoText={promoText} origin={promoOrigin} />}
               </div>
             </div>
           </div>
