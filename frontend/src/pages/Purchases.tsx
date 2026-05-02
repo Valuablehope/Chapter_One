@@ -500,7 +500,7 @@ export default function Purchases() {
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            {storeSettings?.ui_resolution === '1024x768' ? '+ Add' : t('purchases.actions.new_order')}
+            {storeSettings?.ui_resolution === '1024x768' ? 'Add' : t('purchases.actions.new_order')}
           </Button>
         }
       />

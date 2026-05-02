@@ -739,7 +739,7 @@ export default function Products() {
               className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<PlusIcon className="w-4 h-4" />}
             >
-              {storeSettings?.ui_resolution === '1024x768' ? '+ Add' : t('products.actions.add_product')}
+              {storeSettings?.ui_resolution === '1024x768' ? 'Add' : t('products.actions.add_product')}
             </Button>
           </div>
         }
