@@ -744,11 +744,6 @@ function PromotionCard({
   const priceString = Number(price).toFixed(2);
   const [dollars, cents] = priceString.split('.');
 
-  const words = promoText.trim().split(/\s+/).filter(Boolean);
-  const half = Math.ceil(words.length / 2);
-  const badgeLine1 = words.slice(0, half).join(' ');
-  const badgeLine2 = words.slice(half).join(' ');
-
   const GREEN = '#1B5E2F';
   const RED   = '#D0001B';
 
@@ -1106,11 +1101,6 @@ function LabelSectionFormFields({
   setField: SetLabelField;
 }) {
   const meta = LABEL_SECTION_META.find(m => m.id === section);
-  const alignOpts = [
-    { value: 'left',   label: 'Left'   },
-    { id: 'center',  label: 'Center' },
-    { value: 'right',  label: 'Right'  },
-  ];
 
   const renderContent = () => {
     switch (section) {

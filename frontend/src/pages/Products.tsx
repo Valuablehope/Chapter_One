@@ -750,7 +750,7 @@ export default function Products() {
     try {
       setSyncingTypes(true);
       const res = await productTypeService.syncProductTypes();
-      toast.success(t('products.success.types_synced', { count: res.added } || `Synced ${res.added} missing types`));
+      toast.success(t('products.success.types_synced', { count: res.added }) || `Synced ${res.added} missing types`);
       setProductTypes(res.data);
     } catch (err) {
       console.error('Failed to sync product types', err);

@@ -39,7 +39,6 @@ import {
   ArrowRightIcon,
   BookOpenIcon,
   TagIcon,
-  ArrowLeftIcon,
   ScaleIcon,
   CheckIcon,
   BackspaceIcon,
