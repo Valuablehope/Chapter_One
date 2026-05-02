@@ -53,4 +53,16 @@ export class ProductTypeModel extends BaseModel {
     const result = await this.query(query, [id]);
     return result.rowCount !== null && result.rowCount > 0;
   }
+
+  static async syncFromProducts(): Promise<number> {
+    const query = `
+      INSERT INTO product_types (name, display_on_pos)
+      SELECT DISTINCT UPPER(TRIM(product_type)), false
+      FROM products
+      WHERE product_type IS NOT NULL AND TRIM(product_type) != ''
+      ON CONFLICT (name) DO NOTHING
+    `;
+    const result = await this.query(query);
+    return result.rowCount || 0;
+  }
 }

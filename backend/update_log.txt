@@ -1,0 +1,2 @@
+{"id":"0b6b47c9-f94c-477d-8b95-765870541a77","updates":{"name":"HAZELNUT SYRUP UPDATED","barcode":"9421020424859","product_type":"STATIONERY","unit_of_measure":"each","list_price":0,"sale_price":5.99,"track_inventory":true}}
+{"id":"0b6b47c9-f94c-477d-8b95-765870541a77","updates":{"name":"HAZELNUT SYRUP TEST","barcode":"9421020424859","product_type":"STATIONERY","unit_of_measure":"each","list_price":0,"sale_price":5.99,"track_inventory":true}}

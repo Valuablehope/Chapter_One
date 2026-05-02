@@ -65,3 +65,13 @@ export const deleteProductType = async (req: Request, res: Response) => {
     res.status(500).json({ error: { message: 'Failed to delete product type' } });
   }
 };
+
+export const syncProductTypes = async (_req: Request, res: Response) => {
+  try {
+    const addedCount = await ProductTypeModel.syncFromProducts();
+    const productTypes = await ProductTypeModel.findAll();
+    res.json({ data: productTypes, added: addedCount });
+  } catch (error) {
+    res.status(500).json({ error: { message: 'Failed to sync product types' } });
+  }
+};

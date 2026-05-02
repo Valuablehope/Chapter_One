@@ -98,6 +98,7 @@ export default function Products() {
   const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false });
   const [editingProductType, setEditingProductType] = useState<ProductType | null>(null);
   const [typeSubmitting, setTypeSubmitting] = useState(false);
+  const [syncingTypes, setSyncingTypes] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -743,6 +744,20 @@ export default function Products() {
     setTypeFormData({ name: type.name, display_on_pos: type.display_on_pos });
   };
 
+  const handleSyncProductTypes = useCallback(async () => {
+    try {
+      setSyncingTypes(true);
+      const res = await productTypeService.syncProductTypes();
+      toast.success(t('products.success.types_synced', { count: res.added } || `Synced ${res.added} missing types`));
+      setProductTypes(res.data);
+    } catch (err) {
+      console.error('Failed to sync product types', err);
+      toast.error(t('products.errors.sync_product_types') || 'Failed to sync product types');
+    } finally {
+      setSyncingTypes(false);
+    }
+  }, [t]);
+
   return (
     <>
       <PageBanner
@@ -1148,6 +1163,9 @@ export default function Products() {
                 required
               >
                 <option value="" disabled>{t('products.form.select_type')}</option>
+                {formData.product_type && !productTypes.some(t => t.name === formData.product_type) && (
+                  <option value={formData.product_type}>{formData.product_type}</option>
+                )}
                 {productTypes.map(type => (
                   <option key={type.id} value={type.name}>{type.name}</option>
                 ))}
@@ -1323,7 +1341,19 @@ export default function Products() {
           </div>
         }
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="flex justify-end -mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncProductTypes}
+              isLoading={syncingTypes}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 font-medium text-xs"
+              leftIcon={<ArrowPathIcon className={`w-3.5 h-3.5 ${syncingTypes ? 'animate-spin' : ''}`} />}
+            >
+              {t('products.types.sync_missing') || 'Sync Missing'}
+            </Button>
+          </div>
           {productTypes.length > 0 && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl max-h-48 overflow-y-auto w-full">
               <ul className="divide-y divide-gray-200">

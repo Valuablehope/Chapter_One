@@ -445,7 +445,8 @@ export const en = {
       name_label: "Product Type Name",
       name_placeholder: "e.g. ELECTRONICS, GROCERIES",
       display_on_pos: "Display on POS Sales",
-      display_on_pos_helper: "Show this category on Quick Add grid"
+      display_on_pos_helper: "Show this category on Quick Add grid",
+      sync_missing: "Sync Missing"
     },
     validation: {
       name_required: "Product name is required",
@@ -461,7 +462,8 @@ export const en = {
       product_type_created: "Product type created successfully",
       product_type_updated: "Product type updated successfully",
       product_type_deleted: "Product type deleted",
-      image_uploaded: "Image uploaded successfully"
+      image_uploaded: "Image uploaded successfully",
+      types_synced: "Synced {{count}} missing types"
     },
     errors: {
       load_products: "Failed to load products",

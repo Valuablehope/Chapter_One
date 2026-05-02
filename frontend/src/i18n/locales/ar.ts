@@ -445,7 +445,8 @@ export const ar = {
       name_label: "اسم نوع المنتج",
       name_placeholder: "مثال: إلكترونيات، بقالة",
       display_on_pos: "إظهار في مبيعات نقاط البيع",
-      display_on_pos_helper: "إظهار هذه الفئة في شبكة الإضافة السريعة"
+      display_on_pos_helper: "إظهار هذه الفئة في شبكة الإضافة السريعة",
+      sync_missing: "مزامنة الأنواع المفقودة"
     },
     validation: {
       name_required: "اسم المنتج مطلوب",
@@ -461,7 +462,8 @@ export const ar = {
       product_type_created: "تم إنشاء نوع المنتج بنجاح",
       product_type_updated: "تم تحديث نوع المنتج بنجاح",
       product_type_deleted: "تم حذف نوع المنتج",
-      image_uploaded: "تم رفع الصورة بنجاح"
+      image_uploaded: "تم رفع الصورة بنجاح",
+      types_synced: "تمت مزامنة {{count}} أنواع مفقودة"
     },
     errors: {
       load_products: "فشل تحميل المنتجات",

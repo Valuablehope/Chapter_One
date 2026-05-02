@@ -86,6 +86,7 @@ export const uploadImage = asyncHandler(async (req: Request, res: Response) => {
 export const updateProduct = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const updates = req.body;
+  
 
   // Check if product exists
   const existing = await ProductModel.findById(id);
@@ -167,6 +168,9 @@ export const bulkImportProducts = asyncHandler(async (req: Request, res: Respons
     data: result,
   });
 });
+
+
+
 
 
 

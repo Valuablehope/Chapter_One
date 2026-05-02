@@ -24,6 +24,11 @@ export const productTypeService = {
     return response.data;
   },
 
+  syncProductTypes: async (): Promise<{ data: ProductType[]; added: number }> => {
+    const response = await api.post('/product-types/sync');
+    return response.data;
+  },
+
   deleteProductType: async (id: string): Promise<void> => {
     await api.delete(`/product-types/${id}`);
   },
