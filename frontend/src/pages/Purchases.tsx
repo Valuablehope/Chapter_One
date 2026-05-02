@@ -541,7 +541,7 @@ export default function Purchases() {
           {storeSettings?.ui_resolution === '1024x768' && (
              <button
               onClick={loadPurchaseOrders}
-              className="p-2 rounded-lg bg-white border-2 border-gray-200 text-gray-600 hover:text-secondary-500 transition-all shadow-sm"
+              className="flex items-center justify-center h-[38px] w-[38px] rounded-lg bg-white border-2 border-gray-200 text-gray-600 hover:text-secondary-500 transition-all shadow-sm"
               title={t('purchases.actions.refresh')}
             >
               <ArrowPathIcon className="w-4 h-4" />
