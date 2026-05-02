@@ -31,6 +31,8 @@ import {
   ArrowUpTrayIcon,
   PhotoIcon,
   XMarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../i18n/I18nContext';
@@ -993,8 +995,10 @@ export default function Products() {
                 disabled={pagination.page === 1}
                 variant="outline"
                 size="sm"
+                className="px-2"
+                aria-label={t('products.pagination.previous')}
               >
-                {t('products.pagination.previous')}
+                <ChevronLeftIcon className="w-4 h-4" />
               </Button>
               <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
                 {t('products.pagination.page')} {pagination.page} {t('products.pagination.of')} {pagination.totalPages}
@@ -1004,8 +1008,10 @@ export default function Products() {
                 disabled={pagination.page === pagination.totalPages}
                 variant="outline"
                 size="sm"
+                className="px-2"
+                aria-label={t('products.pagination.next')}
               >
-                {t('products.pagination.next')}
+                <ChevronRightIcon className="w-4 h-4" />
               </Button>
             </div>
           </div>

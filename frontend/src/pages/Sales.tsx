@@ -45,6 +45,7 @@ import {
   BackspaceIcon,
   PauseCircleIcon,
   GlobeAltIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import Receipt from '../components/Receipt';
@@ -110,7 +111,6 @@ export default function Sales() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const cartListContainerRef = useRef<HTMLDivElement>(null);
-  const [cartListWidth, setCartListWidth] = useState(800);
 
   // Quick Add / Weigh Item Modal State
   const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
@@ -308,25 +308,6 @@ export default function Sales() {
   const CART_ROW_HEIGHT = isCompact ? 70 : 90;
   const CART_LIST_MAX_HEIGHT = isCompact ? 210 : 450;
 
-  useEffect(() => {
-    const el = cartListContainerRef.current;
-    if (!el) return;
-
-    const measure = () => {
-      const w = el.getBoundingClientRect().width;
-      if (w > 0) setCartListWidth(Math.floor(w));
-    };
-
-    measure();
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width;
-        if (w > 0) setCartListWidth(Math.floor(w));
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   // Search abort controller
   const searchAbortController = useRef<AbortController | null>(null);
@@ -1288,7 +1269,7 @@ export default function Sales() {
               ) : (
                 <FixedSizeList
                   height={Math.min(cart.length * CART_ROW_HEIGHT, CART_LIST_MAX_HEIGHT)}
-                  width={cartListWidth}
+                  width="100%"
                   itemCount={cart.length}
                   itemSize={CART_ROW_HEIGHT}
                   className="w-full"
@@ -1368,31 +1349,33 @@ export default function Sales() {
                                 </Button>
                               </div>
 
-                              {/* Price Display */}
-                              <div className="text-right min-w-[70px] sm:min-w-[90px]">
-                                {isCompact && (
-                                  <p className="text-[10px] font-medium text-gray-400 leading-none mb-0.5">
-                                    {item.qty} x ${Number(item.unit_price).toFixed(2)}
+                              <div className="flex items-center gap-2">
+                                {/* Price Display */}
+                                <div className="text-right min-w-[70px] sm:min-w-[90px]">
+                                  {isCompact && (
+                                    <p className="text-[10px] font-medium text-gray-400 leading-none mb-0.5">
+                                      {item.qty} x ${Number(item.unit_price).toFixed(2)}
+                                    </p>
+                                  )}
+                                  <p className="font-bold text-sm text-secondary-600 leading-tight">
+                                    ${Number(item.line_total).toFixed(2)}
                                   </p>
-                                )}
-                                <p className="font-bold text-sm text-secondary-600 leading-tight">
-                                  ${Number(item.line_total).toFixed(2)}
-                                </p>
-                                {formatLBP(Number(item.line_total)) && (
-                                  <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
-                                    ≈ {formatLBP(Number(item.line_total))}
-                                  </p>
-                                )}
-                              </div>
+                                  {formatLBP(Number(item.line_total)) && (
+                                    <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
+                                      ≈ {formatLBP(Number(item.line_total))}
+                                    </p>
+                                  )}
+                                </div>
 
-                              <Button
-                                onClick={() => removeFromCart(item.product.product_id)}
-                                variant="danger"
-                                size="sm"
-                                className="!p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0"
-                              >
-                                <XMarkIcon className="w-3 h-3" />
-                              </Button>
+                                <Button
+                                  onClick={() => removeFromCart(item.product.product_id)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="!p-1.5 hover:bg-gray-100 opacity-100 transition-colors flex-shrink-0 rounded-md"
+                                >
+                                  <TrashIcon className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
