@@ -1693,19 +1693,21 @@ export default function Sales() {
         }
         size="sm"
         footer={
-          <div className="flex justify-end gap-3 w-full">
+          <div className="flex justify-end gap-2 w-full">
             <Button
               onClick={closeQuickAddModal}
               variant="outline"
-              className="flex-1"
+              size="sm"
+              className="flex-1 py-2"
             >
               {t('pos_sales.cancel')}
             </Button>
             <Button
               onClick={handleQuickConfirm}
               variant="primary"
-              className="flex-1"
-              leftIcon={<PlusIcon className="w-5 h-5" />}
+              size="sm"
+              className="flex-1 py-2 shadow-brand"
+              leftIcon={<PlusIcon className="w-4 h-4" />}
             >
               {t('pos_sales.add_to_cart')}
             </Button>
@@ -1713,15 +1715,15 @@ export default function Sales() {
         }
       >
         {quickAddProduct && (
-          <div className="space-y-5">
-            <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-center">
-              <h3 className="text-lg font-bold text-gray-900 mb-1">{quickAddProduct.name}</h3>
-              <p className="text-secondary-600 font-semibold mb-3">
+          <div className="space-y-2.5">
+            <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-between px-3">
+              <h3 className="text-sm font-bold text-gray-900 truncate flex-1 mr-2">{quickAddProduct.name}</h3>
+              <p className="text-secondary-600 font-bold whitespace-nowrap text-sm">
                 ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
               </p>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div onClick={() => setQuickAddFocus('qty')}>
                 <Input
                   label={`${t('pos_sales.quantity')} (${quickAddProduct.unit_of_measure?.toLowerCase() || t('pos_sales.units')})`}
@@ -1730,7 +1732,7 @@ export default function Sales() {
                   value={quickAddQty}
                   onChange={(e) => handleQuickQtyChange(e.target.value)}
                   onFocus={() => setQuickAddFocus('qty')}
-                  className={`text-lg font-bold text-center h-12 transition-all ${quickAddFocus === 'qty' ? 'ring-2 ring-secondary-500 border-secondary-500 bg-secondary-50 shadow-sm outline-none' : ''}`}
+                  className={`text-base font-bold text-center h-10 transition-all ${quickAddFocus === 'qty' ? 'ring-2 ring-secondary-500 border-secondary-500 bg-secondary-50 outline-none' : ''}`}
                   autoFocus
                 />
               </div>
@@ -1742,35 +1744,28 @@ export default function Sales() {
                   value={quickAddTotal}
                   onChange={(e) => handleQuickTotalChange(e.target.value)}
                   onFocus={() => setQuickAddFocus('total')}
-                  className={`text-lg font-bold text-center h-12 transition-all ${quickAddFocus === 'total' ? 'ring-2 ring-secondary-500 border-secondary-500 bg-secondary-50 shadow-sm outline-none' : ''}`}
+                  className={`text-base font-bold text-center h-10 transition-all ${quickAddFocus === 'total' ? 'ring-2 ring-secondary-500 border-secondary-500 bg-secondary-50 outline-none' : ''}`}
                 />
               </div>
             </div>
 
-            <div className="pt-2 border-t border-gray-100 flex justify-between items-center text-sm font-bold text-gray-900">
-              <span>{t('pos_sales.selected_amount')}</span>
-              <span className="text-secondary-600">
-                {parseFloat(quickAddQty || '0').toFixed(3).replace(/\.?0+$/, '') || '0'} {quickAddProduct.unit_of_measure?.toLowerCase() || t('pos_sales.units')}
-              </span>
-            </div>
-
             {/* Touch Screen Numpad */}
-            <div className="pt-4 mt-2 border-t border-gray-200">
-              <div className="grid grid-cols-3 gap-2">
+            <div className="pt-2 border-t border-gray-100">
+              <div className="grid grid-cols-3 gap-1.5">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((btn) => (
                   <button
                     key={btn}
                     onClick={() => handleNumpadInput(btn)}
-                    className="h-14 bg-white border-2 border-gray-200 rounded-xl text-2xl font-black text-gray-800 hover:border-secondary-500 hover:bg-secondary-50 hover:text-secondary-600 transition-colors shadow-sm active:scale-[0.97]"
+                    className="h-10 bg-white border-2 border-gray-100 rounded-lg text-lg font-black text-gray-800 hover:border-secondary-500 hover:bg-secondary-50 hover:text-secondary-600 transition-all shadow-sm active:scale-[0.95]"
                   >
                     {btn}
                   </button>
                 ))}
                 <button
                   onClick={handleNumpadBackspace}
-                  className="h-14 bg-red-50 border-2 border-red-100 rounded-xl text-xl font-bold text-red-600 hover:border-red-500 hover:bg-red-100 hover:text-red-700 transition-colors shadow-sm flex items-center justify-center active:scale-[0.97]"
+                  className="h-10 bg-red-50 border-2 border-red-100 rounded-lg text-lg font-bold text-red-600 hover:border-red-500 hover:bg-red-100 hover:text-red-700 transition-all shadow-sm flex items-center justify-center active:scale-[0.95]"
                 >
-                  <BackspaceIcon className="w-8 h-8 opacity-90" />
+                  <BackspaceIcon className="w-5 h-5 opacity-90" />
                 </button>
               </div>
             </div>
