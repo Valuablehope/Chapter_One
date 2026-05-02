@@ -363,7 +363,9 @@ export const en = {
       delete_short: "Del",
       cancel: "Cancel",
       update_product: "Update Product",
-      create_product: "Create Product"
+      create_product: "Create Product",
+      add_image: "Add Image",
+      uploading: "Uploading..."
     },
     empty: {
       title: "No products found",
@@ -401,7 +403,10 @@ export const en = {
       tax_rate: "Tax Rate (%)",
       tax_rate_helper: "0-100",
       track_inventory: "Track Inventory",
-      track_inventory_helper: "Enable inventory tracking for this product"
+      track_inventory_helper: "Enable inventory tracking for this product",
+      product_image: "Product Image",
+      image_helper: "Recommended: Square image (800x800px)",
+      image_specs: "Max size: 5MB. Formats: JPG, PNG, WEBP."
     },
     units: {
       each: "each",
@@ -453,7 +458,8 @@ export const en = {
       product_deleted: "Product deleted successfully",
       product_type_created: "Product type created successfully",
       product_type_updated: "Product type updated successfully",
-      product_type_deleted: "Product type deleted"
+      product_type_deleted: "Product type deleted",
+      image_uploaded: "Image uploaded successfully"
     },
     errors: {
       load_products: "Failed to load products",
@@ -462,7 +468,9 @@ export const en = {
       delete_product: "Failed to delete product",
       lookup_barcode: "Failed to lookup product by barcode",
       finish_action: "Failed to finish action",
-      delete_product_type: "Failed to delete product type"
+      delete_product_type: "Failed to delete product type",
+      upload_failed: "Failed to upload image",
+      image_too_large: "Image is too large (max 5MB)"
     },
     confirm: {
       delete_product: "Are you sure you want to delete \"{{name}}\"?",

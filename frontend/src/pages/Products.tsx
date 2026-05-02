@@ -3,6 +3,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product, ProductFilters } from '../services/productService';
 import { productTypeService, ProductType } from '../services/productTypeService';
 import { storeService, StoreSettings } from '../services/storeService';
+import { API_BASE_URL } from '../services/api';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import Button from '../components/ui/Button';
@@ -28,6 +29,8 @@ import {
   PencilIcon,
   AdjustmentsVerticalIcon,
   ArrowUpTrayIcon,
+  PhotoIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../i18n/I18nContext';
@@ -85,7 +88,9 @@ export default function Products() {
     margin_pct: '',
     tax_rate: '',
     track_inventory: true,
+    image_url: '',
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -427,6 +432,7 @@ export default function Products() {
       margin_pct: '',
       tax_rate: '',
       track_inventory: true,
+      image_url: '',
     });
     setFormErrors({});
     setShowModal(true);
@@ -453,6 +459,7 @@ export default function Products() {
       margin_pct: _margin,
       tax_rate: product.tax_rate?.toString() || '',
       track_inventory: product.track_inventory,
+      image_url: product.image_url || '',
     });
     setFormErrors({});
     setShowModal(true);
@@ -473,6 +480,7 @@ export default function Products() {
       margin_pct: '',
       tax_rate: '',
       track_inventory: true,
+      image_url: '',
     });
     setFormErrors({});
   }, []);
@@ -571,6 +579,7 @@ export default function Products() {
         margin_pct: formData.margin_pct ? parseFloat(formData.margin_pct) : undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
         track_inventory: formData.track_inventory,
+        image_url: formData.image_url || undefined,
       };
 
       if (editingProduct) {
@@ -631,6 +640,33 @@ export default function Products() {
         toast.error(t('products.errors.lookup_barcode'));
       }
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('products.errors.image_too_large'));
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const imageUrl = await productService.uploadImage(file);
+      setFormData(prev => ({ ...prev, image_url: imageUrl }));
+      toast.success(t('products.success.image_uploaded'));
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || t('products.errors.upload_failed'));
+      logger.error('Image upload failed:', err);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, image_url: '' }));
   };
 
   const currencyFormatter = useMemo(() => {
@@ -997,6 +1033,58 @@ export default function Products() {
       >
         <form id="product-form" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                {t('products.form.product_image')}
+              </label>
+              <div className="flex items-start gap-4">
+                <div className="relative group w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center overflow-hidden transition-all hover:border-secondary-500 hover:bg-secondary-50">
+                  {formData.image_url ? (
+                    <>
+                      <img 
+                        src={`${API_BASE_URL}${formData.image_url}`} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute top-1 right-1 p-1 bg-white/80 hover:bg-white text-red-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                      />
+                      {uploadingImage ? (
+                        <div className="flex flex-col items-center">
+                          <ArrowPathIcon className="w-5 h-5 text-secondary-500 animate-spin" />
+                          <span className="text-[10px] text-gray-500 mt-1 font-medium">{t('products.actions.uploading')}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <PhotoIcon className="w-6 h-6 text-gray-400 group-hover:text-secondary-500 transition-colors" />
+                          <span className="text-[10px] text-gray-400 mt-1 font-medium group-hover:text-secondary-500 transition-colors">{t('products.actions.add_image')}</span>
+                        </>
+                      )}
+                    </label>
+                  )}
+                </div>
+                <div className="flex-1 space-y-1 py-1">
+                  <p className="text-[10px] text-gray-500 font-medium">{t('products.form.image_helper')}</p>
+                  <p className="text-[9px] text-gray-400">{t('products.form.image_specs')}</p>
+                </div>
+              </div>
+            </div>
+
             <div className="md:col-span-2">
               <Input
                 label={t('products.form.product_name')}

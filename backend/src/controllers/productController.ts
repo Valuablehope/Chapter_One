@@ -68,6 +68,21 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
   });
 });
 
+export const uploadImage = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) {
+    throw new CustomError('No image file uploaded', 400);
+  }
+
+  const imageUrl = `/uploads/products/${req.file.filename}`;
+
+  res.json({
+    success: true,
+    data: {
+      url: imageUrl,
+    },
+  });
+});
+
 export const updateProduct = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const updates = req.body;

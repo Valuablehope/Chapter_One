@@ -14,6 +14,7 @@ export interface Product {
   margin_pct?: number;
   tax_rate?: number;
   track_inventory: boolean;
+  image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -60,7 +61,8 @@ export class ProductModel extends BaseModel {
         pb.publisher_id,
         pb.publish_year,
         pb.edition,
-        pb.language`;
+        pb.language,
+        p.image_url`;
 
     if (storeId) {
       query += `,
@@ -237,9 +239,9 @@ export class ProductModel extends BaseModel {
     const query = `
       INSERT INTO products (
         sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
-        tax_rate, track_inventory
+        tax_rate, track_inventory, image_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `;
     const values = [
@@ -253,6 +255,7 @@ export class ProductModel extends BaseModel {
       product.margin_pct || null,
       product.tax_rate || null,
       product.track_inventory !== undefined ? product.track_inventory : true,
+      product.image_url || null,
     ];
     const result = await this.query<Product>(query, values);
     return result.rows[0];
@@ -312,6 +315,11 @@ export class ProductModel extends BaseModel {
       paramCount++;
       fields.push(`track_inventory = $${paramCount}`);
       values.push(updates.track_inventory);
+    }
+    if (updates.image_url !== undefined) {
+      paramCount++;
+      fields.push(`image_url = $${paramCount}`);
+      values.push(updates.image_url);
     }
 
     if (fields.length === 0) {
@@ -379,6 +387,7 @@ export class ProductModel extends BaseModel {
       margin_pct?: number;
       tax_rate?: number;
       track_inventory?: boolean;
+      image_url?: string;
     }>
   ): Promise<{ created: number; skipped: number; errors: string[] }> {
     const client = await this.getClient();
@@ -445,8 +454,8 @@ export class ProductModel extends BaseModel {
 
           await client.query(
             `INSERT INTO products
-               (sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct, tax_rate, track_inventory)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+               (sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct, tax_rate, track_inventory, image_url)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
             [
               row.sku?.trim() || null,
               row.barcode?.trim() || null,
@@ -458,6 +467,7 @@ export class ProductModel extends BaseModel {
               row.margin_pct ?? null,
               row.tax_rate ?? null,
               row.track_inventory !== undefined ? row.track_inventory : true,
+              row.image_url || null,
             ]
           );
           created++;

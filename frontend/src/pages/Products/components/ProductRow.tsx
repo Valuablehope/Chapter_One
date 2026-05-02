@@ -1,9 +1,10 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Product } from '../../../services/productService';
 import Badge from '../../../components/ui/Badge';
 import { PencilIcon, TrashIcon, CubeIcon } from '@heroicons/react/24/outline';
 import { TableRow } from '../../../components/shared/TableRow';
 import { useTranslation } from '../../../i18n/I18nContext';
+import { API_BASE_URL } from '../../../services/api';
 
 export interface ProductRowProps {
   product: Product;
@@ -36,6 +37,7 @@ const getProductTypeVariant = (productType: string): 'primary' | 'secondary' | '
 
 export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, formatCurrency, visibleColumns, isCustomSized }) => {
   const { t, language } = useTranslation();
+  const [imageError, setImageError] = useState(false);
   const locale = language === 'ar' ? 'ar-EG' : 'en-US';
   const cellClass = `px-3 py-2 whitespace-nowrap overflow-hidden text-ellipsis ${isCustomSized ? 'max-w-0' : ''}`;
 
@@ -44,8 +46,20 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
       {visibleColumns.includes('name') && (
         <td className={cellClass}>
           <div className="flex items-center space-x-2 truncate">
-            <div className="p-1.5 bg-secondary-100 rounded-lg flex-shrink-0">
-              <CubeIcon className="w-3.5 h-3.5 text-secondary-500" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200 flex items-center justify-center">
+              {product.image_url && !imageError ? (
+                <img 
+                  src={`${API_BASE_URL}${product.image_url}`} 
+                  alt={product.name} 
+                  className="w-full h-full object-cover"
+                  crossOrigin="anonymous"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="p-1.5 bg-secondary-100 rounded-lg">
+                  <CubeIcon className="w-3.5 h-3.5 text-secondary-500" />
+                </div>
+              )}
             </div>
             <div className="text-xs font-bold text-gray-900 truncate">{product.name}</div>
           </div>

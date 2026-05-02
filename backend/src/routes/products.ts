@@ -8,11 +8,13 @@ import {
   deleteProduct,
   validateBarcode,
   bulkImportProducts,
+  uploadImage,
 } from '../controllers/productController';
 import { authenticate } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
 import { body, query, param } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
+import { uploadProductImage } from '../middleware/upload';
 
 
 const router = Router();
@@ -50,6 +52,13 @@ router.get(
   validateRequest,
   getProductByBarcode
 );
+ 
+// Upload product image
+router.post(
+  '/upload',
+  uploadProductImage.single('image'),
+  uploadImage
+);
 
 // Bulk import products (must be before /:id route)
 router.post(
@@ -79,6 +88,7 @@ router.post(
     body('sale_price').optional().isFloat({ min: 0 }),
     body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
     body('track_inventory').optional().isBoolean(),
+    body('image_url').optional().isString(),
   ],
   validateRequest,
   createProduct
@@ -98,6 +108,7 @@ router.put(
     body('sale_price').optional().isFloat({ min: 0 }),
     body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
     body('track_inventory').optional().isBoolean(),
+    body('image_url').optional().isString(),
   ],
   validateRequest,
   updateProduct

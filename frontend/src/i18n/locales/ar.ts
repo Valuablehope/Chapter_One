@@ -363,7 +363,9 @@ export const ar = {
       delete_short: "حذف",
       cancel: "إلغاء",
       update_product: "تحديث المنتج",
-      create_product: "إنشاء منتج"
+      create_product: "إنشاء منتج",
+      add_image: "إضافة صورة",
+      uploading: "جاري الرفع..."
     },
     empty: {
       title: "لا توجد منتجات",
@@ -401,7 +403,10 @@ export const ar = {
       tax_rate: "نسبة الضريبة (%)",
       tax_rate_helper: "0-100",
       track_inventory: "تتبع المخزون",
-      track_inventory_helper: "تفعيل تتبع المخزون لهذا المنتج"
+      track_inventory_helper: "تفعيل تتبع المخزون لهذا المنتج",
+      product_image: "صورة المنتج",
+      image_helper: "موصى به: صورة مربعة (800x800 بكسل)",
+      image_specs: "الحد الأقصى للحجم: 5 ميجابايت. التنسيقات: JPG, PNG, WEBP."
     },
     units: {
       each: "قطعة",
@@ -453,7 +458,8 @@ export const ar = {
       product_deleted: "تم حذف المنتج بنجاح",
       product_type_created: "تم إنشاء نوع المنتج بنجاح",
       product_type_updated: "تم تحديث نوع المنتج بنجاح",
-      product_type_deleted: "تم حذف نوع المنتج"
+      product_type_deleted: "تم حذف نوع المنتج",
+      image_uploaded: "تم رفع الصورة بنجاح"
     },
     errors: {
       load_products: "فشل تحميل المنتجات",
@@ -462,7 +468,9 @@ export const ar = {
       delete_product: "فشل حذف المنتج",
       lookup_barcode: "فشل العثور على المنتج عبر الباركود",
       finish_action: "فشل إتمام العملية",
-      delete_product_type: "فشل حذف نوع المنتج"
+      delete_product_type: "فشل حذف نوع المنتج",
+      upload_failed: "فشل رفع الصورة",
+      image_too_large: "الصورة كبيرة جداً (الحد الأقصى 5 ميجابايت)"
     },
     confirm: {
       delete_product: "هل أنت متأكد من حذف \"{{name}}\"؟",

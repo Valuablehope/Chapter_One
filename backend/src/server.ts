@@ -109,7 +109,9 @@ const app: Express = express();
 const PORT = process.env.PORT || process.env.API_PORT || 3001;
 
 // Middleware
-app.use(helmet()); // Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+})); // Security headers
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // In production, only allow requests from Electron (no origin) or file:///app:// protocols
@@ -172,6 +174,9 @@ app.get('/health', async (req: Request, res: Response) => {
     });
   }
 });
+
+// Static files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API routes
 app.use('/api', apiRoutes);

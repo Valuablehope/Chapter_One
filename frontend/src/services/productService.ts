@@ -16,6 +16,7 @@ export interface Product {
   margin_pct?: number;
   tax_rate?: number;
   track_inventory: boolean;
+  image_url?: string;
   created_at: string;
   updated_at: string;
   qty_in?: number;      // Sum of purchases
@@ -54,6 +55,7 @@ export interface CreateProductData {
   margin_pct?: number;
   tax_rate?: number;
   track_inventory?: boolean;
+  image_url?: string;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {}
@@ -135,6 +137,22 @@ export const productService = {
       { products }
     );
     return response.data.data;
+  },
+ 
+  // Upload product image
+  async uploadImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post<{ success: boolean; data: { url: string } }>(
+      '/products/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data.url;
   },
 };
 
