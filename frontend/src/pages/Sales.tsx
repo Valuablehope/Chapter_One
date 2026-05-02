@@ -8,6 +8,7 @@ import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
 import { getStoreDisplayName, showCustomerDisplay } from '../services/customerDisplayService';
+import { API_BASE_URL } from '../services/api';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
 import { gradients } from '../styles/tokens';
@@ -40,6 +41,7 @@ import {
   TagIcon,
   ArrowLeftIcon,
   ScaleIcon,
+  CheckIcon,
   BackspaceIcon,
   PauseCircleIcon,
   GlobeAltIcon,
@@ -1053,68 +1055,25 @@ export default function Sales() {
             <div className="p-4 overflow-visible">
               {posCategories.length > 0 && (
                 <div className="mb-6">
-                  {!activeCategory ? (
-                    <>
-                      <div className="flex items-center gap-2.5 mb-4">
-                        <div className="p-1.5 bg-secondary-500 rounded-lg">
-                           <BookOpenIcon className="w-4 h-4 text-white" />
-                        </div>
-                        <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.quick_add')}</h2>
-                      </div>
-                      {/* Categories Grid */}
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-                        {posCategories.map(category => (
-                          <button
-                            key={category}
-                            onClick={() => setActiveCategory(category)}
-                            className="h-20 bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-2 transition-all shadow-sm hover:shadow-md group"
-                          >
-                            <TagIcon className="w-6 h-6 text-secondary-500 mb-1.5 group-hover:scale-110 transition-transform" />
-                            <span className="font-bold text-secondary-900 text-[11px] text-center line-clamp-2 leading-tight">{category}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3 mb-4">
-                        <button 
-                          onClick={() => setActiveCategory(null)}
-                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-                        >
-                          <ArrowLeftIcon className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <h2 className="text-sm font-semibold text-gray-900 flex-1">{activeCategory} {t('pos_sales.items')}</h2>
-                      </div>
-                      {/* Products Grid */}
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 gap-2 cursor-pointer">
-                        {displayedPosProducts.map(product => (
-                          <button
-                            key={product.product_id}
-                            onClick={() => handlePosItemClick(product)}
-                            className="flex flex-col h-full min-h-[90px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-md rounded-xl p-2 items-center text-center transition-all group"
-                          >
-                            <div className="w-8 h-8 mb-1.5 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
-                              <span className="text-xs font-bold text-secondary-500">
-                                {product.name.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-0.5">
-                              {product.name}
-                            </span>
-                            <span className="text-xs font-bold text-secondary-500 mt-auto">
-                              ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                            </span>
-                            {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
-                              <span className="text-[9px] font-semibold text-amber-600 mt-0.5 leading-none">
-                                ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 bg-secondary-500 rounded-lg">
+                       <BookOpenIcon className="w-4 h-4 text-white" />
+                    </div>
+                    <h2 className="text-sm font-semibold text-gray-900">{t('pos_sales.quick_add')}</h2>
+                  </div>
+                  {/* Categories Grid */}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                    {posCategories.map(category => (
+                      <button
+                        key={category}
+                        onClick={() => setActiveCategory(category)}
+                        className="h-20 bg-gradient-to-br from-secondary-50 to-white hover:from-secondary-100 hover:to-secondary-50 border border-secondary-100 hover:border-secondary-500 rounded-xl flex flex-col items-center justify-center p-2 transition-all shadow-sm hover:shadow-md group"
+                      >
+                        <TagIcon className="w-6 h-6 text-secondary-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-secondary-900 text-[11px] text-center line-clamp-2 leading-tight">{category}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1625,6 +1584,100 @@ export default function Sales() {
           </Card>
         </div>
       </div>
+
+      {/* Category Items Modal */}
+      <Modal
+        isOpen={!!activeCategory}
+        onClose={() => setActiveCategory(null)}
+        title={
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <TagIcon className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-gray-900">{activeCategory}</span>
+          </div>
+        }
+        size="lg"
+        footer={
+          <div className="flex justify-end w-full">
+            <Button
+              onClick={() => setActiveCategory(null)}
+              variant="primary"
+              size="md"
+              className="px-8 shadow-brand hover:shadow-lg transition-all"
+              leftIcon={<CheckIcon className="w-4 h-4" />}
+            >
+              {t('pos_sales.close') || 'Close'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="max-h-[60vh] overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 cursor-pointer p-1">
+            {displayedPosProducts.map(product => (
+              <button
+                key={product.product_id}
+                onClick={() => {
+                  handlePosItemClick(product);
+                  // Optionally close modal if it's not a weight-required item
+                  if (product.unit_of_measure !== 'kg' && product.unit_of_measure !== 'g') {
+                    // We don't close it so user can add multiple items from same category
+                  }
+                }}
+                className="flex flex-col h-full min-h-[140px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-lg rounded-2xl p-3 items-center text-center transition-all group"
+              >
+                <div className="w-20 h-20 mb-3 rounded-2xl bg-gray-50 flex items-center justify-center group-hover:bg-secondary-50 transition-colors overflow-hidden shadow-sm group-hover:shadow-md transition-all duration-300">
+                  {product.image_url ? (
+                    <img 
+                      src={`${API_BASE_URL}${product.image_url}`} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector('.fallback-initials')) {
+                          const span = document.createElement('span');
+                          span.className = 'text-xl font-bold text-secondary-500 fallback-initials';
+                          span.innerText = product.name.charAt(0).toUpperCase();
+                          parent.appendChild(span);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-secondary-500">
+                      {product.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs font-bold text-gray-900 line-clamp-2 leading-tight flex-1 mb-1.5 px-1">
+                  {product.name}
+                </span>
+                <div className="mt-auto pt-2 border-t border-gray-50 w-full">
+                  <span className="text-sm font-black text-secondary-600 block">
+                    ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                  </span>
+                  {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
+                    <span className="text-[10px] font-bold text-amber-600 leading-none">
+                      ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+          {displayedPosProducts.length === 0 && (
+            <div className="py-12 text-center">
+              <EmptyState
+                icon={<BookOpenIcon className="w-12 h-12" />}
+                title={t('pos_sales.no_items_category')}
+                description={t('pos_sales.try_another_category')}
+              />
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Quick Add Weigh / Quantity Modal */}
       <Modal

@@ -192,6 +192,8 @@ export const en = {
     process_payment: "Process Payment",
     add_item: "Add Item",
     cancel: "Cancel",
+    close: "Close",
+    done: "Done",
     add_to_cart: "Add to Cart",
     quantity: "Quantity",
     total_price: "Total Price ($)",

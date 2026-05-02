@@ -192,6 +192,8 @@ export const ar = {
     process_payment: "المتابعة للدفع",
     add_item: "إضافة عنصر",
     cancel: "إلغاء",
+    close: "إغلاق",
+    done: "تم",
     add_to_cart: "إضافة للسلة",
     quantity: "الكمية",
     total_price: "السعر الإجمالي ($)",
