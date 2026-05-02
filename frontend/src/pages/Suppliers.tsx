@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { supplierService, Supplier, SupplierFilters } from '../services/supplierService';
+import { storeService, StoreSettings } from '../services/storeService';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -48,6 +49,7 @@ export default function Suppliers() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const supplierAbortController = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
@@ -91,6 +93,10 @@ export default function Suppliers() {
       }
     }
   }, [filters, t]);
+
+  useEffect(() => {
+    storeService.getDefaultStore().then(setStoreSettings).catch(err => logger.error('Failed to load store settings', err));
+  }, []);
 
   // Load suppliers when filters change
   useEffect(() => {
@@ -234,7 +240,7 @@ export default function Suppliers() {
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            {t('suppliers.actions.add_supplier')}
+            {storeSettings?.ui_resolution === '1024x768' ? 'Supplier' : t('suppliers.actions.add_supplier')}
           </Button>
         }
       />
@@ -294,7 +300,7 @@ export default function Suppliers() {
                   action={
                     !searchQuery && (
                       <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                        {t('suppliers.actions.add_supplier')}
+                        {storeSettings?.ui_resolution === '1024x768' ? 'Supplier' : t('suppliers.actions.add_supplier')}
                       </Button>
                     )
                   }

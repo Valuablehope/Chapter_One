@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { customerService, Customer, CustomerFilters } from '../services/customerService';
+import { storeService, StoreSettings } from '../services/storeService';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -48,6 +49,7 @@ export default function Customers() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const customerAbortController = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
@@ -91,6 +93,10 @@ export default function Customers() {
       }
     }
   }, [filters, t]);
+
+  useEffect(() => {
+    storeService.getDefaultStore().then(setStoreSettings).catch(err => logger.error('Failed to load store settings', err));
+  }, []);
 
   // Load customers when filters change
   useEffect(() => {
@@ -234,7 +240,7 @@ export default function Customers() {
             className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
             leftIcon={<PlusIcon className="w-4 h-4" />}
           >
-            {t('customers.actions.add_customer')}
+            {storeSettings?.ui_resolution === '1024x768' ? 'Customer' : t('customers.actions.add_customer')}
           </Button>
         }
       />
@@ -294,7 +300,7 @@ export default function Customers() {
                   action={
                     !searchQuery && (
                       <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
-                        {t('customers.actions.add_customer')}
+                        {storeSettings?.ui_resolution === '1024x768' ? 'Customer' : t('customers.actions.add_customer')}
                       </Button>
                     )
                   }
