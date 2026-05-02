@@ -1120,9 +1120,9 @@ export default function Sales() {
 
               {/* Integrated Compact Search Section */}
               <div className={posCategories.length > 0 ? "pt-6 border-t border-gray-100" : ""}>
-                <div className="flex flex-col md:flex-row items-start gap-4">
+                <div className="flex flex-col gap-5">
                   {/* Barcode Scanner */}
-                  <div className="w-full md:w-1/3">
+                  <div className="w-full">
                     <div className="flex items-center gap-2 mb-1.5">
                       <QrCodeIcon className="w-3.5 h-3.5 text-gray-400" />
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('pos_sales.barcode_scan')}</span>
@@ -1151,7 +1151,7 @@ export default function Sales() {
                   </div>
 
                   {/* Search by Name/SKU */}
-                  <div className="w-full md:w-2/3 relative" ref={searchContainerRef}>
+                  <div className="w-full relative" ref={searchContainerRef}>
                     <div className="flex items-center gap-2 mb-1.5">
                       <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-400" />
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('pos_sales.search_by')}</span>
