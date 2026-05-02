@@ -720,6 +720,18 @@ interface PromotionCardProps {
   style?: React.CSSProperties;
 }
 
+function starPolygon(cx: number, cy: number, outerR: number, innerR: number, pts: number): string {
+  const step = (2 * Math.PI) / pts;
+  return Array.from({ length: pts }, (_, i) => {
+    const a1 = i * step - Math.PI / 2;
+    const a2 = a1 + step / 2;
+    return [
+      `${(cx + outerR * Math.cos(a1)).toFixed(2)},${(cy + outerR * Math.sin(a1)).toFixed(2)}`,
+      `${(cx + innerR * Math.cos(a2)).toFixed(2)},${(cy + innerR * Math.sin(a2)).toFixed(2)}`,
+    ].join(' ');
+  }).join(' ');
+}
+
 function PromotionCard({
   storeName,
   productName,
@@ -729,63 +741,193 @@ function PromotionCard({
   promoText,
   style,
 }: PromotionCardProps) {
+  const priceString = Number(price).toFixed(2);
+  const [dollars, cents] = priceString.split('.');
+
+  const words = promoText.trim().split(/\s+/).filter(Boolean);
+  const half = Math.ceil(words.length / 2);
+  const badgeLine1 = words.slice(0, half).join(' ');
+  const badgeLine2 = words.slice(half).join(' ');
+
+  const GREEN = '#1B5E2F';
+  const RED   = '#D0001B';
+
   return (
     <div
-      className="promotion-poster bg-white flex flex-col items-center justify-between p-[5%] shadow-2xl relative overflow-hidden"
+      className="promotion-poster"
       style={{
         width: '210mm',
         height: '297mm',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        backgroundColor: '#F8F8F6',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: "'DM Sans', system-ui, sans-serif",
+        WebkitPrintColorAdjust: 'exact' as React.CSSProperties['WebkitPrintColorAdjust'],
         ...style,
       }}
     >
-      {/* Top: Store Name */}
-      <div className="text-center w-full">
-        <h2 className="text-[24pt] font-medium tracking-[0.2em] text-gray-900 uppercase">
-          {storeName}
-        </h2>
-        <div className="h-[1px] w-1/4 bg-gray-200 mx-auto mt-2" />
-      </div>
+      {/* Subtle dot texture — depth without noise */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.045) 1.2px, transparent 1.2px)',
+        backgroundSize: '20px 20px',
+      }} />
 
-      {/* Center: Product Name & Origin */}
-      <div className="text-center w-full flex-1 flex flex-col justify-center">
-        <h1 className="text-[72pt] font-black text-green-800 uppercase leading-tight mb-4">
-          {productName}
-        </h1>
-        {origin && (
-          <p className="text-[18pt] font-light text-gray-500 uppercase tracking-widest italic">
-            ({origin})
+      {/* ── Content ── */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: '100%', height: '100%',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center',
+        padding: '16mm 16mm 14mm',
+        boxSizing: 'border-box',
+      }}>
+
+        {/* HEADER — store name */}
+        <div style={{ textAlign: 'center', marginBottom: '11mm', flexShrink: 0 }}>
+          <p style={{
+            fontSize: '14pt',
+            fontWeight: 700,
+            color: '#3C3C3C',
+            letterSpacing: '0.38em',
+            textTransform: 'uppercase',
+            margin: 0,
+          }}>
+            {storeName}
           </p>
-        )}
-      </div>
-
-      {/* Main Focus: Price */}
-      <div className="text-center w-full mb-12">
-        <div className="relative inline-block">
-          <span className="text-[220pt] font-black text-red-600 leading-[0.8] tracking-tighter">
-            <span className="text-[100pt] align-top mr-2 font-bold opacity-90">$</span>
-            {Number(price).toFixed(2)}
-          </span>
+          <div style={{
+            width: '15mm', height: '1px',
+            backgroundColor: '#3C3C3C', opacity: 0.5,
+            margin: '3mm auto 0',
+          }} />
         </div>
-      </div>
 
-      {/* Bottom: Badge & Unit */}
-      <div className="w-full flex items-end justify-between px-4">
-        {/* Badge */}
-        <div className="relative">
-          <div className="bg-red-600 text-white px-10 py-6 rounded-full font-black text-[32pt] uppercase shadow-xl -rotate-12 border-4 border-white flex items-center justify-center">
-            {promoText}
+        {/* PRODUCT TITLE & ORIGIN */}
+        <div style={{ textAlign: 'center', width: '100%', marginBottom: '9mm', flexShrink: 0 }}>
+          <h1 style={{
+            fontSize: '60pt',
+            fontWeight: 800,
+            color: GREEN,
+            lineHeight: 1.05,
+            letterSpacing: '-0.02em',
+            margin: 0,
+            textTransform: 'uppercase',
+          }}>
+            {productName}
+          </h1>
+          {origin && (
+            <p style={{
+              fontSize: '20pt',
+              fontWeight: 600,
+              color: '#555555',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              margin: '3mm 0 0 0',
+            }}>
+              {origin}
+            </p>
+          )}
+        </div>
+
+        {/* PRICE — dominant red, hero of the poster */}
+        <div style={{
+          flex: 1,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          width: '100%',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', lineHeight: 1 }}>
+            <span style={{
+              fontSize: '60pt',
+              fontWeight: 800,
+              color: RED,
+              lineHeight: 1,
+              marginTop: '15mm',
+              marginRight: '2mm',
+            }}>$</span>
+
+            <span style={{
+              fontSize: '200pt',
+              fontWeight: 800,
+              color: RED,
+              lineHeight: 0.85,
+              letterSpacing: '-0.04em',
+            }}>
+              {dollars}
+            </span>
+
+            <div style={{
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'flex-start',
+              paddingTop: '6mm', paddingLeft: '3mm',
+              gap: '4mm',
+            }}>
+              <span style={{
+                fontSize: '80pt',
+                fontWeight: 800,
+                color: RED,
+                lineHeight: 1,
+                textDecoration: 'underline',
+                textDecorationThickness: '5px',
+                textUnderlineOffset: '8px',
+              }}>
+                {cents}
+              </span>
+              <span style={{
+                fontSize: '14pt',
+                fontWeight: 700,
+                color: '#666666',
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+              }}>
+                / {unit}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Unit */}
-        <div className="text-[54pt] font-black text-green-800 lowercase">
-          {unit}
+        {/* BOTTOM ROW — starburst badge left */}
+        <div style={{
+          width: '100%',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+          flexShrink: 0, minHeight: '60mm',
+        }}>
+
+          {/* Starburst badge — lower left, massive size */}
+          <div style={{ width: '90mm', height: '90mm', flexShrink: 0, filter: 'drop-shadow(4px 4px 8px rgba(0,0,0,0.15))', position: 'relative' }}>
+            <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+              <polygon points={starPolygon(50, 50, 48, 32, 12)} fill={RED} stroke="#F8F8F6" strokeWidth="1.5" />
+            </svg>
+            {/* HTML Overlay for perfect centering and wrapping */}
+            <div style={{
+              position: 'absolute', 
+              inset: '15%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              textAlign: 'center',
+            }}>
+              <span style={{
+                color: 'white',
+                fontWeight: 900,
+                fontFamily: "'DM Sans', system-ui, sans-serif",
+                fontSize: '24pt',
+                lineHeight: 1.1,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                textWrap: 'balance',
+              }}>
+                {promoText}
+              </span>
+            </div>
+          </div>
+
+          {/* Supporting text — lower right */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', paddingBottom: '5mm' }}>
+             {/* We removed origin from here since it's under the title now */}
+          </div>
+
         </div>
       </div>
-
-      {/* Border accent */}
-      <div className="absolute inset-[3%] border-[1px] border-gray-100 pointer-events-none rounded-sm" />
     </div>
   );
 }
@@ -1382,13 +1524,16 @@ export default function Labels() {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>Shelf Labels</title>
+          <title>Labels</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { background: #fff; }
             @media print {
               html, body { width: 100%; height: 100%; }
-              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
               @page { margin: 0; }
             }
           </style>
@@ -1398,7 +1543,14 @@ export default function Labels() {
     `);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    const printWhenReady = () => { setTimeout(() => { win.print(); win.close(); }, 120); };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((win.document as any).fonts) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (win.document as any).fonts.ready.then(printWhenReady);
+    } else {
+      setTimeout(printWhenReady, 900);
+    }
   }, []);
 
   const paper    = store ? getPaperDims(store.paper_size) : PAPER_PRESETS['A4'];
