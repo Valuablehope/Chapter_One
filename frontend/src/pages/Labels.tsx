@@ -1093,6 +1093,7 @@ export default function Labels() {
   const [totalPages,            setTotalPages]            = useState(1);
   const [totalProducts,         setTotalProducts]         = useState(0);
   const [showPreview,           setShowPreview]           = useState(false);
+  const [activeTab,             setActiveTab]             = useState<'shelf' | 'promotion'>('shelf');
   const [carouselOffset,        setCarouselOffset]        = useState(0);
   const printRef        = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1310,7 +1311,7 @@ export default function Labels() {
 
       <div className="px-3">
         <PageBanner
-          title="Shelf Labels"
+          title="Labels"
           subtitle={store?.ui_resolution === '1024x768' ? `${cols} labels/row` : `${paper.label} · ${cols} labels/row · ${LABEL_W_MM}×${LABEL_H_MM} mm`}
           icon={<TagIcon className="w-5 h-5 text-white" />}
         action={
@@ -1342,8 +1343,36 @@ export default function Labels() {
         }
       />
       </div>
+      {/* Tabs */}
+      <div className="px-3 mb-4">
+        <div className="flex p-1 bg-gray-100/80 backdrop-blur-sm rounded-xl w-fit border border-gray-200/50 shadow-sm">
+          <button
+            onClick={() => setActiveTab('shelf')}
+            className={`px-6 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
+              activeTab === 'shelf'
+                ? 'bg-white text-secondary-600 shadow-md ring-1 ring-black/5 scale-[1.02]'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+            }`}
+          >
+            Shelf Label
+          </button>
+          <button
+            onClick={() => setActiveTab('promotion')}
+            className={`px-6 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
+              activeTab === 'promotion'
+                ? 'bg-white text-secondary-600 shadow-md ring-1 ring-black/5 scale-[1.02]'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+            }`}
+          >
+            Promotion Label
+          </button>
+        </div>
+      </div>
 
-      {canEditLayout && layoutForm && (
+      
+      {activeTab === 'shelf' && (
+        <>
+          {canEditLayout && layoutForm && (
         <div className="px-3 pt-3 pb-4 flex-shrink-0">
           {/* Premium toggle header */}
           <button
@@ -1801,7 +1830,31 @@ export default function Labels() {
 
       </div>
 
-      {showPreview && store && previewStore && (
+      
+        </>
+      )}
+  
+      {activeTab === 'promotion' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+          <div className="w-20 h-20 bg-secondary-50 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-secondary-100">
+            <PaintBrushIcon className="w-10 h-10 text-secondary-500" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Promotion Labels</h3>
+          <p className="text-gray-500 max-w-md leading-relaxed">
+            Create high-impact promotional labels with custom layouts, discount badges, and sale prices. 
+            This feature is coming soon to help you boost your sales.
+          </p>
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl">
+            {['Custom Gradients', 'Discount Badges', 'Bulk Printing'].map((feat) => (
+              <div key={feat} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-secondary-500" />
+                <span className="text-xs font-bold text-gray-700">{feat}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+  {showPreview && store && previewStore && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setShowPreview(false)}
