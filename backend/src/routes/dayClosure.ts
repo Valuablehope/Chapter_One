@@ -7,7 +7,7 @@ import { getDayClosurePreview, postDayClosure } from '../controllers/dayClosureC
 const router = Router();
 
 router.use(authenticate);
-router.use(authorize('admin', 'manager'));
+router.use(authorize('admin', 'manager', 'cashier'));
 
 router.get(
   '/preview',
