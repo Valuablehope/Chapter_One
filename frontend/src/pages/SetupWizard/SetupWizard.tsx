@@ -10,6 +10,9 @@ export default function SetupWizard() {
   const [storeName, setStoreName] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [port, setPort] = useState('5432');
+  const [dbUser, setDbUser] = useState('postgres');
+  const [dbPassword, setDbPassword] = useState('');
+  const [dbName, setDbName] = useState('Chapter_One');
   
   const [isInstalling, setIsInstalling] = useState(false);
   const [installLogs, setInstallLogs] = useState<string[]>([]);
@@ -61,9 +64,14 @@ export default function SetupWizard() {
 
       } else {
         addLog('Saving terminal configuration...');
+        const encodedPassword = encodeURIComponent(dbPassword);
         const saveRes = await window.electronAPI.setupSaveConfig({
           DB_HOST: serverIp,
           DB_PORT: port,
+          DB_USER: dbUser,
+          DB_PASSWORD: dbPassword,
+          DB_NAME: dbName,
+          DATABASE_URL: `postgres://${dbUser}:${encodedPassword}@${serverIp}:${port}/${dbName}`,
           STORE_NAME: storeName,
         });
         if (!saveRes.success) throw new Error(saveRes.error || 'Failed to save config');
@@ -152,6 +160,16 @@ export default function SetupWizard() {
               
               <div className="space-y-5">
                 {mode === 'terminal' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                    <p className="font-semibold mb-2">⚠️ Before proceeding, ensure the main server has:</p>
+                    <ul className="list-disc list-inside space-y-1 text-blue-700">
+                      <li>PostgreSQL configured to accept remote connections (<code className="bg-blue-100 px-1 rounded">listen_addresses = '*'</code> in postgresql.conf)</li>
+                      <li>A firewall rule allowing TCP on the database port from this terminal's IP</li>
+                      <li>An entry in <code className="bg-blue-100 px-1 rounded">pg_hba.conf</code> allowing this terminal's IP to connect (e.g. <code className="bg-blue-100 px-1 rounded">host all all 192.168.1.0/24 md5</code>)</li>
+                    </ul>
+                  </div>
+                )}
+                {mode === 'terminal' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                       <HardDrive className="w-4 h-4 mr-2" /> Server IP Address
@@ -190,6 +208,46 @@ export default function SetupWizard() {
                   />
                 </div>
 
+                {mode === 'terminal' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Database Username</label>
+                        <input
+                          type="text"
+                          className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
+                          placeholder="postgres"
+                          value={dbUser}
+                          onChange={(e) => setDbUser(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Database Name</label>
+                        <input
+                          type="text"
+                          className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
+                          placeholder="Chapter_One"
+                          value={dbName}
+                          onChange={(e) => setDbName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                        <Shield className="w-4 h-4 mr-2" /> Database Password
+                      </label>
+                      <input
+                        type="password"
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"
+                        placeholder="PostgreSQL password on the server"
+                        value={dbPassword}
+                        onChange={(e) => setDbPassword(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">This is the PostgreSQL password configured on the main server.</p>
+                    </div>
+                  </>
+                )}
+
                 {mode === 'server' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
@@ -214,7 +272,7 @@ export default function SetupWizard() {
                   Back
                 </button>
                 <button
-                  disabled={(mode === 'terminal' && !serverIp) || (mode === 'server' && !adminPassword) || !storeName}
+                  disabled={(mode === 'terminal' && (!serverIp || !dbPassword)) || (mode === 'server' && !adminPassword) || !storeName}
                   onClick={handleInstall}
                   className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center transition-colors"
                 >
