@@ -1181,7 +1181,7 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
   };
 
   const lbp = settings?.show_lbp_price !== false
-    ? formatLbpGrand(order.grandTotal, settings?.lbp_exchange_rate)
+    ? formatLbpGrand(order.grandTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
     : null;
 
   const metaRows = [
@@ -1258,7 +1258,7 @@ function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
   const { t } = useTranslation();
   const { order, totals } = data;
   const lbp = settings?.show_lbp_price !== false
-    ? formatLbpGrand(totals.total, settings?.lbp_exchange_rate)
+    ? formatLbpGrand(totals.total, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
     : null;
 
   const metaRows = [

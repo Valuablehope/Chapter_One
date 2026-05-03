@@ -17,6 +17,7 @@ export interface DayClosurePreview extends DayClosureStats {
   store_name: string | null;
   currency_code: string;
   lbp_exchange_rate: number | null;
+  round_lbp_to_1000?: boolean;
 }
 
 export interface DayClosureRecord {
@@ -111,14 +112,14 @@ export class DayClosureModel {
 
   static async preview(storeId: string): Promise<DayClosurePreview> {
     const storeInfoResult = await pool.query(
-      `SELECT s.name, ss.currency_code, ss.lbp_exchange_rate 
+      `SELECT s.name, ss.currency_code, ss.lbp_exchange_rate, ss.round_lbp_to_1000 
        FROM stores s
        LEFT JOIN store_settings ss ON s.store_id = ss.store_id
        WHERE s.store_id = $1`,
       [storeId]
     );
     
-    const info = storeInfoResult.rows[0] || { name: null, currency_code: 'USD', lbp_exchange_rate: null };
+    const info = storeInfoResult.rows[0] || { name: null, currency_code: 'USD', lbp_exchange_rate: null, round_lbp_to_1000: false };
 
     const data = await computePreview(pool, storeId);
     return { 
@@ -126,7 +127,8 @@ export class DayClosureModel {
       store_name: info.name, 
       ...data,
       currency_code: info.currency_code,
-      lbp_exchange_rate: info.lbp_exchange_rate ? Number(info.lbp_exchange_rate) : null
+      lbp_exchange_rate: info.lbp_exchange_rate ? Number(info.lbp_exchange_rate) : null,
+      round_lbp_to_1000: info.round_lbp_to_1000
     };
   }
 

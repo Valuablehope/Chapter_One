@@ -70,7 +70,7 @@ export default function PurchaseReceipt({ settings, purchaseOrder, supplier }: P
 
   const grand = Number(purchaseOrder.total_cost);
   const lbp = settings?.show_lbp_price !== false
-    ? formatLbpGrand(grand, settings?.lbp_exchange_rate)
+    ? formatLbpGrand(grand, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
     : null;
 
   const metaRows = [

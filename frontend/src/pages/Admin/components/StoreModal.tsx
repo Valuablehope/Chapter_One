@@ -53,6 +53,7 @@ export interface StoreFormData {
   lbp_exchange_rate: number | null;
   label_show_lbp: boolean;
   show_lbp_price: boolean;
+  round_lbp_to_1000: boolean;
   ui_resolution: string;
   receipt_printer: string;
   heading_size: string;
@@ -95,6 +96,7 @@ const initialFormData: StoreFormData = {
   lbp_exchange_rate: null,
   label_show_lbp: true,
   show_lbp_price: true,
+  round_lbp_to_1000: false,
   ui_resolution: 'auto',
   receipt_printer: '',
   heading_size: 'md',
@@ -137,6 +139,7 @@ function storeToFormData(s: Store): StoreFormData {
     lbp_exchange_rate: s.lbp_exchange_rate ?? null,
     label_show_lbp: s.label_show_lbp ?? true,
     show_lbp_price: s.show_lbp_price ?? true,
+    round_lbp_to_1000: s.round_lbp_to_1000 ?? false,
     ui_resolution: s.ui_resolution || 'auto',
     receipt_printer: s.receipt_printer || '',
     heading_size: s.heading_size || 'md',
@@ -329,6 +332,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       lbp_exchange_rate: formData.lbp_exchange_rate ?? null,
       label_show_lbp: formData.label_show_lbp,
       show_lbp_price: formData.show_lbp_price,
+      round_lbp_to_1000: formData.round_lbp_to_1000,
       ui_resolution: formData.ui_resolution,
       receipt_printer: formData.receipt_printer || undefined,
       heading_size: formData.heading_size,
@@ -597,6 +601,12 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 onChange={(v) => set('show_lbp_price', v)}
                 label="Show LBP price throughout the POS"
                 description="When enabled, the LBP price (USD × this rate) is shown in POS Sales and other pages."
+              />
+              <Toggle
+                checked={formData.round_lbp_to_1000}
+                onChange={(v) => set('round_lbp_to_1000', v)}
+                label={t('admin.stores.round_lbp_to_1000') || "Round LBP to nearest 1,000"}
+                description={t('admin.stores.round_lbp_hint') || "E.g., 125,200 becomes 126,000"}
               />
               <Toggle
                 checked={formData.label_show_lbp}

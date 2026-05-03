@@ -4,12 +4,27 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 // Load environment variables from .env file
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config(); // Also try default location
 
 async function runMigrations() {
-  const { DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME } = process.env;
-  
+  let DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME;
+
+  if (process.env.DATABASE_URL) {
+    const url = new URL(process.env.DATABASE_URL);
+    DB_HOST = url.hostname;
+    DB_PORT = url.port || '5432';
+    DB_USER = decodeURIComponent(url.username);
+    DB_PASSWORD = decodeURIComponent(url.password);
+    DB_NAME = url.pathname.slice(1);
+  } else {
+    DB_HOST = process.env.DB_HOST;
+    DB_PORT = process.env.DB_PORT;
+    DB_USER = process.env.DB_USER;
+    DB_PASSWORD = process.env.DB_PASSWORD;
+    DB_NAME = process.env.DB_NAME;
+  }
+
   if (!DB_HOST || !DB_USER || !DB_PASSWORD || !DB_NAME) {
     console.error('Missing database configuration in environment variables.');
     process.exit(1);

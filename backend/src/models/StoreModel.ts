@@ -49,6 +49,7 @@ export interface Store {
   label_price_amount_weight?: number | null;
   label_section_order?: unknown;
   show_lbp_price?: boolean;
+  round_lbp_to_1000?: boolean;
   ui_resolution?: string;
   heading_size?: string;
   body_size?: string;
@@ -140,6 +141,7 @@ export class StoreModel extends BaseModel {
       label_price_amount_weight: 'ss.label_price_amount_weight',
       label_section_order: 'ss.label_section_order',
       show_lbp_price: 'ss.show_lbp_price',
+      round_lbp_to_1000: 'ss.round_lbp_to_1000',
       ui_resolution: 'ss.ui_resolution',
       heading_size: 'ss.heading_size',
       body_size: 'ss.body_size',

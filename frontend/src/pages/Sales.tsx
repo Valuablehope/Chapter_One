@@ -252,8 +252,10 @@ export default function Sales() {
 
   const formatLBP = useCallback((amount: number): string | null => {
     if (!lbpExchangeRatePerUsd || lbpExchangeRatePerUsd <= 0) return null;
-    return Math.round(amount * lbpExchangeRatePerUsd).toLocaleString() + ' LBP';
-  }, [lbpExchangeRatePerUsd]);
+    const rawLbp = amount * lbpExchangeRatePerUsd;
+    const finalLbp = storeSettings?.round_lbp_to_1000 ? Math.ceil(rawLbp / 1000) * 1000 : Math.round(rawLbp);
+    return finalLbp.toLocaleString() + ' LBP';
+  }, [lbpExchangeRatePerUsd, storeSettings?.round_lbp_to_1000]);
 
 
   const cartAmounts = useMemo(

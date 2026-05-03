@@ -28,6 +28,7 @@ export interface StoreSettings {
   lbp_exchange_rate?: number | null;
   label_show_lbp?: boolean;
   show_lbp_price?: boolean;
+  round_lbp_to_1000?: boolean;
   label_store_name_size?: number | null;
   label_product_name_size?: number | null;
   label_lbp_size?: number | null;

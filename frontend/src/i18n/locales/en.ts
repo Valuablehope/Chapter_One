@@ -95,7 +95,9 @@ export const en = {
       ui_resolution: "UI Resolution",
       ui_resolution_helper: "Forces the interface to a specific scaling",
       receipt_printer: 'Receipt Printer',
-      receipt_printer_helper: 'Select the specific printer for silent receipts. Leave as Default System Printer to use your computer\'s default printer.'
+      receipt_printer_helper: 'Select the specific printer for silent receipts. Leave as Default System Printer to use your computer\'s default printer.',
+      round_lbp_to_1000: "Round LBP to nearest 1,000",
+      round_lbp_hint: "E.g., 125,200 becomes 126,000"
     },
     terminals: {
       search: "Search terminals...",
