@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { useTranslation, Language } from '../../../i18n/I18nContext';
 import { THEMES } from '../../../styles/themes';
 import { useTheme } from '../../../hooks/useTheme';
+import { useFontSize, type FontSizeScale } from '../../../hooks/useFontSize';
 
 export interface StoreFormData {
   code: string;
@@ -54,6 +55,8 @@ export interface StoreFormData {
   show_lbp_price: boolean;
   ui_resolution: string;
   receipt_printer: string;
+  heading_size: string;
+  body_size: string;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -94,6 +97,8 @@ const initialFormData: StoreFormData = {
   show_lbp_price: true,
   ui_resolution: 'auto',
   receipt_printer: '',
+  heading_size: 'md',
+  body_size: 'md',
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -134,6 +139,8 @@ function storeToFormData(s: Store): StoreFormData {
     show_lbp_price: s.show_lbp_price ?? true,
     ui_resolution: s.ui_resolution || 'auto',
     receipt_printer: s.receipt_printer || '',
+    heading_size: s.heading_size || 'md',
+    body_size: s.body_size || 'md',
   };
 }
 
@@ -240,6 +247,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [printers, setPrinters] = useState<any[]>([]);
   const { t, language, setLanguage } = useTranslation();
   const { setTheme } = useTheme();
+  const { setFontSizes } = useFontSize();
 
   // Live-preview helper — applies theme visually without saving
   const handleThemeSelect = (themeId: string) => {
@@ -323,6 +331,8 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       show_lbp_price: formData.show_lbp_price,
       ui_resolution: formData.ui_resolution,
       receipt_printer: formData.receipt_printer || undefined,
+      heading_size: formData.heading_size,
+      body_size: formData.body_size,
     };
 
     setSubmitting(true);
@@ -333,8 +343,9 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
         await adminService.createStore(storeData);
       }
       storeService.notifyStoreModuleChanged();
-      // Apply theme immediately — Layout.tsx will also sync on next refresh
+      // Apply theme + font sizes immediately
       if (formData.theme) setTheme(formData.theme);
+      setFontSizes(formData.heading_size as FontSizeScale, formData.body_size as FontSizeScale);
       onClose();
       toast.success(editingStore ? 'Store updated successfully' : 'Store created successfully');
       onSaved();
@@ -825,6 +836,110 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   </button>
                 );
               })}
+            </div>
+
+            {/* ── Font Sizes ── */}
+            <SectionDivider>
+              <span className="inline-flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+                </svg>
+                Typography Scale
+              </span>
+            </SectionDivider>
+
+            <p className="text-xs text-gray-400 -mt-2 mb-3">
+              Control how large headings and body text appear across the entire interface.
+            </p>
+
+            {/* Font size pickers */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Heading size */}
+              <div>
+                <FieldLabel>Heading Size</FieldLabel>
+                <p className="text-[11px] text-gray-400 mb-2.5">Affects page titles, section headers, card totals.</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['sm', 'md', 'lg', 'xl'] as const).map((scale) => {
+                    const labels = { sm: 'Small', md: 'Default', lg: 'Large', xl: 'X-Large' };
+                    const aaSizes = { sm: '15px', md: '18px', lg: '22px', xl: '26px' };
+                    const isActive = formData.heading_size === scale;
+                    return (
+                      <button
+                        key={scale}
+                        type="button"
+                        onClick={() => set('heading_size', scale)}
+                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-150 cursor-pointer ${
+                          isActive
+                            ? 'border-secondary-500 bg-secondary-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-secondary-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span
+                          className={`font-bold leading-none ${isActive ? 'text-secondary-600' : 'text-gray-700'}`}
+                          style={{ fontSize: aaSizes[scale] }}
+                        >Aa</span>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${
+                          isActive ? 'text-secondary-500' : 'text-gray-400'
+                        }`}>{labels[scale]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Body text size */}
+              <div>
+                <FieldLabel>Body Text Size</FieldLabel>
+                <p className="text-[11px] text-gray-400 mb-2.5">Affects labels, table rows, descriptions, and captions.</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['sm', 'md', 'lg', 'xl'] as const).map((scale) => {
+                    const labels = { sm: 'Small', md: 'Default', lg: 'Large', xl: 'X-Large' };
+                    const aaSizes = { sm: '11px', md: '13px', lg: '15px', xl: '17px' };
+                    const isActive = formData.body_size === scale;
+                    return (
+                      <button
+                        key={scale}
+                        type="button"
+                        onClick={() => set('body_size', scale)}
+                        className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-150 cursor-pointer ${
+                          isActive
+                            ? 'border-secondary-500 bg-secondary-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-secondary-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span
+                          className={`font-medium leading-none ${isActive ? 'text-secondary-600' : 'text-gray-700'}`}
+                          style={{ fontSize: aaSizes[scale] }}
+                        >Aa</span>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${
+                          isActive ? 'text-secondary-500' : 'text-gray-400'
+                        }`}>{labels[scale]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Live preview strip */}
+            <div className="mt-3 p-4 rounded-xl bg-gray-50 border border-gray-200">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Preview</p>
+              <p
+                className="font-bold text-gray-800 leading-tight"
+                style={{ fontSize:
+                  formData.heading_size === 'sm' ? '16px' :
+                  formData.heading_size === 'lg' ? '28px' :
+                  formData.heading_size === 'xl' ? '36px' : '22px'
+                }}
+              >Today's Revenue: $1,248.50</p>
+              <p
+                className="text-gray-500 mt-1.5"
+                style={{ fontSize:
+                  formData.body_size === 'sm' ? '11px' :
+                  formData.body_size === 'lg' ? '15px' :
+                  formData.body_size === 'xl' ? '17px' : '13px'
+                }}
+              >12 transactions · Average order value $104.04 · All payments cleared</p>
             </div>
 
             <SectionDivider>Platform Language</SectionDivider>

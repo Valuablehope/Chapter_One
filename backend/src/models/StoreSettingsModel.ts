@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache
+// Triggering restart to refresh database column cache — updated for heading_size/body_size (2026-05-03)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
@@ -47,6 +47,8 @@ export interface StoreSettings {
   show_lbp_price: boolean;
   ui_resolution: string;
   receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
 }
 
 export interface StoreSettingsInput {
@@ -90,6 +92,8 @@ export interface StoreSettingsInput {
   show_lbp_price?: boolean;
   ui_resolution?: string;
   receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -440,6 +444,16 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('receipt_printer');
       values.push(settings.receipt_printer);
     }
+    if (settings.heading_size !== undefined && availableColumns.has('heading_size')) {
+      paramCount++;
+      fields.push('heading_size');
+      values.push(settings.heading_size);
+    }
+    if (settings.body_size !== undefined && availableColumns.has('body_size')) {
+      paramCount++;
+      fields.push('body_size');
+      values.push(settings.body_size);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -655,6 +669,16 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`receipt_printer = $${paramCount}`);
       values.push(settings.receipt_printer);
+    }
+    if (settings.heading_size !== undefined && availableColumns.has('heading_size')) {
+      paramCount++;
+      fields.push(`heading_size = $${paramCount}`);
+      values.push(settings.heading_size);
+    }
+    if (settings.body_size !== undefined && availableColumns.has('body_size')) {
+      paramCount++;
+      fields.push(`body_size = $${paramCount}`);
+      values.push(settings.body_size);
     }
 
     if (fields.length === 0) {

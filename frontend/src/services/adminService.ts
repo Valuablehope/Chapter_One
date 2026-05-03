@@ -97,6 +97,8 @@ export interface Store {
   label_section_order?: unknown;
   ui_resolution?: string;
   receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
 }
 
 export interface Terminal {

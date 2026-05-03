@@ -44,6 +44,7 @@ import { storeService } from '../services/storeService';
 import type { PosModuleType } from '../services/adminService';
 import { useTranslation } from '../i18n/I18nContext';
 import { useTheme } from '../hooks/useTheme';
+import { useFontSize, type FontSizeScale } from '../hooks/useFontSize';
 
 /** Thumbtack pin — outline (sidebar not pinned) */
 const PinIcon = ({ className }: { className?: string }) => (
@@ -139,6 +140,7 @@ export default function Layout({ children }: LayoutProps) {
   );
   const { t } = useTranslation();
   const { setTheme } = useTheme();
+  const { setFontSizes } = useFontSize();
 
   useTokenRefresh();
   const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
@@ -157,10 +159,16 @@ export default function Layout({ children }: LayoutProps) {
       if (s.theme) {
         setTheme(s.theme);
       }
+      if (s.heading_size || s.body_size) {
+        setFontSizes(
+          (s.heading_size ?? 'md') as FontSizeScale,
+          (s.body_size    ?? 'md') as FontSizeScale,
+        );
+      }
     } catch {
       // Keep current value on fetch failure.
     }
-  }, [setTheme]);
+  }, [setTheme, setFontSizes]);
 
   useEffect(() => {
     void refreshPosModuleType();

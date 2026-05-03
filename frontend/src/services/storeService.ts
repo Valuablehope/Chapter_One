@@ -56,6 +56,8 @@ export interface StoreSettings {
   label_section_order?: unknown;
   ui_resolution?: string;
   receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

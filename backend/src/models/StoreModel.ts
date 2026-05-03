@@ -50,6 +50,8 @@ export interface Store {
   label_section_order?: unknown;
   show_lbp_price?: boolean;
   ui_resolution?: string;
+  heading_size?: string;
+  body_size?: string;
 }
 
 export interface StoreFilters {
@@ -139,6 +141,8 @@ export class StoreModel extends BaseModel {
       label_section_order: 'ss.label_section_order',
       show_lbp_price: 'ss.show_lbp_price',
       ui_resolution: 'ss.ui_resolution',
+      heading_size: 'ss.heading_size',
+      body_size: 'ss.body_size',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {
