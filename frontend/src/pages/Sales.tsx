@@ -1027,6 +1027,24 @@ export default function Sales() {
       )}
       {posSettingsStatus === 'ready' && (
       <>
+      {isCompact && storeSettings?.show_lbp_price !== false && (
+        <div className="max-w-7xl mx-auto mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <GlobeAltIcon className="w-5 h-5 text-amber-500" />
+            <span className="font-bold text-amber-900 text-sm">{t('pos_sales.exchange_rate_title')}</span>
+          </div>
+          {lbpExchangeRatePerUsd > 0 ? (
+            <span className="font-bold text-amber-900 text-sm tabular-nums">
+              {t('pos_sales.exchange_rate_value', {
+                amount: lbpExchangeRatePerUsd.toLocaleString(),
+                currency: storeSettings?.currency_code || 'USD',
+              })}
+            </span>
+          ) : (
+            <span className="text-sm font-medium text-amber-900/80">{t('pos_sales.exchange_rate_not_set')}</span>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
         {/* Left Column - Product Search & Cart */}
         <div className="lg:col-span-2 space-y-4">
@@ -1441,7 +1459,7 @@ export default function Sales() {
           )}
 
           {/* LBP exchange rate (same value as all ≈ LBP math on this page) */}
-          {storeSettings?.show_lbp_price !== false && (
+          {storeSettings?.show_lbp_price !== false && !isCompact && (
             <Card className="border border-amber-100 bg-amber-50/80 shadow-sm overflow-hidden">
               <div className="p-3">
                 <div className="flex items-center gap-2 mb-1.5">
