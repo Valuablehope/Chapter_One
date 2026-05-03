@@ -75,6 +75,8 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     label_section_order,
     show_lbp_price,
     ui_resolution,
+    heading_size,
+    body_size,
     ...storeData
   } = req.body;
 
@@ -121,6 +123,8 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     label_section_order,
     show_lbp_price,
     ui_resolution,
+    heading_size,
+    body_size,
   };
 
   // Only create settings if at least one setting field is provided
@@ -198,6 +202,8 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     label_section_order,
     show_lbp_price,
     ui_resolution,
+    heading_size,
+    body_size,
     ...storeData
   } = req.body;
 
@@ -267,6 +273,8 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     label_section_order,
     show_lbp_price,
     ui_resolution,
+    heading_size,
+    body_size,
   };
 
   // Only update settings if at least one setting field is provided

@@ -21,28 +21,26 @@ import { getTheme } from './styles/themes';
   const hScale = (localStorage.getItem('pos-heading-size') ?? 'md') as Scale;
   const bScale = (localStorage.getItem('pos-body-size')    ?? 'md') as Scale;
 
-  const headingMap: Record<Scale, Record<string, string>> = {
+  const headingPx: Record<Scale, Record<string, string>> = {
     sm: { 'text-xl': '15px', 'text-2xl': '18px', 'text-3xl': '20px', 'text-4xl': '24px' },
-    md: {},
+    md: { 'text-xl': '20px', 'text-2xl': '24px', 'text-3xl': '30px', 'text-4xl': '36px' },
     lg: { 'text-xl': '23px', 'text-2xl': '28px', 'text-3xl': '36px', 'text-4xl': '42px' },
     xl: { 'text-xl': '26px', 'text-2xl': '32px', 'text-3xl': '40px', 'text-4xl': '48px' },
   };
-  const bodyMap: Record<Scale, Record<string, string>> = {
+  const bodyPx: Record<Scale, Record<string, string>> = {
     sm: { 'text-xs': '9px',  'text-sm': '11px', 'text-base': '12px', 'text-lg': '13px' },
-    md: {},
+    md: { 'text-xs': '12px', 'text-sm': '14px', 'text-base': '16px', 'text-lg': '18px' },
     lg: { 'text-xs': '13px', 'text-sm': '15px', 'text-base': '17px', 'text-lg': '20px' },
     xl: { 'text-xs': '14px', 'text-sm': '17px', 'text-base': '19px', 'text-lg': '22px' },
   };
 
-  const hRules = Object.entries(headingMap[hScale]).map(([c, px]) => `.${c} { font-size: ${px} !important; }`).join('\n');
-  const bRules = Object.entries(bodyMap[bScale]).map(([c, px])   => `.${c} { font-size: ${px} !important; }`).join('\n');
+  const hRules = Object.entries(headingPx[hScale]).map(([c, px]) => `.${c} { font-size: ${px} !important; }`).join('\n');
+  const bRules = Object.entries(bodyPx[bScale]).map(([c, px])   => `.${c} { font-size: ${px} !important; }`).join('\n');
 
-  if (hRules || bRules) {
-    const tag = document.createElement('style');
-    tag.id = 'pos-font-overrides';
-    tag.textContent = `/* boot font sizes */\n${hRules}\n${bRules}`;
-    document.head.appendChild(tag);
-  }
+  const tag = document.createElement('style');
+  tag.id = 'pos-font-overrides';
+  tag.textContent = `/* boot font-sizes: heading=${hScale} body=${bScale} */\n${hRules}\n${bRules}`;
+  document.head.appendChild(tag);
 })();
 
 // Configure global error logging for Electron
