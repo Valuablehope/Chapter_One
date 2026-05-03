@@ -18,18 +18,18 @@
 // ── Colors ───────────────────────────────────────────────────────────────────
 
 export const colors = {
-  // Brand Blue (maps to Tailwind `secondary-*`)
-  brand:           '#3582e2',   // secondary-500 — primary action colour
-  brandDark:       '#2a68b5',   // secondary-600
-  brandDeep:       '#1f4e88',   // secondary-700
-  brandDeeper:     '#0f1c2e',   // secondary-900 / sidebar bg
-  brandDarkest:    '#0a1a2e',   // banner gradient start
-  brandLight:      '#e8f1fc',   // secondary-50  — tinted backgrounds
-  brandDisabled:   '#93b8ef',   // muted blue — disabled button background
-  brandAccent:     '#93c5fd',   // blue-300 — decorative highlight on dark bg
-  brandAccentText: '#bfdbfe',   // blue-200 — readable text on dark bg
+  // Brand (maps to Tailwind `secondary-*`) — dynamic CSS var getters
+  get brand()           { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-500').trim() || '#3582e2'; },
+  get brandDark()       { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-600').trim() || '#2a68b5'; },
+  get brandDeep()       { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-700').trim() || '#1f4e88'; },
+  get brandDeeper()     { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-900').trim() || '#0f1c2e'; },
+  get brandDarkest()    { return getComputedStyle(document.documentElement).getPropertyValue('--color-brand-dark').trim()    || '#0a1a2e'; },
+  get brandLight()      { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-50').trim()  || '#e8f1fc'; },
+  get brandDisabled()   { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-300').trim() || '#93b8ef'; },
+  get brandAccent()     { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-300').trim() || '#93c5fd'; },
+  get brandAccentText() { return getComputedStyle(document.documentElement).getPropertyValue('--color-secondary-200').trim() || '#bfdbfe'; },
 
-  // Semantic
+  // Semantic — these don't change with themes
   success:      '#10B981',
   successLight: '#ECFDF5',
   warning:      '#D97706',
@@ -43,23 +43,33 @@ export const colors = {
 
   // Surfaces & borders
   surface:    '#FFFFFF',
-  surfaceDim: '#f0f5ff',   // input resting bg
-  surfaceAlt: '#f8fafc',   // subtle card bg
-  bg:         '#f0f4fa',   // page background
-  border:     '#e2e8f0',   // default border
+  surfaceDim: '#f0f5ff',
+  surfaceAlt: '#f8fafc',
+  get bg()    { return getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#f0f4fa'; },
+  border:     '#e2e8f0',
 
   // Sidebar (dark shell)
-  sidebarBg: '#0f1c2e',
-} as const;
+  get sidebarBg() { return getComputedStyle(document.documentElement).getPropertyValue('--sidebar-bg').trim() || '#0f1c2e'; },
+} as {
+  brand: string; brandDark: string; brandDeep: string; brandDeeper: string;
+  brandDarkest: string; brandLight: string; brandDisabled: string;
+  brandAccent: string; brandAccentText: string;
+  success: string; successLight: string; warning: string; warningLight: string;
+  error: string; errorLight: string; textPrimary: string; textMuted: string;
+  surface: string; surfaceDim: string; surfaceAlt: string; bg: string;
+  border: string; sidebarBg: string;
+};
 
 // ── Gradients ─────────────────────────────────────────────────────────────────
+// NOTE: These are functions so they read the *current* CSS custom property at
+// render time, which means all active themes are reflected automatically.
 
 export const gradients = {
   /** Primary brand gradient — page banners, dashboard welcome card */
-  brand: 'linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%)',
+  get brand() { return getComputedStyle(document.documentElement).getPropertyValue('--gradient-brand').trim() || 'linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%)'; },
   /** Blue-only gradient — totals panels, payment summary cards */
-  brandBlue: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)',
-} as const;
+  get brandBlue() { return getComputedStyle(document.documentElement).getPropertyValue('--gradient-brand-blue').trim() || 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)'; },
+} as { brand: string; brandBlue: string };
 
 // ── Typography ────────────────────────────────────────────────────────────────
 
@@ -90,11 +100,11 @@ export const fontSizes = {
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
 export const shadows = {
-  /** Sidebar desktop drop-shadow */
-  sidebar:       '4px 0 20px rgba(15,28,46,0.25)',
+  /** Sidebar desktop drop-shadow — reads from CSS var set by theme */
+  get sidebar()       { return getComputedStyle(document.documentElement).getPropertyValue('--shadow-sidebar').trim()        || '4px 0 20px rgba(15,28,46,0.25)'; },
   /** Sidebar mobile drawer drop-shadow */
-  sidebarMobile: '4px 0 20px rgba(15,28,46,0.35)',
-} as const;
+  get sidebarMobile() { return getComputedStyle(document.documentElement).getPropertyValue('--shadow-sidebar-mobile').trim() || '4px 0 20px rgba(15,28,46,0.35)'; },
+} as { sidebar: string; sidebarMobile: string };
 
 // ── Border Radius ─────────────────────────────────────────────────────────────
 

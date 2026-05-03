@@ -108,7 +108,8 @@
   --text-5xl:  30px;
 
   /* ── Gradients ── */
-  --gradient-brand: linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%);
+  --gradient-brand:      linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%);
+  --gradient-brand-blue: linear-gradient(135deg, #3582e2 0%, #1f4e88 100%);
 
   /* ── Shadows ── */
   --shadow-sidebar:        4px 0 20px rgba(15,28,46,0.25);

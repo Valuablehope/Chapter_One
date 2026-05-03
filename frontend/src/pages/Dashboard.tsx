@@ -220,7 +220,7 @@ export default function Dashboard() {
                 to={link.to}
                 className={`group flex items-center gap-3.5 p-4 rounded-xl border transition-all duration-200 animate-card-in ${
                   link.highlight
-                    ? 'border-secondary-200 bg-gradient-to-br from-secondary-50 to-blue-50 hover:border-secondary-300 hover:shadow-sm'
+                    ? 'border-secondary-200 bg-gradient-to-br from-secondary-50 to-secondary-50 hover:border-secondary-300 hover:shadow-sm'
                     : 'border-[#e8ecf0] bg-[#f8fafc] hover:bg-white hover:border-gray-300 hover:shadow-sm'
                 }`}
                 style={{ animationDelay: `${(i + 4) * 0.06}s` }}

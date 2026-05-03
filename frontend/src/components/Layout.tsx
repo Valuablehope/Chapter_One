@@ -43,6 +43,7 @@ import { APP_BRAND_POS_LINE } from '../constants/branding';
 import { storeService } from '../services/storeService';
 import type { PosModuleType } from '../services/adminService';
 import { useTranslation } from '../i18n/I18nContext';
+import { useTheme } from '../hooks/useTheme';
 
 /** Thumbtack pin — outline (sidebar not pinned) */
 const PinIcon = ({ className }: { className?: string }) => (
@@ -137,6 +138,7 @@ export default function Layout({ children }: LayoutProps) {
     localStorage.getItem('ui-resolution') || 'auto'
   );
   const { t } = useTranslation();
+  const { setTheme } = useTheme();
 
   useTokenRefresh();
   const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
@@ -152,10 +154,13 @@ export default function Layout({ children }: LayoutProps) {
         setUiResolution(s.ui_resolution);
         localStorage.setItem('ui-resolution', s.ui_resolution);
       }
+      if (s.theme) {
+        setTheme(s.theme);
+      }
     } catch {
       // Keep current value on fetch failure.
     }
-  }, []);
+  }, [setTheme]);
 
   useEffect(() => {
     void refreshPosModuleType();
@@ -247,7 +252,7 @@ export default function Layout({ children }: LayoutProps) {
   const roleLabel   = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
 
   return (
-    <div className={`min-h-screen bg-[#f0f4fa] flex res-${uiResolution}`}>
+    <div className={`min-h-screen flex res-${uiResolution}`} style={{ backgroundColor: 'var(--color-bg, #f0f4fa)' }}>
 
       {/* ══════════════════════════════════
           Desktop Sidebar

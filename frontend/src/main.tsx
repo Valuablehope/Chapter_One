@@ -5,6 +5,15 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/receiptPrint.css';
+// Apply persisted theme immediately (before first paint)
+import { getTheme } from './styles/themes';
+(function initTheme() {
+  const id = localStorage.getItem('pos-theme') ?? 'classic';
+  const theme = getTheme(id);
+  const root = document.documentElement;
+  Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  root.setAttribute('data-theme', id);
+})();
 
 // Configure global error logging for Electron
 if (window.electronAPI) {

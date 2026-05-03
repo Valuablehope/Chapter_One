@@ -1295,7 +1295,7 @@ export default function Sales() {
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-xs font-medium text-gray-600">
                                     ${Number(item.unit_price).toFixed(2)}{' '}
-                                    <span className="font-semibold text-blue-500">
+                                    <span className="font-semibold text-secondary-500">
                                       {item.product.unit_of_measure || t('pos_sales.each')}
                                     </span>
                                   </span>
@@ -1430,7 +1430,7 @@ export default function Sales() {
                   onClick={() => setShowCustomerModal(true)}
                   variant="outline"
                   size="sm"
-                  className="w-full border-2 hover:bg-sky-50 hover:border-sky-300 transition-all"
+                  className="w-full border-2 hover:bg-secondary-50 hover:border-secondary-300 transition-all"
                   leftIcon={<PlusIcon className="w-4 h-4" />}
                 >
                   {t('pos_sales.add_customer')}
@@ -1538,7 +1538,7 @@ export default function Sales() {
                 )}
 
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
-                  <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: '0 4px 14px rgba(53,130,226,0.30)' }}>
+                  <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: `0 4px 14px color-mix(in srgb, var(--color-secondary) 30%, transparent)` }}>
                     <span className="text-sm font-semibold opacity-90">{t('pos_sales.total_due')}</span>
                     <div className="text-right">
                       <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
@@ -1556,7 +1556,7 @@ export default function Sales() {
                 onClick={openPaymentModal}
                 disabled={cart.length === 0 || processing}
                 className="w-full text-white font-semibold shadow-brand hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-3 text-sm rounded-xl mt-1"
-              style={{ background: 'linear-gradient(135deg, #3582e2 0%, #1f4e88 100%)' }}
+              style={{ background: gradients.brandBlue }}
                 leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
                 isLoading={processing}
               >

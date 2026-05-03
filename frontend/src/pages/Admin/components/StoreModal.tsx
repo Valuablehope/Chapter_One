@@ -17,9 +17,13 @@ import {
   ArchiveBoxIcon,
   PrinterIcon,
   AdjustmentsHorizontalIcon,
+  CheckIcon,
+  SwatchIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useTranslation, Language } from '../../../i18n/I18nContext';
+import { THEMES } from '../../../styles/themes';
+import { useTheme } from '../../../hooks/useTheme';
 
 export interface StoreFormData {
   code: string;
@@ -235,6 +239,13 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [activeTab, setActiveTab] = useState<Tab>('identity');
   const [printers, setPrinters] = useState<any[]>([]);
   const { t, language, setLanguage } = useTranslation();
+  const { setTheme } = useTheme();
+
+  // Live-preview helper — applies theme visually without saving
+  const handleThemeSelect = (themeId: string) => {
+    set('theme', themeId);
+    setTheme(themeId);
+  };
 
   useEffect(() => {
     if (window.electronAPI?.getPrinters) {
@@ -322,6 +333,8 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
         await adminService.createStore(storeData);
       }
       storeService.notifyStoreModuleChanged();
+      // Apply theme immediately — Layout.tsx will also sync on next refresh
+      if (formData.theme) setTheme(formData.theme);
       onClose();
       toast.success(editingStore ? 'Store updated successfully' : 'Store created successfully');
       onSaved();
@@ -600,20 +613,6 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <FieldLabel>POS Theme</FieldLabel>
-                <select
-                  value={formData.theme}
-                  onChange={(e) => set('theme', e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="classic">Classic</option>
-                  <option value="modern">Modern</option>
-                  <option value="minimal">Minimal</option>
-                  <option value="quantum">Quantum</option>
-                </select>
-              </div>
-
-              <div>
                 <FieldLabel>Receipt Paper Size</FieldLabel>
                 <select
                   value={formData.paper_size}
@@ -762,6 +761,72 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
         {/* ── SETTINGS (POS module / restaurant) ── */}
         {activeTab === 'settings' && (
           <div className="space-y-4">
+            <SectionDivider>
+              <SwatchIcon className="inline w-3.5 h-3.5 mr-1" />
+              App Theme
+            </SectionDivider>
+
+            <p className="text-xs text-gray-400 -mt-2 mb-3">
+              Choose a color theme for the entire interface. Changes apply immediately after saving.
+            </p>
+
+            {/* Theme cards grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {THEMES.map((theme) => {
+                const isActive = formData.theme === theme.id;
+                // Use each theme's own primary color for the active indicator
+                const primaryColor = theme.swatches[1] ?? theme.swatches[0];
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => handleThemeSelect(theme.id)}
+                    className={`
+                      relative flex flex-col rounded-xl border-2 p-3.5 text-left w-full
+                      transition-all duration-200 group cursor-pointer
+                      ${isActive ? 'shadow-md' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'}
+                    `}
+                    style={isActive ? {
+                      borderColor: primaryColor,
+                      background: `${primaryColor}10`,
+                    } : {}}
+                  >
+                    {/* Swatch row */}
+                    <div className="flex items-center gap-1.5 mb-3">
+                      {theme.swatches.map((color, i) => (
+                        <div
+                          key={i}
+                          className="w-6 h-6 rounded-lg shadow-sm ring-1 ring-black/10 flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Name + description */}
+                    <p
+                      className="text-sm font-semibold leading-tight"
+                      style={isActive ? { color: primaryColor } : { color: '#1f2937' }}
+                    >
+                      {theme.name}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
+                      {theme.description}
+                    </p>
+
+                    {/* Active checkmark */}
+                    {isActive && (
+                      <span
+                        className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        <CheckIcon className="w-3 h-3 text-white" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
             <SectionDivider>Platform Language</SectionDivider>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
