@@ -666,28 +666,23 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
 
               <div>
                 <FieldLabel>{t('admin.stores.receipt_printer')}</FieldLabel>
-                {window.electronAPI?.getPrinters ? (
-                  <select
-                    value={formData.receipt_printer}
-                    onChange={(e) => set('receipt_printer', e.target.value)}
-                    className={selectCls}
-                  >
-                    <option value="">Default System Printer</option>
-                    {printers.map((p, i) => (
-                      <option key={i} value={p.name}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.receipt_printer}
-                    onChange={(e) => set('receipt_printer', e.target.value)}
-                    placeholder="e.g. EPSON TM-T88VI"
-                    className={inputCls()}
-                  />
-                )}
+                <select
+                  value={formData.receipt_printer || ''}
+                  onChange={(e) => set('receipt_printer', e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="">Default System Printer</option>
+                  {printers.map((p, i) => (
+                    <option key={i} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                  {formData.receipt_printer && !printers.find(p => p.name === formData.receipt_printer) && (
+                    <option value={formData.receipt_printer}>
+                      {formData.receipt_printer} (Current)
+                    </option>
+                  )}
+                </select>
                 <p className="mt-1 text-xs text-gray-400">
                   {t('admin.stores.receipt_printer_helper')}
                 </p>

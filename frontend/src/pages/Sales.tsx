@@ -82,6 +82,7 @@ export default function Sales() {
   const searchResultsDropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [showClearCartModal, setShowClearCartModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -307,7 +308,6 @@ export default function Sales() {
 
   const isCompact = storeSettings?.ui_resolution === '1024x768';
   const CART_ROW_HEIGHT = isCompact ? 70 : 90;
-  const CART_LIST_MAX_HEIGHT = isCompact ? 210 : 450;
 
 
   // Search abort controller
@@ -536,33 +536,47 @@ export default function Sales() {
       }
     }
 
-    const existingItem = cart.find((item) => item.product.product_id === product.product_id);
+    const price = Number(product.sale_price || product.list_price || 0);
+    const taxInclusive = !!(storeSettings?.tax_inclusive);
+    const defaultTax = Number(storeSettings?.tax_rate ?? 0);
+    const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
+    const eff = taxInclusive
+      ? effectiveProductTaxRate(product.tax_rate, defaultTax)
+      : 0;
 
-    if (existingItem) {
-      // Increase quantity
-      updateCartItemQuantity(existingItem.product.product_id, existingItem.qty + quantity);
-    } else {
-      const price = Number(product.sale_price || product.list_price || 0);
-      const taxInclusive = !!(storeSettings?.tax_inclusive);
-      const defaultTax = Number(storeSettings?.tax_rate ?? 0);
-      const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
-      const eff = taxInclusive
-        ? effectiveProductTaxRate(product.tax_rate, defaultTax)
-        : 0;
-      const amounts = computeLineAmounts(quantity, price, eff, mode);
+    setCart((prevCart) => {
+      const existing = prevCart.find((item) => item.product.product_id === product.product_id);
+      if (existing) {
+        const newQty = existing.qty + quantity;
+        const amounts = computeLineAmounts(newQty, price, eff, mode);
+        return prevCart.map((item) =>
+          item.product.product_id === product.product_id
+            ? {
+                ...item,
+                qty: newQty,
+                unit_price: amounts.unit_price,
+                tax_rate: amounts.tax_rate,
+                line_total: amounts.line_total,
+              }
+            : item
+        );
+      } else {
+        const amounts = computeLineAmounts(quantity, price, eff, mode);
+        return [
+          ...prevCart,
+          {
+            product,
+            qty: quantity,
+            unit_price: amounts.unit_price,
+            tax_rate: amounts.tax_rate,
+            line_total: amounts.line_total,
+          },
+        ];
+      }
+    });
 
-      setCart([
-        ...cart,
-        {
-          product,
-          qty: quantity,
-          unit_price: amounts.unit_price,
-          tax_rate: amounts.tax_rate,
-          line_total: amounts.line_total,
-        },
-      ]);
-      showCustomerDisplay(getStoreDisplayName(storeSettings), amounts.unit_price);
-    }
+    const displayAmounts = computeLineAmounts(quantity, price, eff, mode);
+    showCustomerDisplay(getStoreDisplayName(storeSettings), displayAmounts.unit_price);
 
     // Clear search
     handleSearchChange('');
@@ -616,8 +630,8 @@ export default function Sales() {
       : 0;
     const amounts = computeLineAmounts(qty, price, eff, mode);
 
-    setCart(
-      cart.map((row) => {
+    setCart((prevCart) =>
+      prevCart.map((row) => {
         if (row.product.product_id === productId) {
           return {
             ...row,
@@ -636,7 +650,21 @@ export default function Sales() {
 
   // Remove from cart
   const removeFromCart = (productId: string) => {
-    setCart(cart.filter((item) => item.product.product_id !== productId));
+    setCart((prevCart) => prevCart.filter((item) => item.product.product_id !== productId));
+  };
+
+  // Clear cart
+  const confirmClearCart = () => {
+    setCart([]);
+    setSelectedCustomer(null);
+    setDiscountRate('');
+    setShowClearCartModal(false);
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
+  };
+
+  const clearCart = () => {
+    if (cart.length === 0) return;
+    setShowClearCartModal(true);
   };
 
   // Search customers
@@ -705,13 +733,13 @@ export default function Sales() {
     setCustomerResults([]);
   };
 
-  // Open payment modal — reset both tender fields; cashier enters what the customer hands over
+  // Open payment modal — default USD tender to grand total; cashier can edit
   const openPaymentModal = () => {
     if (cart.length === 0) {
       toast.error('Cart is empty');
       return;
     }
-    setPaymentAmount('');
+    setPaymentAmount(grandTotal > 0 ? grandTotal.toFixed(2) : '');
     setPaymentAmountLBP('');
     setShowPaymentModal(true);
   };
@@ -1233,8 +1261,18 @@ export default function Sales() {
                     )}
                   </div>
                 </div>
-                {/* Hold Sale + Held Sales panel buttons */}
+                {/* Clear Cart + Hold Sale + Held Sales panel buttons */}
                 <div className="flex items-center gap-2">
+                  <button
+                    id="clear-cart-btn"
+                    onClick={clearCart}
+                    disabled={cart.length === 0}
+                    title={t('pos_sales.clear_cart') || 'Clear cart'}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <TrashIcon className="w-3.5 h-3.5" />
+                    Clear
+                  </button>
                   <button
                     id="hold-sale-btn"
                     ref={holdBtnRef}
@@ -1287,7 +1325,7 @@ export default function Sales() {
                 </div>
               ) : (
                 <FixedSizeList
-                  height={Math.min(cart.length * CART_ROW_HEIGHT, CART_LIST_MAX_HEIGHT)}
+                  height={cart.length * CART_ROW_HEIGHT}
                   width="100%"
                   itemCount={cart.length}
                   itemSize={CART_ROW_HEIGHT}
@@ -1408,7 +1446,7 @@ export default function Sales() {
         </div>
 
         {/* Right Column - Customer & Totals */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-4 self-start">
           {/* Customer Selection */}
           {storeSettings?.ui_resolution !== '1024x768' && (
           <Card className="border border-[#e2e8f0] shadow-soft bg-white">
@@ -1925,6 +1963,8 @@ export default function Sales() {
                   min="0"
                   value={paymentAmount}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentAmountChange(e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  autoFocus
                   placeholder="0.00"
                   className="w-full px-3 py-2.5 text-sm font-bold rounded-lg border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
                 />
@@ -2115,6 +2155,41 @@ export default function Sales() {
         </div>,
         document.body
       )}
+      {/* Clear Cart Modal */}
+      <Modal
+        isOpen={showClearCartModal}
+        onClose={() => setShowClearCartModal(false)}
+        title={t('pos_sales.clear_cart') || 'Clear Cart'}
+        size="sm"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button
+              onClick={() => setShowClearCartModal(false)}
+              variant="outline"
+              className="flex-1"
+            >
+              {t('pos_sales.cancel') || 'Cancel'}
+            </Button>
+            <Button
+              onClick={confirmClearCart}
+              variant="danger"
+              className="flex-1 shadow-sm"
+            >
+              {t('pos_sales.clear') || 'Clear'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="py-4 text-center">
+          <p className="text-gray-700 text-base">
+            {t('pos_sales.confirm_clear_cart') || 'Are you sure you want to clear the active cart?'}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            This action will remove all items from the current active cart.
+          </p>
+        </div>
+      </Modal>
+
       </>
       )}
     </>

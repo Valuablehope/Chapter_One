@@ -76,6 +76,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     show_lbp_price,
     round_lbp_to_1000,
     ui_resolution,
+    receipt_printer,
     heading_size,
     body_size,
     ...storeData
@@ -125,6 +126,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     show_lbp_price,
     round_lbp_to_1000,
     ui_resolution,
+    receipt_printer,
     heading_size,
     body_size,
   };
@@ -205,6 +207,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     show_lbp_price,
     round_lbp_to_1000,
     ui_resolution,
+    receipt_printer,
     heading_size,
     body_size,
     ...storeData
@@ -277,6 +280,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     show_lbp_price,
     round_lbp_to_1000,
     ui_resolution,
+    receipt_printer,
     heading_size,
     body_size,
   };

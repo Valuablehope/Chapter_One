@@ -143,6 +143,7 @@ export class StoreModel extends BaseModel {
       show_lbp_price: 'ss.show_lbp_price',
       round_lbp_to_1000: 'ss.round_lbp_to_1000',
       ui_resolution: 'ss.ui_resolution',
+      receipt_printer: 'ss.receipt_printer',
       heading_size: 'ss.heading_size',
       body_size: 'ss.body_size',
     };

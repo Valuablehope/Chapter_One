@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache — updated for heading_size/body_size (2026-05-03)
+// Triggering restart to refresh database column cache — updated for receipt_printer (2026-05-05)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
