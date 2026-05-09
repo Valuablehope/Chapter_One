@@ -159,6 +159,8 @@ export const en = {
     thank_you_sale: "Thank you for your business!",
     thank_you_restaurant: "Thank you for dining with us!",
     by_cubiq: "By Cubiq Solutions",
+    delivery: "Delivery",
+    not_in_drawer: "not in drawer",
   },
   pos_sales: {
     quick_add: "Quick Add Categories",

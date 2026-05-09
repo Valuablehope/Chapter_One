@@ -49,9 +49,23 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
 
   if (!sale) return null;
 
-  const grand = Number(sale.grand_total);
+  const deliveryCharge = Number(sale.delivery_charge || 0);
+  const inDrawer = settings?.include_delivery_in_drawer !== false;
+  const drawerTotal = Number(sale.grand_total || 0);
+  const subtotal = Number(sale.subtotal || 0);
+  const taxTotal = Number(sale.tax_total || 0);
+  const discountTotal = Number(sale.discount_total || 0);
+
+  // Heuristic: Check if this specific sale was saved with delivery already in its grand_total.
+  // This ensures historical receipts (saved when the toggle was ON) display correctly 
+  // even if the store setting is currently OFF.
+  const wasSavedWithDelivery = deliveryCharge > 0 && 
+    drawerTotal >= (subtotal + taxTotal - discountTotal + deliveryCharge - 0.01);
+  
+  const invoiceTotal = wasSavedWithDelivery ? drawerTotal : (drawerTotal + deliveryCharge);
+
   const lbp = settings?.show_lbp_price !== false
-    ? formatLbpGrand(grand, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
+    ? formatLbpGrand(invoiceTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
     : null;
 
   const lineRows = items.map((item) => ({
@@ -93,18 +107,16 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     });
   }
 
-  const deliveryCharge = Number(sale.delivery_charge || 0);
   if (deliveryCharge > 0) {
-    const inDrawer = settings?.include_delivery_in_drawer !== false;
     totalRows.push({
-      label: inDrawer ? 'Delivery' : 'Delivery (not in drawer)',
+      label: inDrawer ? t('receipt.delivery') : `${t('receipt.delivery')} (${t('receipt.not_in_drawer')})`,
       value: formatCurrency(deliveryCharge),
     });
   }
 
   totalRows.push({
     label: t('receipt.net_total'),
-    value: formatCurrency(grand),
+    value: formatCurrency(invoiceTotal),
     emphasis: 'strong',
   });
 
@@ -128,7 +140,19 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     });
   }
 
-  const payments = Array.isArray(sale.payments) ? sale.payments : [];
+  const rawPayments = Array.isArray(sale.payments) ? sale.payments : [];
+  const payments = [...rawPayments.map(p => ({ ...p, amount: Number(p.amount) }))];
+
+  // If delivery was not in the drawer, virtually add it to the cash payment 
+  // on the receipt so the customer sees they paid the full Net Total.
+  if (!wasSavedWithDelivery && deliveryCharge > 0) {
+    const cashIdx = payments.findIndex(p => p.method?.toLowerCase() === 'cash');
+    if (cashIdx !== -1) {
+      payments[cashIdx].amount += deliveryCharge;
+    } else {
+      payments.push({ method: 'cash', amount: deliveryCharge });
+    }
+  }
 
   return (
     <div className="bg-white print:shadow-none">
@@ -140,7 +164,7 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
         {payments.length > 0 && (
           <MinimalReceiptPayments
             payments={payments}
-            grandTotal={grand}
+            grandTotal={invoiceTotal}
             formatCurrency={formatCurrency}
           />
         )}

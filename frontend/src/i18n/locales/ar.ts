@@ -159,6 +159,8 @@ export const ar = {
     thank_you_sale: "شكراً لتعاملكم معنا!",
     thank_you_restaurant: "شكراً لزيارتكم!",
     by_cubiq: "By Cubiq Solutions",
+    delivery: "التوصيل",
+    not_in_drawer: "ليس في الدرج",
   },
   pos_sales: {
     quick_add: "فئات الإضافة السريعة",
