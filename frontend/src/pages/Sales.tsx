@@ -1274,9 +1274,20 @@ export default function Sales() {
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-sm text-secondary-500">
-                                  ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                                </p>
+                                {storeSettings?.lbp_primary_price && formatLBP(Number(product.sale_price || product.list_price || 0)) ? (
+                                  <>
+                                    <p className="font-bold text-sm text-amber-600">
+                                      {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-secondary-400 leading-none">
+                                      ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="font-bold text-sm text-secondary-500">
+                                    ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                                  </p>
+                                )}
                               </div>
                               <ArrowRightIcon className="w-4 h-4 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
                             </div>
@@ -1765,13 +1776,26 @@ export default function Sales() {
                   {product.name}
                 </span>
                 <div className="mt-auto pt-2 border-t border-gray-50 w-full">
-                  <span className="text-sm font-black text-secondary-600 block">
-                    ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                  </span>
-                  {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
-                    <span className="text-[10px] font-bold text-amber-600 leading-none">
-                      ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
-                    </span>
+                  {storeSettings?.lbp_primary_price && formatLBP(Number(product.sale_price || product.list_price || 0)) ? (
+                    <>
+                      <span className="text-sm font-black text-amber-600 block">
+                        {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                      </span>
+                      <span className="text-[10px] font-bold text-secondary-500 leading-none">
+                        ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-black text-secondary-600 block">
+                        ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                      </span>
+                      {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
+                        <span className="text-[10px] font-bold text-amber-600 leading-none">
+                          ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </button>
@@ -1828,9 +1852,20 @@ export default function Sales() {
           <div className="space-y-2.5">
             <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-between px-3">
               <h3 className="text-sm font-bold text-gray-900 truncate flex-1 mr-2">{quickAddProduct.name}</h3>
-              <p className="text-secondary-600 font-bold whitespace-nowrap text-sm">
-                ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
-              </p>
+              {storeSettings?.lbp_primary_price && formatLBP(Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0)) ? (
+                <div className="text-right whitespace-nowrap">
+                  <p className="text-amber-600 font-bold text-sm">
+                    {formatLBP(Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0))} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
+                  </p>
+                  <p className="text-[10px] text-secondary-400 font-bold leading-none">
+                    ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-secondary-600 font-bold whitespace-nowrap text-sm">
+                  ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
+                </p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-3">
