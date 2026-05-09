@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'; 
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
@@ -55,6 +55,53 @@ import {
   roundMoney,
   type SaleTaxMode,
 } from '../utils/saleTotals';
+
+// Isolated price input — local state prevents parent re-renders from breaking focus
+const CartPriceInput = memo(({
+  productId,
+  unitPrice,
+  onApply,
+}: {
+  productId: string;
+  unitPrice: number;
+  onApply: (productId: string, price: number) => void;
+}) => {
+  const [value, setValue] = useState(Number(unitPrice).toFixed(2));
+  const prevRef = useRef(unitPrice);
+
+  useEffect(() => {
+    if (prevRef.current !== unitPrice) {
+      setValue(Number(unitPrice).toFixed(2));
+      prevRef.current = unitPrice;
+    }
+  }, [unitPrice]);
+
+  const apply = () => {
+    const val = parseFloat(value);
+    if (!isNaN(val) && val >= 0) {
+      onApply(productId, val);
+    } else {
+      setValue(Number(unitPrice).toFixed(2));
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-0.5 border-2 border-gray-200 rounded-lg bg-white shadow-sm px-2 py-1.5 focus-within:border-secondary-400 focus-within:shadow-md transition-all">
+      <span className="text-xs font-medium text-gray-400 select-none">$</span>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={apply}
+        onKeyDown={(e) => { if (e.key === 'Enter') { apply(); e.currentTarget.blur(); } }}
+        className="w-14 text-center font-semibold text-sm text-gray-900 focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+    </div>
+  );
+});
 
 export default function Sales() {
   const { user } = useAuthStore();
@@ -647,6 +694,23 @@ export default function Sales() {
 
     showCustomerDisplay(getStoreDisplayName(storeSettings), amounts.unit_price);
   };
+
+  const updateCartItemPrice = useCallback((productId: string, price: number) => {
+    setCart((prevCart) => {
+      const item = prevCart.find(i => i.product.product_id === productId);
+      if (!item) return prevCart;
+      const taxInclusive = !!(storeSettings?.tax_inclusive);
+      const defaultTax = Number(storeSettings?.tax_rate ?? 0);
+      const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
+      const eff = taxInclusive ? effectiveProductTaxRate(item.product.tax_rate, defaultTax) : 0;
+      const amounts = computeLineAmounts(item.qty, price, eff, mode);
+      return prevCart.map((r) =>
+        r.product.product_id !== productId
+          ? r
+          : { ...r, unit_price: amounts.unit_price, tax_rate: amounts.tax_rate, line_total: amounts.line_total }
+      );
+    });
+  }, [storeSettings]);
 
   // Remove from cart
   const removeFromCart = (productId: string) => {
@@ -1349,27 +1413,25 @@ export default function Sales() {
                                 </div>
                                 <p className="font-semibold text-xs text-gray-900 truncate">{item.product.name}</p>
                               </div>
-                              {!isCompact ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs font-medium text-gray-600">
-                                    ${Number(item.unit_price).toFixed(2)}{' '}
-                                    <span className="font-semibold text-secondary-500">
-                                      {item.product.unit_of_measure || t('pos_sales.each')}
-                                    </span>
-                                  </span>
-                                  {item.product.track_inventory && availableStock !== null && (
-                                    <span className={`text-xs font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                      {t('pos_sales.stock')}: {availableStock}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                item.product.track_inventory && availableStock !== null && (
-                                  <span className={`text-[10px] font-medium ml-6 ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                    {t('pos_sales.stock')}: {availableStock}
-                                  </span>
-                                )
+                              {item.product.track_inventory && availableStock !== null && (
+                                <span className={`text-[10px] font-medium ml-6 ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                  {t('pos_sales.stock')}: {availableStock}
+                                </span>
                               )}
+                            </div>
+
+                            {/* Unit price – editable for admin, read-only for others */}
+                            <div className="hidden sm:flex items-center self-center shrink-0 gap-1.5 mr-4">
+                              {user?.role === 'admin' ? (
+                                <CartPriceInput
+                                  productId={item.product.product_id}
+                                  unitPrice={Number(item.unit_price)}
+                                  onApply={updateCartItemPrice}
+                                />
+                              ) : (
+                                <span className="text-sm font-bold text-secondary-600">${Number(item.unit_price).toFixed(2)}</span>
+                              )}
+                              <span className="text-[10px] text-gray-400 font-medium">{item.product.unit_of_measure || t('pos_sales.each')}</span>
                             </div>
 
                             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
@@ -1409,11 +1471,6 @@ export default function Sales() {
                               <div className="flex items-center gap-2">
                                 {/* Price Display */}
                                 <div className="text-right min-w-[70px] sm:min-w-[90px]">
-                                  {isCompact && (
-                                    <p className="text-[10px] font-medium text-gray-400 leading-none mb-0.5">
-                                      {item.qty} x ${Number(item.unit_price).toFixed(2)}
-                                    </p>
-                                  )}
                                   <p className="font-bold text-sm text-secondary-600 leading-tight">
                                     ${Number(item.line_total).toFixed(2)}
                                   </p>
@@ -1666,7 +1723,7 @@ export default function Sales() {
                 }}
                 className="flex flex-col h-full min-h-[140px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-lg rounded-2xl p-3 items-center text-center transition-all group"
               >
-                <div className="w-20 h-20 mb-3 rounded-2xl bg-gray-50 flex items-center justify-center group-hover:bg-secondary-50 transition-colors overflow-hidden shadow-sm group-hover:shadow-md transition-all duration-300">
+                <div className="w-20 h-20 mb-3 rounded-2xl bg-gray-50 flex items-center justify-center group-hover:bg-secondary-50 overflow-hidden shadow-sm group-hover:shadow-md transition-all duration-300">
                   {product.image_url ? (
                     <img 
                       src={`${API_BASE_URL}${product.image_url}`} 
@@ -1953,7 +2010,7 @@ export default function Sales() {
 
               {/* USD field */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1.5">
                   <CurrencyDollarIcon className="w-3.5 h-3.5 text-gray-400" />
                   Amount ($)
                 </label>
@@ -1973,7 +2030,7 @@ export default function Sales() {
               {/* LBP field */}
               {lbpRate > 0 && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                  <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1.5">
                     <span className="text-xs">🇱🇧</span>
                     Amount (LBP)
                   </label>
