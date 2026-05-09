@@ -5,19 +5,32 @@ import {
   MagnifyingGlassIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Squares2X2Icon,
+  CheckBadgeIcon,
+  InboxIcon,
 } from '@heroicons/react/24/outline';
 import { openingStockService, OpeningStockSession } from '../services/openingStockService';
 import { productService, Product } from '../services/productService';
 import { useAuthStore } from '../store/authStore';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import PageBanner from '../components/ui/PageBanner';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── constants ───────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 25;
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function fmtDate(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString();
 }
 
-// ─── sub-components ─────────────────────────────────────────────────────────
+// ─── sub-components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: 'draft' | 'committed' }) {
   if (status === 'committed') {
@@ -47,6 +60,8 @@ export default function OpeningStock() {
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'filled' | 'empty'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -77,7 +92,6 @@ export default function OpeningStock() {
       setSession(sessionData);
       setProducts(productsData.data);
 
-      // Pre-populate qty inputs from existing session items
       if (sessionData?.items?.length) {
         const map: Record<string, string> = {};
         for (const item of sessionData.items) {
@@ -100,8 +114,11 @@ export default function OpeningStock() {
     return () => abortRef.current?.abort();
   }, [loadData]);
 
-  // ── filtered product list ──────────────────────────────────────────────────
-  const filteredProducts = products.filter(p => {
+  // Reset to page 1 when search or filter changes
+  useEffect(() => { setCurrentPage(1); }, [search, stockFilter]);
+
+  // ── derived state ──────────────────────────────────────────────────────────
+  const searchFiltered = products.filter(p => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -111,9 +128,30 @@ export default function OpeningStock() {
     );
   });
 
+  const filledCount = searchFiltered.filter(p => {
+    const v = qtyMap[p.product_id];
+    return v !== undefined && v !== '' && Number(v) > 0;
+  }).length;
+  const emptyCount = searchFiltered.length - filledCount;
+
+  const filteredProducts = searchFiltered.filter(p => {
+    if (stockFilter === 'all') return true;
+    const v = qtyMap[p.product_id];
+    const hasFilled = v !== undefined && v !== '' && Number(v) > 0;
+    return stockFilter === 'filled' ? hasFilled : !hasFilled;
+  });
+
+  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const itemsToSave = Object.entries(qtyMap)
     .filter(([, v]) => v !== '' && Number(v) > 0)
     .map(([product_id, v]) => ({ product_id, qty: Number(v) }));
+
+  const isCommitted = session?.status === 'committed';
 
   // ── actions ────────────────────────────────────────────────────────────────
   const handleSaveDraft = async () => {
@@ -142,7 +180,6 @@ export default function OpeningStock() {
     try {
       let currentSession = session;
 
-      // If no session yet, or draft with pending qty changes — persist first
       if (!currentSession || (currentSession.status === 'draft' && itemsToSave.length > 0)) {
         if (itemsToSave.length === 0) {
           throw new Error('Enter a quantity for at least one product before committing.');
@@ -184,64 +221,83 @@ export default function OpeningStock() {
     }
   };
 
-  const isCommitted = session?.status === 'committed';
-
   // ── render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-secondary-200 border-t-secondary-600" />
       </div>
     );
   }
 
-  return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
+  const bannerAction = isCommitted ? (
+    isAdmin ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        leftIcon={<ArrowPathIcon className="w-4 h-4" />}
+        onClick={() => setShowResetModal(true)}
+        className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+      >
+        Reset
+      </Button>
+    ) : undefined
+  ) : (
+    <div className="flex gap-2 flex-wrap">
+      <Button
+        size="sm"
+        onClick={handleSaveDraft}
+        disabled={saving || committing || itemsToSave.length === 0}
+        isLoading={saving}
+        className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all disabled:opacity-50"
+      >
+        {saving ? 'Saving…' : 'Save Draft'}
+      </Button>
+      <Button
+        size="sm"
+        onClick={() => {
+          if (itemsToSave.length === 0 && !session?.items.length) {
+            setError('Enter a quantity for at least one product before committing.');
+            return;
+          }
+          setShowCommitModal(true);
+        }}
+        disabled={saving || committing}
+        isLoading={committing}
+        className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all disabled:opacity-50"
+      >
+        {committing ? 'Committing…' : 'Commit Opening Stock'}
+      </Button>
+    </div>
+  );
 
-      {/* ── Page header ── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-            <ArchiveBoxIcon className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Opening Stock</h1>
-            <p className="text-sm text-gray-500">Set initial on-hand quantities for products before going live</p>
-          </div>
-        </div>
-        {session && (
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <StatusBadge status={session.status} />
-            {isCommitted && isAdmin && (
-              <button
-                onClick={() => setShowResetModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-              >
-                <ArrowPathIcon className="w-3.5 h-3.5" />
-                Reset
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+  return (
+    <>
+      {/* ── Page banner ── */}
+      <PageBanner
+        title="Opening Stock"
+        subtitle="Set initial on-hand quantities for products before going live"
+        icon={<ArchiveBoxIcon className="w-5 h-5 text-white" />}
+        action={bannerAction}
+      />
 
       {/* ── Alerts ── */}
       {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-start gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           <ExclamationTriangleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
           {error}
         </div>
       )}
       {successMsg && (
-        <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+        <div className="flex items-start gap-2 p-3 mb-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
           <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
           {successMsg}
         </div>
       )}
 
-      {/* ── Session meta (read-only if committed) ── */}
+      {/* ── Session meta (committed state) ── */}
       {isCommitted && session && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-xs text-gray-500 mb-0.5">Reference</p>
             <p className="font-semibold text-gray-800">{session.reference}</p>
@@ -265,52 +321,121 @@ export default function OpeningStock() {
 
       {/* ── Notes (draft only) ── */}
       {!isCommitted && (
-        <div>
+        <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="e.g. Initial stock count as of store opening date"
             rows={2}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary-500 resize-none"
           />
         </div>
       )}
 
-      {/* ── Product table ── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      {/* ── Toolbar: search + counts ── */}
+      <Card className="mb-3 border-2 border-gray-100 shadow-md">
+        <div className="p-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            <div className="flex-1 relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <MagnifyingGlassIcon className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by name, SKU, or barcode…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+              />
+            </div>
+            <button
+              onClick={loadData}
+              className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-secondary-300"
+            >
+              <ArrowPathIcon className="w-3.5 h-3.5" />
+              <span>Refresh</span>
+            </button>
+          </div>
 
-        {/* Search bar */}
-        <div className="p-3 border-b border-gray-100 flex items-center gap-2">
-          <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          <input
-            type="text"
-            placeholder="Search by name, SKU, or barcode…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="flex-1 text-sm bg-transparent outline-none placeholder-gray-400"
-          />
-          <span className="text-xs text-gray-400 flex-shrink-0">
-            {filteredProducts.length} / {products.length} products
-          </span>
+          {/* Quick filter badges */}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            {(
+              [
+                { 
+                  key: 'all',    
+                  label: 'All Products',     
+                  count: searchFiltered.length,
+                  icon: Squares2X2Icon,
+                  active: 'bg-indigo-50 text-indigo-700 shadow-sm border-indigo-200',
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                },
+                { 
+                  key: 'filled', 
+                  label: 'Filled',  
+                  count: filledCount,
+                  icon: CheckBadgeIcon,
+                  active: 'bg-emerald-50 text-emerald-700 shadow-sm border-emerald-200',
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                },
+                { 
+                  key: 'empty',  
+                  label: 'Empty',   
+                  count: emptyCount,
+                  icon: InboxIcon,
+                  active: 'bg-amber-50 text-amber-700 shadow-sm border-amber-200',
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                },
+              ] as const
+            ).map(({ key, label, count, icon: Icon, active, inactive }) => (
+              <button
+                key={key}
+                onClick={() => setStockFilter(key)}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium border transition-all duration-200 select-none
+                  ${stockFilter === key ? active : inactive}`}
+              >
+                <Icon className={`w-3 h-3 ${stockFilter === key ? 'text-current' : 'text-gray-400'}`} />
+                <span>{label}</span>
+                <span className={`ml-0.5 px-1 rounded-full text-[8px] tabular-nums transition-colors
+                  ${stockFilter === key ? 'bg-current/10 text-current' : 'bg-gray-100 text-gray-400'}`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+            <Badge variant="primary" size="sm">{products.length} total</Badge>
+            {search && (
+              <Badge variant="info" size="sm">{searchFiltered.length} matched</Badge>
+            )}
+            {!isCommitted && itemsToSave.length > 0 && (
+              <Badge variant="success" size="sm">
+                {itemsToSave.length} {itemsToSave.length !== 1 ? 'products' : 'product'} with qty entered
+              </Badge>
+            )}
+            {session && <StatusBadge status={session.status} />}
+          </div>
         </div>
+      </Card>
 
-        {/* Table */}
+      {/* ── Product table ── */}
+      <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md mb-3">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Product</th>
-                <th className="text-left px-3 py-2.5 font-medium text-gray-600 hidden sm:table-cell">SKU</th>
-                <th className="text-left px-3 py-2.5 font-medium text-gray-600 hidden md:table-cell">Barcode</th>
-                <th className="text-right px-3 py-2.5 font-medium text-gray-600">Current Balance</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600">
+            <thead>
+              <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-700 uppercase tracking-wider">Product</th>
+                <th className="text-left px-3 py-2.5 text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden sm:table-cell">SKU</th>
+                <th className="text-left px-3 py-2.5 text-[10px] font-bold text-gray-700 uppercase tracking-wider hidden md:table-cell">Barcode</th>
+                <th className="text-right px-3 py-2.5 text-[10px] font-bold text-gray-700 uppercase tracking-wider">Balance</th>
+                <th className="text-right px-4 py-2.5 text-[10px] font-bold text-gray-700 uppercase tracking-wider">
                   {isCommitted ? 'Opening Qty' : 'Opening Qty *'}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredProducts.length === 0 ? (
+              {paginatedProducts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-gray-400 text-sm">
                     {products.length === 0
@@ -319,7 +444,7 @@ export default function OpeningStock() {
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map(product => {
+                paginatedProducts.map(product => {
                   const committedItem = isCommitted
                     ? session?.items.find(i => i.product_id === product.product_id)
                     : null;
@@ -330,7 +455,7 @@ export default function OpeningStock() {
                   return (
                     <tr
                       key={product.product_id}
-                      className={`hover:bg-gray-50 transition-colors ${hasQty && !isCommitted ? 'bg-blue-50/40' : ''}`}
+                      className={`hover:bg-gray-50 transition-colors ${hasQty && !isCommitted ? 'bg-secondary-50/40' : ''}`}
                     >
                       <td className="px-4 py-2.5">
                         <span className="font-medium text-gray-800">{product.name}</span>
@@ -348,7 +473,7 @@ export default function OpeningStock() {
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         {isCommitted ? (
-                          <span className={`font-semibold ${committedItem ? 'text-blue-700' : 'text-gray-300'}`}>
+                          <span className={`font-semibold ${committedItem ? 'text-secondary-600' : 'text-gray-300'}`}>
                             {committedItem ? committedItem.qty.toLocaleString() : '—'}
                           </span>
                         ) : (
@@ -363,7 +488,7 @@ export default function OpeningStock() {
                             }}
                             placeholder="0"
                             className="w-24 text-right border border-gray-200 rounded-md px-2 py-1 text-sm
-                                       focus:outline-none focus:ring-2 focus:ring-blue-400
+                                       focus:outline-none focus:ring-2 focus:ring-secondary-500
                                        [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         )}
@@ -375,44 +500,53 @@ export default function OpeningStock() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
-      {/* ── Action buttons ── */}
-      {!isCommitted && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-gray-400">
-            * Only products with a qty &gt; 0 will be saved.
-            {itemsToSave.length > 0 && (
-              <span className="ml-2 font-medium text-blue-600">
-                {itemsToSave.length} product{itemsToSave.length !== 1 ? 's' : ''} entered.
+      {/* ── Pagination ── */}
+      {totalPages > 1 && (
+        <Card className="mb-4 border-2 border-gray-100">
+          <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div className="text-xs text-gray-600 font-medium">
+              Showing{' '}
+              <span className="font-bold text-gray-900">{((currentPage - 1) * PAGE_SIZE) + 1}</span>
+              {' '}to{' '}
+              <span className="font-bold text-gray-900">{Math.min(currentPage * PAGE_SIZE, filteredProducts.length)}</span>
+              {' '}of{' '}
+              <span className="font-bold text-gray-900">{filteredProducts.length}</span>
+              {' '}products
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+                className="px-2"
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </Button>
+              <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
+                Page {currentPage} of {totalPages}
               </span>
-            )}
-          </p>
-          <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving || committing || itemsToSave.length === 0}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300
-                         rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {saving ? 'Saving…' : 'Save Draft'}
-            </button>
-            <button
-              onClick={() => {
-                if (itemsToSave.length === 0 && !session?.items.length) {
-                  setError('Enter a quantity for at least one product before committing.');
-                  return;
-                }
-                setShowCommitModal(true);
-              }}
-              disabled={saving || committing}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600
-                         rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {committing ? 'Committing…' : 'Commit Opening Stock'}
-            </button>
+              <Button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+                className="px-2"
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+        </Card>
+      )}
+
+      {/* ── Footnote (draft only) ── */}
+      {!isCommitted && (
+        <p className="text-xs text-gray-400 mb-4">
+          * Only products with a qty &gt; 0 will be saved.
+        </p>
       )}
 
       {/* ── Commit confirmation modal ── */}
@@ -420,8 +554,8 @@ export default function OpeningStock() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <ArchiveBoxIcon className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center flex-shrink-0">
+                <ArchiveBoxIcon className="w-5 h-5 text-secondary-600" />
               </div>
               <div>
                 <h2 className="font-semibold text-gray-900">Commit Opening Stock?</h2>
@@ -436,19 +570,18 @@ export default function OpeningStock() {
               <span className="font-medium">{itemsToSave.length || session?.items.length}</span> products will be processed.
             </p>
             <div className="flex justify-end gap-2 pt-1">
-              <button
-                onClick={() => setShowCommitModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setShowCommitModal(false)}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleCommit}
                 disabled={committing}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                isLoading={committing}
               >
                 {committing ? 'Committing…' : 'Confirm Commit'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -472,23 +605,22 @@ export default function OpeningStock() {
               balances will be reduced accordingly. This cannot be undone.
             </div>
             <div className="flex justify-end gap-2 pt-1">
-              <button
-                onClick={() => setShowResetModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setShowResetModal(false)}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={handleReset}
                 disabled={resetting}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                isLoading={resetting}
               >
                 {resetting ? 'Resetting…' : 'Reset Opening Stock'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

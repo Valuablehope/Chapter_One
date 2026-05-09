@@ -29,6 +29,7 @@ export interface StoreSettings {
   label_show_lbp?: boolean;
   show_lbp_price?: boolean;
   round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
   label_store_name_size?: number | null;
   label_product_name_size?: number | null;
   label_lbp_size?: number | null;
@@ -59,6 +60,8 @@ export interface StoreSettings {
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */
@@ -90,6 +93,8 @@ export type LabelLayoutPatch = Pick<
   | 'label_price_pad_v'
   | 'label_barcode_pad_v'
   | 'label_section_order'
+  | 'label_height_mm'
+  | 'label_canvas_elements'
 >;
 
 type StoreModuleChangeListener = () => void;

@@ -4,6 +4,7 @@ export interface ProductType {
   id: string;
   name: string;
   display_on_pos: boolean;
+  press_to_add: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -27,24 +28,24 @@ export class ProductTypeModel extends BaseModel {
     return result.rows[0] || null;
   }
 
-  static async create(name: string, display_on_pos: boolean = false): Promise<ProductType> {
+  static async create(name: string, display_on_pos: boolean = false, press_to_add: boolean = false): Promise<ProductType> {
     const query = `
-      INSERT INTO product_types (name, display_on_pos)
-      VALUES ($1, $2)
+      INSERT INTO product_types (name, display_on_pos, press_to_add)
+      VALUES ($1, $2, $3)
       RETURNING *
     `;
-    const result = await this.query<ProductType>(query, [name.toUpperCase(), display_on_pos]);
+    const result = await this.query<ProductType>(query, [name.toUpperCase(), display_on_pos, press_to_add]);
     return result.rows[0];
   }
 
-  static async update(id: string, name: string, display_on_pos: boolean): Promise<ProductType | null> {
+  static async update(id: string, name: string, display_on_pos: boolean, press_to_add: boolean = false): Promise<ProductType | null> {
     const query = `
       UPDATE product_types
-      SET name = $1, display_on_pos = $2, updated_at = NOW()
-      WHERE id = $3
+      SET name = $1, display_on_pos = $2, press_to_add = $3, updated_at = NOW()
+      WHERE id = $4
       RETURNING *
     `;
-    const result = await this.query<ProductType>(query, [name.toUpperCase(), display_on_pos, id]);
+    const result = await this.query<ProductType>(query, [name.toUpperCase(), display_on_pos, press_to_add, id]);
     return result.rows[0] || null;
   }
 

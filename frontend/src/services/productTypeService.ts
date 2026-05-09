@@ -4,6 +4,7 @@ export interface ProductType {
   id: string;
   name: string;
   display_on_pos: boolean;
+  press_to_add: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -14,12 +15,12 @@ export const productTypeService = {
     return response.data;
   },
 
-  createProductType: async (data: { name: string; display_on_pos?: boolean }): Promise<ProductType> => {
+  createProductType: async (data: { name: string; display_on_pos?: boolean; press_to_add?: boolean }): Promise<ProductType> => {
     const response = await api.post('/product-types', data);
     return response.data;
   },
 
-  updateProductType: async (id: string, data: { name: string; display_on_pos?: boolean }): Promise<ProductType> => {
+  updateProductType: async (id: string, data: { name: string; display_on_pos?: boolean; press_to_add?: boolean }): Promise<ProductType> => {
     const response = await api.put(`/product-types/${id}`, data);
     return response.data;
   },

@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache — updated for receipt_printer (2026-05-05)
+// Triggering restart to refresh database column cache — updated for label_canvas_elements (2026-05-09)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
@@ -46,10 +46,13 @@ export interface StoreSettings {
   label_section_order?: unknown;
   show_lbp_price: boolean;
   round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
   ui_resolution: string;
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
 }
 
 export interface StoreSettingsInput {
@@ -92,10 +95,13 @@ export interface StoreSettingsInput {
   label_section_order?: unknown;
   show_lbp_price?: boolean;
   round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
   ui_resolution?: string;
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -441,6 +447,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('round_lbp_to_1000');
       values.push(settings.round_lbp_to_1000);
     }
+    if (settings.lbp_primary_price !== undefined && availableColumns.has('lbp_primary_price')) {
+      paramCount++;
+      fields.push('lbp_primary_price');
+      values.push(settings.lbp_primary_price);
+    }
     if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
       paramCount++;
       fields.push('ui_resolution');
@@ -460,6 +471,16 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push('body_size');
       values.push(settings.body_size);
+    }
+    if (settings.label_height_mm !== undefined && availableColumns.has('label_height_mm')) {
+      paramCount++;
+      fields.push('label_height_mm');
+      values.push(settings.label_height_mm);
+    }
+    if (settings.label_canvas_elements !== undefined && availableColumns.has('label_canvas_elements')) {
+      paramCount++;
+      fields.push('label_canvas_elements');
+      values.push(toJsonbParam(settings.label_canvas_elements));
     }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
@@ -672,6 +693,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push(`round_lbp_to_1000 = $${paramCount}`);
       values.push(settings.round_lbp_to_1000);
     }
+    if (settings.lbp_primary_price !== undefined && availableColumns.has('lbp_primary_price')) {
+      paramCount++;
+      fields.push(`lbp_primary_price = $${paramCount}`);
+      values.push(settings.lbp_primary_price);
+    }
     if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
       paramCount++;
       fields.push(`ui_resolution = $${paramCount}`);
@@ -691,6 +717,16 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`body_size = $${paramCount}`);
       values.push(settings.body_size);
+    }
+    if (settings.label_height_mm !== undefined && availableColumns.has('label_height_mm')) {
+      paramCount++;
+      fields.push(`label_height_mm = $${paramCount}`);
+      values.push(settings.label_height_mm);
+    }
+    if (settings.label_canvas_elements !== undefined && availableColumns.has('label_canvas_elements')) {
+      paramCount++;
+      fields.push(`label_canvas_elements = $${paramCount}::jsonb`);
+      values.push(toJsonbParam(settings.label_canvas_elements));
     }
 
     if (fields.length === 0) {

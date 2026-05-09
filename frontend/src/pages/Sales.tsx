@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
-import { productTypeService } from '../services/productTypeService';
+import { productTypeService, ProductType } from '../services/productTypeService';
 import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
@@ -167,6 +167,7 @@ export default function Sales() {
 
   const [posProducts, setPosProducts] = useState<Product[]>([]);
   const [posCategories, setPosCategories] = useState<string[]>([]);
+  const [posProductTypes, setPosProductTypes] = useState<ProductType[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // ── Restore active sale from localStorage on mount/resume ─────────────────
@@ -242,11 +243,9 @@ export default function Sales() {
           productTypeService.getProductTypes(),
         ]);
         setPosProducts(productsRes.data);
-        const visibleTypes = typesRes.data
-          .filter((t: { display_on_pos?: boolean }) => t.display_on_pos)
-          .map((t: { name: string }) => t.name)
-          .sort();
-        setPosCategories(visibleTypes);
+        const visibleTypes = typesRes.data.filter((t: ProductType) => t.display_on_pos);
+        setPosProductTypes(visibleTypes);
+        setPosCategories(visibleTypes.map((t: ProductType) => t.name).sort());
       } catch (err) {
         logger.error('Failed to load POS quick-add data', err);
       }
@@ -610,7 +609,6 @@ export default function Sales() {
       } else {
         const amounts = computeLineAmounts(quantity, price, eff, mode);
         return [
-          ...prevCart,
           {
             product,
             qty: quantity,
@@ -618,6 +616,7 @@ export default function Sales() {
             tax_rate: amounts.tax_rate,
             line_total: amounts.line_total,
           },
+          ...prevCart,
         ];
       }
     });
@@ -1274,9 +1273,20 @@ export default function Sales() {
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-sm text-secondary-500">
-                                  ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                                </p>
+                                {storeSettings?.lbp_primary_price && formatLBP(Number(product.sale_price || product.list_price || 0)) ? (
+                                  <>
+                                    <p className="font-bold text-sm text-amber-600">
+                                      {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-secondary-400 leading-none">
+                                      ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="font-bold text-sm text-secondary-500">
+                                    ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                                  </p>
+                                )}
                               </div>
                               <ArrowRightIcon className="w-4 h-4 text-gray-300 group-hover:text-secondary-400 flex-shrink-0 transition-colors" />
                             </div>
@@ -1471,13 +1481,26 @@ export default function Sales() {
                               <div className="flex items-center gap-2">
                                 {/* Price Display */}
                                 <div className="text-right min-w-[70px] sm:min-w-[90px]">
-                                  <p className="font-bold text-sm text-secondary-600 leading-tight">
-                                    ${Number(item.line_total).toFixed(2)}
-                                  </p>
-                                  {formatLBP(Number(item.line_total)) && (
-                                    <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
-                                      ≈ {formatLBP(Number(item.line_total))}
-                                    </p>
+                                  {storeSettings?.lbp_primary_price && formatLBP(Number(item.line_total)) ? (
+                                    <>
+                                      <p className="font-bold text-sm text-amber-600 leading-tight">
+                                        {formatLBP(Number(item.line_total))}
+                                      </p>
+                                      <p className="text-[9px] text-secondary-500 font-bold mt-0.5 leading-none">
+                                        ${Number(item.line_total).toFixed(2)}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="font-bold text-sm text-secondary-600 leading-tight">
+                                        ${Number(item.line_total).toFixed(2)}
+                                      </p>
+                                      {formatLBP(Number(item.line_total)) && (
+                                        <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
+                                          ≈ {formatLBP(Number(item.line_total))}
+                                        </p>
+                                      )}
+                                    </>
                                   )}
                                 </div>
 
@@ -1715,10 +1738,11 @@ export default function Sales() {
               <button
                 key={product.product_id}
                 onClick={() => {
-                  handlePosItemClick(product);
-                  // Optionally close modal if it's not a weight-required item
-                  if (product.unit_of_measure !== 'kg' && product.unit_of_measure !== 'g') {
-                    // We don't close it so user can add multiple items from same category
+                  const typeConfig = posProductTypes.find(t => t.name === product.product_type);
+                  if (typeConfig?.press_to_add) {
+                    addToCart(product);
+                  } else {
+                    handlePosItemClick(product);
                   }
                 }}
                 className="flex flex-col h-full min-h-[140px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-lg rounded-2xl p-3 items-center text-center transition-all group"
@@ -1752,13 +1776,26 @@ export default function Sales() {
                   {product.name}
                 </span>
                 <div className="mt-auto pt-2 border-t border-gray-50 w-full">
-                  <span className="text-sm font-black text-secondary-600 block">
-                    ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
-                  </span>
-                  {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
-                    <span className="text-[10px] font-bold text-amber-600 leading-none">
-                      ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
-                    </span>
+                  {storeSettings?.lbp_primary_price && formatLBP(Number(product.sale_price || product.list_price || 0)) ? (
+                    <>
+                      <span className="text-sm font-black text-amber-600 block">
+                        {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                      </span>
+                      <span className="text-[10px] font-bold text-secondary-500 leading-none">
+                        ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-black text-secondary-600 block">
+                        ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
+                      </span>
+                      {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
+                        <span className="text-[10px] font-bold text-amber-600 leading-none">
+                          ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </button>
@@ -1815,9 +1852,20 @@ export default function Sales() {
           <div className="space-y-2.5">
             <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-between px-3">
               <h3 className="text-sm font-bold text-gray-900 truncate flex-1 mr-2">{quickAddProduct.name}</h3>
-              <p className="text-secondary-600 font-bold whitespace-nowrap text-sm">
-                ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
-              </p>
+              {storeSettings?.lbp_primary_price && formatLBP(Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0)) ? (
+                <div className="text-right whitespace-nowrap">
+                  <p className="text-amber-600 font-bold text-sm">
+                    {formatLBP(Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0))} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
+                  </p>
+                  <p className="text-[10px] text-secondary-400 font-bold leading-none">
+                    ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-secondary-600 font-bold whitespace-nowrap text-sm">
+                  ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
+                </p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-3">

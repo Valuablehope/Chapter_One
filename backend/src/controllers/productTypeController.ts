@@ -12,7 +12,7 @@ export const getProductTypes = async (_req: Request, res: Response) => {
 
 export const createProductType = async (req: Request, res: Response) => {
   try {
-    const { name, display_on_pos } = req.body;
+    const { name, display_on_pos, press_to_add } = req.body;
     if (!name) {
       return res.status(400).json({ error: { message: 'Name is required' } });
     }
@@ -22,7 +22,7 @@ export const createProductType = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: 'Product type already exists' } });
     }
 
-    const productType = await ProductTypeModel.create(name, display_on_pos || false);
+    const productType = await ProductTypeModel.create(name, display_on_pos || false, press_to_add || false);
     res.status(201).json(productType);
   } catch (error) {
     res.status(500).json({ error: { message: 'Failed to create product type' } });
@@ -32,7 +32,7 @@ export const createProductType = async (req: Request, res: Response) => {
 export const updateProductType = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, display_on_pos } = req.body;
+    const { name, display_on_pos, press_to_add } = req.body;
     if (!name) {
       return res.status(400).json({ error: { message: 'Name is required' } });
     }
@@ -42,7 +42,7 @@ export const updateProductType = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { message: 'Product type name already exists' } });
     }
 
-    const updated = await ProductTypeModel.update(id, name, display_on_pos ?? false);
+    const updated = await ProductTypeModel.update(id, name, display_on_pos ?? false, press_to_add ?? false);
     if (!updated) {
       return res.status(404).json({ error: { message: 'Product type not found' } });
     }

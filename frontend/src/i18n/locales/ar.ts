@@ -233,7 +233,9 @@ export const ar = {
     exchange_rate_value: "{{amount}} ليرة لكل 1 {{currency}}",
     exchange_rate_not_set: "غير محدد",
     exchange_rate_hint: "عيّن السعر من المسؤول → المتجر → إقليمي.",
-    lbp_field_hint: "عيّن سعر صرف الليرة من المسؤول → المتجر → إقليمي لتفعيل هذا الحقل"
+    lbp_field_hint: "عيّن سعر صرف الليرة من المسؤول → المتجر → إقليمي لتفعيل هذا الحقل",
+    no_items_category: "لا توجد منتجات في هذه الفئة بعد!",
+    try_another_category: "جرّب اختيار فئة مختلفة"
   },
   dashboard: {
     errors: {
