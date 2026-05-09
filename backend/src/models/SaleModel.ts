@@ -7,7 +7,7 @@ import { cache } from '../utils/cache';
 import { StoreSettingsModel } from './StoreSettingsModel';
 
 // Cached once at runtime — information_schema is stable after migrations complete
-let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean } | null = null;
+let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean; hasDeliveryCharge: boolean } | null = null;
 import {
   aggregateLines,
   computeLineAmounts,
@@ -31,6 +31,7 @@ export interface Sale {
   tax_total: number;
   discount_total: number;
   discount_rate?: number;  // Discount percentage (0-100)
+  delivery_charge?: number;
   grand_total: number;
   paid_total: number;
   status: SaleStatus;
@@ -63,6 +64,7 @@ export interface CreateSaleData {
   customer_id?: string;
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
   discount_rate?: number;  // Discount percentage (0-100)
+  delivery_charge?: number;
   items: {
     product_id: string;
     qty: number;
@@ -401,7 +403,9 @@ export class SaleModel extends BaseModel {
 
           const { subtotal, taxTotal, merchandiseGross } = aggregateLines(computedLines);
           const discountRate = data.discount_rate || 0;
-          const { discountTotal, grandTotal } = saleDiscountAndGrand(merchandiseGross, discountRate);
+          const { discountTotal, grandTotal: merchandiseGrandTotal } = saleDiscountAndGrand(merchandiseGross, discountRate);
+          const deliveryCharge = roundMoney(Number(data.delivery_charge || 0));
+          const grandTotal = roundMoney(merchandiseGrandTotal + deliveryCharge);
           const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
           if (paidTotal < grandTotal - 0.01) { // Allow for tiny epsilon differences
@@ -419,16 +423,18 @@ export class SaleModel extends BaseModel {
               const columnCheck = await client.query(`
                 SELECT column_name
                 FROM information_schema.columns
-                WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate')
+                WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge')
               `);
               salesColumnsCache = {
                 hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
                 hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
+                hasDeliveryCharge: columnCheck.rows.some((r: any) => r.column_name === 'delivery_charge'),
               };
             }
 
             const hasClientSaleId = salesColumnsCache.hasClientSaleId;
             const hasDiscountRate = salesColumnsCache.hasDiscountRate;
+            const hasDeliveryCharge = salesColumnsCache.hasDeliveryCharge;
 
             let paramCount = 11; // Base parameters
             const columns: string[] = [
@@ -454,6 +460,12 @@ export class SaleModel extends BaseModel {
               columns.push('discount_rate');
               paramCount++;
               values.push(discountRate);
+            }
+
+            if (hasDeliveryCharge) {
+              columns.push('delivery_charge');
+              paramCount++;
+              values.push(deliveryCharge);
             }
 
             if (hasClientSaleId) {

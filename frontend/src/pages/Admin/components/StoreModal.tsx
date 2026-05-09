@@ -59,6 +59,7 @@ export interface StoreFormData {
   receipt_printer: string;
   heading_size: string;
   body_size: string;
+  include_delivery_in_drawer: boolean;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -103,6 +104,7 @@ const initialFormData: StoreFormData = {
   receipt_printer: '',
   heading_size: 'md',
   body_size: 'md',
+  include_delivery_in_drawer: true,
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -147,6 +149,7 @@ function storeToFormData(s: Store): StoreFormData {
     receipt_printer: s.receipt_printer || '',
     heading_size: s.heading_size || 'md',
     body_size: s.body_size || 'md',
+    include_delivery_in_drawer: s.include_delivery_in_drawer ?? true,
   };
 }
 
@@ -341,6 +344,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       receipt_printer: formData.receipt_printer || undefined,
       heading_size: formData.heading_size,
       body_size: formData.body_size,
+      include_delivery_in_drawer: formData.include_delivery_in_drawer,
     };
 
     setSubmitting(true);
@@ -740,6 +744,17 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 onChange={(v) => set('auto_print', v)}
                 label="Auto-Print Receipts"
                 description="Automatically send receipt to printer after each sale"
+              />
+            </div>
+
+            <SectionDivider>Delivery</SectionDivider>
+
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.include_delivery_in_drawer}
+                onChange={(v) => set('include_delivery_in_drawer', v)}
+                label="Include Delivery In Drawer"
+                description="When ON, delivery charges count as revenue in day closures. When OFF, delivery appears on receipts and invoices but is excluded from drawer totals."
               />
             </div>
           </div>

@@ -93,6 +93,15 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     });
   }
 
+  const deliveryCharge = Number(sale.delivery_charge || 0);
+  if (deliveryCharge > 0) {
+    const inDrawer = settings?.include_delivery_in_drawer !== false;
+    totalRows.push({
+      label: inDrawer ? 'Delivery' : 'Delivery (not in drawer)',
+      value: formatCurrency(deliveryCharge),
+    });
+  }
+
   totalRows.push({
     label: t('receipt.net_total'),
     value: formatCurrency(grand),

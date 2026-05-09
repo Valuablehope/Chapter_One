@@ -143,6 +143,9 @@ export default function Sales() {
   const [discountRate, setDiscountRate] = useState(
     () => activeSale?.discountRate ?? ''
   );
+  const [deliveryCharge, setDeliveryCharge] = useState(
+    () => activeSale?.deliveryCharge ?? ''
+  );
   const [processing, setProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState('');
@@ -179,11 +182,12 @@ export default function Sales() {
       return;
     }
     // Only apply if there's something meaningful in the session
-    if (activeSale.items.length > 0 || activeSale.customer || activeSale.discountRate) {
+    if (activeSale.items.length > 0 || activeSale.customer || activeSale.discountRate || activeSale.deliveryCharge) {
       isResumingRef.current = true;
       setCart(activeSale.items);
       setSelectedCustomer(activeSale.customer);
       setDiscountRate(activeSale.discountRate);
+      setDeliveryCharge(activeSale.deliveryCharge ?? '');
     }
   // Only run when activeSale.id changes (i.e. on mount or after a resume)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,6 +215,7 @@ export default function Sales() {
     setCart(resumed.items);
     setSelectedCustomer(resumed.customer);
     setDiscountRate(resumed.discountRate);
+    setDeliveryCharge(resumed.deliveryCharge ?? '');
     toast('Sale resumed', { icon: '▶️' });
   }, [resumeSale]);
 
@@ -333,10 +338,16 @@ export default function Sales() {
     [cartAmounts]
   );
 
+  const deliveryAmount = useMemo(() => {
+    const d = deliveryCharge ? parseFloat(deliveryCharge) : 0;
+    return isNaN(d) || d < 0 ? 0 : Math.round(d * 100) / 100;
+  }, [deliveryCharge]);
+
   const { discountAmount, grandTotal } = useMemo(() => {
     const dr = discountRate ? parseFloat(discountRate) : 0;
-    return discountAndGrand(merchandiseGross, dr);
-  }, [merchandiseGross, discountRate]);
+    const { discountAmount, grandTotal: merch } = discountAndGrand(merchandiseGross, dr);
+    return { discountAmount, grandTotal: Math.round((merch + deliveryAmount) * 100) / 100 };
+  }, [merchandiseGross, discountRate, deliveryAmount]);
 
   // ── Sync live cart/customer/discount → active session (must be after grandTotal) ──
   useEffect(() => {
@@ -345,12 +356,13 @@ export default function Sales() {
       items: cart,
       customer: selectedCustomer,
       discountRate,
+      deliveryCharge,
       subtotal: merchandiseGross,
       tax: taxExtracted,
       total: grandTotal,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, selectedCustomer, discountRate, grandTotal]);
+  }, [cart, selectedCustomer, discountRate, deliveryCharge, grandTotal]);
 
   const isCompact = storeSettings?.ui_resolution === '1024x768';
   const CART_ROW_HEIGHT = isCompact ? 70 : 90;
@@ -904,6 +916,7 @@ export default function Sales() {
       const saleData = {
         customer_id: selectedCustomer?.customer_id,
         discount_rate: discountRate ? parseFloat(discountRate) : undefined,
+        delivery_charge: deliveryAmount > 0 ? deliveryAmount : undefined,
         items: validItems,
         payments: [
           {
@@ -938,8 +951,8 @@ export default function Sales() {
         ...sale,
         discount_rate: hasDiscount ? parseFloat(discountRate) : (sale.discount_rate || 0),
         discount_total: hasDiscount ? discountAmount : (sale.discount_total || 0),
-        // If we have a local discount that wasn't applied by backend (e.g. backend total > frontend total)
-        // force the frontend total for the receipt display.
+        delivery_charge: deliveryAmount > 0 ? deliveryAmount : (sale.delivery_charge || 0),
+        // If we have a local discount/delivery that wasn't applied by backend, force frontend total for receipt display.
         grand_total: (hasDiscount && sale.grand_total > grandTotal) ? grandTotal : sale.grand_total,
       };
 
@@ -1004,7 +1017,8 @@ export default function Sales() {
     setReceiptCustomer(null);
     setCart([]);
     setSelectedCustomer(null);
-    setDiscountRate(''); // Clear discount
+    setDiscountRate('');
+    setDeliveryCharge('');
     // Defer focus so React finishes flushing state before we call .focus()
     setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, [storeSettings]);
@@ -1671,6 +1685,39 @@ export default function Sales() {
                       <span className={`font-bold text-xs ${discountAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
                         {discountAmount > 0 ? '-' : ''}${discountAmount.toFixed(2)}
                       </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Charge Input */}
+                {user?.role !== 'self_checkout' && (
+                  <div className="p-2 bg-white/60 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <label className="font-medium text-xs text-gray-700">Delivery</label>
+                        {storeSettings?.include_delivery_in_drawer === false && deliveryAmount > 0 && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 leading-none">
+                            Not in drawer
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={deliveryCharge}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || parseFloat(value) >= 0) {
+                              setDeliveryCharge(value);
+                            }
+                          }}
+                          className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

@@ -72,6 +72,7 @@ export interface CreateSaleData {
   customer_id?: string;
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
   discount_rate?: number; // Discount percentage (0-100)
+  delivery_charge?: number;
   items: {
     product_id: string;
     qty: number;
@@ -108,6 +109,7 @@ export interface Sale {
   tax_total: number;
   discount_total: number;
   discount_rate?: number;
+  delivery_charge?: number;
   grand_total: number;
   paid_total: number;
   status: string;

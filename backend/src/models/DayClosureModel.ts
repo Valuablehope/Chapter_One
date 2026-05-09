@@ -5,13 +5,15 @@ import { SaleModel } from './SaleModel';
 import { ExpensesModel } from './ExpensesModel';
 
 export interface DayClosureStats {
-  total_sales: number;
+  total_sales: number;        // revenues counted in drawer (may exclude delivery)
   total_transactions: number;
   cash_expected: number;
   card_total: number;
   other_payments: number;
   voucher_total: number;
   total_expenses: number;
+  delivery_total: number;           // sum of all delivery charges in the period
+  include_delivery_in_drawer: boolean;
 }
 
 export interface DayClosurePreview extends DayClosureStats {
@@ -50,11 +52,26 @@ async function computePreview(
   executor: Pick<PoolClient, 'query'>,
   storeId: string
 ): Promise<DayClosureStats> {
+  // Fetch the toggle from store_settings (column may not exist on older DBs — default TRUE)
+  let includeDeliveryInDrawer = true;
+  try {
+    const settingsRes = await executor.query(
+      `SELECT include_delivery_in_drawer FROM store_settings WHERE store_id = $1`,
+      [storeId]
+    );
+    if (settingsRes.rows.length > 0 && settingsRes.rows[0].include_delivery_in_drawer != null) {
+      includeDeliveryInDrawer = Boolean(settingsRes.rows[0].include_delivery_in_drawer);
+    }
+  } catch {
+    // Column doesn't exist yet — treat as enabled (safe default)
+  }
+
   const saleAgg = await executor.query(
     `
       SELECT
         COALESCE(COUNT(*)::int, 0) AS total_transactions,
-        COALESCE(SUM(s.grand_total), 0)::numeric AS total_sales
+        COALESCE(SUM(s.grand_total), 0)::numeric AS gross_sales,
+        COALESCE(SUM(COALESCE(s.delivery_charge, 0)), 0)::numeric AS delivery_total
       FROM sales s
       WHERE s.store_id = $1
         AND s.status = 'paid'
@@ -85,6 +102,13 @@ async function computePreview(
   const other_only = roundMoney(Number(pr.other_only));
   const other_payments = roundMoney(voucher_total + other_only);
 
+  const delivery_total = roundMoney(Number(sr.delivery_total));
+  const gross_sales = roundMoney(Number(sr.gross_sales));
+  // When delivery is not in drawer, subtract it from the revenue total
+  const total_sales = includeDeliveryInDrawer
+    ? gross_sales
+    : roundMoney(gross_sales - delivery_total);
+
   // Sum all unclosed expenses for this store
   const expAgg = await executor.query(
     `SELECT COALESCE(SUM(amount), 0)::numeric AS total_expenses
@@ -96,12 +120,14 @@ async function computePreview(
 
   return {
     total_transactions: Number(sr.total_transactions) || 0,
-    total_sales: roundMoney(Number(sr.total_sales)),
+    total_sales,
     cash_expected: roundMoney(Number(pr.cash_expected)),
     card_total: roundMoney(Number(pr.card_total)),
     other_payments,
     voucher_total,
     total_expenses,
+    delivery_total,
+    include_delivery_in_drawer: includeDeliveryInDrawer,
   };
 }
 

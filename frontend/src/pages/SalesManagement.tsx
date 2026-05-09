@@ -898,6 +898,22 @@ export default function SalesManagement() {
                       <span className="font-medium text-gray-900">-{formatCurrency(selectedSale.discount_total)}</span>
                     </div>
                   )}
+                  {Number(selectedSale.delivery_charge || 0) > 0 && (() => {
+                    const inDrawer = storeSettings?.include_delivery_in_drawer !== false;
+                    return (
+                      <div className="flex justify-between text-sm items-center">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          Delivery
+                          {!inDrawer && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 leading-none">
+                              Not in drawer
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-medium text-gray-900">{formatCurrency(Number(selectedSale.delivery_charge))}</span>
+                      </div>
+                    );
+                  })()}
                   <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
                      <span>{t('sales_management.totals.grand_total')}</span>
                     <span>{formatCurrency(selectedSale.grand_total)}</span>

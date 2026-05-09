@@ -62,6 +62,7 @@ export interface StoreSettings {
   body_size?: string;
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

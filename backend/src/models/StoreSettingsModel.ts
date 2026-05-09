@@ -53,6 +53,7 @@ export interface StoreSettings {
   body_size?: string;
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
 }
 
 export interface StoreSettingsInput {
@@ -102,6 +103,7 @@ export interface StoreSettingsInput {
   body_size?: string;
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -482,6 +484,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('label_canvas_elements');
       values.push(toJsonbParam(settings.label_canvas_elements));
     }
+    if (settings.include_delivery_in_drawer !== undefined && availableColumns.has('include_delivery_in_drawer')) {
+      paramCount++;
+      fields.push('include_delivery_in_drawer');
+      values.push(settings.include_delivery_in_drawer);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -727,6 +734,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`label_canvas_elements = $${paramCount}::jsonb`);
       values.push(toJsonbParam(settings.label_canvas_elements));
+    }
+    if (settings.include_delivery_in_drawer !== undefined && availableColumns.has('include_delivery_in_drawer')) {
+      paramCount++;
+      fields.push(`include_delivery_in_drawer = $${paramCount}`);
+      values.push(settings.include_delivery_in_drawer);
     }
 
     if (fields.length === 0) {

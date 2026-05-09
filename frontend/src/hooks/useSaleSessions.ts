@@ -9,6 +9,7 @@ export interface LocalSale {
   items: CartItem[];
   customer: Customer | null;
   discountRate: string;
+  deliveryCharge: string;
   subtotal: number;
   tax: number;
   total: number;
@@ -39,6 +40,7 @@ function makeEmptySale(status: 'active' | 'held' = 'active'): LocalSale {
     items: [],
     customer: null,
     discountRate: '',
+    deliveryCharge: '',
     subtotal: 0,
     tax: 0,
     total: 0,
@@ -104,11 +106,12 @@ export interface UseSaleSessionsReturn {
   activeSale: LocalSale | null;
   heldSales: LocalSale[];
 
-  /** Sync live cart/customer/discount state back into activeSale */
+  /** Sync live cart/customer/discount/delivery state back into activeSale */
   updateActiveSale: (patch: {
     items: CartItem[];
     customer: Customer | null;
     discountRate: string;
+    deliveryCharge: string;
     subtotal: number;
     tax: number;
     total: number;
@@ -200,6 +203,7 @@ export function useSaleSessions(): UseSaleSessionsReturn {
       items: CartItem[];
       customer: Customer | null;
       discountRate: string;
+      deliveryCharge: string;
       subtotal: number;
       tax: number;
       total: number;
