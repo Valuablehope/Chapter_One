@@ -97,7 +97,7 @@ export default function Products() {
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false });
+  const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false, press_to_add: false });
   const [editingProductType, setEditingProductType] = useState<ProductType | null>(null);
   const [typeSubmitting, setTypeSubmitting] = useState(false);
   const [syncingTypes, setSyncingTypes] = useState(false);
@@ -708,19 +708,21 @@ export default function Products() {
     try {
       setTypeSubmitting(true);
       if (editingProductType) {
-        await productTypeService.updateProductType(editingProductType.id, { 
+        await productTypeService.updateProductType(editingProductType.id, {
           name: typeFormData.name.trim(),
-          display_on_pos: typeFormData.display_on_pos 
+          display_on_pos: typeFormData.display_on_pos,
+          press_to_add: typeFormData.press_to_add,
         });
         toast.success(t('products.success.product_type_updated'));
       } else {
-        await productTypeService.createProductType({ 
+        await productTypeService.createProductType({
           name: typeFormData.name.trim(),
-          display_on_pos: typeFormData.display_on_pos
+          display_on_pos: typeFormData.display_on_pos,
+          press_to_add: typeFormData.press_to_add,
         });
         toast.success(t('products.success.product_type_created'));
       }
-      setTypeFormData({ name: '', display_on_pos: false });
+      setTypeFormData({ name: '', display_on_pos: false, press_to_add: false });
       setEditingProductType(null);
       loadConfigData();
     } catch (err: any) {
@@ -743,7 +745,7 @@ export default function Products() {
 
   const handleEditProductType = (type: ProductType) => {
     setEditingProductType(type);
-    setTypeFormData({ name: type.name, display_on_pos: type.display_on_pos });
+    setTypeFormData({ name: type.name, display_on_pos: type.display_on_pos, press_to_add: type.press_to_add ?? false });
   };
 
   const handleSyncProductTypes = useCallback(async () => {
@@ -780,7 +782,7 @@ export default function Products() {
               onClick={() => {
                 setShowTypeModal(true);
                 setEditingProductType(null);
-                setTypeFormData({ name: '', display_on_pos: false });
+                setTypeFormData({ name: '', display_on_pos: false, press_to_add: false });
               }}
               className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
               leftIcon={<TagIcon className="w-4 h-4" />}
@@ -1329,7 +1331,7 @@ export default function Products() {
                 variant="outline"
                 onClick={() => {
                   setEditingProductType(null);
-                  setTypeFormData({ name: '', display_on_pos: false });
+                  setTypeFormData({ name: '', display_on_pos: false, press_to_add: false });
                 }}
                 disabled={typeSubmitting}
               >
@@ -1409,20 +1411,42 @@ export default function Products() {
               />
 
               {storeSettings?.pos_module_type === 'store' && (
-                <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg hover:border-secondary-500 hover:bg-secondary-50/50 cursor-pointer transition-all group">
-                  <input
-                    type="checkbox"
-                    checked={typeFormData.display_on_pos}
-                    onChange={(e) => setTypeFormData({ ...typeFormData, display_on_pos: e.target.checked })}
-                    className="mr-2.5 h-4 w-4 text-secondary-500 focus:ring-secondary-500 border-gray-300 rounded cursor-pointer"
-                  />
-                  <div>
-                    <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
-                      {t('products.types.display_on_pos')}
-                    </span>
-                    <p className="text-[10px] text-gray-500 mt-0.5">{t('products.types.display_on_pos_helper')}</p>
-                  </div>
-                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg hover:border-secondary-500 hover:bg-secondary-50/50 cursor-pointer transition-all group">
+                    <input
+                      type="checkbox"
+                      checked={typeFormData.display_on_pos}
+                      onChange={(e) => setTypeFormData({ ...typeFormData, display_on_pos: e.target.checked, press_to_add: e.target.checked ? typeFormData.press_to_add : false })}
+                      className="mr-2.5 h-4 w-4 text-secondary-500 focus:ring-secondary-500 border-gray-300 rounded cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
+                        {t('products.types.display_on_pos')}
+                      </span>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{t('products.types.display_on_pos_helper')}</p>
+                    </div>
+                  </label>
+
+                  {typeFormData.display_on_pos && (
+                    <label className="flex items-center justify-between gap-4 p-3 border-2 border-gray-100 rounded-lg cursor-pointer transition-all group hover:border-secondary-400 hover:bg-secondary-50/30">
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
+                          Press to Add to Cart
+                        </span>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Tapping a product adds it directly to the cart with qty 1, skipping the quantity modal.</p>
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={typeFormData.press_to_add}
+                          onChange={(e) => setTypeFormData({ ...typeFormData, press_to_add: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-secondary-500 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:after:translate-x-5 transition-colors duration-200" />
+                      </div>
+                    </label>
+                  )}
+                </div>
               )}
 
             </form>

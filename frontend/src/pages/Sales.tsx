@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product } from '../services/productService';
-import { productTypeService } from '../services/productTypeService';
+import { productTypeService, ProductType } from '../services/productTypeService';
 import { customerService, Customer } from '../services/customerService';
 import { saleService, CartItem, PaymentMethod, OfflineError } from '../services/saleService';
 import { storeService, StoreSettings } from '../services/storeService';
@@ -167,6 +167,7 @@ export default function Sales() {
 
   const [posProducts, setPosProducts] = useState<Product[]>([]);
   const [posCategories, setPosCategories] = useState<string[]>([]);
+  const [posProductTypes, setPosProductTypes] = useState<ProductType[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // ── Restore active sale from localStorage on mount/resume ─────────────────
@@ -242,11 +243,9 @@ export default function Sales() {
           productTypeService.getProductTypes(),
         ]);
         setPosProducts(productsRes.data);
-        const visibleTypes = typesRes.data
-          .filter((t: { display_on_pos?: boolean }) => t.display_on_pos)
-          .map((t: { name: string }) => t.name)
-          .sort();
-        setPosCategories(visibleTypes);
+        const visibleTypes = typesRes.data.filter((t: ProductType) => t.display_on_pos);
+        setPosProductTypes(visibleTypes);
+        setPosCategories(visibleTypes.map((t: ProductType) => t.name).sort());
       } catch (err) {
         logger.error('Failed to load POS quick-add data', err);
       }
@@ -1739,10 +1738,11 @@ export default function Sales() {
               <button
                 key={product.product_id}
                 onClick={() => {
-                  handlePosItemClick(product);
-                  // Optionally close modal if it's not a weight-required item
-                  if (product.unit_of_measure !== 'kg' && product.unit_of_measure !== 'g') {
-                    // We don't close it so user can add multiple items from same category
+                  const typeConfig = posProductTypes.find(t => t.name === product.product_type);
+                  if (typeConfig?.press_to_add) {
+                    addToCart(product);
+                  } else {
+                    handlePosItemClick(product);
                   }
                 }}
                 className="flex flex-col h-full min-h-[140px] bg-white border border-gray-100 hover:border-secondary-500 hover:shadow-lg rounded-2xl p-3 items-center text-center transition-all group"
