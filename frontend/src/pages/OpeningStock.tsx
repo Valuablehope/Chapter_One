@@ -7,6 +7,9 @@ import {
   ArrowPathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  Squares2X2Icon,
+  CheckBadgeIcon,
+  InboxIcon,
 } from '@heroicons/react/24/outline';
 import { openingStockService, OpeningStockSession } from '../services/openingStockService';
 import { productService, Product } from '../services/productService';
@@ -57,6 +60,7 @@ export default function OpeningStock() {
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'filled' | 'empty'>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
@@ -110,11 +114,11 @@ export default function OpeningStock() {
     return () => abortRef.current?.abort();
   }, [loadData]);
 
-  // Reset to page 1 when search changes
-  useEffect(() => { setCurrentPage(1); }, [search]);
+  // Reset to page 1 when search or filter changes
+  useEffect(() => { setCurrentPage(1); }, [search, stockFilter]);
 
   // ── derived state ──────────────────────────────────────────────────────────
-  const filteredProducts = products.filter(p => {
+  const searchFiltered = products.filter(p => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -122,6 +126,19 @@ export default function OpeningStock() {
       (p.sku ?? '').toLowerCase().includes(q) ||
       (p.barcode ?? '').toLowerCase().includes(q)
     );
+  });
+
+  const filledCount = searchFiltered.filter(p => {
+    const v = qtyMap[p.product_id];
+    return v !== undefined && v !== '' && Number(v) > 0;
+  }).length;
+  const emptyCount = searchFiltered.length - filledCount;
+
+  const filteredProducts = searchFiltered.filter(p => {
+    if (stockFilter === 'all') return true;
+    const v = qtyMap[p.product_id];
+    const hasFilled = v !== undefined && v !== '' && Number(v) > 0;
+    return stockFilter === 'filled' ? hasFilled : !hasFilled;
   });
 
   const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
@@ -341,10 +358,56 @@ export default function OpeningStock() {
             </button>
           </div>
 
-          <div className="mt-3 flex items-center gap-2 flex-wrap">
-            <Badge variant="primary" size="sm">{products.length} products</Badge>
+          {/* Quick filter badges */}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            {(
+              [
+                { 
+                  key: 'all',    
+                  label: 'All Products',     
+                  count: searchFiltered.length,
+                  icon: Squares2X2Icon,
+                  active: 'bg-indigo-50 text-indigo-700 shadow-sm border-indigo-200',
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                },
+                { 
+                  key: 'filled', 
+                  label: 'Filled',  
+                  count: filledCount,
+                  icon: CheckBadgeIcon,
+                  active: 'bg-emerald-50 text-emerald-700 shadow-sm border-emerald-200',
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                },
+                { 
+                  key: 'empty',  
+                  label: 'Empty',   
+                  count: emptyCount,
+                  icon: InboxIcon,
+                  active: 'bg-amber-50 text-amber-700 shadow-sm border-amber-200',
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                },
+              ] as const
+            ).map(({ key, label, count, icon: Icon, active, inactive }) => (
+              <button
+                key={key}
+                onClick={() => setStockFilter(key)}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium border transition-all duration-200 select-none
+                  ${stockFilter === key ? active : inactive}`}
+              >
+                <Icon className={`w-3 h-3 ${stockFilter === key ? 'text-current' : 'text-gray-400'}`} />
+                <span>{label}</span>
+                <span className={`ml-0.5 px-1 rounded-full text-[8px] tabular-nums transition-colors
+                  ${stockFilter === key ? 'bg-current/10 text-current' : 'bg-gray-100 text-gray-400'}`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+            <Badge variant="primary" size="sm">{products.length} total</Badge>
             {search && (
-              <Badge variant="info" size="sm">{filteredProducts.length} matched</Badge>
+              <Badge variant="info" size="sm">{searchFiltered.length} matched</Badge>
             )}
             {!isCommitted && itemsToSave.length > 0 && (
               <Badge variant="success" size="sm">
