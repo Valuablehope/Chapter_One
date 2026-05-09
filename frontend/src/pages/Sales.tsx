@@ -610,7 +610,6 @@ export default function Sales() {
       } else {
         const amounts = computeLineAmounts(quantity, price, eff, mode);
         return [
-          ...prevCart,
           {
             product,
             qty: quantity,
@@ -618,6 +617,7 @@ export default function Sales() {
             tax_rate: amounts.tax_rate,
             line_total: amounts.line_total,
           },
+          ...prevCart,
         ];
       }
     });
