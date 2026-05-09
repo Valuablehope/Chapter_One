@@ -66,9 +66,13 @@ export class ProductModel extends BaseModel {
 
     if (storeId) {
       query += `,
+      COALESCE(sb.qty_in,      0)::integer as qty_in,
+      COALESCE(sb.qty_out,     0)::integer as qty_out,
       COALESCE(sb.qty_on_hand, 0)::integer as balance`;
     } else {
       query += `,
+      0::integer as qty_in,
+      0::integer as qty_out,
       0::integer as balance`;
     }
 

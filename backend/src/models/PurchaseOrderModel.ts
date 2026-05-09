@@ -573,12 +573,13 @@ export class PurchaseOrderModel extends BaseModel {
               
               // Update stock balance atomically (maintain O(1) query performance)
               await client.query(`
-                INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-                VALUES ($1, $2, $3)
+                INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
+                VALUES ($1, $2, $3, $3)
                 ON CONFLICT (store_id, product_id)
-                DO UPDATE SET 
+                DO UPDATE SET
                   qty_on_hand = stock_balances.qty_on_hand + $3,
-                  updated_at = NOW()
+                  qty_in      = stock_balances.qty_in      + $3,
+                  updated_at  = NOW()
               `, [poRow.store_id, item.product_id, qtyReceived]);
             }
 
@@ -668,12 +669,13 @@ export class PurchaseOrderModel extends BaseModel {
             const qtyReceived = Number(item.qty_received) > 0 ? Number(item.qty_received) : Number(item.qty_ordered);
             // Subtract the previously added qty from stock
             await client.query(`
-              INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-              VALUES ($1, $2, 0)
+              INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
+              VALUES ($1, $2, 0, 0)
               ON CONFLICT (store_id, product_id)
               DO UPDATE SET
                 qty_on_hand = stock_balances.qty_on_hand - $3,
-                updated_at = NOW()
+                qty_in      = GREATEST(0, stock_balances.qty_in - $3),
+                updated_at  = NOW()
             `, [store_id, item.product_id, qtyReceived]);
           }
         }

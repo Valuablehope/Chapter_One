@@ -583,13 +583,14 @@ export class SaleModel extends BaseModel {
 
               // Update stock balance atomically (maintain O(1) query performance)
               await client.query(`
-            INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-            VALUES ($1, $2, $3)
+            INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+            VALUES ($1, $2, $3, -$3)
             ON CONFLICT (store_id, product_id)
-            DO UPDATE SET 
+            DO UPDATE SET
               qty_on_hand = stock_balances.qty_on_hand + $3,
-              updated_at = NOW()
-          `, [store.store_id, item.product_id, -item.qty]); // Negative for sale (outbound)
+              qty_out     = stock_balances.qty_out     - $3,
+              updated_at  = NOW()
+          `, [store.store_id, item.product_id, -item.qty]); // $3 negative → qty_out gains abs(qty)
             }
           }
 
@@ -728,14 +729,15 @@ export class SaleModel extends BaseModel {
                    WHERE store_id = $1 AND product_id = $2 AND reference = $3 AND reason = 'sale'`,
                   [existingSale.store_id, oldItem.product_id, existingSale.receipt_no]
                 );
-                // Add the sold qty back to stock
+                // Add the sold qty back to stock (reverse the sale)
                 await client.query(`
-                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-                  VALUES ($1, $2, $3)
+                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+                  VALUES ($1, $2, $3, 0)
                   ON CONFLICT (store_id, product_id)
                   DO UPDATE SET
                     qty_on_hand = stock_balances.qty_on_hand + $3,
-                    updated_at = NOW()
+                    qty_out     = GREATEST(0, stock_balances.qty_out - $3),
+                    updated_at  = NOW()
                 `, [existingSale.store_id, oldItem.product_id, Math.abs(Number(oldItem.qty))]);
               }
             }
@@ -793,12 +795,13 @@ export class SaleModel extends BaseModel {
                   [existingSale.store_id, item.product_id, -item.qty, existingSale.receipt_no, cashierId]
                 );
                 await client.query(`
-                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-                  VALUES ($1, $2, $3)
+                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+                  VALUES ($1, $2, $3, -$3)
                   ON CONFLICT (store_id, product_id)
                   DO UPDATE SET
                     qty_on_hand = stock_balances.qty_on_hand + $3,
-                    updated_at = NOW()
+                    qty_out     = stock_balances.qty_out     - $3,
+                    updated_at  = NOW()
                 `, [existingSale.store_id, item.product_id, -item.qty]);
               }
             }
@@ -1012,14 +1015,15 @@ export class SaleModel extends BaseModel {
                 cashierId,
               ]);
 
-              // Update stock balance atomically
+              // Update stock balance atomically (cancel reversal)
               await client.query(`
-                INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-                VALUES ($1, $2, $3)
+                INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+                VALUES ($1, $2, $3, 0)
                 ON CONFLICT (store_id, product_id)
-                DO UPDATE SET 
+                DO UPDATE SET
                   qty_on_hand = stock_balances.qty_on_hand + $3,
-                  updated_at = NOW()
+                  qty_out     = GREATEST(0, stock_balances.qty_out - $3),
+                  updated_at  = NOW()
               `, [existingSale.store_id, item.product_id, Math.abs(item.qty)]);
             }
           }
@@ -1090,14 +1094,15 @@ export class SaleModel extends BaseModel {
         );
         for (const item of itemsResult.rows) {
           if (item.track_inventory) {
-            // Add the sold qty back to stock
+            // Add the sold qty back to stock (delete reversal)
             await client.query(`
-              INSERT INTO stock_balances (store_id, product_id, qty_on_hand)
-              VALUES ($1, $2, $3)
+              INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+              VALUES ($1, $2, $3, 0)
               ON CONFLICT (store_id, product_id)
               DO UPDATE SET
                 qty_on_hand = stock_balances.qty_on_hand + $3,
-                updated_at = NOW()
+                qty_out     = GREATEST(0, stock_balances.qty_out - $3),
+                updated_at  = NOW()
             `, [store_id, item.product_id, Math.abs(Number(item.qty))]);
           }
         }

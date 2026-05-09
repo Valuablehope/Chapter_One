@@ -6,6 +6,7 @@ export const en = {
     restaurant: "Restaurant",
     sales: "Sales",
     purchases: "Purchases",
+    opening_stock: "Opening Stock",
     customers: "Customers",
     suppliers: "Suppliers",
     reports: "Reports",

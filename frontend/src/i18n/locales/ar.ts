@@ -6,6 +6,7 @@ export const ar = {
     restaurant: "مطعم",
     sales: "المبيعات",
     purchases: "المشتريات",
+    opening_stock: "المخزون الافتتاحي",
     customers: "العملاء",
     suppliers: "الموردين",
     reports: "التقارير",
