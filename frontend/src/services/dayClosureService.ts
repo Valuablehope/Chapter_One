@@ -9,6 +9,7 @@ export interface DayClosurePreview {
   card_total: number;
   other_payments: number;
   voucher_total: number;
+  total_expenses: number;
   currency_code: string;
   lbp_exchange_rate: number | null;
 }
@@ -29,6 +30,7 @@ export interface DayClosureRecord {
   z_number: number;
   notes: string | null;
   cash_breakdown: any | null;
+  total_expenses: number;
   created_at: string;
 }
 

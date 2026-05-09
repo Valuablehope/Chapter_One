@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import { SaleModel } from './SaleModel';
+import { ExpensesModel } from './ExpensesModel';
 
 export interface DayClosureStats {
   total_sales: number;
@@ -10,6 +11,7 @@ export interface DayClosureStats {
   card_total: number;
   other_payments: number;
   voucher_total: number;
+  total_expenses: number;
 }
 
 export interface DayClosurePreview extends DayClosureStats {
@@ -36,6 +38,7 @@ export interface DayClosureRecord {
   z_number: number;
   notes: string | null;
   cash_breakdown: any | null;
+  total_expenses: number;
   created_at: string;
 }
 
@@ -82,6 +85,15 @@ async function computePreview(
   const other_only = roundMoney(Number(pr.other_only));
   const other_payments = roundMoney(voucher_total + other_only);
 
+  // Sum all unclosed expenses for this store
+  const expAgg = await executor.query(
+    `SELECT COALESCE(SUM(amount), 0)::numeric AS total_expenses
+     FROM expenses
+     WHERE store_id = $1 AND day_closure_id IS NULL`,
+    [storeId]
+  );
+  const total_expenses = roundMoney(Number(expAgg.rows[0].total_expenses));
+
   return {
     total_transactions: Number(sr.total_transactions) || 0,
     total_sales: roundMoney(Number(sr.total_sales)),
@@ -89,6 +101,7 @@ async function computePreview(
     card_total: roundMoney(Number(pr.card_total)),
     other_payments,
     voucher_total,
+    total_expenses,
   };
 }
 
@@ -171,6 +184,7 @@ export class DayClosureModel {
           cash_difference,
           card_total,
           other_payments,
+          total_expenses,
           closed_by,
           z_number,
           notes,
@@ -189,7 +203,8 @@ export class DayClosureModel {
           $9,
           $10,
           $11,
-          $12
+          $12,
+          $13
         )
         RETURNING *
       `,
@@ -202,6 +217,7 @@ export class DayClosureModel {
           cash_difference,
           preview.card_total,
           preview.other_payments,
+          preview.total_expenses,
           closedByUserId,
           z_number,
           notes?.trim() || null,
@@ -228,6 +244,9 @@ export class DayClosureModel {
           `[DayClosure] Updated ${updated} sales but preview counted ${preview.total_transactions}`
         );
       }
+
+      // Attach all unclosed expenses to this closure
+      await ExpensesModel.attachToClosureClient(client, storeId, row.id);
 
       await client.query('COMMIT');
       return row;

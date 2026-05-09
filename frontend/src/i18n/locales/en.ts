@@ -7,6 +7,7 @@ export const en = {
     sales: "Sales",
     purchases: "Purchases",
     opening_stock: "Opening Stock",
+    expenses: "Expenses",
     customers: "Customers",
     suppliers: "Suppliers",
     reports: "Reports",
@@ -324,6 +325,8 @@ export const en = {
     print: "Print Z report",
     new_closure: "Done",
     notes_label: "Notes (optional)",
+    total_expenses: "Total expenses",
+    net_cash_after_expenses: "Net cash (after expenses)",
     errors: {
       load_preview: "Could not load closure preview",
       close_failed: "Could not complete day closure",

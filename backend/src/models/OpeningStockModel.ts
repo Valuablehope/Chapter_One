@@ -133,9 +133,8 @@ export class OpeningStockModel extends BaseModel {
       async () => {
         const client = await pool.connect();
         try {
-          await client.query('BEGIN');
+          await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
           await client.query('SET LOCAL statement_timeout = 60000');
-          await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
           // Lock and verify session
           const sessionResult = await client.query<any>(
@@ -184,11 +183,11 @@ export class OpeningStockModel extends BaseModel {
             // Update materialized balance
             await client.query(
               `INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
-               VALUES ($1, $2, $3, $3)
+               VALUES ($1, $2, $3::numeric, $3::integer)
                ON CONFLICT (store_id, product_id)
                DO UPDATE SET
-                 qty_on_hand = stock_balances.qty_on_hand + $3,
-                 qty_in      = stock_balances.qty_in      + $3,
+                 qty_on_hand = stock_balances.qty_on_hand + $3::numeric,
+                 qty_in      = stock_balances.qty_in      + $3::integer,
                  updated_at  = NOW()`,
               [storeId, item.product_id, item.qty]
             );
@@ -206,6 +205,7 @@ export class OpeningStockModel extends BaseModel {
           logger.info(`Opening stock committed: session=${sessionId} store=${storeId}`);
           return (await this.getSession(storeId)) as OpeningStockSession;
         } catch (error) {
+          logger.error('Opening stock commit failed:', { message: (error as any)?.message, code: (error as any)?.code, detail: (error as any)?.detail });
           try { await client.query('ROLLBACK'); } catch { /* ignore */ }
           throw error;
         } finally {

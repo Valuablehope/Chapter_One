@@ -21,6 +21,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Admin = lazy(() => import('./pages/Admin'));
 const SetupWizard = lazy(() => import('./pages/SetupWizard/SetupWizard'));
 const OpeningStock = lazy(() => import('./pages/OpeningStock'));
+const Expenses = lazy(() => import('./pages/Expenses'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -197,6 +198,18 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <OpeningStock />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/expenses"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <Expenses />
                 </Suspense>
               </Layout>
             </ProtectedRoute>

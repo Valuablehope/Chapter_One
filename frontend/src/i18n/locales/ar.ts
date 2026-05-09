@@ -7,6 +7,7 @@ export const ar = {
     sales: "المبيعات",
     purchases: "المشتريات",
     opening_stock: "المخزون الافتتاحي",
+    expenses: "المصروفات",
     customers: "العملاء",
     suppliers: "الموردين",
     reports: "التقارير",
@@ -324,6 +325,8 @@ export const ar = {
     print: "طباعة تقرير Z",
     new_closure: "تم",
     notes_label: "ملاحظات (اختياري)",
+    total_expenses: "إجمالي المصروفات",
+    net_cash_after_expenses: "صافي النقد (بعد المصروفات)",
     errors: {
       load_preview: "تعذر تحميل معاينة الإغلاق",
       close_failed: "تعذر إتمام إغلاق اليوم",

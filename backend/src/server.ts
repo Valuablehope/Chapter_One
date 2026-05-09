@@ -22,6 +22,7 @@ import storesRoutes from './routes/stores';
 import menusRoutes from './routes/menus';
 import dayClosureRoutes from './routes/dayClosure';
 import openingStockRoutes from './routes/openingStock';
+import expensesRoutes from './routes/expenses';
 import { StoreSettingsModel } from './models/StoreSettingsModel';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
@@ -197,6 +198,7 @@ app.use('/api/stores', storesRoutes);
 app.use('/api/menus', menusRoutes);
 app.use('/api/day-closure', dayClosureRoutes);
 app.use('/api/opening-stock', openingStockRoutes);
+app.use('/api/expenses', expensesRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req: Request, res: Response) => {

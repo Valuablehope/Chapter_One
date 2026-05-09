@@ -18,6 +18,7 @@ import {
   TableCellsIcon,
   ClipboardDocumentCheckIcon,
   ArchiveBoxArrowDownIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -33,6 +34,7 @@ import {
   TableCellsIcon as TableCellsIconSolid,
   ClipboardDocumentCheckIcon as ClipboardDocumentCheckIconSolid,
   ArchiveBoxArrowDownIcon as ArchiveBoxArrowDownIconSolid,
+  BanknotesIcon as BanknotesIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
@@ -242,6 +244,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/day-closure',      label: t('nav.day_closure'),      icon: ClipboardDocumentCheckIcon,    iconSolid: ClipboardDocumentCheckIconSolid },
     { path: '/purchases',        label: t('nav.purchases'),        icon: TruckIcon,                   iconSolid: TruckIconSolid },
     { path: '/opening-stock',   label: t('nav.opening_stock'),   icon: ArchiveBoxArrowDownIcon,     iconSolid: ArchiveBoxArrowDownIconSolid },
+    { path: '/expenses',        label: t('nav.expenses'),        icon: BanknotesIcon,               iconSolid: BanknotesIconSolid },
     { path: '/labels',           label: 'Labels',                  icon: TagIcon,                     iconSolid: TagIconSolid },
     { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
     { path: '/suppliers',        label: t('nav.suppliers'),        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },
