@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import {
   ArchiveBoxIcon,
   CheckCircleIcon,
@@ -18,10 +19,6 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import PageBanner from '../components/ui/PageBanner';
-
-// ─── constants ───────────────────────────────────────────────────────────────
-
-const PAGE_SIZE = 25;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,15 +56,21 @@ export default function OpeningStock() {
   const [products, setProducts] = useState<Product[]>([]);
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'filled' | 'empty'>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [fetchingProducts, setFetchingProducts] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+  const [filters, setFilters] = useState<{ page: number; limit: number; search?: string }>({
+    page: 1,
+    limit: 20,
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
 
   const [loading, setLoading] = useState(true);
+  const [fetchingProducts, setFetchingProducts] = useState(false);
   const [saving, setSaving] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -78,67 +81,39 @@ export default function OpeningStock() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const abortRef = useRef<AbortController | null>(null);
+  const loadRequestIdRef = useRef(0);
 
-  const qtyMapRef = useRef(qtyMap);
-  useEffect(() => { qtyMapRef.current = qtyMap; }, [qtyMap]);
+  // ── fetch products (mirrors Products page loadProducts) ───────────────────
+  const fetchProducts = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
 
-  // ── fetch products ────────────────────────────────────────────────────────
-  const fetchProducts = useCallback(async (searchTerm = '', pageNum = 1, append = false) => {
-    if (pageNum === 1 && !append) {
-      if (!isInitialLoadDone) setLoading(true);
-      else setFetchingProducts(true);
-    } else {
-      setFetchingProducts(true);
-    }
+    setFetchingProducts(true);
     setError('');
 
     try {
-      if (abortRef.current) abortRef.current.abort();
-      abortRef.current = new AbortController();
-
-      const BATCH_SIZE = 2000;
       const response = await productService.getProducts(
-        { track_inventory: true, limit: BATCH_SIZE, page: pageNum, search: searchTerm },
-        abortRef.current.signal
+        { track_inventory: true, ...filters },
+        signal
       );
 
-      const newProds = response.data;
-      setHasMore(newProds.length === BATCH_SIZE);
+      if (signal.aborted || requestId !== loadRequestIdRef.current) return;
 
-      setProducts(prev => {
-        const currentQtyMap = qtyMapRef.current;
-        
-        // If appending, keep everything we have. 
-        // If NOT appending (new search or initial load), only keep 'filled' products
-        const baseList = append ? [...prev] : prev.filter(p => {
-          const val = currentQtyMap[p.product_id];
-          return val !== undefined && val !== '' && Number(val) > 0;
-        });
-
-        const merged = [...baseList];
-        newProds.forEach(np => {
-          if (!merged.find(p => p.product_id === np.product_id)) {
-            merged.push(np);
-          }
-        });
-        return merged;
-      });
+      setProducts(response.data);
+      setPagination(response.pagination);
     } catch (err: any) {
-      if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
-        setError('Failed to fetch products. Please try again.');
-        console.error('Fetch error:', err);
-      }
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || signal.aborted) return;
+      if (requestId !== loadRequestIdRef.current) return;
+      setError('Failed to fetch products. Please try again.');
     } finally {
-      setLoading(false);
-      setFetchingProducts(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+        setFetchingProducts(false);
+      }
     }
-  }, [isInitialLoadDone]);
-
-  const loadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchProducts(search, nextPage, true);
-  };
+  }, [filters]);
 
   // ── load initial session ──────────────────────────────────────────────────
   const loadInitialData = useCallback(async () => {
@@ -150,85 +125,71 @@ export default function OpeningStock() {
 
       if (sessionData?.items?.length) {
         const map: Record<string, string> = {};
-        const draftProds: Product[] = [];
-
         for (const item of sessionData.items) {
           map[item.product_id] = String(item.qty);
-          draftProds.push({
-            product_id: item.product_id,
-            name: item.product_name || 'Unknown Product',
-            sku: item.sku,
-            barcode: item.barcode,
-            track_inventory: true,
-            unit_of_measure: 'unit',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
         }
         setQtyMap(map);
-        setProducts(draftProds);
       }
       if (sessionData?.notes) setNotes(sessionData.notes);
-
-      await fetchProducts('', 1, false);
-      setIsInitialLoadDone(true);
-    } catch (err: any) {
+    } catch {
       setError('Failed to load opening stock session.');
-    } finally {
       setLoading(false);
     }
-  }, [fetchProducts]);
+    // products loaded via filters useEffect below
+  }, []);
 
   useEffect(() => {
     loadInitialData();
     return () => abortRef.current?.abort();
   }, [loadInitialData]);
 
-  // Debounced search fetch
+  // Load / reload products whenever filters change
   useEffect(() => {
-    if (!isInitialLoadDone) return; // Skip if initial load is still in progress
+    fetchProducts();
+  }, [fetchProducts]);
 
-    const timer = setTimeout(() => {
-      setPage(1);
-      fetchProducts(search, 1, false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search, fetchProducts, isInitialLoadDone]);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      loadRequestIdRef.current += 1;
+      abortRef.current?.abort();
+    };
+  }, []);
 
-  // Reset to page 1 when search or filter changes
-  useEffect(() => { setCurrentPage(1); }, [search, stockFilter]);
+  // Debounced search — mirrors Products page pattern
+  const debouncedSearch = useDebouncedCallback((search: string) => {
+    setFilters(prev => ({ ...prev, search: search || undefined, page: 1 }));
+  }, 300);
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      debouncedSearch(value);
+    },
+    [debouncedSearch]
+  );
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Reset to page 1 when stockFilter changes
+  useEffect(() => { setFilters(prev => ({ ...prev, page: 1 })); }, [stockFilter]);
 
   // ── derived state ──────────────────────────────────────────────────────────
-  const searchFiltered = products.filter(p => {
-    // If we have a search term, the 'products' array already contains server-filtered results
-    // plus any local 'filled' products. We still apply local filtering to keep it consistent.
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.sku ?? '').toLowerCase().includes(q) ||
-      (p.barcode ?? '').toLowerCase().includes(q)
-    );
-  });
-
-  const filledCount = searchFiltered.filter(p => {
+  const filledCount = products.filter(p => {
     const v = qtyMap[p.product_id];
     return v !== undefined && v !== '' && Number(v) > 0;
   }).length;
-  const emptyCount = searchFiltered.length - filledCount;
+  const emptyCount = products.length - filledCount;
 
-  const filteredProducts = searchFiltered.filter(p => {
+  const filteredProducts = products.filter(p => {
     if (stockFilter === 'all') return true;
     const v = qtyMap[p.product_id];
     const hasFilled = v !== undefined && v !== '' && Number(v) > 0;
     return stockFilter === 'filled' ? hasFilled : !hasFilled;
   });
-
-  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
 
   const itemsToSave = Object.entries(qtyMap)
     .filter(([, v]) => v !== '' && Number(v) > 0)
@@ -427,18 +388,18 @@ export default function OpeningStock() {
               <input
                 type="text"
                 placeholder="Search by name, SKU, or barcode…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                value={searchQuery}
+                onChange={e => handleSearch(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
               />
             </div>
             <button
-              onClick={() => fetchProducts(search)}
+              onClick={fetchProducts}
               disabled={fetchingProducts}
               className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-secondary-300 disabled:opacity-50"
             >
               <ArrowPathIcon className={`w-3.5 h-3.5 ${fetchingProducts ? 'animate-spin' : ''}`} />
-              <span>{fetchingProducts ? 'Searching…' : 'Refresh'}</span>
+              <span>{fetchingProducts ? 'Loading…' : 'Refresh'}</span>
             </button>
           </div>
 
@@ -446,29 +407,29 @@ export default function OpeningStock() {
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             {(
               [
-                { 
-                  key: 'all',    
-                  label: 'All Products',     
-                  count: searchFiltered.length,
+                {
+                  key: 'all',
+                  label: 'All Products',
+                  count: pagination.total,
                   icon: Squares2X2Icon,
                   active: 'bg-indigo-50 text-indigo-700 shadow-sm border-indigo-200',
-                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50',
                 },
-                { 
-                  key: 'filled', 
-                  label: 'Filled',  
+                {
+                  key: 'filled',
+                  label: 'Filled',
                   count: filledCount,
                   icon: CheckBadgeIcon,
                   active: 'bg-emerald-50 text-emerald-700 shadow-sm border-emerald-200',
-                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50',
                 },
-                { 
-                  key: 'empty',  
-                  label: 'Empty',   
+                {
+                  key: 'empty',
+                  label: 'Empty',
                   count: emptyCount,
                   icon: InboxIcon,
                   active: 'bg-amber-50 text-amber-700 shadow-sm border-amber-200',
-                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50' 
+                  inactive: 'bg-transparent text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50',
                 },
               ] as const
             ).map(({ key, label, count, icon: Icon, active, inactive }) => (
@@ -489,9 +450,9 @@ export default function OpeningStock() {
           </div>
 
           <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-            <Badge variant="primary" size="sm">{products.length} total</Badge>
-            {search && (
-              <Badge variant="info" size="sm">{searchFiltered.length} matched</Badge>
+            <Badge variant="primary" size="sm">{pagination.total} total</Badge>
+            {searchQuery && (
+              <Badge variant="info" size="sm">{pagination.total} matched</Badge>
             )}
             {!isCommitted && itemsToSave.length > 0 && (
               <Badge variant="success" size="sm">
@@ -519,16 +480,22 @@ export default function OpeningStock() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedProducts.length === 0 ? (
+              {fetchingProducts ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-secondary-200 border-t-secondary-600" />
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-gray-400 text-sm">
-                    {products.length === 0
+                    {pagination.total === 0
                       ? 'No inventory-tracked products found.'
                       : 'No products match your search.'}
                   </td>
                 </tr>
               ) : (
-                paginatedProducts.map(product => {
+                filteredProducts.map(product => {
                   const committedItem = isCommitted
                     ? session?.items.find(i => i.product_id === product.product_id)
                     : null;
@@ -584,39 +551,25 @@ export default function OpeningStock() {
             </tbody>
           </table>
         </div>
-        {hasMore && (
-          <div className="p-4 flex justify-center border-t border-gray-100 bg-gray-50/30">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={loadMore}
-              disabled={fetchingProducts}
-              isLoading={fetchingProducts}
-              className="min-w-[200px] shadow-sm font-semibold"
-            >
-              {fetchingProducts ? 'Loading batch…' : 'Load More Products'}
-            </Button>
-          </div>
-        )}
       </Card>
 
       {/* ── Pagination ── */}
-      {totalPages > 1 && (
+      {pagination.totalPages > 1 && (
         <Card className="mb-4 border-2 border-gray-100">
           <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
             <div className="text-xs text-gray-600 font-medium">
               Showing{' '}
-              <span className="font-bold text-gray-900">{((currentPage - 1) * PAGE_SIZE) + 1}</span>
+              <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span>
               {' '}to{' '}
-              <span className="font-bold text-gray-900">{Math.min(currentPage * PAGE_SIZE, filteredProducts.length)}</span>
+              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span>
               {' '}of{' '}
-              <span className="font-bold text-gray-900">{filteredProducts.length}</span>
+              <span className="font-bold text-gray-900">{pagination.total}</span>
               {' '}products
             </div>
             <div className="flex items-center gap-1.5">
               <Button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1 || fetchingProducts}
                 variant="outline"
                 size="sm"
                 className="px-2"
@@ -624,11 +577,11 @@ export default function OpeningStock() {
                 <ChevronLeftIcon className="w-4 h-4" />
               </Button>
               <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
-                Page {currentPage} of {totalPages}
+                Page {pagination.page} of {pagination.totalPages}
               </span>
               <Button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages || fetchingProducts}
                 variant="outline"
                 size="sm"
                 className="px-2"
