@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { authenticate } from '../middleware/auth';
 import { validateRequest } from '../middleware/validateRequest';
-import { getLicenseInfo, activateLicense, validateDevice } from '../controllers/licenseController';
+import { getLicenseInfo, activateLicense, validateDevice, convexActivateLicense } from '../controllers/licenseController';
 
 const router = Router();
 
@@ -31,6 +31,23 @@ router.post(
   ],
   validateRequest,
   validateDevice
+);
+
+// Activate via Convex (new flow: consumes key remotely, saves locally)
+router.post(
+  '/convex-activate',
+  authenticate,
+  [
+    body('licenseKey').notEmpty().withMessage('License key is required'),
+    body('deviceId').optional().isString(),
+    body('installationId').optional().isString(),
+    body('customerName').optional().isString(),
+    body('customerEmail').optional().isEmail().withMessage('Invalid customer email'),
+    body('companyName').optional().isString(),
+    body('storeName').optional().isString(),
+  ],
+  validateRequest,
+  convexActivateLicense
 );
 
 export default router;

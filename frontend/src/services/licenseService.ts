@@ -58,9 +58,28 @@ export interface ValidateDeviceResponse {
   };
 }
 
+export interface ConvexActivateRequest {
+  licenseKey: string;
+}
+
+export interface ConvexActivateResponse {
+  success: boolean;
+  data: {
+    message: string;
+    validUntil: string;
+    plan: string;
+    validFrom: string;
+  };
+}
+
 export const licenseService = {
   getLicenseInfo: async (): Promise<LicenseInfoResponse> => {
     const response = await api.get<LicenseInfoResponse>('/license/info');
+    return response.data;
+  },
+
+  convexActivate: async (req: ConvexActivateRequest): Promise<ConvexActivateResponse> => {
+    const response = await api.post<ConvexActivateResponse>('/license/convex-activate', req);
     return response.data;
   },
 

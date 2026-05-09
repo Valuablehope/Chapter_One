@@ -1678,21 +1678,23 @@ export default function Labels() {
                               const isActive = activeLabelSection === id;
                               return (
                                 <div key={id} className="flex items-center gap-2">
-                                  <button
-                                    type="button"
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => setActiveLabelSection(id)}
-                                    className={`flex-1 flex items-center justify-between px-3 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                    onKeyDown={(e) => e.key === 'Enter' && setActiveLabelSection(id)}
+                                    className={`flex-1 flex items-center justify-between px-3 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                                       isActive
                                         ? 'bg-secondary-50 border-secondary-500 text-secondary-700 shadow-md ring-1 ring-secondary-500'
                                         : 'bg-white border-gray-200 text-gray-700 shadow-sm hover:border-secondary-300'
                                     }`}
                                   >
                                     <span>{meta?.label ?? id}</span>
-                                    <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                                      <button type="button" onClick={() => moveSectionInOrder(i, -1)} disabled={i === 0} className="p-1 hover:text-secondary-600 disabled:opacity-20"><ChevronUpIcon className="w-3 h-3" /></button>
-                                      <button type="button" onClick={() => moveSectionInOrder(i, 1)} disabled={i === 4} className="p-1 hover:text-secondary-600 disabled:opacity-20"><ChevronDownIcon className="w-3 h-3" /></button>
+                                    <div className="flex items-center gap-0.5">
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); moveSectionInOrder(i, -1); }} disabled={i === 0} className="p-1 hover:text-secondary-600 disabled:opacity-20"><ChevronUpIcon className="w-3 h-3" /></button>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); moveSectionInOrder(i, 1); }} disabled={i === 4} className="p-1 hover:text-secondary-600 disabled:opacity-20"><ChevronDownIcon className="w-3 h-3" /></button>
                                     </div>
-                                  </button>
+                                  </div>
                                 </div>
                               );
                             })}

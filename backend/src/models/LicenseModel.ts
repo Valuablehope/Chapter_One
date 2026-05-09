@@ -6,15 +6,21 @@ import { logger } from '../utils/logger';
 export interface License {
   license_id: string;
   store_id: string;
-  license_key: string | null;
-  valid: boolean;
+  device_id: string | null;
+  installation_id: string | null;
+  convex_subscription_id: string | null;
+  convex_license_id: string | null;
+  license_prefix: string | null;
+  plan: string;
+  status: 'active' | 'expired' | 'suspended';
+  valid_from: string;
+  valid_until: string;
+  activated_at: string;
   customer_name: string | null;
   customer_email: string | null;
-  subscription_type: 'trial' | 'yearly' | 'lifetime';
-  status: 'active' | 'expired' | 'suspended';
-  start_date: string;
-  expiry_date: string;
-  max_devices: number;
+  company_name: string | null;
+  store_name: string | null;
+  license_payload_hash: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -152,60 +158,56 @@ export class LicenseModel extends BaseModel {
   }
 
   static async getLicenseStatus(storeId: string): Promise<LicenseStatus | null> {
-    const license = await this.findByStoreId(storeId);
-    if (!license) {
-      return null;
+    const now = new Date();
+
+    // Prefer license_state (set by Convex activation)
+    try {
+      const stateResult = await this.query<any>(
+        `SELECT * FROM license_state WHERE store_id = $1`,
+        [storeId]
+      );
+      const state = stateResult.rows[0];
+      if (state) {
+        const validUntil      = new Date(state.valid_until);
+        const isExpired       = validUntil < now;
+        const daysRemaining   = Math.ceil((validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const plan            = (state.plan ?? 'yearly') as string;
+        const subscriptionType: 'trial' | 'yearly' | 'lifetime' =
+          plan === 'lifetime' ? 'lifetime' : plan === 'trial' ? 'trial' : 'yearly';
+        const isTrial         = subscriptionType === 'trial';
+        const status          = isExpired ? 'expired' : (state.status as 'active' | 'expired' | 'suspended');
+
+        return {
+          isValid: state.status === 'active' && !isExpired,
+          subscriptionType,
+          status,
+          expiryDate: state.valid_until,
+          daysRemaining: Math.max(0, daysRemaining),
+          isTrial,
+          isExpired,
+        };
+      }
+    } catch {
+      // license_state table may not exist in older installs — fall through
     }
 
-    const now = new Date();
-    const expiryDate = new Date(license.expiry_date);
-    const daysRemaining = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    const isExpired = expiryDate < now;
-    
-    // If yearly/lifetime license has expired, automatically convert to trial
-    if (isExpired && (license.subscription_type === 'yearly' || license.subscription_type === 'lifetime')) {
-      // Update license to trial mode automatically
-      const newExpiryDate = new Date();
-      newExpiryDate.setDate(newExpiryDate.getDate() + 30); // 30-day trial period
-      const newExpiryDateStr = newExpiryDate.toISOString().split('T')[0];
-      
-      try {
-        await this.query(
-          `UPDATE licenses 
-           SET subscription_type = 'trial',
-               status = 'active',
-               valid = true,
-               start_date = CURRENT_DATE,
-               expiry_date = $1,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE store_id = $2`,
-          [newExpiryDateStr, storeId]
-        );
-        
-        // Return trial status
-        return {
-          isValid: true,
-          subscriptionType: 'trial',
-          status: 'active',
-          expiryDate: newExpiryDateStr,
-          daysRemaining: 30,
-          isTrial: true,
-          isExpired: false,
-        };
-      } catch (error) {
-        // If update fails, log and continue with expired status
-        console.error('[LicenseModel] Failed to convert expired license to trial:', error);
-      }
-    }
-    
-    const isValid = license.valid && license.status === 'active' && !isExpired;
-    const isTrial = license.subscription_type === 'trial';
+    // Fall back to licenses table
+    const license = await this.findByStoreId(storeId);
+    if (!license) return null;
+
+    const validUntil    = new Date(license.valid_until);
+    const isExpired     = validUntil < now;
+    const daysRemaining = Math.ceil((validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const plan          = (license.plan ?? 'yearly') as string;
+    const subscriptionType: 'trial' | 'yearly' | 'lifetime' =
+      plan === 'lifetime' ? 'lifetime' : plan === 'trial' ? 'trial' : 'yearly';
+    const isTrial       = subscriptionType === 'trial';
 
     return {
-      isValid,
-      subscriptionType: license.subscription_type,
+      isValid: license.status === 'active' && !isExpired,
+      subscriptionType,
       status: isExpired ? 'expired' : license.status,
-      expiryDate: license.expiry_date,
+      expiryDate: license.valid_until,
       daysRemaining: Math.max(0, daysRemaining),
       isTrial,
       isExpired,
@@ -308,20 +310,6 @@ export class LicenseModel extends BaseModel {
       if (!licenseStatus?.isValid) {
         await client.query('ROLLBACK');
         return { success: false, message: 'License is expired or invalid' };
-      }
-
-      // Check device limit
-      const deviceCountQuery = `
-        SELECT COUNT(*) as count 
-        FROM device_activations 
-        WHERE license_id = $1 AND is_active = true
-      `;
-      const deviceCountResult = await client.query(deviceCountQuery, [license.license_id]);
-      const deviceCount = parseInt(deviceCountResult.rows[0].count, 10);
-
-      if (deviceCount >= license.max_devices) {
-        await client.query('ROLLBACK');
-        return { success: false, message: `Maximum devices (${license.max_devices}) reached` };
       }
 
       // Check if device already activated
