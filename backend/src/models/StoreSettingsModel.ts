@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache — updated for label_canvas_elements (2026-05-09)
+// Triggering restart to refresh database column cache — updated for include_delivery_in_drawer (2026-05-09)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 

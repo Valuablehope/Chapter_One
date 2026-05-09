@@ -54,6 +54,9 @@ export interface Store {
   ui_resolution?: string;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
 }
 
 export interface StoreFilters {
@@ -148,6 +151,9 @@ export class StoreModel extends BaseModel {
       receipt_printer: 'ss.receipt_printer',
       heading_size: 'ss.heading_size',
       body_size: 'ss.body_size',
+      label_height_mm: 'ss.label_height_mm',
+      label_canvas_elements: 'ss.label_canvas_elements',
+      include_delivery_in_drawer: 'ss.include_delivery_in_drawer',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

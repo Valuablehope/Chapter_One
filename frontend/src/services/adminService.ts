@@ -101,6 +101,9 @@ export interface Store {
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
 }
 
 export interface Terminal {
