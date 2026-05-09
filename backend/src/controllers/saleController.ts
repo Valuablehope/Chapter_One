@@ -11,7 +11,7 @@ export const createSale = asyncHandler(
       throw new CustomError('User not authenticated', 401);
     }
 
-    const { customer_id, items, payments, discount_rate, client_sale_id, restaurant_context } = req.body;
+    const { customer_id, items, payments, discount_rate, delivery_charge, client_sale_id, restaurant_context } = req.body;
 
     // Validate input
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -57,6 +57,7 @@ export const createSale = asyncHandler(
       items,
       payments,
       discount_rate,
+      delivery_charge,
       client_sale_id,
       restaurant_context,
     };
@@ -120,7 +121,7 @@ export const updateSale = asyncHandler(
     }
 
     const { id } = req.params;
-    const { customer_id, items, payments, discount_rate } = req.body;
+    const { customer_id, items, payments, discount_rate, delivery_charge } = req.body;
 
     // Validate items if provided
     if (items && Array.isArray(items)) {
@@ -160,6 +161,7 @@ export const updateSale = asyncHandler(
       items,
       payments,
       discount_rate,
+      delivery_charge,
     };
 
     const sale = await SaleModel.update(id, userId, updateData);

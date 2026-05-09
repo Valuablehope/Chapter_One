@@ -92,6 +92,7 @@ export interface CreateSaleData {
 export interface UpdateSaleData {
   customer_id?: string;
   discount_rate?: number;
+  delivery_charge?: number;
   items?: {
     product_id: string;
     qty: number;
@@ -406,7 +407,13 @@ export class SaleModel extends BaseModel {
           const { discountTotal, grandTotal: merchandiseGrandTotal } = saleDiscountAndGrand(merchandiseGross, discountRate);
           const deliveryCharge = roundMoney(Number(data.delivery_charge || 0));
           const includeDelivery = storeSettings?.include_delivery_in_drawer !== false;
-          const grandTotal = roundMoney(merchandiseGrandTotal + (includeDelivery ? deliveryCharge : 0));
+          
+          const isTaxInclusive = !!(storeSettings?.tax_inclusive);
+          const grandTotal = roundMoney(
+            merchandiseGrandTotal + 
+            (isTaxInclusive ? 0 : taxTotal) + 
+            (includeDelivery ? deliveryCharge : 0)
+          );
           const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
           if (paidTotal < grandTotal - 0.01) { // Allow for tiny epsilon differences
@@ -850,18 +857,35 @@ export class SaleModel extends BaseModel {
             }
           }
 
-          // Update discount if provided
-          if (data.discount_rate !== undefined) {
+          // Update discount and delivery if provided
+          if (data.discount_rate !== undefined || data.delivery_charge !== undefined) {
             try {
-              const updateQuery = `
-                  UPDATE sales 
-                  SET discount_rate = $1 
-                  WHERE sale_id = $2
-                `;
-              await client.query(updateQuery, [data.discount_rate, saleId]);
+              const updates: string[] = [];
+              const params: any[] = [];
+              let pIdx = 1;
+
+              if (data.discount_rate !== undefined) {
+                updates.push(`discount_rate = $${pIdx++}`);
+                params.push(data.discount_rate);
+              }
+              if (data.delivery_charge !== undefined) {
+                updates.push(`delivery_charge = $${pIdx++}`);
+                params.push(data.delivery_charge);
+              }
+
+              if (updates.length > 0) {
+                params.push(saleId);
+                const updateQuery = `
+                    UPDATE sales 
+                    SET ${updates.join(', ')}
+                    WHERE sale_id = $${pIdx}
+                  `;
+                await client.query(updateQuery, params);
+              }
             } catch (err: any) {
-              if (err.message?.includes('column') && err.message?.includes('discount_rate')) {
-                logger.warn('discount_rate column does not exist, skipping update');
+              // Ignore if columns don't exist
+              if (err.message?.includes('column')) {
+                logger.warn('Column does not exist, skipping specific field update');
               } else {
                 throw err;
               }
@@ -897,9 +921,23 @@ export class SaleModel extends BaseModel {
             persistedRows,
             editTaxInclusive
           );
-          const { discountTotal, grandTotal } = saleDiscountAndGrand(
+          const { discountTotal, grandTotal: merchandiseGrandTotal } = saleDiscountAndGrand(
             merchandiseGross,
             currentDiscountRate
+          );
+
+          // Get current delivery charge from DB to ensure it's included in grand total
+          const deliveryResult = await client.query('SELECT delivery_charge FROM sales WHERE sale_id = $1', [saleId]);
+          const currentDeliveryCharge = Number(deliveryResult.rows[0]?.delivery_charge || 0);
+
+          // Heuristic: only include delivery in grand_total (drawer total) if the setting is ON.
+          // For updates, we usually want to maintain the same "in-drawer" status as original creation?
+          // Actually, let's just use the current store setting for simplicity.
+          const includeDeliveryInDrawer = storeSettings?.include_delivery_in_drawer !== false;
+          const grandTotal = roundMoney(
+            merchandiseGrandTotal + 
+            (editTaxInclusive ? 0 : taxTotal) + 
+            (includeDeliveryInDrawer ? currentDeliveryCharge : 0)
           );
 
           const paymentsResult = await client.query(

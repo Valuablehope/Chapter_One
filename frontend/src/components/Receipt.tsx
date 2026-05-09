@@ -56,11 +56,12 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
   const taxTotal = Number(sale.tax_total || 0);
   const discountTotal = Number(sale.discount_total || 0);
 
-  // Heuristic: Check if this specific sale was saved with delivery already in its grand_total.
-  // This ensures historical receipts (saved when the toggle was ON) display correctly 
-  // even if the store setting is currently OFF.
+  // Robust heuristic: Check if this specific sale was saved with delivery already in its grand_total.
+  // We compare the saved grand_total (drawerTotal) against the calculated merchandise total 
+  // with and without delivery to see which one it matches more closely.
+  const merchTotal = subtotal + (settings?.tax_inclusive ? 0 : taxTotal) - discountTotal;
   const wasSavedWithDelivery = deliveryCharge > 0 && 
-    drawerTotal >= (subtotal + taxTotal - discountTotal + deliveryCharge - 0.01);
+    Math.abs(drawerTotal - (merchTotal + deliveryCharge)) < Math.abs(drawerTotal - merchTotal);
   
   const invoiceTotal = wasSavedWithDelivery ? drawerTotal : (drawerTotal + deliveryCharge);
 
