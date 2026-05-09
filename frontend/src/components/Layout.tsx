@@ -117,8 +117,10 @@ const NavItem = ({ item, active, sidebarExpanded, isCompact, onClick }: NavItemP
       
       {sidebarExpanded && (
         <span className={`
-          truncate transition-all duration-200
-          ${isCompact ? 'text-[9px] uppercase font-bold text-center leading-tight w-full' : 'text-sm'}
+          transition-all duration-200
+          ${isCompact
+            ? 'text-[9px] uppercase font-bold text-center leading-tight w-full break-words'
+            : 'truncate text-sm'}
           ${active ? 'text-white' : ''}
         `}>
           {item.label}

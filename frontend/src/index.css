@@ -363,8 +363,8 @@ select:focus {
   width: 82px !important;
 }
 
-/* Ensure sidebar items are visible */
-.res-1024x768 aside .truncate, 
+/* Hide non-nav truncated text and muted text in compact sidebar */
+.res-1024x768 aside .truncate:not(nav a span),
 .res-1024x768 aside .text-sidebar-muted:not(nav a span) {
   display: none !important;
 }
