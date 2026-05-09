@@ -62,6 +62,10 @@ export default function OpeningStock() {
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'filled' | 'empty'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [fetchingProducts, setFetchingProducts] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -75,50 +79,129 @@ export default function OpeningStock() {
 
   const abortRef = useRef<AbortController | null>(null);
 
-  // ── load data ──────────────────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const qtyMapRef = useRef(qtyMap);
+  useEffect(() => { qtyMapRef.current = qtyMap; }, [qtyMap]);
+
+  // ── fetch products ────────────────────────────────────────────────────────
+  const fetchProducts = useCallback(async (searchTerm = '', pageNum = 1, append = false) => {
+    if (pageNum === 1 && !append) {
+      if (!isInitialLoadDone) setLoading(true);
+      else setFetchingProducts(true);
+    } else {
+      setFetchingProducts(true);
+    }
     setError('');
+
     try {
+      if (abortRef.current) abortRef.current.abort();
       abortRef.current = new AbortController();
-      const [sessionData, productsData] = await Promise.all([
-        openingStockService.getSession(),
-        productService.getProducts(
-          { track_inventory: true, limit: 1000 },
-          abortRef.current.signal
-        ),
-      ]);
 
-      setSession(sessionData);
-      setProducts(productsData.data);
+      const BATCH_SIZE = 2000;
+      const response = await productService.getProducts(
+        { track_inventory: true, limit: BATCH_SIZE, page: pageNum, search: searchTerm },
+        abortRef.current.signal
+      );
 
-      if (sessionData?.items?.length) {
-        const map: Record<string, string> = {};
-        for (const item of sessionData.items) {
-          map[item.product_id] = String(item.qty);
-        }
-        setQtyMap(map);
-      }
-      if (sessionData?.notes) setNotes(sessionData.notes);
+      const newProds = response.data;
+      setHasMore(newProds.length === BATCH_SIZE);
+
+      setProducts(prev => {
+        const currentQtyMap = qtyMapRef.current;
+        
+        // If appending, keep everything we have. 
+        // If NOT appending (new search or initial load), only keep 'filled' products
+        const baseList = append ? [...prev] : prev.filter(p => {
+          const val = currentQtyMap[p.product_id];
+          return val !== undefined && val !== '' && Number(val) > 0;
+        });
+
+        const merged = [...baseList];
+        newProds.forEach(np => {
+          if (!merged.find(p => p.product_id === np.product_id)) {
+            merged.push(np);
+          }
+        });
+        return merged;
+      });
     } catch (err: any) {
       if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
-        setError('Failed to load data. Please refresh.');
+        setError('Failed to fetch products. Please try again.');
+        console.error('Fetch error:', err);
       }
     } finally {
       setLoading(false);
+      setFetchingProducts(false);
     }
-  }, []);
+  }, [isInitialLoadDone]);
+
+  const loadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchProducts(search, nextPage, true);
+  };
+
+  // ── load initial session ──────────────────────────────────────────────────
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const sessionData = await openingStockService.getSession();
+      setSession(sessionData);
+
+      if (sessionData?.items?.length) {
+        const map: Record<string, string> = {};
+        const draftProds: Product[] = [];
+
+        for (const item of sessionData.items) {
+          map[item.product_id] = String(item.qty);
+          draftProds.push({
+            product_id: item.product_id,
+            name: item.product_name || 'Unknown Product',
+            sku: item.sku,
+            barcode: item.barcode,
+            track_inventory: true,
+            unit_of_measure: 'unit',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+        setQtyMap(map);
+        setProducts(draftProds);
+      }
+      if (sessionData?.notes) setNotes(sessionData.notes);
+
+      await fetchProducts('', 1, false);
+      setIsInitialLoadDone(true);
+    } catch (err: any) {
+      setError('Failed to load opening stock session.');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchProducts]);
 
   useEffect(() => {
-    loadData();
+    loadInitialData();
     return () => abortRef.current?.abort();
-  }, [loadData]);
+  }, [loadInitialData]);
+
+  // Debounced search fetch
+  useEffect(() => {
+    if (!isInitialLoadDone) return; // Skip if initial load is still in progress
+
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchProducts(search, 1, false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, fetchProducts, isInitialLoadDone]);
 
   // Reset to page 1 when search or filter changes
   useEffect(() => { setCurrentPage(1); }, [search, stockFilter]);
 
   // ── derived state ──────────────────────────────────────────────────────────
   const searchFiltered = products.filter(p => {
+    // If we have a search term, the 'products' array already contains server-filtered results
+    // plus any local 'filled' products. We still apply local filtering to keep it consistent.
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -350,11 +433,12 @@ export default function OpeningStock() {
               />
             </div>
             <button
-              onClick={loadData}
-              className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-secondary-300"
+              onClick={() => fetchProducts(search)}
+              disabled={fetchingProducts}
+              className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-secondary-300 disabled:opacity-50"
             >
-              <ArrowPathIcon className="w-3.5 h-3.5" />
-              <span>Refresh</span>
+              <ArrowPathIcon className={`w-3.5 h-3.5 ${fetchingProducts ? 'animate-spin' : ''}`} />
+              <span>{fetchingProducts ? 'Searching…' : 'Refresh'}</span>
             </button>
           </div>
 
@@ -500,6 +584,20 @@ export default function OpeningStock() {
             </tbody>
           </table>
         </div>
+        {hasMore && (
+          <div className="p-4 flex justify-center border-t border-gray-100 bg-gray-50/30">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loadMore}
+              disabled={fetchingProducts}
+              isLoading={fetchingProducts}
+              className="min-w-[200px] shadow-sm font-semibold"
+            >
+              {fetchingProducts ? 'Loading batch…' : 'Load More Products'}
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* ── Pagination ── */}
