@@ -405,11 +405,13 @@ export class SaleModel extends BaseModel {
           const discountRate = data.discount_rate || 0;
           const { discountTotal, grandTotal: merchandiseGrandTotal } = saleDiscountAndGrand(merchandiseGross, discountRate);
           const deliveryCharge = roundMoney(Number(data.delivery_charge || 0));
-          const grandTotal = roundMoney(merchandiseGrandTotal + deliveryCharge);
+          const includeDelivery = storeSettings?.include_delivery_in_drawer !== false;
+          const grandTotal = roundMoney(merchandiseGrandTotal + (includeDelivery ? deliveryCharge : 0));
           const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
           if (paidTotal < grandTotal - 0.01) { // Allow for tiny epsilon differences
-            throw new Error('Payment amount is less than grand total');
+            logger.warn('Payment shortfall detected', { paidTotal, grandTotal, deliveryCharge, includeDelivery });
+            throw new Error(`Payment amount ($${paidTotal}) is less than grand total ($${grandTotal})`);
           }
 
           // Create sale
@@ -596,13 +598,13 @@ export class SaleModel extends BaseModel {
               // Update stock balance atomically (maintain O(1) query performance)
               await client.query(`
             INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
-            VALUES ($1, $2, $3, -$3)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT (store_id, product_id)
             DO UPDATE SET
               qty_on_hand = stock_balances.qty_on_hand + $3,
-              qty_out     = stock_balances.qty_out     - $3,
+              qty_out     = stock_balances.qty_out + $4,
               updated_at  = NOW()
-          `, [store.store_id, item.product_id, -item.qty]); // $3 negative → qty_out gains abs(qty)
+          `, [store.store_id, item.product_id, -item.qty, item.qty]); // $3 negative, $4 positive
             }
           }
 
@@ -633,7 +635,17 @@ export class SaleModel extends BaseModel {
             items,
             payments,
           };
-        } catch (error) {
+        } catch (error: any) {
+          logger.error('CRITICAL ERROR in SaleModel.create:', {
+            message: error.message,
+            stack: error.stack,
+            data: {
+              customer_id: data.customer_id,
+              itemCount: data.items?.length,
+              paymentCount: data.payments?.length,
+              delivery_charge: data.delivery_charge
+            }
+          });
           // Always rollback on error
           try {
             await client.query('ROLLBACK');

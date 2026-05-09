@@ -71,13 +71,23 @@ async function computePreview(
       SELECT
         COALESCE(COUNT(*)::int, 0) AS total_transactions,
         COALESCE(SUM(s.grand_total), 0)::numeric AS gross_sales,
-        COALESCE(SUM(COALESCE(s.delivery_charge, 0)), 0)::numeric AS delivery_total
+        COALESCE(SUM(COALESCE(s.delivery_charge, 0)), 0)::numeric AS delivery_total,
+        COALESCE(SUM(
+          CASE 
+            WHEN $2 = true THEN s.grand_total
+            ELSE s.grand_total - CASE 
+              WHEN s.grand_total >= (COALESCE(s.subtotal, 0) + COALESCE(s.tax_total, 0) - COALESCE(s.discount_total, 0) + COALESCE(s.delivery_charge, 0) - 0.01)
+              THEN COALESCE(s.delivery_charge, 0)
+              ELSE 0
+            END
+          END
+        ), 0)::numeric AS drawer_total
       FROM sales s
       WHERE s.store_id = $1
         AND s.status = 'paid'
         AND (s.day_closure_id IS NULL)
     `,
-    [storeId]
+    [storeId, includeDeliveryInDrawer]
   );
 
   const payAgg = await executor.query(
@@ -104,10 +114,7 @@ async function computePreview(
 
   const delivery_total = roundMoney(Number(sr.delivery_total));
   const gross_sales = roundMoney(Number(sr.gross_sales));
-  // When delivery is not in drawer, subtract it from the revenue total
-  const total_sales = includeDeliveryInDrawer
-    ? gross_sales
-    : roundMoney(gross_sales - delivery_total);
+  const total_sales = roundMoney(Number(sr.drawer_total));
 
   // Sum all unclosed expenses for this store
   const expAgg = await executor.query(

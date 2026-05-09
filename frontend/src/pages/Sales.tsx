@@ -346,8 +346,17 @@ export default function Sales() {
   const { discountAmount, grandTotal } = useMemo(() => {
     const dr = discountRate ? parseFloat(discountRate) : 0;
     const { discountAmount, grandTotal: merch } = discountAndGrand(merchandiseGross, dr);
-    return { discountAmount, grandTotal: Math.round((merch + deliveryAmount) * 100) / 100 };
-  }, [merchandiseGross, discountRate, deliveryAmount]);
+    
+    // If delivery is excluded from drawer, the grandTotal (which represents what is collected in the drawer)
+    // should not include the delivery charge.
+    const includeDelivery = storeSettings?.include_delivery_in_drawer !== false;
+    const finalTotal = includeDelivery ? merch + deliveryAmount : merch;
+    
+    return { 
+      discountAmount, 
+      grandTotal: Math.round(finalTotal * 100) / 100 
+    };
+  }, [merchandiseGross, discountRate, deliveryAmount, storeSettings?.include_delivery_in_drawer]);
 
   // ── Sync live cart/customer/discount → active session (must be after grandTotal) ──
   useEffect(() => {
