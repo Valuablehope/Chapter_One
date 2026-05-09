@@ -1467,7 +1467,7 @@ export default function Sales() {
                               <span className="text-[10px] text-gray-400 font-medium">{item.product.unit_of_measure || t('pos_sales.each')}</span>
                             </div>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                            <div className="flex items-center gap-8 w-full sm:w-auto justify-between sm:justify-end">
                               {/* Quantity Controls */}
                               <div className="flex items-center gap-0 border-2 border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">
                                 <Button
@@ -1505,25 +1505,25 @@ export default function Sales() {
                                 {/* Price Display */}
                                 <div className="text-right min-w-[70px] sm:min-w-[90px]">
                                   {storeSettings?.lbp_primary_price && formatLBP(Number(item.line_total)) ? (
-                                    <>
-                                      <p className="font-bold text-sm text-amber-600 leading-tight">
+                                    <div className="flex flex-col items-end leading-tight">
+                                      <span className="font-bold text-sm text-amber-600">
                                         {formatLBP(Number(item.line_total))}
-                                      </p>
-                                      <p className="text-[9px] text-secondary-500 font-bold mt-0.5 leading-none">
+                                      </span>
+                                      <span className="font-bold text-sm text-secondary-400">
                                         ${Number(item.line_total).toFixed(2)}
-                                      </p>
-                                    </>
+                                      </span>
+                                    </div>
                                   ) : (
-                                    <>
-                                      <p className="font-bold text-sm text-secondary-600 leading-tight">
+                                    <div className="flex flex-col items-end leading-tight">
+                                      <span className="font-bold text-sm text-secondary-600">
                                         ${Number(item.line_total).toFixed(2)}
-                                      </p>
+                                      </span>
                                       {formatLBP(Number(item.line_total)) && (
-                                        <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
-                                          ≈ {formatLBP(Number(item.line_total))}
-                                        </p>
+                                        <span className="font-bold text-sm text-amber-600">
+                                          {formatLBP(Number(item.line_total))}
+                                        </span>
                                       )}
-                                    </>
+                                    </div>
                                   )}
                                 </div>
 
