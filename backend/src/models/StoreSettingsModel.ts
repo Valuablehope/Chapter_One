@@ -46,6 +46,7 @@ export interface StoreSettings {
   label_section_order?: unknown;
   show_lbp_price: boolean;
   round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
   ui_resolution: string;
   receipt_printer?: string | null;
   heading_size?: string;
@@ -92,6 +93,7 @@ export interface StoreSettingsInput {
   label_section_order?: unknown;
   show_lbp_price?: boolean;
   round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
   ui_resolution?: string;
   receipt_printer?: string | null;
   heading_size?: string;
@@ -441,6 +443,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('round_lbp_to_1000');
       values.push(settings.round_lbp_to_1000);
     }
+    if (settings.lbp_primary_price !== undefined && availableColumns.has('lbp_primary_price')) {
+      paramCount++;
+      fields.push('lbp_primary_price');
+      values.push(settings.lbp_primary_price);
+    }
     if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
       paramCount++;
       fields.push('ui_resolution');
@@ -671,6 +678,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`round_lbp_to_1000 = $${paramCount}`);
       values.push(settings.round_lbp_to_1000);
+    }
+    if (settings.lbp_primary_price !== undefined && availableColumns.has('lbp_primary_price')) {
+      paramCount++;
+      fields.push(`lbp_primary_price = $${paramCount}`);
+      values.push(settings.lbp_primary_price);
     }
     if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
       paramCount++;

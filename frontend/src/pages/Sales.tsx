@@ -1471,13 +1471,26 @@ export default function Sales() {
                               <div className="flex items-center gap-2">
                                 {/* Price Display */}
                                 <div className="text-right min-w-[70px] sm:min-w-[90px]">
-                                  <p className="font-bold text-sm text-secondary-600 leading-tight">
-                                    ${Number(item.line_total).toFixed(2)}
-                                  </p>
-                                  {formatLBP(Number(item.line_total)) && (
-                                    <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
-                                      ≈ {formatLBP(Number(item.line_total))}
-                                    </p>
+                                  {storeSettings?.lbp_primary_price && formatLBP(Number(item.line_total)) ? (
+                                    <>
+                                      <p className="font-bold text-sm text-amber-600 leading-tight">
+                                        {formatLBP(Number(item.line_total))}
+                                      </p>
+                                      <p className="text-[9px] text-secondary-500 font-bold mt-0.5 leading-none">
+                                        ${Number(item.line_total).toFixed(2)}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="font-bold text-sm text-secondary-600 leading-tight">
+                                        ${Number(item.line_total).toFixed(2)}
+                                      </p>
+                                      {formatLBP(Number(item.line_total)) && (
+                                        <p className="text-[9px] text-amber-600 font-bold mt-0.5 leading-none">
+                                          ≈ {formatLBP(Number(item.line_total))}
+                                        </p>
+                                      )}
+                                    </>
                                   )}
                                 </div>
 

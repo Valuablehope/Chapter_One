@@ -50,6 +50,7 @@ export interface Store {
   label_section_order?: unknown;
   show_lbp_price?: boolean;
   round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
   ui_resolution?: string;
   heading_size?: string;
   body_size?: string;
@@ -142,6 +143,7 @@ export class StoreModel extends BaseModel {
       label_section_order: 'ss.label_section_order',
       show_lbp_price: 'ss.show_lbp_price',
       round_lbp_to_1000: 'ss.round_lbp_to_1000',
+      lbp_primary_price: 'ss.lbp_primary_price',
       ui_resolution: 'ss.ui_resolution',
       receipt_printer: 'ss.receipt_printer',
       heading_size: 'ss.heading_size',

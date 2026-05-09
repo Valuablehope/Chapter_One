@@ -54,6 +54,7 @@ export interface StoreFormData {
   label_show_lbp: boolean;
   show_lbp_price: boolean;
   round_lbp_to_1000: boolean;
+  lbp_primary_price: boolean;
   ui_resolution: string;
   receipt_printer: string;
   heading_size: string;
@@ -97,6 +98,7 @@ const initialFormData: StoreFormData = {
   label_show_lbp: true,
   show_lbp_price: true,
   round_lbp_to_1000: false,
+  lbp_primary_price: false,
   ui_resolution: 'auto',
   receipt_printer: '',
   heading_size: 'md',
@@ -140,6 +142,7 @@ function storeToFormData(s: Store): StoreFormData {
     label_show_lbp: s.label_show_lbp ?? true,
     show_lbp_price: s.show_lbp_price ?? true,
     round_lbp_to_1000: s.round_lbp_to_1000 ?? false,
+    lbp_primary_price: s.lbp_primary_price ?? false,
     ui_resolution: s.ui_resolution || 'auto',
     receipt_printer: s.receipt_printer || '',
     heading_size: s.heading_size || 'md',
@@ -333,6 +336,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       label_show_lbp: formData.label_show_lbp,
       show_lbp_price: formData.show_lbp_price,
       round_lbp_to_1000: formData.round_lbp_to_1000,
+      lbp_primary_price: formData.lbp_primary_price,
       ui_resolution: formData.ui_resolution,
       receipt_printer: formData.receipt_printer || undefined,
       heading_size: formData.heading_size,
@@ -598,10 +602,21 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
             <div className="bg-gray-50 rounded-xl px-4 py-1 divide-y divide-gray-100">
               <Toggle
                 checked={formData.show_lbp_price}
-                onChange={(v) => set('show_lbp_price', v)}
+                onChange={(v) => {
+                  set('show_lbp_price', v);
+                  if (!v) set('lbp_primary_price', false);
+                }}
                 label="Show LBP price throughout the POS"
                 description="When enabled, the LBP price (USD × this rate) is shown in POS Sales and other pages."
               />
+              {formData.show_lbp_price && (
+                <Toggle
+                  checked={formData.lbp_primary_price}
+                  onChange={(v) => set('lbp_primary_price', v)}
+                  label="Show LBP as primary price in POS Sales"
+                  description="LBP appears as the main (large) price in the cart; USD is shown below in a smaller font."
+                />
+              )}
               <Toggle
                 checked={formData.round_lbp_to_1000}
                 onChange={(v) => set('round_lbp_to_1000', v)}
