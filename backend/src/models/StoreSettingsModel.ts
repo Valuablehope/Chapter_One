@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache — updated for receipt_printer (2026-05-05)
+// Triggering restart to refresh database column cache — updated for lbp_primary_price (2026-05-09)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
