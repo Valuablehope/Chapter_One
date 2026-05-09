@@ -233,7 +233,9 @@ export const en = {
     exchange_rate_value: "{{amount}} LBP per 1 {{currency}}",
     exchange_rate_not_set: "Not set",
     exchange_rate_hint: "Set the rate in Admin → Store → Regional.",
-    lbp_field_hint: "Set LBP exchange rate in Admin → Store → Regional to enable this field"
+    lbp_field_hint: "Set LBP exchange rate in Admin → Store → Regional to enable this field",
+    no_items_category: "There are no Products in this category yet!",
+    try_another_category: "Try selecting a different category"
   },
   dashboard: {
     errors: {
