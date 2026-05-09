@@ -60,6 +60,8 @@ export interface StoreSettings {
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */
@@ -91,6 +93,8 @@ export type LabelLayoutPatch = Pick<
   | 'label_price_pad_v'
   | 'label_barcode_pad_v'
   | 'label_section_order'
+  | 'label_height_mm'
+  | 'label_canvas_elements'
 >;
 
 type StoreModuleChangeListener = () => void;

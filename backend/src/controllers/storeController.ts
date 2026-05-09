@@ -386,6 +386,16 @@ const LABEL_LAYOUT_PATCH_KEYS = [
   'label_currency_weight',
   'label_price_amount_weight',
   'label_section_order',
+  'label_show_barcode',
+  'label_barcode_height',
+  'label_barcode_text_size',
+  'label_header_pad_v',
+  'label_title_pad_v',
+  'label_lbp_pad_v',
+  'label_price_pad_v',
+  'label_barcode_pad_v',
+  'label_height_mm',
+  'label_canvas_elements',
 ] as const;
 
 export const patchStoreLabelLayout = asyncHandler(async (req: Request, res: Response) => {

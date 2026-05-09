@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache — updated for lbp_primary_price (2026-05-09)
+// Triggering restart to refresh database column cache — updated for label_canvas_elements (2026-05-09)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
@@ -51,6 +51,8 @@ export interface StoreSettings {
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
 }
 
 export interface StoreSettingsInput {
@@ -98,6 +100,8 @@ export interface StoreSettingsInput {
   receipt_printer?: string | null;
   heading_size?: string;
   body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -468,6 +472,16 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('body_size');
       values.push(settings.body_size);
     }
+    if (settings.label_height_mm !== undefined && availableColumns.has('label_height_mm')) {
+      paramCount++;
+      fields.push('label_height_mm');
+      values.push(settings.label_height_mm);
+    }
+    if (settings.label_canvas_elements !== undefined && availableColumns.has('label_canvas_elements')) {
+      paramCount++;
+      fields.push('label_canvas_elements');
+      values.push(toJsonbParam(settings.label_canvas_elements));
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -703,6 +717,16 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`body_size = $${paramCount}`);
       values.push(settings.body_size);
+    }
+    if (settings.label_height_mm !== undefined && availableColumns.has('label_height_mm')) {
+      paramCount++;
+      fields.push(`label_height_mm = $${paramCount}`);
+      values.push(settings.label_height_mm);
+    }
+    if (settings.label_canvas_elements !== undefined && availableColumns.has('label_canvas_elements')) {
+      paramCount++;
+      fields.push(`label_canvas_elements = $${paramCount}::jsonb`);
+      values.push(toJsonbParam(settings.label_canvas_elements));
     }
 
     if (fields.length === 0) {
