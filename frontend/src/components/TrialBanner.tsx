@@ -15,8 +15,8 @@ export default function TrialBanner() {
     return () => clearInterval(interval);
   }, [checkLicense]);
 
-  // Don't show if dismissed, not trial, or no license status
-  if (isDismissed || !licenseStatus || !licenseStatus.isTrial) {
+  // Don't show if dismissed, not trial, expired (LicenseBanner handles expired), or no license status
+  if (isDismissed || !licenseStatus || !licenseStatus.isTrial || licenseStatus.isExpired) {
     return null;
   }
 

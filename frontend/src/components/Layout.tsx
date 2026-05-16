@@ -37,8 +37,10 @@ import {
   BanknotesIcon as BanknotesIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../store/authStore';
+import { useLicenseStore } from '../store/licenseStore';
 import { authService } from '../services/authService';
 import TrialBanner from './TrialBanner';
+import LicenseBanner from './LicenseBanner';
 import PageErrorBoundary from './PageErrorBoundary';
 import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { useOfflineSync } from '../hooks/useOfflineSync';
@@ -136,8 +138,16 @@ const NavItem = ({ item, active, sidebarExpanded, isCompact, onClick }: NavItemP
 
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
+  const { licenseStatus, lastChecked, isLoading: licenseLoading } = useLicenseStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // View-only when data is loaded and license is invalid; admin page is exempt so admins can activate
+  const hasLicenseData = lastChecked !== null;
+  const isViewOnly = hasLicenseData && !licenseLoading &&
+    (!licenseStatus || !licenseStatus.isValid) &&
+    !location.pathname.startsWith('/admin');
+
   const [posModuleType, setPosModuleType] = useState<PosModuleType>(
     (localStorage.getItem('pos-module-type') as PosModuleType) || 'store'
   );
@@ -402,6 +412,7 @@ export default function Layout({ children }: LayoutProps) {
           {isMobileMenuOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
         </button>
 
+        <LicenseBanner />
         <TrialBanner />
 
         {/* Offline sync indicator */}
@@ -433,7 +444,10 @@ export default function Layout({ children }: LayoutProps) {
         {/* Page content */}
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 overflow-auto">
           <PageErrorBoundary>
-            {children}
+            <div style={{ pointerEvents: isViewOnly ? 'none' : undefined }}
+                 className={isViewOnly ? 'select-none opacity-60' : ''}>
+              {children}
+            </div>
           </PageErrorBoundary>
         </main>
       </div>
