@@ -1,4 +1,3 @@
--- Migration file example
 CREATE TABLE IF NOT EXISTS orders (
   id SERIAL PRIMARY KEY,
   customer_id INTEGER NOT NULL,

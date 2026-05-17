@@ -34,6 +34,7 @@ const resourcesPath = process.resourcesPath;
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
+let appDbConfig: Record<string, string> | null = null;
 const BACKEND_HEALTH_URL = 'http://127.0.0.1:3001/health';
 
 function showStartupErrorAndQuit(title: string, message: string): void {
@@ -219,6 +220,111 @@ function persistMissingSecrets(envPath: string | null, envVars: NodeJS.ProcessEn
   }
 }
 
+// Builds the complete environment variable object that both the migration subprocess
+// and the backend server process need. Calling this once and sharing the result
+// avoids parsing the .env file multiple times on startup.
+function buildBackendEnv(envPath: string | null): NodeJS.ProcessEnv {
+  const { nodeModulesPath } = getBackendPaths();
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    NODE_ENV: 'production',
+    PORT: '3001',
+    API_PORT: '3001',
+    ELECTRON_IS_DEV: 'false',
+    ELECTRON_RUN_AS_NODE: '1',
+    RESOURCES_PATH: resourcesPath,
+    NODE_PATH: nodeModulesPath,
+    PATH: `${nodeModulesPath}/.bin${path.delimiter}${process.env.PATH || ''}`,
+    USER_DATA_PATH: app.getPath('userData'),
+  };
+
+  if (envPath && fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    envContent.split('\n').forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const equalIndex = trimmedLine.indexOf('=');
+        if (equalIndex > 0) {
+          const key = trimmedLine.substring(0, equalIndex).trim();
+          let value = trimmedLine.substring(equalIndex + 1).trim();
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+          env[key] = value;
+        }
+      }
+    });
+  }
+
+  persistMissingSecrets(envPath, env);
+  return env;
+}
+
+// Extracts the subset of env vars needed to connect to the database, used by
+// the backup module so it can reach PostgreSQL with the same credentials the
+// backend uses.
+function extractDbConfig(env: NodeJS.ProcessEnv): Record<string, string> {
+  return {
+    host: env.DB_HOST || 'localhost',
+    port: env.DB_PORT || '5432',
+    user: env.DB_USER || 'postgres',
+    password: env.DB_PASSWORD || '',
+    database: env.DB_NAME || '',
+    connectionString: env.DATABASE_URL || '',
+  };
+}
+
+// Spawns the backend's compiled migration script as a one-shot subprocess so
+// that pending SQL migrations run against the live database before the backend
+// server starts. Rejects on non-zero exit, which causes startup to abort.
+async function runMigrationsOnStartup(env: NodeJS.ProcessEnv): Promise<void> {
+  const { backendDir } = getBackendPaths();
+  const migrateScript = path.join(backendDir, 'dist/scripts/migrate.js');
+
+  if (!fs.existsSync(migrateScript)) {
+    log.warn(`[Migration] Script not found at: ${migrateScript} — skipping.`);
+    return;
+  }
+
+  log.info(`[Migration] Running migrations from: ${migrateScript}`);
+
+  return new Promise((resolve, reject) => {
+    const migrationProcess = spawn(process.execPath, [migrateScript], {
+      env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
+      cwd: backendDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+
+    migrationProcess.stdout?.on('data', (data: Buffer) => {
+      data.toString().trim().split('\n').forEach((line: string) => {
+        if (line.trim()) log.info(`[Migration] ${line.trim()}`);
+      });
+    });
+
+    migrationProcess.stderr?.on('data', (data: Buffer) => {
+      data.toString().trim().split('\n').forEach((line: string) => {
+        if (line.trim()) log.error(`[Migration] ${line.trim()}`);
+      });
+    });
+
+    migrationProcess.on('error', (err: Error) => {
+      reject(new Error(`Migration process error: ${err.message}`));
+    });
+
+    migrationProcess.on('close', (code: number | null) => {
+      if (code === 0) {
+        log.info('[Migration] All migrations completed successfully.');
+        resolve();
+      } else {
+        reject(new Error(`Migration process exited with code ${code}.`));
+      }
+    });
+  });
+}
+
 // Start backend server
 function startBackendServer(): boolean {
   const { serverPath, nodeModulesPath, backendDir } = getBackendPaths();
@@ -260,53 +366,13 @@ function startBackendServer(): boolean {
     return false;
   }
 
-  // Get .env path
   const envPath = getEnvPath();
+  const env = buildBackendEnv(envPath);
 
-  // Build environment variables
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NODE_ENV: 'production',
-    PORT: '3001',
-    API_PORT: '3001',
-    ELECTRON_IS_DEV: 'false',
-    ELECTRON_RUN_AS_NODE: '1', // CRITICAL: Run as plain Node, not Electron
-    // Pass resources path explicitly so backend doesn't have to guess relative paths
-    RESOURCES_PATH: resourcesPath,
-    // Set NODE_PATH so Node.js can find modules
-    NODE_PATH: nodeModulesPath,
-    // Add node_modules to PATH for native modules
-    PATH: `${nodeModulesPath}/.bin${path.delimiter}${process.env.PATH || ''}`,
-    // Explicitly pass userData path so backend can find .env
-    USER_DATA_PATH: app.getPath('userData'),
-  };
-
-  // Load .env file if it exists
-  if (envPath && fs.existsSync(envPath)) {
-    console.log(`📄 Loading .env from: ${envPath}`);
-    const envContent = fs.readFileSync(envPath, 'utf-8');
-    envContent.split('\n').forEach(line => {
-      const trimmedLine = line.trim();
-      if (trimmedLine && !trimmedLine.startsWith('#')) {
-        const equalIndex = trimmedLine.indexOf('=');
-        if (equalIndex > 0) {
-          const key = trimmedLine.substring(0, equalIndex).trim();
-          let value = trimmedLine.substring(equalIndex + 1).trim();
-          // Remove quotes if present
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-          }
-          env[key] = value;
-        }
-      }
-    });
-  } else {
+  if (!envPath || !fs.existsSync(envPath)) {
     console.warn(`⚠️  .env file not found. Expected at: ${envPath || 'unknown'}`);
     console.warn('   Backend will use default environment variables.');
   }
-
-  persistMissingSecrets(envPath, env);
 
   console.log(`🚀 Starting backend server from: ${serverPath}`);
   console.log(`📦 Using node_modules from: ${nodeModulesPath}`);
@@ -578,6 +644,23 @@ app.whenReady().then(async () => {
       return;
     }
 
+    // Build env once so both the migration subprocess and the backup module share
+    // the same parsed credentials without re-reading the .env file.
+    const startupEnvPath = getEnvPath();
+    const startupEnv = buildBackendEnv(startupEnvPath);
+    appDbConfig = extractDbConfig(startupEnv);
+
+    log.info('🗄️ Running database migrations...');
+    try {
+      await runMigrationsOnStartup(startupEnv);
+    } catch (err: any) {
+      showStartupErrorAndQuit(
+        'Database Migration Failed',
+        `A database migration could not be applied and the application cannot start safely.\n\n${err.message}\n\nPlease restore from a backup or contact support.`
+      );
+      return;
+    }
+
     log.info('🚀 Starting backend server...');
     const backendStarted = startBackendServer();
     if (!backendStarted) {
@@ -620,15 +703,19 @@ app.whenReady().then(async () => {
 
     createWindow();
     setupApplicationMenu();
-    require(path.join(app.getAppPath(), 'updater/updateManager.js')).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
+    require(path.join(app.getAppPath(), 'updater/updateManager.js'))
+      .init(mainWindow, appDbConfig, app.getPath('desktop'))
+      .catch((err: any) => log.error('Update manager init failed:', err));
   } else {
     // In dev mode, backend is started separately
     createWindow(!setupComplete);
     setupApplicationMenu();
-    const updaterPath = isDev 
+    const updaterPath = isDev
       ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
       : path.join(app.getAppPath(), 'updater/updateManager.js');
-    require(updaterPath).init(mainWindow).catch((err: any) => log.error('Update manager init failed:', err));
+    require(updaterPath)
+      .init(mainWindow, appDbConfig, app.getPath('desktop'))
+      .catch((err: any) => log.error('Update manager init failed:', err));
   }
 
   app.on('activate', () => {
@@ -696,15 +783,15 @@ ipcMain.handle('app:getVersion', () => {
   return app.getVersion();
 });
 
-ipcMain.handle('app:installUpdate', () => {
-  const updaterPath = isDev 
+ipcMain.handle('app:installUpdate', async () => {
+  const updaterPath = isDev
     ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
     : path.join(app.getAppPath(), 'updater/updateManager.js');
-  require(updaterPath).manualQuitAndInstall();
+  await require(updaterPath).backupAndInstall();
 });
 
 ipcMain.handle('app:getUpdateStatus', () => {
-  const updaterPath = isDev 
+  const updaterPath = isDev
     ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
     : path.join(app.getAppPath(), 'updater/updateManager.js');
   return require(updaterPath).getLastStatus();

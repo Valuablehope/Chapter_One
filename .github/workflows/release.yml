@@ -42,11 +42,11 @@ jobs:
             # Extract from tag v1.2.5 -> 1.2.5
             VERSION=${GITHUB_REF#refs/tags/v}
           fi
-          echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Version validated: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version resolved: $VERSION"
 
       - name: Sync App Version
-        run: node scripts/set-version.js ${{ env.RELEASE_VERSION }}
+        run: node scripts/set-version.js ${{ steps.resolve.outputs.version }}
 
       - name: Build and Publish Windows Installer
         env:

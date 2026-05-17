@@ -21,6 +21,7 @@ export default function LoginScreen() {
   const [appVersion, setAppVersion]     = useState('4.0.0');
   const [updateStatus, setUpdateStatus] = useState('checking');
   const [updatePercent, setUpdatePercent] = useState(0);
+  const [backupPath, setBackupPath]     = useState('');
 
   useEffect(() => {
     if (window.electronAPI?.getVersion) {
@@ -41,6 +42,7 @@ export default function LoginScreen() {
         setUpdateStatus(data.status);
         if (data.percent !== undefined) setUpdatePercent(Math.round(data.percent));
         if (data.version && data.status === 'up-to-date') setAppVersion(data.version);
+        if (data.backupPath) setBackupPath(data.backupPath);
       };
       
       window.electronAPI.ipcRenderer?.on('updater:status', handleStatus);
@@ -210,46 +212,92 @@ export default function LoginScreen() {
               Fast, reliable point-of-sale built for modern retail businesses.
             </p>
 
-            {/* Version badge */}
-            <div style={{
-              marginTop: '20px',
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: updateStatus === 'ready' ? '0' : '5px 12px',
-              background: updateStatus === 'ready' ? 'transparent' : 'rgba(255,255,255,0.10)',
-              backdropFilter: updateStatus === 'ready' ? 'none' : 'blur(8px)',
-              border: updateStatus === 'ready' ? 'none' : '1px solid rgba(255,255,255,0.18)',
-              borderRadius: '20px',
-            }}>
-              {updateStatus === 'ready' ? (
-                <button
-                  onClick={() => window.electronAPI?.installUpdate?.()}
-                  style={{
-                    padding: '6px 16px', background: '#4ade80', color: '#064e3b',
-                    border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
-                    cursor: 'pointer', boxShadow: '0 2px 8px rgba(74,222,128,0.3)',
-                    transition: 'transform 0.1s'
-                  }}
-                  onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
-                  onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  ✨ Update to Latest Version
-                </button>
-              ) : (
-                <>
-                  <div style={{ 
-                    width: '6px', height: '6px', borderRadius: '50%', 
-                    background: updateStatus === 'error' ? '#ef4444' : updateStatus === 'checking' || updateStatus === 'downloading' ? '#fbbf24' : '#4ade80',
-                    animation: updateStatus === 'downloading' ? 'pulse 1.5s infinite' : 'none'
+            {/* Version / update badge */}
+            {(() => {
+              const isInstalling = updateStatus === 'backing-up' || updateStatus === 'backup-done' || updateStatus === 'backup-skipped';
+
+              if (updateStatus === 'ready') {
+                return (
+                  <div style={{ marginTop: '20px' }}>
+                    <button
+                      onClick={() => window.electronAPI?.installUpdate?.()}
+                      style={{
+                        padding: '6px 16px', background: '#4ade80', color: '#064e3b',
+                        border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                        cursor: 'pointer', boxShadow: '0 2px 8px rgba(74,222,128,0.3)',
+                        transition: 'transform 0.1s',
+                      }}
+                      onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                      onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      ✨ Update to Latest Version
+                    </button>
+                  </div>
+                );
+              }
+
+              if (isInstalling) {
+                const dotColor = updateStatus === 'backup-done' ? '#4ade80' : '#fbbf24';
+                const label =
+                  updateStatus === 'backing-up'     ? 'Creating database backup...' :
+                  updateStatus === 'backup-done'    ? `Backup saved to Desktop. Installing...` :
+                  /* backup-skipped */                'Backup unavailable — installing update...';
+                const title = backupPath && updateStatus === 'backup-done' ? backupPath : undefined;
+
+                return (
+                  <div style={{
+                    marginTop: '20px',
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '5px 12px',
+                    background: 'rgba(255,255,255,0.10)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    borderRadius: '20px',
+                  }} title={title}>
+                    <div style={{
+                      width: '6px', height: '6px', borderRadius: '50%',
+                      background: dotColor,
+                      animation: 'pulse 1.5s infinite',
+                    }} />
+                    <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px', fontWeight: 500 }}>
+                      {label}
+                    </span>
+                  </div>
+                );
+              }
+
+              // Default: checking / downloading / up-to-date / error
+              const dotColor =
+                updateStatus === 'error'                                    ? '#ef4444' :
+                updateStatus === 'checking' || updateStatus === 'downloading' ? '#fbbf24' :
+                '#4ade80';
+              const label =
+                updateStatus === 'checking'   ? 'Checking for updates...' :
+                updateStatus === 'downloading' ? `Downloading Update... ${updatePercent}%` :
+                updateStatus === 'error'       ? `Version ${appVersion} (Update Check Failed)` :
+                `Version ${appVersion} (Up to Date)`;
+
+              return (
+                <div style={{
+                  marginTop: '20px',
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '5px 12px',
+                  background: 'rgba(255,255,255,0.10)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  borderRadius: '20px',
+                }}>
+                  <div style={{
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: dotColor,
+                    animation: updateStatus === 'downloading' ? 'pulse 1.5s infinite' : 'none',
                   }} />
                   <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px', fontWeight: 500 }}>
-                    {updateStatus === 'checking' ? 'Checking for updates...' :
-                     updateStatus === 'downloading' ? `Downloading Update... ${updatePercent}%` :
-                     updateStatus === 'error' ? `Version ${appVersion} (Update Check Failed)` :
-                     `Version ${appVersion} (Up to Date)`}
+                    {label}
                   </span>
-                </>
-              )}
-            </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

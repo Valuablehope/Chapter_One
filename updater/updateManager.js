@@ -1,9 +1,10 @@
 const { autoUpdater } = require('electron-updater');
 const logger = require('../config/logger');
 
-// Store a reference to the main window to securely send progress if needed
 let mainWindowRef = null;
 let lastStatus = { status: 'checking' };
+let appDbConfig = null;
+let appDesktopPath = null;
 
 function emitStatus(status, payload = {}) {
   lastStatus = { status, ...payload };
@@ -16,17 +17,22 @@ function getLastStatus() {
   return lastStatus;
 }
 
-async function init(mainWindow) {
+/**
+ * @param {Electron.BrowserWindow} mainWindow
+ * @param {object} dbConfig  { host, port, user, password, database, connectionString? }
+ * @param {string} desktopPath  Absolute path to the user's Desktop directory.
+ */
+async function init(mainWindow, dbConfig, desktopPath) {
   logger.info('Initializing GitHub Update Manager...');
   mainWindowRef = mainWindow;
+  appDbConfig = dbConfig;
+  appDesktopPath = desktopPath;
 
-  // Use the established logger for electron-updater output
   autoUpdater.logger = logger;
-  
-  // Set to download automatically in the background
   autoUpdater.autoDownload = true;
+  // Disabled so the app never installs silently on quit without first creating a backup.
+  autoUpdater.autoInstallOnAppQuit = false;
 
-  // Bind Native Update Lifecycle Events
   autoUpdater.on('checking-for-update', () => {
     logger.info('checking-for-update: Communicating with GitHub Releases...');
     emitStatus('checking');
@@ -43,8 +49,7 @@ async function init(mainWindow) {
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    let log_message = `download-progress: ${Math.round(progressObj.percent)}% (${progressObj.bytesPerSecond} bps)`;
-    logger.debug(log_message);
+    logger.debug(`download-progress: ${Math.round(progressObj.percent)}% (${progressObj.bytesPerSecond} bps)`);
     emitStatus('downloading', { percent: progressObj.percent, speed: progressObj.bytesPerSecond });
   });
 
@@ -54,28 +59,27 @@ async function init(mainWindow) {
   });
 
   autoUpdater.on('error', (err) => {
-    logger.error('error: Update sequence failed.', { error: err.message, stack: err.stack });
+    logger.error('Update sequence failed.', { error: err.message, stack: err.stack });
     emitStatus('error', { error: err.message });
   });
 
-  // Execute the update check safely
   try {
     const { app } = require('electron');
     if (!app.isPackaged) {
-      logger.info('Skipping update check: Application is running in development mode (unpacked).');
+      logger.info('Skipping update check: application is running in development mode.');
       emitStatus('up-to-date', { version: app.getVersion() });
       return;
     }
-    
+
     const isOnline = await checkInternetConnection();
     if (isOnline) {
       logger.info('Internet connection verified. Initiating background checkForUpdates.');
       await autoUpdater.checkForUpdates();
     } else {
-      logger.warn('Skipping update check: No active internet connection.');
+      logger.warn('Skipping update check: no active internet connection.');
     }
   } catch (err) {
-    logger.error('Failed to trigger update check', { error: err.message });
+    logger.error('Failed to trigger update check.', { error: err.message });
     emitStatus('error', { error: err.message });
   }
 
@@ -83,30 +87,51 @@ async function init(mainWindow) {
     if (!require('electron').app.isPackaged) return;
     const online = await checkInternetConnection();
     if (online) {
-      autoUpdater.checkForUpdates().catch(e => logger.error('Interval update failed', e));
+      autoUpdater.checkForUpdates().catch(e => logger.error('Interval update check failed.', e));
     }
   }, 6 * 60 * 60 * 1000);
 }
 
-// Helper to manually quit and install if a custom UI component requests it
-function manualQuitAndInstall() {
-  logger.info('Application forcefully restarting to apply update.');
+/**
+ * Creates a database backup on the client's Desktop, then installs the downloaded
+ * update. Called by the app:installUpdate IPC handler. Backup failure is non-fatal
+ * — the update proceeds regardless to avoid leaving clients on a broken version.
+ */
+async function backupAndInstall() {
+  logger.info('User triggered update install. Starting pre-update backup...');
+
+  if (appDbConfig && appDesktopPath) {
+    emitStatus('backing-up');
+    try {
+      const { createBackup } = require('./dbBackup');
+      const result = await createBackup(appDbConfig, appDesktopPath);
+
+      if (result.success) {
+        logger.info(`Pre-update backup saved to: ${result.backupPath}`);
+        emitStatus('backup-done', { backupPath: result.backupPath });
+      } else {
+        logger.warn(`Backup skipped: ${result.error}`);
+        emitStatus('backup-skipped', { error: result.error });
+      }
+    } catch (err) {
+      logger.error('Backup threw an unexpected error.', { error: err.message });
+      emitStatus('backup-skipped', { error: err.message });
+    }
+
+    // Brief pause so the UI can render the backup status before the process quits.
+    await new Promise(r => setTimeout(r, 1500));
+  } else {
+    logger.warn('DB config or desktop path not available — backup skipped.');
+  }
+
+  logger.info('Proceeding with quitAndInstall.');
   autoUpdater.quitAndInstall();
 }
 
-/**
- * Basic DNS resolution check to ensure we aren't wasting time if offline.
- */
 function checkInternetConnection() {
   return new Promise((resolve) => {
-    require('dns').resolve('github.com', (err) => {
-      resolve(!err);
-    });
+    require('dns').resolve('github.com', (err) => resolve(!err));
   });
 }
 
-module.exports = {
-  init,
-  manualQuitAndInstall,
-  getLastStatus
-};
+module.exports = { init, backupAndInstall, getLastStatus };
