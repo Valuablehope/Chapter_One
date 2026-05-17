@@ -141,7 +141,7 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     });
   }
 
-  const rawPayments = Array.isArray(sale.payments) ? sale.payments : [];
+  const rawPayments: { method: string; amount: number | string }[] = Array.isArray(sale.payments) ? sale.payments : [];
   const payments = [...rawPayments.map(p => ({ ...p, amount: Number(p.amount) }))];
 
   // If delivery was not in the drawer, virtually add it to the cash payment 
