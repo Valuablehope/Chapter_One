@@ -933,7 +933,7 @@ export class SaleModel extends BaseModel {
           // Heuristic: only include delivery in grand_total (drawer total) if the setting is ON.
           // For updates, we usually want to maintain the same "in-drawer" status as original creation?
           // Actually, let's just use the current store setting for simplicity.
-          const includeDeliveryInDrawer = storeSettings?.include_delivery_in_drawer !== false;
+          const includeDeliveryInDrawer = editStoreSettings?.include_delivery_in_drawer !== false;
           const grandTotal = roundMoney(
             merchandiseGrandTotal + 
             (editTaxInclusive ? 0 : taxTotal) + 
