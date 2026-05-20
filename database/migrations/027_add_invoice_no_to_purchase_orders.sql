@@ -1,2 +1,2 @@
 -- Add invoice_no column to purchase_orders table
-ALTER TABLE purchase_orders ADD COLUMN invoice_no VARCHAR(255);
+ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(255);
