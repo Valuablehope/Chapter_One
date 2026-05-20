@@ -118,6 +118,51 @@ async function runMigrations() {
       )
     `);
 
+    // Detect if this is an upgrade of a legacy/existing database
+    const checkTableRes = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+          AND table_name = 'app_users'
+      )
+    `);
+    const isExistingDb = checkTableRes.rows[0].exists;
+
+    if (isExistingDb) {
+      const countRes = await client.query('SELECT COUNT(*) FROM migrations');
+      const count = parseInt(countRes.rows[0].count, 10);
+      if (count === 0) {
+        console.log('Existing database detected. Pre-seeding legacy migrations to avoid re-execution errors...');
+        const legacyMigrations = [
+          '000_base_schema.sql',
+          '001_create_receipt_counters.sql',
+          '002_ensure_stock_balances_table.sql',
+          '003_add_fulltext_search.sql',
+          '004_add_client_sale_id.sql',
+          '005_restore_missing_tables.sql',
+          '006_add_missing_store_settings_columns.sql',
+          '007_store_pos_module_and_restaurant_menus.sql',
+          '008_ensure_public_store_settings_restaurant_columns.sql',
+          '009_add_restaurant_sales_context.sql',
+          '010_restaurant_menus_table.sql',
+          '011_drop_legacy_store_settings_restaurant_menus.sql',
+          '012_add_product_unit_of_measure.sql',
+          '013_add_product_types.sql',
+          '014_move_display_on_pos.sql',
+          '015_alter_qty_to_numeric.sql',
+          '016_add_margin_pct_to_products.sql',
+          '017_add_cancelled_to_sale_status.sql',
+          '018_add_cancelled_to_movement_reason.sql',
+          '019_add_lbp_exchange_rate.sql',
+          'performance_indexes.sql'
+        ];
+        for (const name of legacyMigrations) {
+          await client.query('INSERT INTO migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [name]);
+        }
+        console.log('✅ Legacy migrations pre-seeded successfully.');
+      }
+    }
+
     // Get executed migrations
     const executedRes = await client.query('SELECT name FROM migrations');
     const executedMigrations = new Set(executedRes.rows.map(r => r.name));
