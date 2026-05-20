@@ -27,8 +27,8 @@ router.post(
       .notEmpty()
       .withMessage('Each item must have a product_id'),
     body('items.*.qty')
-      .isInt({ min: 1 })
-      .withMessage('Each item qty must be a positive integer'),
+      .isFloat({ min: 0.001 })
+      .withMessage('Each item qty must be a positive number'),
     body('notes').optional().isString(),
   ],
   validateRequest,

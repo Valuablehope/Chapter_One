@@ -27,8 +27,8 @@ export const saveOpeningStock = asyncHandler(
 
     for (const item of items) {
       if (!item.product_id) throw new CustomError('Each item must have a product_id', 400);
-      if (!Number.isInteger(item.qty) || item.qty < 1) {
-        throw new CustomError('Each item qty must be a positive integer', 400);
+      if (typeof item.qty !== 'number' || isNaN(item.qty) || item.qty <= 0) {
+        throw new CustomError('Each item qty must be a positive number', 400);
       }
     }
 

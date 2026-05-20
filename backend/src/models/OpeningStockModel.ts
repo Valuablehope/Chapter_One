@@ -183,11 +183,11 @@ export class OpeningStockModel extends BaseModel {
             // Update materialized balance
             await client.query(
               `INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
-               VALUES ($1, $2, $3::numeric, $3::integer)
+               VALUES ($1, $2, $3::numeric, $3::numeric)
                ON CONFLICT (store_id, product_id)
                DO UPDATE SET
                  qty_on_hand = stock_balances.qty_on_hand + $3::numeric,
-                 qty_in      = stock_balances.qty_in      + $3::integer,
+                 qty_in      = stock_balances.qty_in      + $3::numeric,
                  updated_at  = NOW()`,
               [storeId, item.product_id, item.qty]
             );
