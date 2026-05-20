@@ -291,6 +291,8 @@ async function runMigrationsOnStartup(env: NodeJS.ProcessEnv): Promise<void> {
   log.info(`[Migration] Running migrations from: ${migrateScript}`);
 
   return new Promise((resolve, reject) => {
+    const stderrLines: string[] = [];
+
     const migrationProcess = spawn(process.execPath, [migrateScript], {
       env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
       cwd: backendDir,
@@ -306,7 +308,10 @@ async function runMigrationsOnStartup(env: NodeJS.ProcessEnv): Promise<void> {
 
     migrationProcess.stderr?.on('data', (data: Buffer) => {
       data.toString().trim().split('\n').forEach((line: string) => {
-        if (line.trim()) log.error(`[Migration] ${line.trim()}`);
+        if (line.trim()) {
+          log.error(`[Migration] ${line.trim()}`);
+          stderrLines.push(line.trim());
+        }
       });
     });
 
@@ -319,7 +324,9 @@ async function runMigrationsOnStartup(env: NodeJS.ProcessEnv): Promise<void> {
         log.info('[Migration] All migrations completed successfully.');
         resolve();
       } else {
-        reject(new Error(`Migration process exited with code ${code}.`));
+        const failureLine = stderrLines.find(l => l.includes('❌ Failed to execute migration'));
+        const detail = failureLine ?? (stderrLines.length > 0 ? stderrLines[stderrLines.length - 1] : '');
+        reject(new Error(`Migration process exited with code ${code}.${detail ? `\n\n${detail}` : ''}`));
       }
     });
   });

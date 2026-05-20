@@ -10,7 +10,10 @@
       "Bash(find /c/Users/IM-SPEC/Documents/Chapter_One -name \"*.sql\" -type f -exec grep -l \"products\\\\|sales\\\\|purchase\" {} \\\\;)",
       "Bash(grep -E \"\\\\.\\(ts|js|sql\\)$\")",
       "Bash(npm install *)",
-      "Bash(npx convex *)"
+      "Bash(npx convex *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\IM-SPEC\\\\Documents\\\\Chapter_One\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)"
     ]
   }
 }

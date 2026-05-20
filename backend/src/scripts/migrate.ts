@@ -220,17 +220,17 @@ async function runMigrations() {
         await client.query('INSERT INTO migrations (name) VALUES ($1)', [file]);
         await client.query('COMMIT');
         console.log(`✅ ${file} executed successfully.`);
-      } catch (err) {
+      } catch (err: any) {
         await client.query('ROLLBACK');
         console.error(`❌ Failed to execute migration ${file}:`, err);
-        throw err;
+        throw new Error(`Migration "${file}" failed: ${err?.message || err}`);
       }
     }
 
     console.log('All migrations completed successfully.');
 
-  } catch (error) {
-    console.error('Migration failed:', error);
+  } catch (error: any) {
+    console.error(`Migration failed: ${error?.message || error}`);
     process.exit(1);
   } finally {
     if (client) await client.end();
