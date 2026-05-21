@@ -1032,6 +1032,48 @@ export default function Sales() {
     setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, [storeSettings]);
 
+  // Extract print portal container contents and active stylesheets
+  const getReceiptHtml = () => {
+    const portal = document.querySelector('.print-portal-container');
+    if (!portal) return null;
+
+    // Get all style tags and stylesheet links from parent document
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((el) => el.outerHTML)
+      .join('\n');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Receipt Print Portal</title>
+          ${styles}
+          <style>
+            body {
+              background-color: white !important;
+              color: black !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            .print-portal-container {
+              display: block !important;
+              position: static !important;
+              width: 100% !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-portal-container">
+            ${portal.innerHTML}
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
   // Print receipt
   const handlePrint = () => {
     if (completedSale) {
@@ -1040,18 +1082,36 @@ export default function Sales() {
         Number(completedSale.grand_total)
       );
     }
+
+    const html = getReceiptHtml();
+    if (!html) {
+      toast.error('Print failed: Receipt content not ready. Please try again.');
+      return;
+    }
+
     if (window.electronAPI?.printSilent) {
-      window.electronAPI.printSilent(storeSettings?.receipt_printer || undefined).then(res => {
+      window.electronAPI.printSilent(storeSettings?.receipt_printer || undefined, html).then(res => {
         if (!res.success) {
           toast.error(`Print failed: ${res.error || 'Unknown error'}`);
-          // Fallback to normal print if silent fails
-          window.print();
+        } else {
+          toast.success('Receipt sent to printer.');
         }
       });
     } else {
-      window.print();
+      toast.error('Silent print API is not available on this platform.');
     }
   };
+
+  // Auto-print receipt when sale is completed and auto_print is enabled
+  useEffect(() => {
+    if (completedSale && storeSettings?.auto_print) {
+      // Defer slightly to ensure React has fully rendered the portal in the DOM
+      const timer = setTimeout(() => {
+        handlePrint();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [completedSale, storeSettings?.auto_print]);
 
   // Refresh store settings + LBP rate from DB after a sale completes (receipt flow)
   useEffect(() => {

@@ -304,34 +304,36 @@ export class SaleModel extends BaseModel {
           // Row-level locking (FOR UPDATE) provides sufficient protection against race conditions
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
+          if (!salesColumnsCache) {
+            const columnCheck = await client.query(`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge')
+            `);
+            salesColumnsCache = {
+              hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
+              hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
+              hasDeliveryCharge: columnCheck.rows.some((r: any) => r.column_name === 'delivery_charge'),
+            };
+          }
+
           // Check for duplicate sale (idempotency check) if client_sale_id is provided
-          // Gracefully handle if column doesn't exist yet
-          if (data.client_sale_id) {
-            try {
-              const duplicateCheck = await client.query(
-                'SELECT sale_id FROM sales WHERE client_sale_id = $1',
-                [data.client_sale_id]
-              );
-              if (duplicateCheck.rows.length > 0) {
-                // Sale already exists - rollback and return existing sale
-                await client.query('ROLLBACK');
-                logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
-                const existingSaleId = duplicateCheck.rows[0].sale_id;
-                const existingSale = await this.findById(existingSaleId);
-                if (existingSale) {
-                  return existingSale;
-                }
-                // If findById fails, throw error
-                throw new Error('Duplicate sale found but could not retrieve details');
+          if (data.client_sale_id && salesColumnsCache.hasClientSaleId) {
+            const duplicateCheck = await client.query(
+              'SELECT sale_id FROM sales WHERE client_sale_id = $1',
+              [data.client_sale_id]
+            );
+            if (duplicateCheck.rows.length > 0) {
+              // Sale already exists - rollback and return existing sale
+              await client.query('ROLLBACK');
+              logger.info(`Duplicate sale detected with client_sale_id: ${data.client_sale_id}, returning existing sale`);
+              const existingSaleId = duplicateCheck.rows[0].sale_id;
+              const existingSale = await this.findById(existingSaleId, client);
+              if (existingSale) {
+                return existingSale;
               }
-            } catch (error: any) {
-              // If column doesn't exist, skip duplicate check (graceful degradation)
-              if (error.message?.includes('column') && error.message?.includes('client_sale_id')) {
-                logger.warn('client_sale_id column does not exist, skipping duplicate check');
-                // Continue with sale creation
-              } else {
-                throw error;
-              }
+              // If findById fails, throw error
+              throw new Error('Duplicate sale found but could not retrieve details');
             }
           }
 
@@ -422,28 +424,14 @@ export class SaleModel extends BaseModel {
           }
 
           // Create sale
-          // Check if client_sale_id and discount_rate columns exist before including them.
-          // Result is cached for the process lifetime — schema is stable after migrations.
+          // Columns existence is already checked and cached at the start of the transaction.
           let saleQuery: string;
           let saleValues: any[];
 
           try {
-            if (!salesColumnsCache) {
-              const columnCheck = await client.query(`
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge')
-              `);
-              salesColumnsCache = {
-                hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
-                hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
-                hasDeliveryCharge: columnCheck.rows.some((r: any) => r.column_name === 'delivery_charge'),
-              };
-            }
-
-            const hasClientSaleId = salesColumnsCache.hasClientSaleId;
-            const hasDiscountRate = salesColumnsCache.hasDiscountRate;
-            const hasDeliveryCharge = salesColumnsCache.hasDeliveryCharge;
+            const hasClientSaleId = salesColumnsCache!.hasClientSaleId;
+            const hasDiscountRate = salesColumnsCache!.hasDiscountRate;
+            const hasDeliveryCharge = salesColumnsCache!.hasDeliveryCharge;
 
             let paramCount = 11; // Base parameters
             const columns: string[] = [
@@ -700,6 +688,19 @@ export class SaleModel extends BaseModel {
           await client.query('SET LOCAL lock_timeout = 5000');
           await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
+          if (!salesColumnsCache) {
+            const columnCheck = await client.query(`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge')
+            `);
+            salesColumnsCache = {
+              hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
+              hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
+              hasDeliveryCharge: columnCheck.rows.some((r: any) => r.column_name === 'delivery_charge'),
+            };
+          }
+
           const lockRow = await client.query(
             `SELECT day_closure_id FROM sales WHERE sale_id = $1 FOR UPDATE`,
             [saleId]
@@ -714,7 +715,7 @@ export class SaleModel extends BaseModel {
           }
 
           // Get existing sale
-          const existingSale = await this.findById(saleId);
+          const existingSale = await this.findById(saleId, client);
           if (!existingSale) {
             await client.query('ROLLBACK');
             throw new Error('Sale not found');
@@ -827,13 +828,13 @@ export class SaleModel extends BaseModel {
                 );
                 await client.query(`
                   INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
-                  VALUES ($1, $2, $3, -$3)
+                  VALUES ($1, $2, $3, $4)
                   ON CONFLICT (store_id, product_id)
                   DO UPDATE SET
                     qty_on_hand = stock_balances.qty_on_hand + $3,
-                    qty_out     = stock_balances.qty_out     - $3,
+                    qty_out     = stock_balances.qty_out     + $4,
                     updated_at  = NOW()
-                `, [existingSale.store_id, item.product_id, -item.qty]);
+                `, [existingSale.store_id, item.product_id, -item.qty, item.qty]);
               }
             }
           }
@@ -858,37 +859,31 @@ export class SaleModel extends BaseModel {
           }
 
           // Update discount and delivery if provided
-          if (data.discount_rate !== undefined || data.delivery_charge !== undefined) {
-            try {
-              const updates: string[] = [];
-              const params: any[] = [];
-              let pIdx = 1;
+          const shouldUpdateDiscount = data.discount_rate !== undefined && salesColumnsCache!.hasDiscountRate;
+          const shouldUpdateDelivery = data.delivery_charge !== undefined && salesColumnsCache!.hasDeliveryCharge;
+          
+          if (shouldUpdateDiscount || shouldUpdateDelivery) {
+            const updates: string[] = [];
+            const params: any[] = [];
+            let pIdx = 1;
 
-              if (data.discount_rate !== undefined) {
-                updates.push(`discount_rate = $${pIdx++}`);
-                params.push(data.discount_rate);
-              }
-              if (data.delivery_charge !== undefined) {
-                updates.push(`delivery_charge = $${pIdx++}`);
-                params.push(data.delivery_charge);
-              }
+            if (shouldUpdateDiscount) {
+              updates.push(`discount_rate = $${pIdx++}`);
+              params.push(data.discount_rate);
+            }
+            if (shouldUpdateDelivery) {
+              updates.push(`delivery_charge = $${pIdx++}`);
+              params.push(data.delivery_charge);
+            }
 
-              if (updates.length > 0) {
-                params.push(saleId);
-                const updateQuery = `
-                    UPDATE sales 
-                    SET ${updates.join(', ')}
-                    WHERE sale_id = $${pIdx}
-                  `;
-                await client.query(updateQuery, params);
-              }
-            } catch (err: any) {
-              // Ignore if columns don't exist
-              if (err.message?.includes('column')) {
-                logger.warn('Column does not exist, skipping specific field update');
-              } else {
-                throw err;
-              }
+            if (updates.length > 0) {
+              params.push(saleId);
+              const updateQuery = `
+                  UPDATE sales 
+                  SET ${updates.join(', ')}
+                  WHERE sale_id = $${pIdx}
+                `;
+              await client.query(updateQuery, params);
             }
           }
 
@@ -901,15 +896,11 @@ export class SaleModel extends BaseModel {
 
           // Determine discount rate
           let currentDiscountRate = 0;
-          if (data.discount_rate !== undefined) {
+          if (data.discount_rate !== undefined && salesColumnsCache!.hasDiscountRate) {
             currentDiscountRate = data.discount_rate;
-          } else {
-            try {
-              const saleQuery = await client.query('SELECT discount_rate FROM sales WHERE sale_id = $1', [saleId]);
-              currentDiscountRate = Number(saleQuery.rows[0]?.discount_rate || 0);
-            } catch (err) {
-              // Ignore if column doesn't exist
-            }
+          } else if (salesColumnsCache!.hasDiscountRate) {
+            const saleQuery = await client.query('SELECT discount_rate FROM sales WHERE sale_id = $1', [saleId]);
+            currentDiscountRate = Number(saleQuery.rows[0]?.discount_rate || 0);
           }
 
           const persistedRows = items.map((row: any) => ({
@@ -927,8 +918,13 @@ export class SaleModel extends BaseModel {
           );
 
           // Get current delivery charge from DB to ensure it's included in grand total
-          const deliveryResult = await client.query('SELECT delivery_charge FROM sales WHERE sale_id = $1', [saleId]);
-          const currentDeliveryCharge = Number(deliveryResult.rows[0]?.delivery_charge || 0);
+          let currentDeliveryCharge = 0;
+          if (data.delivery_charge !== undefined && salesColumnsCache!.hasDeliveryCharge) {
+            currentDeliveryCharge = data.delivery_charge;
+          } else if (salesColumnsCache!.hasDeliveryCharge) {
+            const deliveryResult = await client.query('SELECT delivery_charge FROM sales WHERE sale_id = $1', [saleId]);
+            currentDeliveryCharge = Number(deliveryResult.rows[0]?.delivery_charge || 0);
+          }
 
           // Heuristic: only include delivery in grand_total (drawer total) if the setting is ON.
           // For updates, we usually want to maintain the same "in-drawer" status as original creation?
@@ -962,7 +958,7 @@ export class SaleModel extends BaseModel {
           await client.query('COMMIT');
 
           // Return updated sale
-          const updatedSale = await this.findById(saleId);
+          const updatedSale = await this.findById(saleId, client);
           if (!updatedSale) {
             throw new Error('Failed to retrieve updated sale');
           }
@@ -1026,7 +1022,7 @@ export class SaleModel extends BaseModel {
           }
 
           // Get existing sale
-          const existingSale = await this.findById(saleId);
+          const existingSale = await this.findById(saleId, client);
           if (!existingSale) {
             await client.query('ROLLBACK');
             throw new Error('Sale not found');
@@ -1092,7 +1088,7 @@ export class SaleModel extends BaseModel {
 
           await client.query('COMMIT');
           
-          const updatedSale = await this.findById(saleId);
+          const updatedSale = await this.findById(saleId, client);
           return updatedSale as SaleWithDetails;
         } catch (error) {
           try {
@@ -1200,7 +1196,7 @@ export class SaleModel extends BaseModel {
   }
 
   // Get sale by ID - Using subqueries to avoid Cartesian product with payments
-  static async findById(saleId: string): Promise<SaleWithDetails | null> {
+  static async findById(saleId: string, client?: any): Promise<SaleWithDetails | null> {
     const query = `
       SELECT 
         s.*,
@@ -1248,7 +1244,7 @@ export class SaleModel extends BaseModel {
       LEFT JOIN customers c ON c.customer_id = s.customer_id
       WHERE s.sale_id = $1
     `;
-    const saleResult = await this.query(query, [saleId]);
+    const saleResult = client ? await client.query(query, [saleId]) : await this.query(query, [saleId]);
 
     if (saleResult.rows.length === 0) {
       return null;

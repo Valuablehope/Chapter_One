@@ -880,7 +880,70 @@ ipcMain.handle('app:getPrinters', async (event) => {
   return [];
 });
 
-ipcMain.handle('app:print-silent', async (event, deviceName?: string) => {
+ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: string) => {
+  if (html) {
+    return new Promise((resolve) => {
+      const printWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      });
+
+      const tempFilePath = path.join(
+        app.getPath('userData'),
+        `temp-print-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.html`
+      );
+
+      try {
+        fs.writeFileSync(tempFilePath, html, 'utf-8');
+      } catch (err: any) {
+        log.error('Failed to write temp print file:', err);
+        printWindow.destroy();
+        resolve({ success: false, error: `Failed to write temp file: ${err.message}` });
+        return;
+      }
+
+      printWindow.loadFile(tempFilePath).catch((err) => {
+        log.error('Failed to load temp print file in window:', err);
+        printWindow.destroy();
+        try {
+          if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        } catch (e) {}
+        resolve({ success: false, error: `Failed to load temp file: ${err.message}` });
+      });
+
+      printWindow.webContents.on('did-finish-load', () => {
+        const options: Electron.WebContentsPrintOptions = {
+          silent: true,
+          printBackground: true,
+        };
+
+        if (deviceName) {
+          options.deviceName = deviceName;
+        }
+
+        printWindow.webContents.print(options, (success, failureReason) => {
+          printWindow.destroy();
+          try {
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+            }
+          } catch (e) {
+            log.error('Failed to delete temp print file:', e);
+          }
+          if (!success) {
+            log.error('Silent print failed:', failureReason);
+            resolve({ success: false, error: failureReason });
+          } else {
+            resolve({ success: true });
+          }
+        });
+      });
+    });
+  }
+
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
     return new Promise((resolve) => {
