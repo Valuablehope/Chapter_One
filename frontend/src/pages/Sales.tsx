@@ -121,6 +121,7 @@ export default function Sales() {
   // Track whether we are currently restoring a resumed sale to avoid feedback loops
   const isResumingRef = useRef(false);
   const holdBtnRef = useRef<HTMLButtonElement>(null);
+  const heldBtnRef = useRef<HTMLButtonElement>(null);
   const [showHeldPanel, setShowHeldPanel] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -204,6 +205,7 @@ export default function Sales() {
     setCart([]);
     setSelectedCustomer(null);
     setDiscountRate('');
+    setDeliveryCharge('');
     toast('Sale held', { icon: '⏸️' });
   }, [holdSale]);
 
@@ -1443,6 +1445,7 @@ export default function Sales() {
                   </button>
                   <button
                     id="held-sales-btn"
+                    ref={heldBtnRef}
                     onClick={() => setShowHeldPanel(v => !v)}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                       heldSales.length > 0
@@ -1465,7 +1468,7 @@ export default function Sales() {
                     onResume={handleResumeSale}
                     onDelete={deleteHeldSale}
                     currency={storeSettings?.currency_code || 'USD'}
-                    anchorRef={holdBtnRef}
+                    anchorRef={heldBtnRef}
                   />
                 </div>
               </div>
