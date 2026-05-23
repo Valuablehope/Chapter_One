@@ -7,7 +7,9 @@ import { ExpensesModel } from './ExpensesModel';
 export interface DayClosureStats {
   total_sales: number;        // revenues counted in drawer (may exclude delivery)
   total_transactions: number;
-  cash_expected: number;
+  gross_cash: number;         // raw sum of method='cash' payments before any deductions
+  cash_refunds_out: number;   // cash paid out for refunds (method='other', negative amounts) — positive value
+  cash_expected: number;      // net expected cash = gross_cash − cash_refunds_out − total_expenses
   card_total: number;
   other_payments: number;
   voucher_total: number;
@@ -93,7 +95,8 @@ async function computePreview(
   const payAgg = await executor.query(
     `
       SELECT
-        COALESCE(SUM(CASE WHEN sp.method = 'cash' THEN sp.amount::numeric ELSE 0 END), 0) AS cash_expected,
+        COALESCE(SUM(CASE WHEN sp.method = 'cash' THEN sp.amount::numeric ELSE 0 END), 0) AS gross_cash,
+        COALESCE(SUM(CASE WHEN sp.method = 'other' AND sp.amount::numeric < 0 THEN sp.amount::numeric ELSE 0 END), 0) AS refund_cash_out,
         COALESCE(SUM(CASE WHEN sp.method = 'card' THEN sp.amount::numeric ELSE 0 END), 0) AS card_total,
         COALESCE(SUM(CASE WHEN sp.method = 'voucher' THEN sp.amount::numeric ELSE 0 END), 0) AS voucher_total,
         COALESCE(SUM(CASE WHEN sp.method = 'other' THEN sp.amount::numeric ELSE 0 END), 0) AS other_only
@@ -113,7 +116,6 @@ async function computePreview(
   const other_payments = roundMoney(voucher_total + other_only);
 
   const delivery_total = roundMoney(Number(sr.delivery_total));
-  const gross_sales = roundMoney(Number(sr.gross_sales));
   const total_sales = roundMoney(Number(sr.drawer_total));
 
   // Sum all unclosed expenses for this store
@@ -125,10 +127,18 @@ async function computePreview(
   );
   const total_expenses = roundMoney(Number(expAgg.rows[0].total_expenses));
 
+  const gross_cash = roundMoney(Number(pr.gross_cash));
+  // refund_cash_out is stored as a negative sum; take absolute value for reporting
+  const cash_refunds_out = roundMoney(Math.abs(Number(pr.refund_cash_out)));
+  // Net expected cash: start from cash sales, subtract refund payouts and expenses
+  const cash_expected = roundMoney(gross_cash - cash_refunds_out - total_expenses);
+
   return {
     total_transactions: Number(sr.total_transactions) || 0,
     total_sales,
-    cash_expected: roundMoney(Number(pr.cash_expected)),
+    gross_cash,
+    cash_refunds_out,
+    cash_expected,
     card_total: roundMoney(Number(pr.card_total)),
     other_payments,
     voucher_total,

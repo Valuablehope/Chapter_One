@@ -131,19 +131,17 @@ export default function DayClosure() {
         { label: t('day_closure.closed_at'), value: new Date(closure.closed_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US') },
         { label: t('day_closure.total_sales'), value: formatCurrency(closure.total_sales) },
         { label: t('day_closure.transactions'), value: String(closure.total_transactions) },
-        { label: t('day_closure.cash_expected'), value: formatCurrency(closure.cash_expected) },
-        { label: t('day_closure.cash_actual_label'), value: formatCurrency(closure.cash_actual ?? 0) },
-        { label: t('day_closure.cash_difference'), value: formatCurrency(closure.cash_difference ?? 0) },
         { label: t('day_closure.card'), value: formatCurrency(closure.card_total) },
         { label: t('day_closure.other_payments'), value: formatCurrency(closure.other_payments) },
+        { label: t('day_closure.cash_expected'), value: formatCurrency(closure.cash_expected) },
       ];
       if ((closure.total_expenses ?? 0) > 0) {
-        rows.push({ label: t('day_closure.total_expenses'), value: `− ${formatCurrency(closure.total_expenses)}` });
-        rows.push({
-          label: t('day_closure.net_cash_after_expenses'),
-          value: formatCurrency(round2(closure.cash_expected - (closure.total_expenses ?? 0))),
-        });
+        rows.push({ label: `  ${t('day_closure.total_expenses')}`, value: `− ${formatCurrency(closure.total_expenses)}` });
       }
+      rows.push(
+        { label: t('day_closure.cash_actual_label'), value: formatCurrency(closure.cash_actual ?? 0) },
+        { label: t('day_closure.cash_difference'), value: formatCurrency(closure.cash_difference ?? 0) },
+      );
       if (closure.notes?.trim()) {
         rows.push({ label: t('day_closure.notes_label'), value: closure.notes.trim() });
       }
@@ -207,21 +205,21 @@ export default function DayClosure() {
               <dd className="font-semibold tabular-nums">{formatCurrency(result.total_sales)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-gray-600">{t('day_closure.cash_difference')}</dt>
-              <dd className="font-semibold tabular-nums">{formatCurrency(result.cash_difference ?? 0)}</dd>
+              <dt className="text-gray-600">{t('day_closure.cash_expected')}</dt>
+              <dd className="font-semibold tabular-nums">{formatCurrency(result.cash_expected)}</dd>
             </div>
             {(result.total_expenses ?? 0) > 0 && (
-              <>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-gray-600">{t('day_closure.total_expenses')}</dt>
-                  <dd className="font-semibold tabular-nums text-orange-600">− {formatCurrency(result.total_expenses)}</dd>
-                </div>
-                <div className="flex justify-between gap-4 pt-1 border-t border-gray-100">
-                  <dt className="text-gray-700 font-semibold">{t('day_closure.net_cash_after_expenses')}</dt>
-                  <dd className="font-bold tabular-nums">{formatCurrency(round2(result.cash_expected - (result.total_expenses ?? 0)))}</dd>
-                </div>
-              </>
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500 text-xs">{t('day_closure.total_expenses')}</dt>
+                <dd className="font-medium tabular-nums text-orange-600 text-xs">− {formatCurrency(result.total_expenses)}</dd>
+              </div>
             )}
+            <div className="flex justify-between gap-4">
+              <dt className="text-gray-600">{t('day_closure.cash_difference')}</dt>
+              <dd className={`font-semibold tabular-nums ${(result.cash_difference ?? 0) < 0 ? 'text-red-600' : (result.cash_difference ?? 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {formatCurrency(result.cash_difference ?? 0)}
+              </dd>
+            </div>
           </dl>
           <div className="flex flex-wrap gap-3 pt-2">
             <Button variant="primary" onClick={() => handlePrint(result, storeLabel)} leftIcon={<PrinterIcon className="w-5 h-5" />}>
@@ -297,10 +295,6 @@ export default function DayClosure() {
                 <dd className="text-xl font-bold tabular-nums mt-1">{preview?.total_transactions ?? 0}</dd>
               </div>
               <div className="rounded-lg bg-gray-50 p-4">
-                <dt className="text-gray-600">{t('day_closure.cash_expected')}</dt>
-                <dd className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(preview?.cash_expected ?? 0)}</dd>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-4">
                 <dt className="text-gray-600">{t('day_closure.card')}</dt>
                 <dd className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(preview?.card_total ?? 0)}</dd>
               </div>
@@ -314,23 +308,35 @@ export default function DayClosure() {
               </div>
             </dl>
 
-            {/* Expenses deduction */}
-            {(preview?.total_expenses ?? 0) > 0 && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 space-y-2 text-sm">
+            {/* Expected cash breakdown */}
+            <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">{t('day_closure.gross_cash')}</span>
+                <span className="tabular-nums font-medium">{formatCurrency(preview?.gross_cash ?? 0)}</span>
+              </div>
+              {(preview?.cash_refunds_out ?? 0) > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-orange-800 font-medium">{t('day_closure.total_expenses')}</span>
-                  <span className="font-semibold text-orange-700 tabular-nums">
+                  <span className="text-red-700">{t('day_closure.refund_payouts')}</span>
+                  <span className="tabular-nums font-medium text-red-700">
+                    − {formatCurrency(preview?.cash_refunds_out ?? 0)}
+                  </span>
+                </div>
+              )}
+              {(preview?.total_expenses ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-orange-700">{t('day_closure.total_expenses')}</span>
+                  <span className="tabular-nums font-medium text-orange-700">
                     − {formatCurrency(preview?.total_expenses ?? 0)}
                   </span>
                 </div>
-                <div className="border-t border-orange-200 pt-2 flex justify-between items-center">
-                  <span className="text-gray-700 font-semibold">{t('day_closure.net_cash_after_expenses')}</span>
-                  <span className="text-lg font-bold tabular-nums text-gray-900">
-                    {formatCurrency(round2((preview?.cash_expected ?? 0) - (preview?.total_expenses ?? 0)))}
-                  </span>
-                </div>
+              )}
+              <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
+                <span className="text-gray-900 font-semibold">{t('day_closure.cash_expected')}</span>
+                <span className="text-lg font-bold tabular-nums text-gray-900">
+                  {formatCurrency(preview?.cash_expected ?? 0)}
+                </span>
               </div>
-            )}
+            </div>
 
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">{t('day_closure.cash_actual_label')}</label>
@@ -405,16 +411,22 @@ export default function DayClosure() {
             <li>
               {t('day_closure.total_sales')}: <strong className="text-gray-900">{formatCurrency(preview.total_sales)}</strong>
             </li>
-            <li>
-              {t('day_closure.cash_expected')}:{' '}
-              <strong className="text-gray-900">{formatCurrency(preview.cash_expected)}</strong>
-            </li>
+            {(preview.cash_refunds_out ?? 0) > 0 && (
+              <li>
+                {t('day_closure.refund_payouts')}:{' '}
+                <strong className="text-red-700">− {formatCurrency(preview.cash_refunds_out)}</strong>
+              </li>
+            )}
             {(preview.total_expenses ?? 0) > 0 && (
               <li>
                 {t('day_closure.total_expenses')}:{' '}
                 <strong className="text-orange-700">− {formatCurrency(preview.total_expenses)}</strong>
               </li>
             )}
+            <li>
+              {t('day_closure.cash_expected')}:{' '}
+              <strong className="text-gray-900">{formatCurrency(preview.cash_expected)}</strong>
+            </li>
             <li>
               {t('day_closure.cash_actual_label')}:{' '}
               <strong className="text-gray-900">{cashActualNum !== null ? formatCurrency(cashActualNum) : '—'}</strong>

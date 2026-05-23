@@ -5,6 +5,8 @@ export interface DayClosurePreview {
   store_name: string | null;
   total_sales: number;
   total_transactions: number;
+  gross_cash: number;
+  cash_refunds_out: number;
   cash_expected: number;
   card_total: number;
   other_payments: number;
