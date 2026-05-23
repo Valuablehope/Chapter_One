@@ -44,7 +44,7 @@ export const createSale = asyncHandler(
 
     // Validate payments
     for (const payment of payments) {
-      if (!payment.method || !payment.amount) {
+      if (!payment.method || payment.amount == null) {
         throw new CustomError('Each payment must have method and amount', 400);
       }
       if (payment.method !== 'other' && payment.amount <= 0) {
@@ -147,7 +147,7 @@ export const updateSale = asyncHandler(
         throw new CustomError('Sale must have at least one payment', 400);
       }
       for (const payment of payments) {
-        if (!payment.method || !payment.amount) {
+        if (!payment.method || payment.amount == null) {
           throw new CustomError('Each payment must have method and amount', 400);
         }
         if (payment.method !== 'other' && payment.amount <= 0) {

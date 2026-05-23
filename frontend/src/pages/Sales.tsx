@@ -849,7 +849,11 @@ export default function Sales() {
       toast.error('Cart is empty');
       return;
     }
-    if (grandTotal < 0) setPaymentMethod('other');
+    if (grandTotal < 0) {
+      setPaymentMethod('other');
+    } else {
+      setPaymentMethod('cash');
+    }
     setPaymentAmount(grandTotal > 0 ? grandTotal.toFixed(2) : '');
     setPaymentAmountLBP('');
     setShowPaymentModal(true);
@@ -2223,6 +2227,8 @@ export default function Sales() {
               {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[])
                 .filter(method => {
                   if (user?.role === 'self_checkout') return method === 'card';
+                  if (grandTotal < 0 && method !== 'other') return false;
+                  if (grandTotal >= 0 && method === 'other') return false;
                   if (method === 'cash'    && storeSettings?.pm_cash    === false) return false;
                   if (method === 'card'    && storeSettings?.pm_card    === false) return false;
                   if (method === 'voucher' && storeSettings?.pm_voucher === false) return false;

@@ -19,7 +19,7 @@ export function MinimalReceiptPayments({
         <div key={i} className="flex justify-between gap-2 text-black">
           <span>
             {t('receipt.payment', {
-              method: p.method ? p.method.charAt(0).toUpperCase() + p.method.slice(1) : '',
+              method: p.method ? t(`pos_sales.${p.method}`) : '',
             })}
           </span>
           <span className="font-mono font-medium">{formatCurrency(p.amount)}</span>
