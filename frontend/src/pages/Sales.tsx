@@ -16,6 +16,7 @@ import { useTranslation } from '../i18n/I18nContext';
 import { useSaleSessions } from '../hooks/useSaleSessions';
 import { useAuthStore } from '../store/authStore';
 import HeldSalesPanel from './Sales/HeldSalesPanel';
+import ReceiptHistoryPanel from '../components/ReceiptHistoryPanel';
 
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -45,6 +46,7 @@ import {
   PauseCircleIcon,
   GlobeAltIcon,
   TrashIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import Receipt from '../components/Receipt';
@@ -131,6 +133,7 @@ export default function Sales() {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showClearCartModal, setShowClearCartModal] = useState(false);
+  const [showReceiptHistory, setShowReceiptHistory] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -1473,6 +1476,14 @@ export default function Sales() {
                     currency={storeSettings?.currency_code || 'USD'}
                     anchorRef={heldBtnRef}
                   />
+                  <button
+                    onClick={() => setShowReceiptHistory(true)}
+                    title="View receipt history"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-secondary-50 hover:border-secondary-300 hover:text-secondary-600 transition-colors"
+                  >
+                    <ClockIcon className="w-3.5 h-3.5" />
+                    History
+                  </button>
                 </div>
               </div>
             </div>
@@ -2335,11 +2346,11 @@ export default function Sales() {
           footer={
             <div className="flex gap-3 print:hidden">
               <Button
-                onClick={handlePrint}
+                onClick={() => { handlePrint(); startNewSale(); }}
                 className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                 leftIcon={<PrinterIcon className="w-5 h-5" />}
               >
-                {t('pos_sales.print_receipt')}
+                Print &amp; Close
               </Button>
               <Button
                 onClick={startNewSale}
@@ -2382,6 +2393,14 @@ export default function Sales() {
         </div>,
         document.body
       )}
+      {/* Receipt History */}
+      <ReceiptHistoryPanel
+        isOpen={showReceiptHistory}
+        onClose={() => setShowReceiptHistory(false)}
+        storeSettings={storeSettings}
+        refreshTrigger={completedSale?.sale_id ?? null}
+      />
+
       {/* Clear Cart Modal */}
       <Modal
         isOpen={showClearCartModal}
