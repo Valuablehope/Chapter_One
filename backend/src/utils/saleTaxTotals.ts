@@ -94,19 +94,25 @@ export function saleDiscountAndGrand(
 
 /** Recompute header totals from persisted sale_items rows (edit sale). */
 export function totalsFromPersistedItems(
-  rows: { qty: number; unit_price: number; tax_rate: number }[],
+  rows: { qty: number; unit_price: number; tax_rate: number; is_return?: boolean }[],
   taxInclusive: boolean
 ): { subtotal: number; taxTotal: number; merchandiseGross: number } {
   const mode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
-  const lines = rows.map((row) =>
-    computeLineAmounts(
+  const lines = rows.map((row) => {
+    const computed = computeLineAmounts(
       {
         qty: Number(row.qty),
         unit_price: Number(row.unit_price),
         tax_rate: Number(row.tax_rate) || 0,
       },
       mode
-    )
-  );
+    );
+    return row.is_return ? {
+      ...computed,
+      line_total: -computed.line_total,
+      line_net:   -computed.line_net,
+      line_tax:   -computed.line_tax,
+    } : computed;
+  });
   return aggregateLines(lines);
 }

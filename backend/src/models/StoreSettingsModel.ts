@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-// Triggering restart to refresh database column cache — updated for include_delivery_in_drawer (2026-05-09)
+// Triggering restart to refresh database column cache — updated for pm_cash/card/voucher/other (2026-05-23)
 
 export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
 
@@ -54,6 +54,10 @@ export interface StoreSettings {
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
   include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
 }
 
 export interface StoreSettingsInput {
@@ -104,6 +108,10 @@ export interface StoreSettingsInput {
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
   include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -489,6 +497,26 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('include_delivery_in_drawer');
       values.push(settings.include_delivery_in_drawer);
     }
+    if (settings.pm_cash !== undefined && availableColumns.has('pm_cash')) {
+      paramCount++;
+      fields.push('pm_cash');
+      values.push(settings.pm_cash);
+    }
+    if (settings.pm_card !== undefined && availableColumns.has('pm_card')) {
+      paramCount++;
+      fields.push('pm_card');
+      values.push(settings.pm_card);
+    }
+    if (settings.pm_voucher !== undefined && availableColumns.has('pm_voucher')) {
+      paramCount++;
+      fields.push('pm_voucher');
+      values.push(settings.pm_voucher);
+    }
+    if (settings.pm_other !== undefined && availableColumns.has('pm_other')) {
+      paramCount++;
+      fields.push('pm_other');
+      values.push(settings.pm_other);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -740,6 +768,26 @@ export class StoreSettingsModel extends BaseModel {
       fields.push(`include_delivery_in_drawer = $${paramCount}`);
       values.push(settings.include_delivery_in_drawer);
     }
+    if (settings.pm_cash !== undefined && availableColumns.has('pm_cash')) {
+      paramCount++;
+      fields.push(`pm_cash = $${paramCount}`);
+      values.push(settings.pm_cash);
+    }
+    if (settings.pm_card !== undefined && availableColumns.has('pm_card')) {
+      paramCount++;
+      fields.push(`pm_card = $${paramCount}`);
+      values.push(settings.pm_card);
+    }
+    if (settings.pm_voucher !== undefined && availableColumns.has('pm_voucher')) {
+      paramCount++;
+      fields.push(`pm_voucher = $${paramCount}`);
+      values.push(settings.pm_voucher);
+    }
+    if (settings.pm_other !== undefined && availableColumns.has('pm_other')) {
+      paramCount++;
+      fields.push(`pm_other = $${paramCount}`);
+      values.push(settings.pm_other);
+    }
 
     if (fields.length === 0) {
       // No fields to update, just return existing
@@ -771,7 +819,15 @@ export class StoreSettingsModel extends BaseModel {
     return result.rows[0];
   }
 
+  static invalidateColumnCache(): void {
+    this.availableColumns = null;
+    this.availableColumnTypes = null;
+    this.columnsCheckPromise = null;
+  }
+
   static async createOrUpdate(storeId: string, settings: StoreSettingsInput): Promise<StoreSettings> {
+    // Always refresh the column cache so newly-added DB columns are visible
+    this.invalidateColumnCache();
     const existing = await this.findByStoreId(storeId);
 
     if (existing) {

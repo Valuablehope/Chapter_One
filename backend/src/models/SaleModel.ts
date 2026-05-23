@@ -70,6 +70,7 @@ export interface CreateSaleData {
     qty: number;
     unit_price: number;
     tax_rate?: number;
+    is_return?: boolean;
   }[];
   payments: {
     method: PaymentMethod;
@@ -98,6 +99,7 @@ export interface UpdateSaleData {
     qty: number;
     unit_price: number;
     tax_rate?: number;
+    is_return?: boolean;
   }[];
   payments?: {
     method: PaymentMethod;
@@ -396,12 +398,17 @@ export class SaleModel extends BaseModel {
               }
               effRate = Math.min(100, Math.max(0, effRate));
             }
-            computedLines.push(
-              computeLineAmounts(
-                { qty: item.qty, unit_price: item.unit_price, tax_rate: effRate },
-                taxMode
-              )
+            const computed = computeLineAmounts(
+              { qty: item.qty, unit_price: item.unit_price, tax_rate: effRate },
+              taxMode
             );
+            // Negate all amounts for return items so they reduce the sale totals
+            computedLines.push(item.is_return ? {
+              ...computed,
+              line_total: -computed.line_total,
+              line_net:   -computed.line_net,
+              line_tax:   -computed.line_tax,
+            } : computed);
           }
 
           const { subtotal, taxTotal, merchandiseGross } = aggregateLines(computedLines);
@@ -516,9 +523,9 @@ export class SaleModel extends BaseModel {
 
             const itemQuery = `
           INSERT INTO sale_items (
-            sale_id, product_id, qty, unit_price, tax_rate, line_total
+            sale_id, product_id, qty, unit_price, tax_rate, line_total, is_return
           )
-          VALUES ($1, $2, $3, $4, $5, $6)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING *
         `;
             const itemValues = [
@@ -528,6 +535,7 @@ export class SaleModel extends BaseModel {
               amounts.unit_price,
               amounts.tax_rate,
               amounts.line_total,
+              item.is_return ?? false,
             ];
             const itemResult = await client.query(itemQuery, itemValues);
             items.push(itemResult.rows[0]);
@@ -539,67 +547,84 @@ export class SaleModel extends BaseModel {
         `;
             const productResult = await client.query(productQuery, [item.product_id]);
             if (productResult.rows[0]?.track_inventory) {
-              // Lock stock balance row for update (prevents concurrent modifications)
-              const stockBalanceResult = await client.query(`
-            SELECT qty_on_hand FROM stock_balances
-            WHERE store_id = $1 AND product_id = $2
-            FOR UPDATE
-          `, [store.store_id, item.product_id]);
-
-              // Validate stock availability ONLY if allow_negative is false
-              if (!allowNegative) {
-                const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
-                if (currentStock < item.qty) {
-                  // Get product name for error message
-                  const productInfo = await client.query(
-                    'SELECT name FROM products WHERE product_id = $1',
-                    [item.product_id]
-                  );
-                  const productName = productInfo.rows[0]?.name || 'Unknown product';
-                  throw new Error(
-                    `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
-                  );
-                }
-              } else {
-                // Log when negative stock is allowed (for auditing/debugging)
-                const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
-                if (currentStock < item.qty) {
-                  logger.info(`Negative stock allowed: Product ${item.product_id}, Current: ${currentStock}, Selling: ${item.qty}`, {
-                    store_id: store.store_id,
-                    product_id: item.product_id,
-                    current_stock: currentStock,
-                    qty_sold: item.qty,
-                    receipt_no: sale.receipt_no
-                  });
-                }
-              }
-
-              // Create stock movement (outbound)
               const stockQuery = `
             INSERT INTO stock_movements (
               store_id, product_id, reason, qty, reference, created_by
             )
             VALUES ($1, $2, $3, $4, $5, $6)
           `;
-              await client.query(stockQuery, [
-                store.store_id,
-                item.product_id,
-                'sale',
-                -item.qty, // Negative for outbound
-                sale.receipt_no,
-                cashierId,
-              ]);
 
-              // Update stock balance atomically (maintain O(1) query performance)
-              await client.query(`
-            INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (store_id, product_id)
-            DO UPDATE SET
-              qty_on_hand = stock_balances.qty_on_hand + $3,
-              qty_out     = stock_balances.qty_out + $4,
-              updated_at  = NOW()
-          `, [store.store_id, item.product_id, -item.qty, item.qty]); // $3 negative, $4 positive
+              if (item.is_return) {
+                // Return: restore stock — no availability check needed
+                await client.query(stockQuery, [
+                  store.store_id,
+                  item.product_id,
+                  'return_in',
+                  item.qty, // Positive for inbound
+                  sale.receipt_no,
+                  cashierId,
+                ]);
+                await client.query(`
+              INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
+              VALUES ($1, $2, $3, $4)
+              ON CONFLICT (store_id, product_id)
+              DO UPDATE SET
+                qty_on_hand = stock_balances.qty_on_hand + $3,
+                qty_in      = stock_balances.qty_in + $4,
+                qty_out     = GREATEST(0, stock_balances.qty_out - $4),
+                updated_at  = NOW()
+            `, [store.store_id, item.product_id, item.qty, item.qty]);
+              } else {
+                // Normal sale: lock row and validate then decrement
+                const stockBalanceResult = await client.query(`
+              SELECT qty_on_hand FROM stock_balances
+              WHERE store_id = $1 AND product_id = $2
+              FOR UPDATE
+            `, [store.store_id, item.product_id]);
+
+                if (!allowNegative) {
+                  const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+                  if (currentStock < item.qty) {
+                    const productInfo = await client.query(
+                      'SELECT name FROM products WHERE product_id = $1',
+                      [item.product_id]
+                    );
+                    const productName = productInfo.rows[0]?.name || 'Unknown product';
+                    throw new Error(
+                      `Insufficient stock for ${productName}. Available: ${currentStock}, Requested: ${item.qty}`
+                    );
+                  }
+                } else {
+                  const currentStock = stockBalanceResult.rows[0]?.qty_on_hand || 0;
+                  if (currentStock < item.qty) {
+                    logger.info(`Negative stock allowed: Product ${item.product_id}, Current: ${currentStock}, Selling: ${item.qty}`, {
+                      store_id: store.store_id,
+                      product_id: item.product_id,
+                      current_stock: currentStock,
+                      qty_sold: item.qty,
+                      receipt_no: sale.receipt_no
+                    });
+                  }
+                }
+
+                await client.query(stockQuery, [
+                  store.store_id,
+                  item.product_id,
+                  'sale',
+                  -item.qty, // Negative for outbound
+                  sale.receipt_no,
+                  cashierId,
+                ]);
+                await client.query(`
+              INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+              VALUES ($1, $2, $3, $4)
+              ON CONFLICT (store_id, product_id)
+              DO UPDATE SET
+                qty_on_hand = stock_balances.qty_on_hand + $3,
+                qty_out     = stock_balances.qty_out + $4,
+                updated_at  = NOW()
+            `, [store.store_id, item.product_id, -item.qty, item.qty]);
+              }
             }
           }
 
@@ -745,7 +770,7 @@ export class SaleModel extends BaseModel {
 
             // Fetch existing items WITH track_inventory BEFORE deleting so we can reverse their stock
             const oldItemsResult = await client.query(
-              `SELECT si.product_id, si.qty, p.track_inventory
+              `SELECT si.product_id, si.qty, si.is_return, p.track_inventory
                FROM sale_items si
                LEFT JOIN products p ON p.product_id = si.product_id
                WHERE si.sale_id = $1`,
@@ -755,22 +780,40 @@ export class SaleModel extends BaseModel {
             // Reverse stock for each old item that tracked inventory
             for (const oldItem of oldItemsResult.rows) {
               if (oldItem.track_inventory) {
-                // Remove the stock movements recorded for this sale+product
-                await client.query(
-                  `DELETE FROM stock_movements
-                   WHERE store_id = $1 AND product_id = $2 AND reference = $3 AND reason = 'sale'`,
-                  [existingSale.store_id, oldItem.product_id, existingSale.receipt_no]
-                );
-                // Add the sold qty back to stock (reverse the sale)
-                await client.query(`
-                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
-                  VALUES ($1, $2, $3, 0)
-                  ON CONFLICT (store_id, product_id)
-                  DO UPDATE SET
-                    qty_on_hand = stock_balances.qty_on_hand + $3,
-                    qty_out     = GREATEST(0, stock_balances.qty_out - $3),
-                    updated_at  = NOW()
-                `, [existingSale.store_id, oldItem.product_id, Math.abs(Number(oldItem.qty))]);
+                if (oldItem.is_return) {
+                  // Was a return_in movement — remove it and reduce qty_on_hand back
+                  await client.query(
+                    `DELETE FROM stock_movements
+                     WHERE store_id = $1 AND product_id = $2 AND reference = $3 AND reason = 'return_in'`,
+                    [existingSale.store_id, oldItem.product_id, existingSale.receipt_no]
+                  );
+                  await client.query(`
+                    INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
+                    VALUES ($1, $2, $3, 0)
+                    ON CONFLICT (store_id, product_id)
+                    DO UPDATE SET
+                      qty_on_hand = GREATEST(0, stock_balances.qty_on_hand - $3),
+                      qty_in      = GREATEST(0, stock_balances.qty_in - $3),
+                      qty_out     = stock_balances.qty_out + $3,
+                      updated_at  = NOW()
+                  `, [existingSale.store_id, oldItem.product_id, Math.abs(Number(oldItem.qty))]);
+                } else {
+                  // Was a sale movement — remove it and add qty back
+                  await client.query(
+                    `DELETE FROM stock_movements
+                     WHERE store_id = $1 AND product_id = $2 AND reference = $3 AND reason = 'sale'`,
+                    [existingSale.store_id, oldItem.product_id, existingSale.receipt_no]
+                  );
+                  await client.query(`
+                    INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+                    VALUES ($1, $2, $3, 0)
+                    ON CONFLICT (store_id, product_id)
+                    DO UPDATE SET
+                      qty_on_hand = stock_balances.qty_on_hand + $3,
+                      qty_out     = GREATEST(0, stock_balances.qty_out - $3),
+                      updated_at  = NOW()
+                  `, [existingSale.store_id, oldItem.product_id, Math.abs(Number(oldItem.qty))]);
+                }
               }
             }
 
@@ -796,45 +839,65 @@ export class SaleModel extends BaseModel {
                 }
                 effRate = Math.min(100, Math.max(0, effRate));
               }
-              editComputedLines.push(
-                computeLineAmounts(
-                  { qty: item.qty, unit_price: item.unit_price, tax_rate: effRate },
-                  editTaxMode
-                )
+              const editComputed = computeLineAmounts(
+                { qty: item.qty, unit_price: item.unit_price, tax_rate: effRate },
+                editTaxMode
               );
+              editComputedLines.push(item.is_return ? {
+                ...editComputed,
+                line_total: -editComputed.line_total,
+                line_net:   -editComputed.line_net,
+                line_tax:   -editComputed.line_tax,
+              } : editComputed);
             }
 
             for (let i = 0; i < data.items.length; i++) {
               const item = data.items[i];
               const amounts = editComputedLines[i];
               await client.query(
-                `
-                INSERT INTO sale_items (sale_id, product_id, qty, unit_price, tax_rate, line_total)
-                VALUES ($1, $2, $3, $4, $5, $6)
-              `,
-                [saleId, item.product_id, item.qty, amounts.unit_price, amounts.tax_rate, amounts.line_total]
+                `INSERT INTO sale_items (sale_id, product_id, qty, unit_price, tax_rate, line_total, is_return)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [saleId, item.product_id, item.qty, amounts.unit_price, amounts.tax_rate, amounts.line_total, item.is_return ?? false]
               );
 
-              // Record stock movement for the new item qty
+              // Record stock movement for the new item
               const trackResult = await client.query(
                 'SELECT track_inventory FROM products WHERE product_id = $1',
                 [item.product_id]
               );
               if (trackResult.rows[0]?.track_inventory) {
-                await client.query(
-                  `INSERT INTO stock_movements (store_id, product_id, reason, qty, reference, created_by)
-                   VALUES ($1, $2, 'sale', $3, $4, $5)`,
-                  [existingSale.store_id, item.product_id, -item.qty, existingSale.receipt_no, cashierId]
-                );
-                await client.query(`
-                  INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
-                  VALUES ($1, $2, $3, $4)
-                  ON CONFLICT (store_id, product_id)
-                  DO UPDATE SET
-                    qty_on_hand = stock_balances.qty_on_hand + $3,
-                    qty_out     = stock_balances.qty_out     + $4,
-                    updated_at  = NOW()
-                `, [existingSale.store_id, item.product_id, -item.qty, item.qty]);
+                if (item.is_return) {
+                  await client.query(
+                    `INSERT INTO stock_movements (store_id, product_id, reason, qty, reference, created_by)
+                     VALUES ($1, $2, 'return_in', $3, $4, $5)`,
+                    [existingSale.store_id, item.product_id, item.qty, existingSale.receipt_no, cashierId]
+                  );
+                  await client.query(`
+                    INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_in)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (store_id, product_id)
+                    DO UPDATE SET
+                      qty_on_hand = stock_balances.qty_on_hand + $3,
+                      qty_in      = stock_balances.qty_in + $4,
+                      qty_out     = GREATEST(0, stock_balances.qty_out - $4),
+                      updated_at  = NOW()
+                  `, [existingSale.store_id, item.product_id, item.qty, item.qty]);
+                } else {
+                  await client.query(
+                    `INSERT INTO stock_movements (store_id, product_id, reason, qty, reference, created_by)
+                     VALUES ($1, $2, 'sale', $3, $4, $5)`,
+                    [existingSale.store_id, item.product_id, -item.qty, existingSale.receipt_no, cashierId]
+                  );
+                  await client.query(`
+                    INSERT INTO stock_balances (store_id, product_id, qty_on_hand, qty_out)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (store_id, product_id)
+                    DO UPDATE SET
+                      qty_on_hand = stock_balances.qty_on_hand + $3,
+                      qty_out     = stock_balances.qty_out     + $4,
+                      updated_at  = NOW()
+                  `, [existingSale.store_id, item.product_id, -item.qty, item.qty]);
+                }
               }
             }
           }
@@ -907,6 +970,7 @@ export class SaleModel extends BaseModel {
             qty: Number(row.qty),
             unit_price: Number(row.unit_price),
             tax_rate: Number(row.tax_rate) || 0,
+            is_return: !!row.is_return,
           }));
           const { subtotal, taxTotal, merchandiseGross } = totalsFromPersistedItems(
             persistedRows,
@@ -942,7 +1006,7 @@ export class SaleModel extends BaseModel {
           );
           const paidTotal = paymentsResult.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
 
-          if (paidTotal < grandTotal - 0.01) {
+          if (grandTotal > 0 && paidTotal < grandTotal - 0.01) {
             await client.query('ROLLBACK');
             throw new Error('Payment amount is less than grand total');
           }
@@ -1214,7 +1278,8 @@ export class SaleModel extends BaseModel {
                 'qty', si.qty,
                 'unit_price', si.unit_price,
                 'tax_rate', si.tax_rate,
-                'line_total', si.line_total
+                'line_total', si.line_total,
+                'is_return', COALESCE(si.is_return, false)
               )
               ORDER BY si.sale_item_id
             )

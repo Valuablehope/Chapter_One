@@ -69,12 +69,17 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     ? formatLbpGrand(invoiceTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
     : null;
 
-  const lineRows = items.map((item) => ({
-    description: item.product?.name || (item as any).product_name || '—',
-    qty: Number(item.qty).toString(),
-    price: formatCurrency(Number(item.unit_price)),
-    total: formatCurrency(Number(item.line_total)),
-  }));
+  const lineRows = items.map((item) => {
+    const isReturn = !!(item as any).is_return;
+    const absTotal = Math.abs(Number(item.line_total));
+    return {
+      description: item.product?.name || (item as any).product_name || '—',
+      qty: isReturn ? `-${Number(item.qty)}` : Number(item.qty).toString(),
+      price: formatCurrency(Number(item.unit_price)),
+      total: isReturn ? `-${formatCurrency(absTotal)}` : formatCurrency(absTotal),
+      isReturn,
+    };
+  });
 
   const totalRows: TotalRow[] = [];
 

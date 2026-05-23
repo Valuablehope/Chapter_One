@@ -5,6 +5,7 @@ export interface LineRow {
   qty: string;
   price: string;
   total: string;
+  isReturn?: boolean;
 }
 
 export function MinimalReceiptLineTable({ rows }: { rows: LineRow[] }) {
@@ -22,11 +23,14 @@ export function MinimalReceiptLineTable({ rows }: { rows: LineRow[] }) {
       </thead>
       <tbody>
         {rows.map((r, i) => (
-          <tr key={i} className="border-b border-gray-300 last:border-0">
-            <td className="align-top py-0.5 pr-1 text-black">{r.description}</td>
-            <td className="text-right align-top py-0.5 text-black">{r.qty}</td>
-            <td className="text-right align-top py-0.5 text-black whitespace-nowrap">{r.price}</td>
-            <td className="text-right align-top py-0.5 text-black whitespace-nowrap font-medium">{r.total}</td>
+          <tr key={i} className={`border-b border-gray-300 last:border-0 ${r.isReturn ? 'bg-red-50' : ''}`}>
+            <td className={`align-top py-0.5 pr-1 ${r.isReturn ? 'text-red-600' : 'text-black'}`}>
+              {r.description}
+              {r.isReturn && <span className="ml-1 text-[9px] font-bold uppercase tracking-wide">(Return)</span>}
+            </td>
+            <td className={`text-right align-top py-0.5 ${r.isReturn ? 'text-red-600 font-semibold' : 'text-black'}`}>{r.qty}</td>
+            <td className={`text-right align-top py-0.5 whitespace-nowrap ${r.isReturn ? 'text-red-600' : 'text-black'}`}>{r.price}</td>
+            <td className={`text-right align-top py-0.5 whitespace-nowrap font-medium ${r.isReturn ? 'text-red-600' : 'text-black'}`}>{r.total}</td>
           </tr>
         ))}
       </tbody>

@@ -220,7 +220,7 @@ export const ar = {
     cash: "نقدي",
     card: "بطاقة",
     voucher: "قسيمة",
-    other: "أخرى",
+    other: "استرداد",
     payment_amount: "المبلغ المدفوع",
     grand_total: "الإجمالي الكلي",
     change_due: "الباقي للعميل",

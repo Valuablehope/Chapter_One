@@ -81,6 +81,10 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     heading_size,
     body_size,
     include_delivery_in_drawer,
+    pm_cash,
+    pm_card,
+    pm_voucher,
+    pm_other,
     ...storeData
   } = req.body;
 
@@ -133,6 +137,10 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     heading_size,
     body_size,
     include_delivery_in_drawer,
+    pm_cash,
+    pm_card,
+    pm_voucher,
+    pm_other,
   };
 
   // Only create settings if at least one setting field is provided
@@ -216,6 +224,10 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     heading_size,
     body_size,
     include_delivery_in_drawer,
+    pm_cash,
+    pm_card,
+    pm_voucher,
+    pm_other,
     ...storeData
   } = req.body;
 
@@ -291,6 +303,10 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     heading_size,
     body_size,
     include_delivery_in_drawer,
+    pm_cash,
+    pm_card,
+    pm_voucher,
+    pm_other,
   };
 
   // Only update settings if at least one setting field is provided

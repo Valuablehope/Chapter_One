@@ -385,7 +385,8 @@ export default function SalesManagement() {
     const newItems = [...editItems];
     const item = newItems[index];
     item.qty = qty;
-    item.line_total = item.qty * item.unit_price * (1 + (item.tax_rate || 0) / 100);
+    const gross = item.qty * item.unit_price * (1 + (item.tax_rate || 0) / 100);
+    item.line_total = item.is_return ? -gross : gross;
     setEditItems(newItems);
   };
 
@@ -398,10 +399,17 @@ export default function SalesManagement() {
   };
 
   const calculateEditTotals = () => {
-    const subtotal = editItems.reduce((sum, item) => sum + (item.qty * item.unit_price), 0);
+    // Use stored line_total directly — it is already negative for return items.
+    // Fall back to computing qty*price if line_total is missing (e.g. newly-added rows).
+    const subtotal = editItems.reduce((sum, item) => {
+      if (item.line_total != null) return sum + Number(item.line_total);
+      const sign = item.is_return ? -1 : 1;
+      return sum + sign * (item.qty * item.unit_price);
+    }, 0);
     const taxTotal = editItems.reduce((sum, item) => {
-      const lineTotal = item.qty * item.unit_price;
-      return sum + (lineTotal * ((item.tax_rate || 0) / 100));
+      const sign = item.is_return ? -1 : 1;
+      const lineNet = item.qty * item.unit_price;
+      return sum + sign * (lineNet * ((item.tax_rate || 0) / 100));
     }, 0);
     const discountAmount = editDiscountRate > 0
       ? (subtotal + taxTotal) * (editDiscountRate / 100)
@@ -415,7 +423,7 @@ export default function SalesManagement() {
     if (!editingSale) return;
 
     const { grandTotal, paidTotal } = calculateEditTotals();
-    if (paidTotal < grandTotal) {
+    if (grandTotal > 0 && paidTotal < grandTotal - 0.01) {
       toast.error(t('sales_management.errors.payment_insufficient'));
       return;
     }
@@ -440,6 +448,7 @@ export default function SalesManagement() {
           qty: item.qty,
           unit_price: item.unit_price,
           tax_rate: item.tax_rate || 0,
+          is_return: item.is_return || false,
         })),
         payments: editPayments.map(p => ({
           method: p.method,
@@ -1265,7 +1274,7 @@ export default function SalesManagement() {
                         <span>{t('sales_management.totals.paid')}</span>
                         <span>{formatCurrency(paidTotal)}</span>
                       </div>
-                      {paidTotal < grandTotal && (
+                      {grandTotal > 0 && paidTotal < grandTotal - 0.01 && (
                         <p className="text-xs text-red-600">{t('sales_management.errors.payment_less_than_total')}</p>
                       )}
                     </div>

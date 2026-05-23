@@ -41,6 +41,7 @@ export interface CartItem {
   unit_price: number;
   tax_rate?: number;
   line_total: number;
+  is_return?: boolean;
 }
 
 export interface SalePayment {
@@ -78,6 +79,7 @@ export interface CreateSaleData {
     qty: number;
     unit_price: number;
     tax_rate?: number;
+    is_return?: boolean;
   }[];
   payments: CreateSalePayment[];
   restaurant_context?: RestaurantContextInput;
@@ -91,6 +93,7 @@ export interface UpdateSaleData {
     qty: number;
     unit_price: number;
     tax_rate?: number;
+    is_return?: boolean;
   }[];
   payments?: {
     method: PaymentMethod;
@@ -146,6 +149,7 @@ export interface SaleItem {
   unit_price: number;
   tax_rate: number;
   line_total: number;
+  is_return?: boolean;
 }
 
 export const saleService = {

@@ -60,6 +60,10 @@ export interface StoreFormData {
   heading_size: string;
   body_size: string;
   include_delivery_in_drawer: boolean;
+  pm_cash: boolean;
+  pm_card: boolean;
+  pm_voucher: boolean;
+  pm_other: boolean;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -105,6 +109,10 @@ const initialFormData: StoreFormData = {
   heading_size: 'md',
   body_size: 'md',
   include_delivery_in_drawer: true,
+  pm_cash: true,
+  pm_card: true,
+  pm_voucher: true,
+  pm_other: true,
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -150,6 +158,10 @@ function storeToFormData(s: Store): StoreFormData {
     heading_size: s.heading_size || 'md',
     body_size: s.body_size || 'md',
     include_delivery_in_drawer: s.include_delivery_in_drawer ?? true,
+    pm_cash: s.pm_cash ?? true,
+    pm_card: s.pm_card ?? true,
+    pm_voucher: s.pm_voucher ?? true,
+    pm_other: s.pm_other ?? true,
   };
 }
 
@@ -345,6 +357,10 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       heading_size: formData.heading_size,
       body_size: formData.body_size,
       include_delivery_in_drawer: formData.include_delivery_in_drawer,
+      pm_cash: formData.pm_cash,
+      pm_card: formData.pm_card,
+      pm_voucher: formData.pm_voucher,
+      pm_other: formData.pm_other,
     };
 
     setSubmitting(true);
@@ -756,6 +772,45 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 label="Include Delivery In Drawer"
                 description="When ON, delivery charges count as revenue in day closures. When OFF, delivery appears on receipts and invoices but is excluded from drawer totals."
               />
+            </div>
+
+            <SectionDivider>Payment Methods</SectionDivider>
+
+            <p className="text-xs text-gray-500 -mt-2">
+              Choose which payment methods are available in the Process Payment modal.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { key: 'pm_cash',    label: 'Cash',    description: 'Physical cash payments' },
+                { key: 'pm_card',    label: 'Card',    description: 'Credit / debit card payments' },
+                { key: 'pm_voucher', label: 'Voucher', description: 'Gift vouchers or store credit' },
+                { key: 'pm_other',   label: 'Refund',  description: 'Refund or other payment type' },
+              ] as { key: keyof StoreFormData; label: string; description: string }[]).map(({ key, label, description }) => {
+                const enabled = formData[key] as boolean;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => set(key, !enabled)}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      enabled
+                        ? 'border-secondary-400 bg-secondary-50'
+                        : 'border-gray-200 bg-white opacity-60'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      enabled ? 'border-secondary-500 bg-secondary-500' : 'border-gray-300 bg-white'
+                    }`}>
+                      {enabled && <CheckIcon className="w-3 h-3 text-white" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-semibold leading-tight ${enabled ? 'text-secondary-700' : 'text-gray-500'}`}>{label}</p>
+                      <p className="text-[11px] text-gray-400 leading-tight mt-0.5">{description}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

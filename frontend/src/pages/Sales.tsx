@@ -47,6 +47,7 @@ import {
   GlobeAltIcon,
   TrashIcon,
   ClockIcon,
+  ArrowUturnLeftIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import Receipt from '../components/Receipt';
@@ -329,18 +330,27 @@ export default function Sales() {
   );
 
   const merchandiseGross = useMemo(
-    () => roundMoney(cartAmounts.reduce((s, a) => s + a.line_total, 0)),
-    [cartAmounts]
+    () => roundMoney(cartAmounts.reduce((s, a, i) => {
+      const sign = cart[i]?.is_return ? -1 : 1;
+      return s + sign * a.line_total;
+    }, 0)),
+    [cartAmounts, cart]
   );
 
   const subtotalNet = useMemo(
-    () => roundMoney(cartAmounts.reduce((s, a) => s + a.line_net, 0)),
-    [cartAmounts]
+    () => roundMoney(cartAmounts.reduce((s, a, i) => {
+      const sign = cart[i]?.is_return ? -1 : 1;
+      return s + sign * a.line_net;
+    }, 0)),
+    [cartAmounts, cart]
   );
 
   const taxExtracted = useMemo(
-    () => roundMoney(cartAmounts.reduce((s, a) => s + a.line_tax, 0)),
-    [cartAmounts]
+    () => roundMoney(cartAmounts.reduce((s, a, i) => {
+      const sign = cart[i]?.is_return ? -1 : 1;
+      return s + sign * a.line_tax;
+    }, 0)),
+    [cartAmounts, cart]
   );
 
   const deliveryAmount = useMemo(() => {
@@ -742,6 +752,17 @@ export default function Sales() {
     setCart((prevCart) => prevCart.filter((item) => item.product.product_id !== productId));
   };
 
+  // Toggle return flag on a cart item
+  const toggleReturnItem = useCallback((productId: string) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.product_id === productId
+          ? { ...item, is_return: !item.is_return }
+          : item
+      )
+    );
+  }, []);
+
   // Clear cart
   const confirmClearCart = () => {
     setCart([]);
@@ -918,6 +939,7 @@ export default function Sales() {
           qty: item.qty,
           unit_price: item.unit_price,
           tax_rate: item.tax_rate || 0,
+          is_return: item.is_return || false,
         }));
 
       // Validate we have valid items
@@ -1106,6 +1128,21 @@ export default function Sales() {
       toast.error('Silent print API is not available on this platform.');
     }
   };
+
+  // When store settings load, ensure the selected payment method is visible
+  useEffect(() => {
+    if (!storeSettings) return;
+    const pmFlags: Record<PaymentMethod, boolean> = {
+      cash:    storeSettings.pm_cash    !== false,
+      card:    storeSettings.pm_card    !== false,
+      voucher: storeSettings.pm_voucher !== false,
+      other:   storeSettings.pm_other   !== false,
+    };
+    if (!pmFlags[paymentMethod]) {
+      const first = (['cash', 'card', 'voucher', 'other'] as PaymentMethod[]).find(m => pmFlags[m]);
+      if (first) setPaymentMethod(first);
+    }
+  }, [storeSettings]);
 
   // Auto-print receipt when sale is completed and auto_print is enabled
   useEffect(() => {
@@ -1512,16 +1549,23 @@ export default function Sales() {
                     const isLowStock = item.product.track_inventory && availableStock !== null && availableStock < item.qty;
                     const isOutOfStock = item.product.track_inventory && availableStock !== null && availableStock === 0;
 
+                    const isReturnItem = !!item.is_return;
                     return (
                       <div style={style}>
-                        <div className={`h-full border-b border-gray-100 px-3 py-2 transition-all group ${isOutOfStock ? 'bg-red-50' : isLowStock ? 'bg-yellow-50' : ''}`}>
+                        <div className={`h-full border-b px-3 py-2 transition-all group ${isReturnItem ? 'bg-red-50 border-red-200' : isOutOfStock ? 'bg-red-50 border-gray-100' : isLowStock ? 'bg-yellow-50 border-gray-100' : 'border-gray-100'}`}>
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 h-full">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center space-x-1.5 mb-0.5">
-                                <div className="p-1 bg-secondary-50 rounded-lg flex-shrink-0">
-                                  <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400" />
+                                <div className={`p-1 rounded-lg flex-shrink-0 ${isReturnItem ? 'bg-red-100' : 'bg-secondary-50'}`}>
+                                  {isReturnItem
+                                    ? <ArrowUturnLeftIcon className="w-3.5 h-3.5 text-red-500" />
+                                    : <BookOpenIcon className="w-3.5 h-3.5 text-secondary-400" />
+                                  }
                                 </div>
-                                <p className="font-semibold text-xs text-gray-900 truncate">{item.product.name}</p>
+                                <p className={`font-semibold text-xs truncate ${isReturnItem ? 'text-red-700' : 'text-gray-900'}`}>{item.product.name}</p>
+                                {isReturnItem && (
+                                  <span className="text-[9px] font-bold text-red-500 bg-red-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">Return</span>
+                                )}
                               </div>
                               {item.product.track_inventory && availableStock !== null && (
                                 <span className={`text-[10px] font-medium ml-6 ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
@@ -1546,7 +1590,7 @@ export default function Sales() {
 
                             <div className="flex items-center gap-8 w-full sm:w-auto justify-between sm:justify-end">
                               {/* Quantity Controls */}
-                              <div className="flex items-center gap-0 border-2 border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">
+                              <div className={`flex items-center gap-0 border-2 rounded-lg bg-white overflow-hidden shadow-sm ${isReturnItem ? 'border-red-300' : 'border-gray-200'}`}>
                                 <Button
                                   onClick={() => updateCartItemQuantity(item.product.product_id, item.qty - 1)}
                                   variant="ghost"
@@ -1566,7 +1610,7 @@ export default function Sales() {
                                       updateCartItemQuantity(item.product.product_id, val);
                                     }
                                   }}
-                                  className="w-12 text-center font-bold text-xs text-gray-900 py-1 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className={`w-12 text-center font-bold text-xs py-1 focus:outline-none focus:bg-gray-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isReturnItem ? 'text-red-600' : 'text-gray-900'}`}
                                 />
                                 <Button
                                   onClick={() => updateCartItemQuantity(item.product.product_id, item.qty + 1)}
@@ -1581,7 +1625,13 @@ export default function Sales() {
                               <div className="flex items-center gap-2">
                                 {/* Price Display */}
                                 <div className="text-right min-w-[70px] sm:min-w-[90px]">
-                                  {storeSettings?.lbp_primary_price && formatLBP(Number(item.line_total)) ? (
+                                  {isReturnItem ? (
+                                    <div className="flex flex-col items-end leading-tight">
+                                      <span className="font-bold text-sm text-red-600">
+                                        -${Number(item.line_total).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  ) : storeSettings?.lbp_primary_price && formatLBP(Number(item.line_total)) ? (
                                     <div className="flex flex-col items-end leading-tight">
                                       <span className="font-bold text-sm text-amber-600">
                                         {formatLBP(Number(item.line_total))}
@@ -1603,6 +1653,19 @@ export default function Sales() {
                                     </div>
                                   )}
                                 </div>
+
+                                {/* Return Toggle */}
+                                <button
+                                  onClick={() => toggleReturnItem(item.product.product_id)}
+                                  title={isReturnItem ? 'Remove return flag' : 'Mark as return'}
+                                  className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${
+                                    isReturnItem
+                                      ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                                      : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
+                                  }`}
+                                >
+                                  <ArrowUturnLeftIcon className="w-4 h-4" />
+                                </button>
 
                                 <Button
                                   onClick={() => removeFromCart(item.product.product_id)}
@@ -2154,7 +2217,14 @@ export default function Sales() {
             </label>
             <div className="grid grid-cols-2 gap-2">
               {(['cash', 'card', 'voucher', 'other'] as PaymentMethod[])
-                .filter(method => user?.role !== 'self_checkout' || method === 'card')
+                .filter(method => {
+                  if (user?.role === 'self_checkout') return method === 'card';
+                  if (method === 'cash'    && storeSettings?.pm_cash    === false) return false;
+                  if (method === 'card'    && storeSettings?.pm_card    === false) return false;
+                  if (method === 'voucher' && storeSettings?.pm_voucher === false) return false;
+                  if (method === 'other'   && storeSettings?.pm_other   === false) return false;
+                  return true;
+                })
                 .map((method) => {
                 const active = paymentMethod === method;
                 return (
@@ -2173,7 +2243,7 @@ export default function Sales() {
                         {method === 'voucher' && <TicketIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                         {method === 'other' && <CurrencyDollarIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                       </div>
-                      <span className={`font-semibold text-xs capitalize ${active ? 'text-secondary-600' : 'text-gray-600'}`}>
+                      <span className={`font-semibold text-xs ${active ? 'text-secondary-600' : 'text-gray-600'}`}>
                         {t(`pos_sales.${method}`)}
                       </span>
                     </div>

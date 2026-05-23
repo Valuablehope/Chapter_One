@@ -57,6 +57,10 @@ export interface Store {
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
   include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
 }
 
 export interface StoreFilters {
@@ -73,30 +77,20 @@ export class StoreModel extends BaseModel {
     return { ...store, timezone: repaired };
   }
 
-  // Cache for available store_settings columns
-  private static availableSettingsColumns: Set<string> | null = null;
-
-  // Get available columns from store_settings table
+  // Get available columns from store_settings table (no cache — always fresh so new columns are visible)
   private static async getAvailableSettingsColumns(): Promise<Set<string>> {
-    if (this.availableSettingsColumns !== null) {
-      return this.availableSettingsColumns;
-    }
-
     try {
       const query = `
-        SELECT column_name 
-        FROM information_schema.columns 
+        SELECT column_name
+        FROM information_schema.columns
         WHERE table_name = 'store_settings'
           AND table_schema = current_schema()
       `;
       const result = await this.query<{ column_name: string }>(query);
-      this.availableSettingsColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
-      return this.availableSettingsColumns;
+      return new Set(result.rows.map((row: { column_name: string }) => row.column_name));
     } catch (error) {
-      // If query fails, return empty set (will only select from stores table)
       console.warn('Could not fetch store_settings columns, using defaults');
-      this.availableSettingsColumns = new Set();
-      return this.availableSettingsColumns;
+      return new Set();
     }
   }
 
@@ -154,6 +148,10 @@ export class StoreModel extends BaseModel {
       label_height_mm: 'ss.label_height_mm',
       label_canvas_elements: 'ss.label_canvas_elements',
       include_delivery_in_drawer: 'ss.include_delivery_in_drawer',
+      pm_cash: 'ss.pm_cash',
+      pm_card: 'ss.pm_card',
+      pm_voucher: 'ss.pm_voucher',
+      pm_other: 'ss.pm_other',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

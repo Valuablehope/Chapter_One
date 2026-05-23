@@ -63,6 +63,10 @@ export interface StoreSettings {
   label_height_mm?: number | null;
   label_canvas_elements?: unknown;
   include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

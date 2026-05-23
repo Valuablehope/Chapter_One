@@ -39,11 +39,12 @@ router.post(
     body('items.*.qty').isFloat({ min: 0.001 }).withMessage('Item quantity must be greater than 0'),
     body('items.*.unit_price').isFloat({ min: 0 }).withMessage('Item unit price must be positive'),
     body('items.*.tax_rate').optional().isFloat({ min: 0, max: 100 }),
+    body('items.*.is_return').optional().isBoolean(),
     body('payments')
       .isArray({ min: 1, max: 10 })
       .withMessage('Sale must have at least one payment and at most 10 payments'),
     body('payments.*.method').isIn(['cash', 'card', 'voucher', 'other']).withMessage('Invalid payment method'),
-    body('payments.*.amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
+    body('payments.*.amount').isFloat({ min: 0 }).withMessage('Payment amount must be non-negative'),
     body('customer_id').optional().isUUID(),
     body('restaurant_context').optional().isObject(),
     body('restaurant_context.table_number').optional().isInt({ min: 1 }),
@@ -73,6 +74,7 @@ router.put(
     body('items.*.qty').optional().isFloat({ min: 0.001 }),
     body('items.*.unit_price').optional().isFloat({ min: 0 }),
     body('items.*.tax_rate').optional().isFloat({ min: 0, max: 100 }),
+    body('items.*.is_return').optional().isBoolean(),
     body('payments').optional().isArray({ min: 1 }),
     body('payments.*.method').optional().isIn(['cash', 'card', 'voucher', 'other']),
     body('payments.*.amount').optional().isFloat({ min: 0.01 }),
