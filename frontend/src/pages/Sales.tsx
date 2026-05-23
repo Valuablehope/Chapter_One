@@ -1109,7 +1109,10 @@ export default function Sales() {
     if (completedSale && storeSettings?.auto_print) {
       // Defer slightly to ensure React has fully rendered the portal in the DOM
       const timer = setTimeout(() => {
+        // handlePrint captures the HTML synchronously before initiating async print,
+        // so startNewSale() can safely follow — the portal is still mounted at this point
         handlePrint();
+        startNewSale();
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -2321,8 +2324,8 @@ export default function Sales() {
         </div>
       </Modal>
 
-      {/* Receipt Modal */}
-      {completedSale && (
+      {/* Receipt Modal — hidden when auto_print is on (receipt is sent directly to printer) */}
+      {completedSale && !storeSettings?.auto_print && (
         <Modal
           isOpen={!!completedSale}
           onClose={startNewSale}

@@ -880,6 +880,50 @@ ipcMain.handle('app:getPrinters', async (event) => {
   return [];
 });
 
+/**
+ * Replaces <link rel="stylesheet" href="..."> tags with inlined <style> blocks.
+ *
+ * The temp print file is written to userData/, so relative CSS paths like
+ * "./assets/index-xxx.css" would resolve to the wrong directory and fail to
+ * load, producing a blank page. Inlining the CSS avoids this entirely.
+ */
+function inlineCssLinks(html: string): string {
+  return html.replace(
+    /<link\b[^>]*\brel=["']stylesheet["'][^>]*>/gi,
+    (match) => {
+      const hrefMatch = match.match(/\bhref=["']([^"']+)["']/i);
+      if (!hrefMatch) return match;
+
+      const href = hrefMatch[1];
+
+      // Leave HTTP/HTTPS URLs as-is (Vite dev server, CDN, etc.)
+      if (/^https?:\/\//i.test(href)) return match;
+
+      try {
+        let cssFilePath: string;
+
+        if (/^file:\/\/\//i.test(href)) {
+          // Absolute file:// URL — strip protocol and decode
+          const withoutProtocol = href.slice('file:///'.length);
+          cssFilePath = process.platform === 'win32'
+            ? decodeURIComponent(withoutProtocol)           // C:/path/...
+            : '/' + decodeURIComponent(withoutProtocol);    // /path/...
+        } else {
+          // Relative path — resolve from the built frontend output dir
+          const distPath = path.join(app.getAppPath(), 'frontend', 'dist');
+          cssFilePath = path.join(distPath, href.replace(/^\.\//, ''));
+        }
+
+        const cssContent = fs.readFileSync(cssFilePath, 'utf-8');
+        return `<style>\n${cssContent}\n</style>`;
+      } catch (e) {
+        log.warn('Could not inline CSS for print (keeping link tag):', href, (e as Error).message);
+        return match;
+      }
+    }
+  );
+}
+
 ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: string) => {
   if (html) {
     return new Promise((resolve) => {
@@ -897,7 +941,8 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
       );
 
       try {
-        fs.writeFileSync(tempFilePath, html, 'utf-8');
+        // Inline CSS before writing so the temp file is self-contained
+        fs.writeFileSync(tempFilePath, inlineCssLinks(html), 'utf-8');
       } catch (err: any) {
         log.error('Failed to write temp print file:', err);
         printWindow.destroy();
@@ -924,22 +969,25 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
           options.deviceName = deviceName;
         }
 
-        printWindow.webContents.print(options, (success, failureReason) => {
-          printWindow.destroy();
-          try {
-            if (fs.existsSync(tempFilePath)) {
-              fs.unlinkSync(tempFilePath);
+        // Small delay after load so Chromium finishes layout before printing
+        setTimeout(() => {
+          printWindow.webContents.print(options, (success, failureReason) => {
+            printWindow.destroy();
+            try {
+              if (fs.existsSync(tempFilePath)) {
+                fs.unlinkSync(tempFilePath);
+              }
+            } catch (e) {
+              log.error('Failed to delete temp print file:', e);
             }
-          } catch (e) {
-            log.error('Failed to delete temp print file:', e);
-          }
-          if (!success) {
-            log.error('Silent print failed:', failureReason);
-            resolve({ success: false, error: failureReason });
-          } else {
-            resolve({ success: true });
-          }
-        });
+            if (!success) {
+              log.error('Silent print failed:', failureReason);
+              resolve({ success: false, error: failureReason });
+            } else {
+              resolve({ success: true });
+            }
+          });
+        }, 300);
       });
     });
   }
