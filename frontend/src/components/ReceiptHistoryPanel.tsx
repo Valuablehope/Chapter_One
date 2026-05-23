@@ -4,6 +4,8 @@ import {
   PrinterIcon,
   ReceiptPercentIcon,
   ClockIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { saleService, Sale } from '../services/saleService';
 import { StoreSettings } from '../services/storeService';
@@ -41,7 +43,9 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
   const [loading, setLoading] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [fetchingDetail, setFetchingDetail] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const receiptRef = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const formatCurrency = useCallback(
     (n: number) =>
@@ -54,7 +58,7 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
     [storeSettings?.currency_code],
   );
 
-  const loadSales = useCallback(async () => {
+  const loadSales = useCallback(async (search?: string) => {
     if (!storeSettings?.store_id) return;
     setLoading(true);
     try {
@@ -62,6 +66,7 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
         store_id: storeSettings.store_id,
         limit: 20,
         page: 1,
+        ...(search ? { search } : {}),
       });
       setSales(data);
     } catch {
@@ -76,17 +81,30 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
     if (isOpen) loadSales();
   }, [isOpen, loadSales, refreshTrigger]);
 
-  // Clear selection when modal closes
+  // Clear selection and search when modal closes
   useEffect(() => {
-    if (!isOpen) setSelectedSale(null);
+    if (!isOpen) {
+      setSelectedSale(null);
+      setSearchTerm('');
+    }
   }, [isOpen]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      loadSales(value || undefined);
+    }, 400);
+  }, [loadSales]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm('');
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    loadSales();
+  }, [loadSales]);
 
   const selectSale = async (sale: Sale) => {
     if (fetchingDetail) return;
-    if (sale.items?.length > 0) {
-      setSelectedSale(sale);
-      return;
-    }
     setFetchingDetail(true);
     try {
       const full = await saleService.getSaleById(sale.sale_id);
@@ -181,14 +199,38 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
         <div className="w-56 flex-shrink-0 flex flex-col border-r border-[#e2e8f0]">
           {/* List header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-[#e2e8f0] bg-[#f8fafc]">
-            <span className="text-xs font-semibold text-gray-600">Last 20 sales</span>
+            <span className="text-xs font-semibold text-gray-600">
+              {searchTerm ? 'Search results' : 'Last 20 sales'}
+            </span>
             <button
-              onClick={loadSales}
+              onClick={() => loadSales(searchTerm || undefined)}
               title="Refresh"
               className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-secondary-500 transition-colors"
             >
               <ArrowPathIcon className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
+          </div>
+
+          {/* Search input */}
+          <div className="px-2 py-1.5 border-b border-[#e2e8f0] bg-[#f8fafc]">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => handleSearchChange(e.target.value)}
+                placeholder="Search receipt #..."
+                className="w-full pl-6 pr-5 py-1 text-[11px] bg-white border border-gray-200 rounded text-gray-700 placeholder-gray-400 focus:outline-none focus:border-secondary-400 focus:ring-1 focus:ring-secondary-200"
+              />
+              {searchTerm && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* List body */}
@@ -201,7 +243,9 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
             ) : sales.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
                 <ReceiptPercentIcon className="w-7 h-7 text-gray-200" />
-                <p className="text-xs text-gray-400">No recent sales</p>
+                <p className="text-xs text-gray-400">
+                  {searchTerm ? 'No results found' : 'No recent sales'}
+                </p>
               </div>
             ) : (
               sales.map(sale => {

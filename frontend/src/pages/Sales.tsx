@@ -849,6 +849,7 @@ export default function Sales() {
       toast.error('Cart is empty');
       return;
     }
+    if (grandTotal < 0) setPaymentMethod('other');
     setPaymentAmount(grandTotal > 0 ? grandTotal.toFixed(2) : '');
     setPaymentAmountLBP('');
     setShowPaymentModal(true);
@@ -907,11 +908,14 @@ export default function Sales() {
     }
 
     const totalTendered = totalTenderedUSD;
-    if (totalTendered <= 0 || totalTendered < grandTotal) {
-      const shortfallUSD = (grandTotal - totalTendered).toFixed(2);
-      const shortfallLBP = lbpRate > 0 ? ` (${Math.ceil((grandTotal - totalTendered) * lbpRate).toLocaleString()} LBP)` : '';
-      toast.error(`Insufficient payment. Short by $${shortfallUSD}${shortfallLBP}`);
-      return;
+    // Refund method: grandTotal is negative (money back to customer) — no tender needed
+    if (paymentMethod !== 'other') {
+      if (totalTendered <= 0 || totalTendered < grandTotal) {
+        const shortfallUSD = (grandTotal - totalTendered).toFixed(2);
+        const shortfallLBP = lbpRate > 0 ? ` (${Math.ceil((grandTotal - totalTendered) * lbpRate).toLocaleString()} LBP)` : '';
+        toast.error(`Insufficient payment. Short by $${shortfallUSD}${shortfallLBP}`);
+        return;
+      }
     }
 
     // Store current state for rollback
@@ -2201,11 +2205,11 @@ export default function Sales() {
             <Button
               onClick={processPayment}
               disabled={processing}
-              variant="primary"
+              variant={paymentMethod === 'other' ? 'danger' : 'primary'}
               isLoading={processing}
               leftIcon={getPaymentIcon(paymentMethod)}
             >
-              {processing ? 'Processing...' : 'Complete Sale'}
+              {processing ? 'Processing...' : paymentMethod === 'other' ? 'Process Refund' : 'Complete Sale'}
             </Button>
           </div>
         }
@@ -2227,23 +2231,27 @@ export default function Sales() {
                 })
                 .map((method) => {
                 const active = paymentMethod === method;
+                const isRefundMethod = method === 'other';
+                const activeBorder = isRefundMethod ? 'border-error-400 bg-error-50 shadow-sm' : 'border-secondary-500 bg-secondary-50 shadow-sm';
+                const activeIconBg = isRefundMethod ? 'bg-error-500' : 'bg-secondary-500';
+                const activeLabel = isRefundMethod ? 'text-error-600' : 'text-secondary-600';
                 return (
                   <button
                     key={method}
                     onClick={() => setPaymentMethod(method)}
                     className={`p-3 rounded-xl border-2 transition-all duration-150 ${active
-                      ? 'border-secondary-500 bg-secondary-50 shadow-sm'
+                      ? activeBorder
                       : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     <div className="flex flex-col items-center space-y-1.5">
-                      <div className={`p-1.5 rounded-lg ${active ? 'bg-secondary-500' : 'bg-gray-100'}`}>
+                      <div className={`p-1.5 rounded-lg ${active ? activeIconBg : 'bg-gray-100'}`}>
                         {method === 'cash' && <BanknotesIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                         {method === 'card' && <CreditCardIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                         {method === 'voucher' && <TicketIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                         {method === 'other' && <CurrencyDollarIcon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-500'}`} />}
                       </div>
-                      <span className={`font-semibold text-xs ${active ? 'text-secondary-600' : 'text-gray-600'}`}>
+                      <span className={`font-semibold text-xs ${active ? activeLabel : 'text-gray-600'}`}>
                         {t(`pos_sales.${method}`)}
                       </span>
                     </div>
@@ -2252,8 +2260,8 @@ export default function Sales() {
               })}
             </div>
           </div>
-          {/* ── Cash Received ── */}
-          <div className="space-y-3">
+          {/* ── Cash Received — hidden for Refund ── */}
+          {paymentMethod !== 'other' && <div className="space-y-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cash Received</p>
 
             {/* Two-column layout for currency fields */}
@@ -2323,13 +2331,18 @@ export default function Sales() {
                 <span className="ml-2">≈ <span className="font-semibold text-gray-600">{Math.ceil(grandTotal * lbpRate).toLocaleString()} LBP</span></span>
               )}
             </p>
-          </div>
+          </div>}
 
           {/* ── Grand Total + Change Due ── */}
-          <div className="p-4 rounded-xl text-white" style={{ background: gradients.brandBlue }}>
+          <div
+            className="p-4 rounded-xl text-white"
+            style={{ background: paymentMethod === 'other' ? 'linear-gradient(135deg, #f87171 0%, #dc2626 100%)' : gradients.brandBlue }}
+          >
             {/* Grand Total row */}
             <div className="flex justify-between items-center">
-              <span className="font-medium text-sm opacity-80">{t('pos_sales.grand_total')}</span>
+              <span className="font-medium text-sm opacity-80">
+                {paymentMethod === 'other' ? 'Refund Amount' : t('pos_sales.grand_total')}
+              </span>
               <div className="text-right">
                 <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
                 {formatLBP(grandTotal) && (
@@ -2388,18 +2401,18 @@ export default function Sales() {
 
           {/* Progress indicator */}
           {processing && (
-            <div className="mt-4 p-4 bg-secondary-50 rounded-xl border border-secondary-200">
+            <div className={`mt-4 p-4 rounded-xl border ${paymentMethod === 'other' ? 'bg-error-50 border-error-200' : 'bg-secondary-50 border-secondary-200'}`}>
               <div className="flex items-center justify-between mb-2.5">
-                <span className="text-sm font-semibold text-secondary-800">{processingStage || t('pos_sales.processing')}</span>
-                <span className="text-sm font-bold text-secondary-600 tabular-nums">{processingProgress}%</span>
+                <span className={`text-sm font-semibold ${paymentMethod === 'other' ? 'text-error-800' : 'text-secondary-800'}`}>{processingStage || t('pos_sales.processing')}</span>
+                <span className={`text-sm font-bold tabular-nums ${paymentMethod === 'other' ? 'text-error-600' : 'text-secondary-600'}`}>{processingProgress}%</span>
               </div>
-              <div className="w-full bg-secondary-100 rounded-full h-2">
+              <div className={`w-full rounded-full h-2 ${paymentMethod === 'other' ? 'bg-error-100' : 'bg-secondary-100'}`}>
                 <div
-                  className="bg-secondary-500 h-2 rounded-full transition-all duration-300"
+                  className={`h-2 rounded-full transition-all duration-300 ${paymentMethod === 'other' ? 'bg-error-500' : 'bg-secondary-500'}`}
                   style={{ width: `${processingProgress}%` }}
                 />
               </div>
-              <p className="text-xs text-secondary-600 mt-2">{t('pos_sales.please_wait')}</p>
+              <p className={`text-xs mt-2 ${paymentMethod === 'other' ? 'text-error-600' : 'text-secondary-600'}`}>{t('pos_sales.please_wait')}</p>
             </div>
           )}
         </div>

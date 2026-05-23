@@ -51,6 +51,7 @@ export interface SaleItem {
   unit_price: number;
   tax_rate: number;
   line_total: number;
+  is_return?: boolean;
 }
 
 export interface SalePayment {
@@ -1456,6 +1457,7 @@ export class SaleModel extends BaseModel {
         unit_price: item.unit_price,
         tax_rate: item.tax_rate,
         line_total: item.line_total,
+        is_return: item.is_return,
       });
     });
 

@@ -44,7 +44,7 @@ router.post(
       .isArray({ min: 1, max: 10 })
       .withMessage('Sale must have at least one payment and at most 10 payments'),
     body('payments.*.method').isIn(['cash', 'card', 'voucher', 'other']).withMessage('Invalid payment method'),
-    body('payments.*.amount').isFloat({ min: 0 }).withMessage('Payment amount must be non-negative'),
+    body('payments.*.amount').isFloat().withMessage('Payment amount must be a number'),
     body('customer_id').optional().isUUID(),
     body('restaurant_context').optional().isObject(),
     body('restaurant_context.table_number').optional().isInt({ min: 1 }),
@@ -77,7 +77,7 @@ router.put(
     body('items.*.is_return').optional().isBoolean(),
     body('payments').optional().isArray({ min: 1 }),
     body('payments.*.method').optional().isIn(['cash', 'card', 'voucher', 'other']),
-    body('payments.*.amount').optional().isFloat({ min: 0.01 }),
+    body('payments.*.amount').optional().isFloat(),
     body('customer_id').optional().isUUID(),
   ],
   validateRequest,
