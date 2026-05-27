@@ -10,6 +10,8 @@ import {
 import { saleService, Sale } from '../services/saleService';
 import { StoreSettings } from '../services/storeService';
 import Receipt from './Receipt';
+import { useTranslation } from '../i18n/I18nContext';
+import { buildReceiptHtml } from '../utils/buildReceiptHtml';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import toast from 'react-hot-toast';
@@ -39,6 +41,7 @@ function relativeTime(dateStr: string, timezone?: string): string {
 }
 
 export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, refreshTrigger }: Props) {
+  const { t } = useTranslation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -118,23 +121,17 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
   };
 
   const handlePrint = () => {
-    const el = receiptRef.current;
-    if (!el) return;
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-      .map(e => e.outerHTML)
-      .join('\n');
-    const html = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    ${styles}
-    <style>body { margin: 0; padding: 0; background: white; }</style>
-  </head>
-  <body>${el.innerHTML}</body>
-</html>`;
+    if (!selectedSale) return;
+    const html = buildReceiptHtml({
+      sale: selectedSale,
+      settings: storeSettings,
+      items: selectedSale.items,
+      customer: selectedSale.customer as any ?? null,
+      t,
+    });
     if ((window as any).electronAPI?.printSilent) {
       (window as any).electronAPI
-        .printSilent(storeSettings?.receipt_printer ?? undefined, html)
+        .printSilent(storeSettings?.receipt_printer ?? undefined, html, storeSettings?.paper_size || '80mm')
         .then((res: { success: boolean; error?: string }) => {
           if (!res.success) toast.error(`Print failed: ${res.error ?? 'Unknown error'}`);
           else toast.success('Receipt sent to printer.');

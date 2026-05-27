@@ -875,10 +875,55 @@ ipcMain.handle('app:openLogs', () => {
 ipcMain.handle('app:getPrinters', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
-    return await win.webContents.getPrintersAsync();
+    const printers = await win.webContents.getPrintersAsync();
+    return printers.map(p => ({ ...p, detectedPaperSize: detectPaperSize(p) }));
   }
   return [];
 });
+
+/**
+ * Converts a paper size string (e.g. "80mm", "58mm") to CSS pixels at 96dpi.
+ * Falls back to 302px (80mm) for unknown values.
+ */
+function paperSizeToPx(paperSize?: string): number {
+  const mm = parseFloat(paperSize || '80');
+  if (!isNaN(mm) && mm > 0) {
+    return Math.round(mm * 96 / 25.4);
+  }
+  return 302;
+}
+
+/**
+ * Converts paper size string to micrometers for webContents.print() pageSize.
+ * 1 mm = 1000 µm. A4 = 210mm default when size is unrecognised.
+ */
+function paperSizeToWidthMicrons(paperSize?: string): number {
+  if (!paperSize || paperSize === 'A4') return 210_000;
+  const mm = parseFloat(paperSize);
+  return (!isNaN(mm) && mm > 0) ? Math.round(mm * 1000) : 80_000;
+}
+
+/**
+ * Infers the most likely paper size from a PrinterInfo object.
+ * Checks CUPS/Windows media options first, then falls back to name heuristics.
+ * Returns null when nothing matches.
+ */
+function detectPaperSize(printer: Electron.PrinterInfo): string | null {
+  const opts: Record<string, string> = (printer as any).options ?? {};
+  const mediaVal = ['media', 'MediaType', 'media-type', 'PageSize']
+    .map(k => String(opts[k] ?? '')).join(' ').toLowerCase();
+
+  if (/\b58\b/.test(mediaVal))   return '58mm';
+  if (/\b80\b/.test(mediaVal))   return '80mm';
+  if (/a4|letter/i.test(mediaVal)) return 'A4';
+
+  const name = `${printer.name} ${(printer as any).displayName ?? ''}`.toLowerCase();
+  if (/58[\s-]?mm|\bm58\b|t58/i.test(name)) return '58mm';
+  if (/80[\s-]?mm|tm-t\d*(20|88|82|70)|tsp\d*(100|143|650|700)|rp-80|dp-80/i.test(name)) return '80mm';
+  if (/a4|letter|laser|inkjet|office|\bhp\b|canon|brother/i.test(name)) return 'A4';
+
+  return null;
+}
 
 /**
  * Replaces <link rel="stylesheet" href="..."> tags with inlined <style> blocks.
@@ -924,11 +969,14 @@ function inlineCssLinks(html: string): string {
   );
 }
 
-ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: string) => {
+ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: string, paperSize?: string) => {
   if (html) {
     return new Promise((resolve) => {
+      const widthPx = paperSizeToPx(paperSize);
       const printWindow = new BrowserWindow({
         show: false,
+        width: widthPx,
+        height: 800,
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -960,34 +1008,47 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
       });
 
       printWindow.webContents.on('did-finish-load', () => {
-        const options: Electron.WebContentsPrintOptions = {
-          silent: true,
-          printBackground: true,
+        const widthMicrons = paperSizeToWidthMicrons(paperSize);
+
+        const doPrint = (heightMicrons: number) => {
+          const options: Electron.WebContentsPrintOptions = {
+            silent: true,
+            printBackground: true,
+            pageSize: { width: widthMicrons, height: heightMicrons },
+            margins: { marginType: 'none' },
+          };
+          if (deviceName) options.deviceName = deviceName;
+
+          setTimeout(() => {
+            printWindow.webContents.print(options, (success, failureReason) => {
+              printWindow.destroy();
+              try {
+                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+              } catch (e) {
+                log.error('Failed to delete temp print file:', e);
+              }
+              if (!success) {
+                log.error('Silent print failed:', failureReason);
+                resolve({ success: false, error: failureReason });
+              } else {
+                resolve({ success: true });
+              }
+            });
+          }, 100);
         };
 
-        if (deviceName) {
-          options.deviceName = deviceName;
-        }
-
-        // Small delay after load so Chromium finishes layout before printing
-        setTimeout(() => {
-          printWindow.webContents.print(options, (success, failureReason) => {
-            printWindow.destroy();
-            try {
-              if (fs.existsSync(tempFilePath)) {
-                fs.unlinkSync(tempFilePath);
-              }
-            } catch (e) {
-              log.error('Failed to delete temp print file:', e);
-            }
-            if (!success) {
-              log.error('Silent print failed:', failureReason);
-              resolve({ success: false, error: failureReason });
-            } else {
-              resolve({ success: true });
-            }
-          });
-        }, 300);
+        // Measure actual content height so no blank paper is fed after the receipt.
+        // At 96 DPI: 1 CSS px = 25400/96 µm ≈ 264.58 µm; add 10 mm (10 000 µm) buffer.
+        printWindow.webContents.executeJavaScript(
+          'Math.ceil(document.documentElement.scrollHeight)'
+        ).then((px: unknown) => {
+          const heightMicrons = Math.ceil(Number(px) * 25400 / 96) + 10_000;
+          log.info(`Print: ${paperSize ?? '80mm'} wide, content ${px}px → pageSize ${widthMicrons}×${heightMicrons} µm`);
+          doPrint(heightMicrons);
+        }).catch((err) => {
+          log.warn('Could not measure content height, using 1200 mm fallback:', err);
+          doPrint(1_200_000);
+        });
       });
     });
   }

@@ -669,6 +669,37 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
+                <FieldLabel>{t('admin.stores.receipt_printer')}</FieldLabel>
+                <select
+                  value={formData.receipt_printer || ''}
+                  onChange={(e) => {
+                    const printerName = e.target.value;
+                    set('receipt_printer', printerName);
+                    if (printerName) {
+                      const detected = printers.find(p => p.name === printerName)?.detectedPaperSize;
+                      if (detected) set('paper_size', detected);
+                    }
+                  }}
+                  className={selectCls}
+                >
+                  <option value="">Default System Printer</option>
+                  {printers.map((p: any, i: number) => (
+                    <option key={i} value={p.name}>
+                      {p.name}{p.detectedPaperSize ? ` (${p.detectedPaperSize})` : ''}
+                    </option>
+                  ))}
+                  {formData.receipt_printer && !printers.find((p: any) => p.name === formData.receipt_printer) && (
+                    <option value={formData.receipt_printer}>
+                      {formData.receipt_printer} (Current)
+                    </option>
+                  )}
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  {t('admin.stores.receipt_printer_helper')}
+                </p>
+              </div>
+
+              <div>
                 <FieldLabel>Receipt Paper Size</FieldLabel>
                 <select
                   value={formData.paper_size}
@@ -679,6 +710,14 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   <option value="58mm">58 mm</option>
                   <option value="A4">A4</option>
                 </select>
+                {(() => {
+                  const activePrinter = printers.find((p: any) => p.name === formData.receipt_printer);
+                  return activePrinter?.detectedPaperSize ? (
+                    <p className="mt-1 text-xs text-emerald-600">
+                      Auto-detected from printer: {activePrinter.detectedPaperSize}
+                    </p>
+                  ) : null;
+                })()}
               </div>
 
               <div>
@@ -696,30 +735,6 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 </select>
                 <p className="mt-1 text-xs text-gray-400">
                   {t('admin.stores.ui_resolution_helper')}
-                </p>
-              </div>
-
-              <div>
-                <FieldLabel>{t('admin.stores.receipt_printer')}</FieldLabel>
-                <select
-                  value={formData.receipt_printer || ''}
-                  onChange={(e) => set('receipt_printer', e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="">Default System Printer</option>
-                  {printers.map((p, i) => (
-                    <option key={i} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                  {formData.receipt_printer && !printers.find(p => p.name === formData.receipt_printer) && (
-                    <option value={formData.receipt_printer}>
-                      {formData.receipt_printer} (Current)
-                    </option>
-                  )}
-                </select>
-                <p className="mt-1 text-xs text-gray-400">
-                  {t('admin.stores.receipt_printer_helper')}
                 </p>
               </div>
             </div>

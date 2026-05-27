@@ -11,6 +11,7 @@ import { getStoreDisplayName, showCustomerDisplay } from '../services/customerDi
 import { API_BASE_URL } from '../services/api';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
+import { buildReceiptHtml } from '../utils/buildReceiptHtml';
 import { gradients } from '../styles/tokens';
 import { useTranslation } from '../i18n/I18nContext';
 import { useSaleSessions } from '../hooks/useSaleSessions';
@@ -1067,46 +1068,16 @@ export default function Sales() {
     setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, [storeSettings]);
 
-  // Extract print portal container contents and active stylesheets
+  // Generate self-contained receipt HTML from sale data (no DOM capture)
   const getReceiptHtml = () => {
-    const portal = document.querySelector('.print-portal-container');
-    if (!portal) return null;
-
-    // Get all style tags and stylesheet links from parent document
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-      .map((el) => el.outerHTML)
-      .join('\n');
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Receipt Print Portal</title>
-          ${styles}
-          <style>
-            body {
-              background-color: white !important;
-              color: black !important;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-            .print-portal-container {
-              display: block !important;
-              position: static !important;
-              width: 100% !important;
-              height: auto !important;
-              overflow: visible !important;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-portal-container">
-            ${portal.innerHTML}
-          </div>
-        </body>
-      </html>
-    `;
+    if (!completedSale) return null;
+    return buildReceiptHtml({
+      sale: completedSale,
+      settings: storeSettings,
+      items: receiptCartItems,
+      customer: receiptCustomer,
+      t,
+    });
   };
 
   // Print receipt
@@ -1125,7 +1096,7 @@ export default function Sales() {
     }
 
     if (window.electronAPI?.printSilent) {
-      window.electronAPI.printSilent(storeSettings?.receipt_printer || undefined, html).then(res => {
+      window.electronAPI.printSilent(storeSettings?.receipt_printer || undefined, html, storeSettings?.paper_size || '80mm').then(res => {
         if (!res.success) {
           toast.error(`Print failed: ${res.error || 'Unknown error'}`);
         } else {

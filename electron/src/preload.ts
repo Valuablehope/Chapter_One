@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   log: (level: string, message: string) => ipcRenderer.send('app:log', { level, message }),
   openLogs: () => ipcRenderer.invoke('app:openLogs'),
   getPrinters: () => ipcRenderer.invoke('app:getPrinters'),
-  printSilent: (deviceName?: string, html?: string) => ipcRenderer.invoke('app:print-silent', deviceName, html),
+  printSilent: (deviceName?: string, html?: string, paperSize?: string) => ipcRenderer.invoke('app:print-silent', deviceName, html, paperSize),
   customerDisplayShow: (payload: { storeName: string; amount: number }) =>
     ipcRenderer.invoke('customer-display:show', payload),
   // Setup Wizard Methods
@@ -56,7 +56,7 @@ declare global {
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;
       getPrinters: () => Promise<any[]>;
-      printSilent: (deviceName?: string, html?: string) => Promise<{ success: boolean; error?: string }>;
+      printSilent: (deviceName?: string, html?: string, paperSize?: string) => Promise<{ success: boolean; error?: string }>;
       customerDisplayShow: (payload: {
         storeName: string;
         amount: number;
