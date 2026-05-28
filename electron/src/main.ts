@@ -969,6 +969,117 @@ function inlineCssLinks(html: string): string {
   );
 }
 
+/**
+ * Converts an Electron capturePage() BGRA bitmap to a clean ESC/POS GS v 0 raster buffer.
+ * Nearest-neighbour scales from screen DPI (96) to printer DPI (203).
+ * Sends the entire receipt as ONE GS v 0 block → no Windows-driver ESC J gap between strips.
+ */
+function buildEscPosFromCapture(
+  bitmap: Buffer,
+  imgWidth: number,
+  imgHeight: number,
+  printerWidthDots: number,
+  printerHeightDots: number,
+): Buffer {
+  const widthBytes = Math.ceil(printerWidthDots / 8);
+  const out: number[] = [];
+
+  out.push(0x1b, 0x40);                     // ESC @ – Initialize
+  out.push(0x1b, 0x70, 0x00, 0x40, 0x50);  // ESC p – Cash drawer kick
+
+  // GS v 0 – Print raster bit image (whole receipt in one command, no inter-strip feeds)
+  out.push(0x1d, 0x76, 0x30, 0x00);
+  out.push(widthBytes & 0xff, (widthBytes >> 8) & 0xff);
+  out.push(printerHeightDots & 0xff, (printerHeightDots >> 8) & 0xff);
+
+  for (let yOut = 0; yOut < printerHeightDots; yOut++) {
+    const ySrc = Math.min(Math.floor(yOut * imgHeight / printerHeightDots), imgHeight - 1);
+    for (let xb = 0; xb < widthBytes; xb++) {
+      let byte = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const xOut = xb * 8 + bit;
+        if (xOut < printerWidthDots) {
+          const xSrc = Math.min(Math.floor(xOut * imgWidth / printerWidthDots), imgWidth - 1);
+          const idx  = (ySrc * imgWidth + xSrc) * 4;
+          // BGRA buffer from Electron: average channels, threshold at 160
+          if ((bitmap[idx] + bitmap[idx + 1] + bitmap[idx + 2]) / 3 < 160) {
+            byte |= (0x80 >> bit); // MSB first
+          }
+        }
+      }
+      out.push(byte);
+    }
+  }
+
+  out.push(0x1b, 0x64, 0x05);       // ESC d 5 – Feed 5 lines before cut
+  out.push(0x1d, 0x56, 0x41, 0x05); // GS V A 5 – Partial cut
+
+  return Buffer.from(out);
+}
+
+/**
+ * Sends raw ESC/POS bytes directly to a named Windows printer via winspool P/Invoke.
+ * Uses data type "RAW" so the driver passes bytes straight to the printer with no conversion.
+ */
+function sendRawToWindowsPrinter(printerName: string, data: Buffer): Promise<{ success: boolean; error?: string }> {
+  const tmpPath = path.join(app.getPath('userData'), `rawprint-${Date.now()}.bin`);
+  fs.writeFileSync(tmpPath, data);
+
+  const esc = (s: string) => s.replace(/'/g, "''").replace(/\\/g, '\\\\');
+
+  const psScript = `
+$ErrorActionPreference='Stop'
+Add-Type @"
+using System;using System.Runtime.InteropServices;
+public class WP{
+  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Ansi)]
+  public struct DI{public string pDocName;public string pOutputFile;public string pDatatype;}
+  [DllImport("winspool.Drv",EntryPoint="OpenPrinterA",CharSet=CharSet.Ansi)]
+  public static extern bool Open(string n,ref IntPtr h,IntPtr d);
+  [DllImport("winspool.Drv",EntryPoint="ClosePrinter")]
+  public static extern bool Close(IntPtr h);
+  [DllImport("winspool.Drv",EntryPoint="StartDocPrinterA",CharSet=CharSet.Ansi)]
+  public static extern int StartDoc(IntPtr h,int l,ref DI d);
+  [DllImport("winspool.Drv",EntryPoint="EndDocPrinter")]
+  public static extern bool EndDoc(IntPtr h);
+  [DllImport("winspool.Drv",EntryPoint="StartPagePrinter")]
+  public static extern bool StartPage(IntPtr h);
+  [DllImport("winspool.Drv",EntryPoint="EndPagePrinter")]
+  public static extern bool EndPage(IntPtr h);
+  [DllImport("winspool.Drv",EntryPoint="WritePrinter")]
+  public static extern bool Write(IntPtr h,byte[] b,int n,ref int w);
+}
+"@
+$h=[IntPtr]::Zero
+[WP]::Open('${esc(printerName)}',[ref]$h,[IntPtr]::Zero)|Out-Null
+if($h-eq[IntPtr]::Zero){throw "Cannot open printer '${esc(printerName)}'"}
+$di=New-Object WP+DI;$di.pDocName='Receipt';$di.pDatatype='RAW'
+[WP]::StartDoc($h,1,[ref]$di)|Out-Null
+[WP]::StartPage($h)|Out-Null
+$bytes=[System.IO.File]::ReadAllBytes('${esc(tmpPath)}')
+$w=0;[WP]::Write($h,$bytes,$bytes.Length,[ref]$w)|Out-Null
+[WP]::EndPage($h)|Out-Null;[WP]::EndDoc($h)|Out-Null;[WP]::Close($h)|Out-Null
+Write-Host "OK:$w"`;
+
+  return new Promise((resolve) => {
+    const ps = spawn('powershell', ['-NonInteractive', '-NoProfile', '-Command', psScript]);
+    let stdout = '', stderr = '';
+    ps.stdout?.on('data', (d: Buffer) => { stdout += d.toString(); });
+    ps.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
+    ps.on('close', (code: number) => {
+      try { fs.unlinkSync(tmpPath); } catch {}
+      if (code === 0 && stdout.includes('OK:')) {
+        log.info('[rawPrint] Success:', stdout.trim());
+        resolve({ success: true });
+      } else {
+        const msg = stderr.trim() || `PowerShell exit ${code}`;
+        log.error('[rawPrint] Failed:', msg);
+        resolve({ success: false, error: msg });
+      }
+    });
+  });
+}
+
 ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: string, paperSize?: string) => {
   if (html) {
     return new Promise((resolve) => {
@@ -1007,8 +1118,15 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
         resolve({ success: false, error: `Failed to load temp file: ${err.message}` });
       });
 
-      printWindow.webContents.on('did-finish-load', () => {
+      printWindow.webContents.on('did-finish-load', async () => {
         const widthMicrons = paperSizeToWidthMicrons(paperSize);
+
+        const cleanup = () => {
+          printWindow.destroy();
+          try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch (e) {
+            log.error('Failed to delete temp print file:', e);
+          }
+        };
 
         const doPrint = (heightMicrons: number) => {
           const options: Electron.WebContentsPrintOptions = {
@@ -1021,12 +1139,7 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
 
           setTimeout(() => {
             printWindow.webContents.print(options, (success, failureReason) => {
-              printWindow.destroy();
-              try {
-                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-              } catch (e) {
-                log.error('Failed to delete temp print file:', e);
-              }
+              cleanup();
               if (!success) {
                 log.error('Silent print failed:', failureReason);
                 resolve({ success: false, error: failureReason });
@@ -1037,7 +1150,32 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
           }, 100);
         };
 
-        // Measure actual content height so no blank paper is fed after the receipt.
+        // On Windows with a named printer, capture the page as a bitmap and send
+        // raw ESC/POS — bypasses the GDI driver's per-strip ESC J gaps that cause
+        // ~1.875× vertical stretch on thermal printers.
+        if (process.platform === 'win32' && deviceName) {
+          try {
+            const cssHeight = await printWindow.webContents.executeJavaScript(
+              'Math.ceil(document.documentElement.scrollHeight)'
+            ) as number;
+            printWindow.setContentSize(widthPx, cssHeight + 20);
+            await new Promise<void>((r) => setTimeout(r, 150));
+            const image = await printWindow.webContents.capturePage();
+            const bitmap = image.toBitmap();
+            const { width: imgWidth, height: imgHeight } = image.getSize();
+            const printerWidthDots  = Math.round(widthPx  * 203 / 96);
+            const printerHeightDots = Math.round(imgHeight * 203 / 96);
+            const escpos = buildEscPosFromCapture(bitmap, imgWidth, imgHeight, printerWidthDots, printerHeightDots);
+            log.info(`[rawPrint] Sending ${escpos.length} bytes ESC/POS to "${deviceName}" (${printerWidthDots}×${printerHeightDots} dots)`);
+            cleanup();
+            resolve(await sendRawToWindowsPrinter(deviceName, escpos));
+            return;
+          } catch (e: any) {
+            log.warn('[rawPrint] Capture-based print failed, falling back to webContents.print():', e.message);
+          }
+        }
+
+        // Fallback: standard Electron webContents.print() path.
         // At 96 DPI: 1 CSS px = 25400/96 µm ≈ 264.58 µm; add 10 mm (10 000 µm) buffer.
         printWindow.webContents.executeJavaScript(
           'Math.ceil(document.documentElement.scrollHeight)'

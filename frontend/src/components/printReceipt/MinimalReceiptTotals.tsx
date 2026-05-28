@@ -9,19 +9,21 @@ export interface TotalRow {
 
 export function MinimalReceiptTotals({ rows }: { rows: TotalRow[] }) {
   return (
-    <div className="space-y-0.5 text-xs border-t border-black pt-1 mt-1">
+    <div className="text-[11px] border-t border-black pt-1 mt-0.5">
       {rows.map((r, i) => (
         <div
           key={i}
-          className={`flex justify-between gap-2 text-black ${
+          className={`flex justify-between gap-2 ${
             r.emphasis === 'strong'
-              ? 'font-bold pt-1 border-t border-black mt-1 text-sm'
+              ? 'font-black text-[13px] border-t-2 border-black mt-1.5 pt-1.5'
               : r.emphasis === 'strongSub'
-                ? 'font-bold text-sm'
-                : ''
+                ? 'font-bold text-[12px] leading-[1.5]'
+                : 'font-semibold text-black leading-[1.65]'
           }`}
         >
-          <span>{r.label}</span>
+          <span className={r.emphasis === 'strong' ? 'uppercase tracking-[0.04em]' : ''}>
+            {r.label}
+          </span>
           <span className="text-right whitespace-nowrap font-mono">{r.value}</span>
         </div>
       ))}

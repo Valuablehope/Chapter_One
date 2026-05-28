@@ -12,31 +12,32 @@ export function MinimalReceiptFooter({
 }) {
   const { t } = useTranslation();
 
-  const cubiq = (
-    <p className="text-center text-[10px] text-black/70 mt-2 pt-1 print:text-black/80">
+  const poweredBy = (
+    <p
+      className="text-center text-[9px] mt-2"
+      style={{ color: 'rgba(0,0,0,0.42)', letterSpacing: '0.05em' }}
+    >
       {t('receipt.by_cubiq')}
     </p>
   );
 
   if (settings?.receipt_footer?.trim()) {
     return (
-      <>
-        <div className="text-center text-xs text-black whitespace-pre-line mt-2 pt-2 border-t border-black leading-snug">
+      <div className="text-center mt-2 pt-2 border-t border-black">
+        <div className="text-[11px] text-black whitespace-pre-line leading-snug">
           {settings.receipt_footer}
         </div>
-        {cubiq}
-      </>
+        {poweredBy}
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="text-center text-xs text-black mt-2 pt-2 border-t border-black">
-        <p className="font-semibold">
-          {variant === 'restaurant' ? t('receipt.thank_you_restaurant') : t('receipt.thank_you_sale')}
-        </p>
-      </div>
-      {cubiq}
-    </>
+    <div className="text-center mt-2 pt-2 border-t border-black">
+      <p className="font-bold text-[11px] text-black">
+        {variant === 'restaurant' ? t('receipt.thank_you_restaurant') : t('receipt.thank_you_sale')}
+      </p>
+      {poweredBy}
+    </div>
   );
 }

@@ -14,19 +14,19 @@ export function MinimalReceiptPayments({
   const change = tender > grandTotal ? tender - grandTotal : 0;
 
   return (
-    <div className="text-xs space-y-0.5 border-t border-dashed border-black pt-1 mt-1">
+    <div className="text-[11px] border-t border-dashed border-black pt-1.5 mt-1.5">
       {payments.map((p, i) => (
-        <div key={i} className="flex justify-between gap-2 text-black">
-          <span>
+        <div key={i} className="flex justify-between gap-2 text-black leading-[1.65]">
+          <span className="font-semibold" style={{ color: 'rgba(0,0,0,0.82)' }}>
             {t('receipt.payment', {
               method: p.method ? t(`pos_sales.${p.method}`) : '',
             })}
           </span>
-          <span className="font-mono font-medium">{formatCurrency(p.amount)}</span>
+          <span className="font-mono font-bold">{formatCurrency(p.amount)}</span>
         </div>
       ))}
       {change > 0 && (
-        <div className="flex justify-between gap-2 font-semibold text-black pt-0.5">
+        <div className="flex justify-between gap-2 font-bold text-black pt-0.5">
           <span>{t('receipt.change')}</span>
           <span className="font-mono">{formatCurrency(change)}</span>
         </div>
