@@ -16,16 +16,43 @@ function esc(str: string): string {
  * Mirrors the MinimalReceipt* React components exactly so silent Electron
  * prints and browser window.print() receipts look identical.
  */
+export interface ReceiptItem {
+  is_return?: boolean;
+  line_total?: number | string;
+  qty?: number | string;
+  unit_price?: number | string;
+  product?: { name?: string };
+  product_name?: string;
+  [key: string]: unknown;
+}
+
+export interface ReceiptSale {
+  delivery_charge?: number | string;
+  grand_total?: number | string;
+  subtotal?: number | string;
+  tax_total?: number | string;
+  discount_total?: number | string;
+  discount_rate?: number | string;
+  receipt_no?: string | number;
+  created_at: string;
+  customer?: Customer | null;
+  payments?: { method: string; amount: number | string }[];
+  [key: string]: unknown;
+}
+
 export function buildReceiptHtml(params: {
-  sale: any;
+  sale: ReceiptSale;
   settings: StoreSettings | null;
-  items: any[];
+  items: ReceiptItem[];
   customer: Customer | null;
   t: (key: string, params?: Record<string, string | number>) => string;
 }): string {
   const { sale, settings, items, customer, t } = params;
 
   const paperSize = settings?.paper_size || '80mm';
+  const paperWidthMm = paperSize === 'A4'
+    ? 210
+    : (() => { const mm = parseFloat(paperSize); return (!isNaN(mm) && mm > 0) ? mm : 80; })();
 
   const currency = settings?.currency_code || 'USD';
   const formatCurrency = (n: number) =>
@@ -71,12 +98,12 @@ export function buildReceiptHtml(params: {
 
   // ── Line rows ──────────────────────────────────────────────────────────────
   const lineRows = items.map((item) => {
-    const isReturn = !!(item as any).is_return;
-    const absTotal = Math.abs(Number(item.line_total));
+    const isReturn = !!item.is_return;
+    const absTotal = Math.abs(Number(item.line_total || 0));
     return {
-      description: item.product?.name || (item as any).product_name || '—',
-      qty:   isReturn ? `-${Number(item.qty)}`                      : String(Number(item.qty)),
-      price: formatCurrency(Number(item.unit_price)),
+      description: item.product?.name || item.product_name || '—',
+      qty:   isReturn ? `-${Number(item.qty || 0)}`                      : String(Number(item.qty || 0)),
+      price: formatCurrency(Number(item.unit_price || 0)),
       total: isReturn ? `-${formatCurrency(absTotal)}`              : formatCurrency(absTotal),
       isReturn,
     };
@@ -253,7 +280,7 @@ export function buildReceiptHtml(params: {
 <head>
   <meta charset="utf-8">
   <style>
-    @page { size: ${paperSize} auto; margin: 0; }
+    @page { size: auto; margin: 0; }
     *, *::before, *::after { box-sizing: border-box; }
     /* Hide scrollbars completely — a scrollbar steals ~17px from the content width,
        which clips the rightmost table column. We size the window to the content so
@@ -266,10 +293,12 @@ export function buildReceiptHtml(params: {
       font-weight: 600;
       color: #000;
       background: #fff;
-      margin: 0;
+      margin: 0 auto;
       padding: 8px;
       width: 100%;
+      max-width: ${paperWidthMm}mm;
       overflow-x: hidden;
+      box-sizing: border-box;
     }
     table { border-collapse: collapse; width: 100%; }
     p { margin: 0; }

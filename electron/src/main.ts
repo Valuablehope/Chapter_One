@@ -886,6 +886,7 @@ ipcMain.handle('app:getPrinters', async (event) => {
  * Falls back to 302px (80mm) for unknown values.
  */
 function paperSizeToPx(paperSize?: string): number {
+  if (paperSize === 'A4') return Math.round(210 * 96 / 25.4); // 794px
   const mm = parseFloat(paperSize || '80');
   if (!isNaN(mm) && mm > 0) {
     return Math.round(mm * 96 / 25.4);
@@ -1093,8 +1094,32 @@ Write-Host "OK:$w"`;
 
 ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: string, paperSize?: string) => {
   if (html) {
+    // Auto-detect the actual printer paper size from the driver so a misconfigured
+    // storeSettings.paper_size (e.g. 'A4' on an 80mm printer) never corrupts the layout.
+    let resolvedPaperSize = paperSize || '80mm';
+    if (deviceName) {
+      const senderWin = BrowserWindow.fromWebContents(event.sender);
+      if (senderWin) {
+        try {
+          const printers = await senderWin.webContents.getPrintersAsync();
+          const matched = printers.find((p: Electron.PrinterInfo) => p.name === deviceName);
+          if (matched) {
+            const detected = detectPaperSize(matched);
+            if (detected) {
+              if (detected !== resolvedPaperSize) {
+                log.info(`[printSilent] Detected paper "${detected}" from printer "${deviceName}" (settings: "${paperSize ?? 'none'}")`);
+              }
+              resolvedPaperSize = detected;
+            }
+          }
+        } catch (e) {
+          log.warn('[printSilent] Could not detect printer paper size, using settings value:', (e as Error).message);
+        }
+      }
+    }
+
     return new Promise((resolve) => {
-      const widthPx = paperSizeToPx(paperSize);
+      const widthPx = paperSizeToPx(resolvedPaperSize);
       const printWindow = new BrowserWindow({
         show: false,
         width: widthPx,
@@ -1103,6 +1128,7 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
+          zoomFactor: 1, // prevent system/accessibility zoom from blowing up content width
         },
       });
 
@@ -1131,14 +1157,14 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
       });
 
       printWindow.webContents.on('did-finish-load', () => {
-        const widthMicrons = paperSizeToWidthMicrons(paperSize);
+        const widthMicrons = paperSizeToWidthMicrons(resolvedPaperSize);
 
         const doPrint = (heightMicrons: number) => {
           const options: Electron.WebContentsPrintOptions = {
             silent: true,
             printBackground: true,
             pageSize: { width: widthMicrons, height: heightMicrons },
-            margins: { marginType: 'none' },
+            margins: { marginType: 'printableArea' },
           };
           if (deviceName) options.deviceName = deviceName;
 
