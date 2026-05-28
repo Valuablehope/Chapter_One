@@ -894,6 +894,17 @@ function paperSizeToPx(paperSize?: string): number {
 }
 
 /**
+ * Converts a paper size string (e.g. "58mm", "80mm") to the exact number of
+ * printer dots at 203 DPI — the authoritative width for ESC/POS raster blocks.
+ * Goes directly mm → dots without any screen-pixel intermediate so rounding
+ * never drifts from the DB-saved preference.
+ */
+function paperSizeToWidthDots(paperSize?: string, dpi = 203): number {
+  const mm = parseFloat(paperSize || '80');
+  return Math.round((!isNaN(mm) && mm > 0 ? mm : 80) * dpi / 25.4);
+}
+
+/**
  * Converts paper size string to micrometers for webContents.print() pageSize.
  * 1 mm = 1000 µm. A4 = 210mm default when size is unrecognised.
  */
@@ -1087,7 +1098,8 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
       const printWindow = new BrowserWindow({
         show: false,
         width: widthPx,
-        height: 800,
+        height: 4000, // Start very tall so a scrollbar never appears before we resize
+        useContentSize: true, // width/height apply to viewport, not outer window incl. frame
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -1118,15 +1130,8 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
         resolve({ success: false, error: `Failed to load temp file: ${err.message}` });
       });
 
-      printWindow.webContents.on('did-finish-load', async () => {
+      printWindow.webContents.on('did-finish-load', () => {
         const widthMicrons = paperSizeToWidthMicrons(paperSize);
-
-        const cleanup = () => {
-          printWindow.destroy();
-          try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch (e) {
-            log.error('Failed to delete temp print file:', e);
-          }
-        };
 
         const doPrint = (heightMicrons: number) => {
           const options: Electron.WebContentsPrintOptions = {
@@ -1139,7 +1144,12 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
 
           setTimeout(() => {
             printWindow.webContents.print(options, (success, failureReason) => {
-              cleanup();
+              printWindow.destroy();
+              try {
+                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+              } catch (e) {
+                log.error('Failed to delete temp print file:', e);
+              }
               if (!success) {
                 log.error('Silent print failed:', failureReason);
                 resolve({ success: false, error: failureReason });
@@ -1150,32 +1160,7 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
           }, 100);
         };
 
-        // On Windows with a named printer, capture the page as a bitmap and send
-        // raw ESC/POS — bypasses the GDI driver's per-strip ESC J gaps that cause
-        // ~1.875× vertical stretch on thermal printers.
-        if (process.platform === 'win32' && deviceName) {
-          try {
-            const cssHeight = await printWindow.webContents.executeJavaScript(
-              'Math.ceil(document.documentElement.scrollHeight)'
-            ) as number;
-            printWindow.setContentSize(widthPx, cssHeight + 20);
-            await new Promise<void>((r) => setTimeout(r, 150));
-            const image = await printWindow.webContents.capturePage();
-            const bitmap = image.toBitmap();
-            const { width: imgWidth, height: imgHeight } = image.getSize();
-            const printerWidthDots  = Math.round(widthPx  * 203 / 96);
-            const printerHeightDots = Math.round(imgHeight * 203 / 96);
-            const escpos = buildEscPosFromCapture(bitmap, imgWidth, imgHeight, printerWidthDots, printerHeightDots);
-            log.info(`[rawPrint] Sending ${escpos.length} bytes ESC/POS to "${deviceName}" (${printerWidthDots}×${printerHeightDots} dots)`);
-            cleanup();
-            resolve(await sendRawToWindowsPrinter(deviceName, escpos));
-            return;
-          } catch (e: any) {
-            log.warn('[rawPrint] Capture-based print failed, falling back to webContents.print():', e.message);
-          }
-        }
-
-        // Fallback: standard Electron webContents.print() path.
+        // Measure actual content height so the page size fits the receipt exactly.
         // At 96 DPI: 1 CSS px = 25400/96 µm ≈ 264.58 µm; add 10 mm (10 000 µm) buffer.
         printWindow.webContents.executeJavaScript(
           'Math.ceil(document.documentElement.scrollHeight)'

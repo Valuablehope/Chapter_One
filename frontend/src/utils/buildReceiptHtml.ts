@@ -255,6 +255,11 @@ export function buildReceiptHtml(params: {
   <style>
     @page { size: ${paperSize} auto; margin: 0; }
     *, *::before, *::after { box-sizing: border-box; }
+    /* Hide scrollbars completely — a scrollbar steals ~17px from the content width,
+       which clips the rightmost table column. We size the window to the content so
+       scrollbars are never needed anyway. */
+    ::-webkit-scrollbar { display: none; }
+    html { overflow-x: hidden; scrollbar-width: none; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       font-size: 11px;
@@ -263,9 +268,10 @@ export function buildReceiptHtml(params: {
       background: #fff;
       margin: 0;
       padding: 8px;
-      width: ${paperSize};
+      width: 100%;
+      overflow-x: hidden;
     }
-    table { border-collapse: collapse; }
+    table { border-collapse: collapse; width: 100%; }
     p { margin: 0; }
   </style>
 </head>
