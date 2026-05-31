@@ -1,5 +1,4 @@
 import type { StoreSettings } from '../services/storeService';
-import type { Customer } from '../services/customerService';
 import { receiptPrintTitle } from '../constants/branding';
 import { formatLbpGrand, formatLbpPlain } from '../components/printReceipt';
 
@@ -16,6 +15,13 @@ function esc(str: string): string {
  * Mirrors the MinimalReceipt* React components exactly so silent Electron
  * prints and browser window.print() receipts look identical.
  */
+export interface ReceiptCustomer {
+  customer_id: string;
+  full_name?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface ReceiptItem {
   is_return?: boolean;
   line_total?: number | string;
@@ -23,7 +29,6 @@ export interface ReceiptItem {
   unit_price?: number | string;
   product?: { name?: string };
   product_name?: string;
-  [key: string]: unknown;
 }
 
 export interface ReceiptSale {
@@ -35,16 +40,15 @@ export interface ReceiptSale {
   discount_rate?: number | string;
   receipt_no?: string | number;
   created_at: string;
-  customer?: Customer | null;
+  customer?: ReceiptCustomer | null;
   payments?: { method: string; amount: number | string }[];
-  [key: string]: unknown;
 }
 
 export function buildReceiptHtml(params: {
   sale: ReceiptSale;
   settings: StoreSettings | null;
   items: ReceiptItem[];
-  customer: Customer | null;
+  customer: ReceiptCustomer | null;
   t: (key: string, params?: Record<string, string | number>) => string;
 }): string {
   const { sale, settings, items, customer, t } = params;
