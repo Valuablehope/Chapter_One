@@ -11,7 +11,6 @@ import { getStoreDisplayName, showCustomerDisplay } from '../services/customerDi
 import { API_BASE_URL } from '../services/api';
 import { stockService, StockBalance } from '../services/stockService';
 import { logger } from '../utils/logger';
-import { buildReceiptHtml } from '../utils/buildReceiptHtml';
 import { gradients } from '../styles/tokens';
 import { useTranslation } from '../i18n/I18nContext';
 import { useSaleSessions } from '../hooks/useSaleSessions';
@@ -1068,19 +1067,9 @@ export default function Sales() {
     setTimeout(() => barcodeInputRef.current?.focus(), 50);
   }, [storeSettings]);
 
-  // Generate self-contained receipt HTML from sale data (no DOM capture)
-  const getReceiptHtml = () => {
-    if (!completedSale) return null;
-    return buildReceiptHtml({
-      sale: completedSale,
-      settings: storeSettings,
-      items: receiptCartItems,
-      customer: receiptCustomer,
-      t,
-    });
-  };
-
-  // Print receipt
+  // Print receipt — identical mechanism to SalesManagement: window.print()
+  // renders the hidden print portal through the browser/driver pipeline
+  // (@page size auto), which is the proven-correct layout path.
   const handlePrint = () => {
     if (completedSale) {
       showCustomerDisplay(
@@ -1088,24 +1077,7 @@ export default function Sales() {
         Number(completedSale.grand_total)
       );
     }
-
-    const html = getReceiptHtml();
-    if (!html) {
-      toast.error('Print failed: Receipt content not ready. Please try again.');
-      return;
-    }
-
-    if (window.electronAPI?.printSilent) {
-      window.electronAPI.printSilent(storeSettings?.receipt_printer || undefined, html, storeSettings?.paper_size || '80mm').then(res => {
-        if (!res.success) {
-          toast.error(`Print failed: ${res.error || 'Unknown error'}`);
-        } else {
-          toast.success('Receipt sent to printer.');
-        }
-      });
-    } else {
-      toast.error('Silent print API is not available on this platform.');
-    }
+    window.print();
   };
 
   // When store settings load, ensure the selected payment method is visible
@@ -1126,10 +1098,10 @@ export default function Sales() {
   // Auto-print receipt when sale is completed and auto_print is enabled
   useEffect(() => {
     if (completedSale && storeSettings?.auto_print) {
-      // Defer slightly to ensure React has fully rendered the portal in the DOM
+      // Defer slightly to ensure React has fully rendered the print portal in the DOM
       const timer = setTimeout(() => {
-        // handlePrint captures the HTML synchronously before initiating async print,
-        // so startNewSale() can safely follow — the portal is still mounted at this point
+        // window.print() blocks until the dialog is resolved and the page is
+        // captured for printing, so startNewSale() can safely follow
         handlePrint();
         startNewSale();
       }, 500);
@@ -2432,8 +2404,9 @@ export default function Sales() {
         </Modal>
       )}
 
-      {/* Hidden Print Portal */}
-      {completedSale && createPortal(
+      {/* Hidden Print Portal — unmounted while Receipt History is open so its
+          own print portal is the only one window.print() can pick up */}
+      {completedSale && !showReceiptHistory && createPortal(
         <div className="hidden print:block fixed inset-0 z-[9999] bg-white print-portal-container">
           <style>{`
              @media print {

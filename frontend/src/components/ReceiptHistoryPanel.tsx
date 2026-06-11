@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowPathIcon,
   PrinterIcon,
@@ -10,8 +11,6 @@ import {
 import { saleService, Sale } from '../services/saleService';
 import { StoreSettings } from '../services/storeService';
 import Receipt from './Receipt';
-import { useTranslation } from '../i18n/I18nContext';
-import { buildReceiptHtml } from '../utils/buildReceiptHtml';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import toast from 'react-hot-toast';
@@ -41,7 +40,6 @@ function relativeTime(dateStr: string, timezone?: string): string {
 }
 
 export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, refreshTrigger }: Props) {
-  const { t } = useTranslation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -120,26 +118,13 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
     }
   };
 
+  // Print receipt — identical mechanism to SalesManagement: window.print()
+  // renders the hidden print portal through the browser/driver pipeline.
+  // window.print() blocks until the page is captured, so onClose() is safe after.
   const handlePrint = () => {
     if (!selectedSale) return;
-    const html = buildReceiptHtml({
-      sale: selectedSale,
-      settings: storeSettings,
-      items: selectedSale.items,
-      customer: selectedSale.customer as any ?? null,
-      t,
-    });
-    if ((window as any).electronAPI?.printSilent) {
-      (window as any).electronAPI
-        .printSilent(storeSettings?.receipt_printer ?? undefined, html, storeSettings?.paper_size || '80mm')
-        .then((res: { success: boolean; error?: string }) => {
-          if (!res.success) toast.error(`Print failed: ${res.error ?? 'Unknown error'}`);
-          else toast.success('Receipt sent to printer.');
-        });
-      onClose();
-    } else {
-      toast.error('Silent print is not available on this platform.');
-    }
+    window.print();
+    onClose();
   };
 
   return (
@@ -167,15 +152,13 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
               Receipt #{selectedSale.receipt_no}
             </span>
             <div className="flex gap-2">
-              {(window as any).electronAPI?.printSilent && (
-                <Button
-                  onClick={handlePrint}
-                  className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-brand"
-                  leftIcon={<PrinterIcon className="w-4 h-4" />}
-                >
-                  Print &amp; Close
-                </Button>
-              )}
+              <Button
+                onClick={handlePrint}
+                className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-brand"
+                leftIcon={<PrinterIcon className="w-4 h-4" />}
+              >
+                Print &amp; Close
+              </Button>
               <Button onClick={onClose} variant="outline">
                 Close
               </Button>
@@ -293,6 +276,27 @@ export default function ReceiptHistoryPanel({ isOpen, onClose, storeSettings, re
                 customer={(selectedSale.customer ?? null) as any}
                 items={(selectedSale.items ?? []) as any}
               />
+              {/* Hidden Print Portal — same design as SalesManagement */}
+              {createPortal(
+                <div className="hidden print:block fixed inset-0 z-[9999] bg-white print-portal-container">
+                  <style>{`
+                     @media print {
+                       @page { size: auto; margin: 0; }
+                       body { margin: 0; padding: 0; }
+                       body > * { display: none !important; }
+                       body > .print-portal-container { display: block !important; }
+                       .print-portal-container { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+                     }
+                   `}</style>
+                  <Receipt
+                    settings={storeSettings}
+                    sale={selectedSale}
+                    customer={(selectedSale.customer ?? null) as any}
+                    items={(selectedSale.items ?? []) as any}
+                  />
+                </div>,
+                document.body
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">

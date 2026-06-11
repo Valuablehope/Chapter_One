@@ -1163,7 +1163,12 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
           const options: Electron.WebContentsPrintOptions = {
             silent: true,
             printBackground: true,
-            pageSize: { width: widthMicrons, height: heightMicrons },
+            // A4 printers (laser/inkjet) often reject variable-height custom
+            // DEVMODE forms — use the standard named size for them and reserve
+            // custom width×height pages for thermal roll printers.
+            pageSize: resolvedPaperSize === 'A4'
+              ? 'A4'
+              : { width: widthMicrons, height: heightMicrons },
             margins: { marginType: 'printableArea' },
           };
           if (deviceName) options.deviceName = deviceName;
@@ -1187,16 +1192,22 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
         };
 
         // Measure actual content height so the page size fits the receipt exactly.
+        // Measure the <body> (auto-height, wraps the receipt content) — NOT
+        // documentElement.scrollHeight, which is never smaller than the 4000px
+        // viewport of this window and would inflate every page to ~1 m of paper.
         // At 96 DPI: 1 CSS px = 25400/96 µm ≈ 264.58 µm; add 10 mm (10 000 µm) buffer.
         printWindow.webContents.executeJavaScript(
-          'Math.ceil(document.documentElement.scrollHeight)'
+          'Math.ceil(Math.max(document.body.scrollHeight, document.body.getBoundingClientRect().height))'
         ).then((px: unknown) => {
-          const heightMicrons = Math.ceil(Number(px) * 25400 / 96) + 10_000;
-          log.info(`Print: ${paperSize ?? '80mm'} wide, content ${px}px → pageSize ${widthMicrons}×${heightMicrons} µm`);
+          const rawMicrons = Math.ceil(Number(px) * 25400 / 96) + 10_000;
+          // Clamp to sane receipt bounds (30 mm – 1200 mm) so a bad measurement
+          // can never request a page the driver rejects or feeds as blank paper.
+          const heightMicrons = Math.min(Math.max(rawMicrons, 30_000), 1_200_000);
+          log.info(`Print: ${resolvedPaperSize} wide, content ${px}px → pageSize ${widthMicrons}×${heightMicrons} µm`);
           doPrint(heightMicrons);
         }).catch((err) => {
-          log.warn('Could not measure content height, using 1200 mm fallback:', err);
-          doPrint(1_200_000);
+          log.warn('Could not measure content height, using 300 mm fallback:', err);
+          doPrint(300_000);
         });
       });
     });

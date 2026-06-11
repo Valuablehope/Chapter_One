@@ -14,7 +14,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\IM-SPEC\\\\Documents\\\\Chapter_One\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Read(//c/Users/IM-SPEC/AppData/Roaming/**)",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\IM-SPEC\\\\Documents\\\\Chapter_One\\\\electron\"; $env:ELECTRON_RUN_AS_NODE=$null; npx electron verify-measure.js)"
     ]
   }
 }
