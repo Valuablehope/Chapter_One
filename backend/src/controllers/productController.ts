@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { ProductModel, ProductFilters, ProductWithDetails } from '../models/ProductModel';
+import { ScaleModel } from '../models/ScaleModel';
+import { parseScaleBarcode, computeScaleLine } from '../services/scale/barcodeParser';
 import { CustomError, asyncHandler } from '../middleware/errorHandler';
 import { body, query } from 'express-validator';
 
@@ -38,16 +40,39 @@ export const getProductById = asyncHandler(async (req: Request, res: Response) =
 
 export const getProductByBarcode = asyncHandler(async (req: Request, res: Response) => {
   const { barcode } = req.params;
-  const product = await ProductModel.findByBarcode(barcode);
 
-  if (!product) {
-    throw new CustomError('Product not found', 404);
+  // 1. Exact product barcode always wins.
+  const product = await ProductModel.findByBarcode(barcode);
+  if (product) {
+    res.json({
+      success: true,
+      data: product,
+    });
+    return;
   }
 
-  res.json({
-    success: true,
-    data: product,
-  });
+  // 2. Fall back to scale-label decoding: price/weight-embedded barcodes
+  //    printed by label scales, matched to a product via the embedded PLU.
+  const formats = await ScaleModel.listFormats(true);
+  const parsed = parseScaleBarcode(barcode, formats);
+  if (parsed) {
+    const pluProduct = await ProductModel.findByPluCode(parsed.plu_code);
+    if (pluProduct) {
+      const unitPrice = Number(pluProduct.sale_price || pluProduct.list_price || 0);
+      res.json({
+        success: true,
+        data: pluProduct,
+        scale: computeScaleLine(parsed, unitPrice),
+      });
+      return;
+    }
+    throw new CustomError(
+      `Scale label decoded (PLU ${parsed.plu_code}) but no product has this PLU code`,
+      404
+    );
+  }
+
+  throw new CustomError('Product not found', 404);
 });
 
 export const createProduct = asyncHandler(async (req: Request, res: Response) => {
@@ -58,6 +83,14 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
     const isUnique = await ProductModel.checkBarcodeUnique(productData.barcode);
     if (!isUnique) {
       throw new CustomError('Barcode already exists', 400);
+    }
+  }
+
+  // Check PLU uniqueness if provided
+  if (productData.plu_code !== undefined && productData.plu_code !== null) {
+    const isPluUnique = await ScaleModel.checkPluUnique(productData.plu_code);
+    if (!isPluUnique) {
+      throw new CustomError('PLU code already assigned to another product', 400);
     }
   }
 
@@ -99,6 +132,14 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
     const isUnique = await ProductModel.checkBarcodeUnique(updates.barcode, id);
     if (!isUnique) {
       throw new CustomError('Barcode already exists', 400);
+    }
+  }
+
+  // Check PLU uniqueness if being updated
+  if (updates.plu_code !== undefined && updates.plu_code !== null) {
+    const isPluUnique = await ScaleModel.checkPluUnique(updates.plu_code, id);
+    if (!isPluUnique) {
+      throw new CustomError('PLU code already assigned to another product', 400);
     }
   }
 

@@ -22,6 +22,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const SetupWizard = lazy(() => import('./pages/SetupWizard/SetupWizard'));
 const OpeningStock = lazy(() => import('./pages/OpeningStock'));
 const Expenses = lazy(() => import('./pages/Expenses'));
+const ProfileAnalytics = lazy(() => import('./pages/ProfileAnalytics'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -34,6 +35,11 @@ const PageLoader = () => (
 );
 
 function App() {
+  if (window.location.pathname && window.location.pathname !== '/') {
+    window.location.replace('/#' + window.location.pathname);
+    return null;
+  }
+
   return (
     <HashRouter>
       <Routes>
@@ -210,6 +216,18 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <Expenses />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/analytics"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <ProfileAnalytics />
                 </Suspense>
               </Layout>
             </ProtectedRoute>

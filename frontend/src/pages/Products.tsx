@@ -83,6 +83,7 @@ export default function Products() {
     name: '',
     sku: '',
     barcode: '',
+    plu_code: '',
     product_type: '',
     unit_of_measure: 'each',
     list_price: '',
@@ -428,6 +429,7 @@ export default function Products() {
       name: '',
       sku: '',
       barcode: '',
+      plu_code: '',
       product_type: '',
       unit_of_measure: 'each',
       list_price: '',
@@ -455,6 +457,7 @@ export default function Products() {
       name: product.name,
       sku: product.sku || '',
       barcode: product.barcode || '',
+      plu_code: product.plu_code != null ? String(product.plu_code) : '',
       product_type: product.product_type,
       unit_of_measure: _uom,
       list_price: _list,
@@ -476,6 +479,7 @@ export default function Products() {
       name: '',
       sku: '',
       barcode: '',
+      plu_code: '',
       product_type: '',
       unit_of_measure: 'each',
       list_price: '',
@@ -575,6 +579,7 @@ export default function Products() {
         name: formData.name.trim(),
         sku: formData.sku.trim() || undefined,
         barcode: formData.barcode.trim() || undefined,
+        plu_code: formData.plu_code.trim() ? parseInt(formData.plu_code.trim(), 10) : null,
         product_type: formData.product_type,
         unit_of_measure: formData.unit_of_measure || 'each',
         list_price: formData.list_price ? parseFloat(formData.list_price) : undefined,
@@ -1157,6 +1162,23 @@ export default function Products() {
                 maxLength={INPUT_LIMITS.BARCODE_MAX_LENGTH}
                 helperText={t('products.form.barcode_helper')}
                 leftIcon={<QrCodeIcon className="w-5 h-5" />}
+              />
+            </div>
+
+            <div>
+              <Input
+                label={t('products.form.plu_code')}
+                type="text"
+                value={formData.plu_code}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  if (/^\d*$/.test(value) && value.length <= 10) {
+                    setFormData({ ...formData, plu_code: value });
+                  }
+                }}
+                error={formErrors.plu_code}
+                maxLength={10}
+                helperText={t('products.form.plu_helper')}
               />
             </div>
 

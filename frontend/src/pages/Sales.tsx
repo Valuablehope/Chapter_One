@@ -494,19 +494,32 @@ export default function Sales() {
     debouncedSearch(query);
   };
 
-  // Handle barcode scan
+  // Handle barcode scan (regular product barcodes + scale labels with
+  // price/weight-embedded barcodes printed by digital scales)
   const handleBarcodeScan = async (barcode: string) => {
     if (!barcode.trim()) return;
 
     try {
-      const product = await productService.getProductByBarcode(barcode);
-      addToCart(product);
+      const { product, scale } = await productService.lookupBarcode(barcode);
+      if (scale) {
+        // Label printed by a scale: qty comes from the embedded weight/price.
+        addToCart(product, scale.qty);
+        toast.success(
+          `${product.name} — ${scale.qty} ${product.unit_of_measure || ''}`.trim(),
+          { duration: 2000 }
+        );
+      } else {
+        addToCart(product);
+      }
       if (barcodeInputRef.current) {
         barcodeInputRef.current.value = '';
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
-        toast.error(`Product with barcode ${barcode} not found`);
+        const serverMessage = err.response?.data?.error?.message || err.response?.data?.message;
+        toast.error(serverMessage && /PLU/i.test(serverMessage)
+          ? serverMessage
+          : `Product with barcode ${barcode} not found`);
       } else {
         toast.error('Failed to lookup product by barcode');
       }

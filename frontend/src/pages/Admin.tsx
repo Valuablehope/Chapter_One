@@ -41,15 +41,17 @@ import {
   CubeIcon,
   ShoppingCartIcon,
   ClipboardDocumentListIcon,
+  ScaleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { StoreModal } from './Admin/components/StoreModal';
 import TerminalModal from './Admin/components/TerminalModal';
 import UserModal from './Admin/components/UserModal';
 import MenusTab from './Admin/components/MenusTab';
+import ScalesTab from './Admin/components/ScalesTab';
 import { useTranslation } from '../i18n/I18nContext';
 
-type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus';
+type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus' | 'scales';
 
 export default function Admin() {
   const { user } = useAuthStore();
@@ -57,7 +59,7 @@ export default function Admin() {
   const { licenseStatus, recordCounts, limits, checkLicense, isLoading: licenseLoading } = useLicenseStore();
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const tab = searchParams.get('tab');
-    return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus') ? tab as AdminTab : 'users';
+    return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales') ? tab as AdminTab : 'users';
   });
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function Admin() {
       setActiveTab('stores');
       return;
     }
-    if (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus') {
+    if (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales') {
       setActiveTab(tab as AdminTab);
     }
   }, [searchParams, showMenusTab]);
@@ -425,6 +427,7 @@ export default function Admin() {
               { key: 'terminals', label: t('admin.tabs.terminals'), icon: ComputerDesktopIcon },
               { key: 'license', label: t('admin.tabs.license'), icon: KeyIcon },
               ...(showMenusTab ? [{ key: 'menus', label: t('admin.tabs.menus'), icon: ClipboardDocumentListIcon }] : []),
+              { key: 'scales', label: t('admin.tabs.scales'), icon: ScaleIcon },
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -1056,6 +1059,9 @@ export default function Admin() {
 
         {/* Menus Tab */}
         {activeTab === 'menus' && <MenusTab />}
+
+        {/* Scales Tab */}
+        {activeTab === 'scales' && <ScalesTab />}
 
         {/* License Tab */}
         {activeTab === 'license' && (

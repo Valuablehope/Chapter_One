@@ -6,6 +6,7 @@ export interface Product {
   product_id: string;
   sku?: string;
   barcode?: string;
+  plu_code?: number | null;
   name: string;
   product_type: string;
   unit_of_measure: string;
@@ -220,6 +221,25 @@ export class ProductModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  static async findByPluCode(pluCode: number): Promise<ProductWithDetails | null> {
+    const query = `
+      SELECT
+        p.*,
+        pb.book_id,
+        pb.isbn13,
+        pb.subtitle,
+        pb.publisher_id,
+        pb.publish_year,
+        pb.edition,
+        pb.language
+      FROM products p
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id
+      WHERE p.plu_code = $1
+    `;
+    const result = await this.query<ProductWithDetails>(query, [pluCode]);
+    return result.rows[0] || null;
+  }
+
   static async findBySku(sku: string): Promise<ProductWithDetails | null> {
     const query = `
       SELECT 
@@ -242,15 +262,16 @@ export class ProductModel extends BaseModel {
   static async create(product: Partial<Product>): Promise<Product> {
     const query = `
       INSERT INTO products (
-        sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
+        sku, barcode, plu_code, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
         tax_rate, track_inventory, image_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `;
     const values = [
       product.sku || null,
       product.barcode || null,
+      product.plu_code ?? null,
       product.name,
       product.product_type || 'OTHER',
       product.unit_of_measure || 'each',
@@ -279,6 +300,11 @@ export class ProductModel extends BaseModel {
       paramCount++;
       fields.push(`barcode = $${paramCount}`);
       values.push(updates.barcode);
+    }
+    if (updates.plu_code !== undefined) {
+      paramCount++;
+      fields.push(`plu_code = $${paramCount}`);
+      values.push(updates.plu_code);
     }
     if (updates.name !== undefined) {
       paramCount++;

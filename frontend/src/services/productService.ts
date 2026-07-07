@@ -8,6 +8,7 @@ export interface Product {
   product_id: string;
   sku?: string;
   barcode?: string;
+  plu_code?: number | null;
   name: string;
   product_type: string;
   unit_of_measure: string;
@@ -47,6 +48,7 @@ export interface PaginatedResponse<T> {
 export interface CreateProductData {
   sku?: string;
   barcode?: string;
+  plu_code?: number | null;
   name: string;
   product_type?: string;
   unit_of_measure?: string;
@@ -59,6 +61,16 @@ export interface CreateProductData {
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {}
+
+/** How the POS should turn a decoded scale label into a sale line. */
+export interface ScaleLineInfo {
+  plu_code: number;
+  format_name: string;
+  value_type: 'price' | 'weight' | 'quantity' | 'none';
+  qty: number;
+  line_total: number | null;
+  unit_price: number;
+}
 
 export const productService = {
   // Get all products with filters
@@ -96,6 +108,15 @@ export const productService = {
       `/products/barcode/${barcode}`
     );
     return response.data.data;
+  },
+
+  // Barcode lookup that also decodes scale labels (price/weight-embedded barcodes).
+  // `scale` is present when the barcode was a label printed by a digital scale.
+  async lookupBarcode(barcode: string): Promise<{ product: Product; scale?: ScaleLineInfo }> {
+    const response = await api.get<{ success: boolean; data: Product; scale?: ScaleLineInfo }>(
+      `/products/barcode/${encodeURIComponent(barcode)}`
+    );
+    return { product: response.data.data, scale: response.data.scale };
   },
 
   // Create product
