@@ -503,13 +503,6 @@ export default function Products() {
       errors.name = t('products.validation.name_required');
     }
 
-    if (formData.barcode) {
-      const barcodeRegex = /^\d{8,13}$/;
-      if (!barcodeRegex.test(formData.barcode)) {
-        errors.barcode = t('products.validation.barcode_invalid');
-      }
-    }
-
     if (formData.list_price && parseFloat(formData.list_price) < 0) {
       errors.list_price = t('products.validation.list_price_positive');
     }
@@ -1153,13 +1146,9 @@ export default function Products() {
                 type="text"
                 value={formData.barcode}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const value = e.target.value;
-                  if (value.length <= INPUT_LIMITS.BARCODE_MAX_LENGTH) {
-                    setFormData({ ...formData, barcode: value });
-                  }
+                  setFormData({ ...formData, barcode: e.target.value });
                 }}
                 error={formErrors.barcode}
-                maxLength={INPUT_LIMITS.BARCODE_MAX_LENGTH}
                 helperText={t('products.form.barcode_helper')}
                 leftIcon={<QrCodeIcon className="w-5 h-5" />}
               />

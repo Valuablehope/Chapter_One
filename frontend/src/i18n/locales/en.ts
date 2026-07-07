@@ -482,7 +482,7 @@ export const en = {
       sku: "SKU",
       sku_helper: "Stock Keeping Unit",
       barcode: "Barcode",
-      barcode_helper: "8-13 digits",
+      barcode_helper: "Any length or format",
       plu_code: "PLU Code (scale)",
       plu_helper: "Numeric code for label scales — embedded in the printed label barcode",
       product_type: "Product Type",

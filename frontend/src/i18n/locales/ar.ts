@@ -482,7 +482,7 @@ export const ar = {
       sku: "SKU",
       sku_helper: "رمز حفظ المخزون",
       barcode: "الباركود",
-      barcode_helper: "من 8 إلى 13 رقم",
+      barcode_helper: "أي طول أو تنسيق",
       plu_code: "رمز PLU (الميزان)",
       plu_helper: "رمز رقمي لموازين الملصقات — يُضمَّن في باركود الملصق المطبوع",
       product_type: "نوع المنتج",

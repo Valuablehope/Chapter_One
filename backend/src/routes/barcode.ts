@@ -42,22 +42,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { barcode, exclude_product_id } = req.body;
 
-    // Basic barcode format validation (EAN-13, UPC, etc.)
-    const barcodeRegex = /^[0-9]{8,13}$/;
-    const isValidFormat = barcodeRegex.test(barcode);
-
-    if (!isValidFormat) {
-      return res.json({
-        success: true,
-        data: {
-          barcode,
-          isValidFormat: false,
-          isUnique: false,
-          message: 'Invalid barcode format. Must be 8-13 digits.',
-        },
-      });
-    }
-
+    // Barcodes may be any length/format — only uniqueness is enforced.
     const isUnique = await ProductModel.checkBarcodeUnique(barcode, exclude_product_id);
 
     res.json({
