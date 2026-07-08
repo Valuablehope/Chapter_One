@@ -64,6 +64,7 @@ export interface StoreFormData {
   pm_card: boolean;
   pm_voucher: boolean;
   pm_other: boolean;
+  show_analytics_tab: boolean;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -113,6 +114,7 @@ const initialFormData: StoreFormData = {
   pm_card: true,
   pm_voucher: true,
   pm_other: true,
+  show_analytics_tab: true,
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -162,6 +164,7 @@ function storeToFormData(s: Store): StoreFormData {
     pm_card: s.pm_card ?? true,
     pm_voucher: s.pm_voucher ?? true,
     pm_other: s.pm_other ?? true,
+    show_analytics_tab: s.show_analytics_tab ?? true,
   };
 }
 
@@ -361,6 +364,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       pm_card: formData.pm_card,
       pm_voucher: formData.pm_voucher,
       pm_other: formData.pm_other,
+      show_analytics_tab: formData.show_analytics_tab,
     };
 
     setSubmitting(true);
@@ -1063,6 +1067,16 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   Changes the current language and orientation of the interface.
                 </p>
               </div>
+            </div>
+
+            <SectionDivider>Features</SectionDivider>
+            <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
+              <Toggle
+                checked={formData.show_analytics_tab}
+                onChange={(v) => set('show_analytics_tab', v)}
+                label="Show Analytics Tab"
+                description="When enabled, the Analytics tab and pie chart icon will be visible in the sidebar."
+              />
             </div>
 
             <SectionDivider>POS System</SectionDivider>

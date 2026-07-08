@@ -108,6 +108,7 @@ export interface Store {
   pm_card?: boolean;
   pm_voucher?: boolean;
   pm_other?: boolean;
+  show_analytics_tab?: boolean;
 }
 
 export interface Terminal {

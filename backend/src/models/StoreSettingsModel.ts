@@ -58,6 +58,7 @@ export interface StoreSettings {
   pm_card?: boolean;
   pm_voucher?: boolean;
   pm_other?: boolean;
+  show_analytics_tab?: boolean;
 }
 
 export interface StoreSettingsInput {
@@ -112,6 +113,7 @@ export interface StoreSettingsInput {
   pm_card?: boolean;
   pm_voucher?: boolean;
   pm_other?: boolean;
+  show_analytics_tab?: boolean;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -517,6 +519,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('pm_other');
       values.push(settings.pm_other);
     }
+    if (settings.show_analytics_tab !== undefined && availableColumns.has('show_analytics_tab')) {
+      paramCount++;
+      fields.push('show_analytics_tab');
+      values.push(settings.show_analytics_tab);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -787,6 +794,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`pm_other = $${paramCount}`);
       values.push(settings.pm_other);
+    }
+    if (settings.show_analytics_tab !== undefined && availableColumns.has('show_analytics_tab')) {
+      paramCount++;
+      fields.push(`show_analytics_tab = $${paramCount}`);
+      values.push(settings.show_analytics_tab);
     }
 
     if (fields.length === 0) {

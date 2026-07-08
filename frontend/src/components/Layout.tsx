@@ -157,6 +157,7 @@ export default function Layout({ children }: LayoutProps) {
   const [uiResolution, setUiResolution] = useState<string>(
     localStorage.getItem('ui-resolution') || 'auto'
   );
+  const [showAnalyticsTab, setShowAnalyticsTab] = useState<boolean>(true);
   const { t } = useTranslation();
   const { setTheme } = useTheme();
   const { setFontSizes } = useFontSize();
@@ -174,6 +175,9 @@ export default function Layout({ children }: LayoutProps) {
       if (s.ui_resolution) {
         setUiResolution(s.ui_resolution);
         localStorage.setItem('ui-resolution', s.ui_resolution);
+      }
+      if (s.show_analytics_tab !== undefined) {
+        setShowAnalyticsTab(s.show_analytics_tab);
       }
       if (s.theme) {
         setTheme(s.theme);
@@ -262,7 +266,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
     { path: '/suppliers',        label: t('nav.suppliers'),        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },
     { path: '/reports',          label: t('nav.reports'),          icon: PresentationChartBarIcon,    iconSolid: PresentationChartBarIconSolid },
-    { path: '/profile/analytics', label: t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Analytics' : t('nav.profile_analytics'), icon: PresentationChartLineIcon, iconSolid: PresentationChartLineIconSolid },
+    ...(showAnalyticsTab ? [{ path: '/profile/analytics', label: t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Analytics' : t('nav.profile_analytics'), icon: PresentationChartLineIcon, iconSolid: PresentationChartLineIconSolid }] : []),
     { path: '/admin',            label: t('nav.admin'),            icon: ShieldCheckIcon,             iconSolid: ShieldCheckIconSolid,             role: 'admin' as const },
   ];
 
@@ -381,13 +385,15 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </div>
               {/* Profile Analytics Link */}
-              <Link
-                to="/profile/analytics"
-                className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-secondary-300 hover:text-white hover:bg-secondary-900/30 rounded-lg transition-colors border border-secondary-900/20 hover:border-secondary-700/40"
-              >
-                <ChartPieIcon className="w-4 h-4" />
-                <span>{t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Profile Analytics' : t('nav.profile_analytics')}</span>
-              </Link>
+              {showAnalyticsTab && (
+                <Link
+                  to="/profile/analytics"
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-secondary-300 hover:text-white hover:bg-secondary-900/30 rounded-lg transition-colors border border-secondary-900/20 hover:border-secondary-700/40"
+                >
+                  <ChartPieIcon className="w-4 h-4" />
+                  <span>{t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Profile Analytics' : t('nav.profile_analytics')}</span>
+                </Link>
+              )}
               {/* Logout */}
               <button
                 onClick={handleLogout}
@@ -402,9 +408,11 @@ export default function Layout({ children }: LayoutProps) {
               <div className="w-8 h-8 rounded-full bg-accent-500 flex items-center justify-center text-white font-bold text-xs">
                 {userInitial}
               </div>
-              <Link to="/profile/analytics" title="Profile Analytics" className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary-400 hover:text-white hover:bg-secondary-900/30 transition-colors">
-                <ChartPieIcon className="w-4 h-4" />
-              </Link>
+              {showAnalyticsTab && (
+                <Link to="/profile/analytics" title="Profile Analytics" className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary-400 hover:text-white hover:bg-secondary-900/30 transition-colors">
+                  <ChartPieIcon className="w-4 h-4" />
+                </Link>
+              )}
               <button onClick={handleLogout} title="Sign out" className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:text-white hover:bg-red-900/30 transition-colors">
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
               </button>
@@ -516,14 +524,16 @@ export default function Layout({ children }: LayoutProps) {
                   <p className="text-sidebar-muted text-xs truncate">{roleLabel}</p>
                 </div>
               </div>
-              <Link
-                to="/profile/analytics"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-secondary-300 hover:text-white hover:bg-secondary-900/30 rounded-lg transition-colors border border-secondary-900/20"
-              >
-                <ChartPieIcon className="w-4 h-4" />
-                <span>{t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Profile Analytics' : t('nav.profile_analytics')}</span>
-              </Link>
+              {showAnalyticsTab && (
+                <Link
+                  to="/profile/analytics"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-secondary-300 hover:text-white hover:bg-secondary-900/30 rounded-lg transition-colors border border-secondary-900/20"
+                >
+                  <ChartPieIcon className="w-4 h-4" />
+                  <span>{t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Profile Analytics' : t('nav.profile_analytics')}</span>
+                </Link>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-red-300 hover:text-white hover:bg-red-900/30 rounded-lg transition-colors border border-red-900/20"

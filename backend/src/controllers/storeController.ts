@@ -85,6 +85,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pm_card,
     pm_voucher,
     pm_other,
+    show_analytics_tab,
     ...storeData
   } = req.body;
 
@@ -141,6 +142,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pm_card,
     pm_voucher,
     pm_other,
+    show_analytics_tab,
   };
 
   // Only create settings if at least one setting field is provided
@@ -228,6 +230,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pm_card,
     pm_voucher,
     pm_other,
+    show_analytics_tab,
     ...storeData
   } = req.body;
 
@@ -307,6 +310,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pm_card,
     pm_voucher,
     pm_other,
+    show_analytics_tab,
   };
 
   // Only update settings if at least one setting field is provided
