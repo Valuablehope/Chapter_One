@@ -35,7 +35,7 @@ const PageLoader = () => (
 );
 
 function App() {
-  if (window.location.pathname && window.location.pathname !== '/') {
+  if (window.location.protocol !== 'file:' && window.location.pathname && window.location.pathname !== '/') {
     window.location.replace('/#' + window.location.pathname);
     return null;
   }
