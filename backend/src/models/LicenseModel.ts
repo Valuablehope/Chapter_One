@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { BaseModel } from './BaseModel';
 import { pool } from '../config/database';
 import { SaleModel } from './SaleModel';
@@ -131,8 +132,6 @@ export class LicenseModel extends BaseModel {
       const encryptionKey = (encryptionKeyEnv || 'ChapterOneLicenseKey2024!SecureEncryptionKey12345678').substring(0, 32);
       
       try {
-        const crypto = require('crypto');
-        
         // PostgreSQL's encrypt function with 'aes' uses a specific format
         // We'll try to match it, but this may not be 100% compatible
         // The SQL decrypt function is the recommended approach

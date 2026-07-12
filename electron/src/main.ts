@@ -5,9 +5,11 @@ import * as http from 'http';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import log from 'electron-log';
+import * as dotenv from 'dotenv';
 import { closeCustomerDisplayPort, showCustomerDisplay } from './customerDisplay';
-require('dotenv').config();
 import { setupIpcHandlers } from './setupHandler';
+
+dotenv.config();
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -109,6 +111,16 @@ function getBackendPaths() {
       backendDir: backendRoot,
     };
   }
+}
+
+// The update manager ships outside the compiled bundle and its location is
+// only known at runtime, so it must be loaded with a dynamic require.
+function loadUpdateManager() {
+  const updaterPath = isDev
+    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
+    : path.join(app.getAppPath(), 'updater/updateManager.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require(updaterPath);
 }
 
 // Function to get .env file path
@@ -325,8 +337,16 @@ async function runMigrationsOnStartup(env: NodeJS.ProcessEnv): Promise<void> {
         resolve();
       } else {
         const failureLine = stderrLines.find(l => l.includes('❌ Failed to execute migration'));
-        const detail = failureLine ?? (stderrLines.length > 0 ? stderrLines[stderrLines.length - 1] : '');
-        reject(new Error(`Migration process exited with code ${code}.${detail ? `\n\n${detail}` : ''}`));
+        // Ignore lines with no letters (stray braces from object dumps) when
+        // picking a fallback detail line for the error dialog.
+        const meaningfulLines = stderrLines.filter(l => /[a-zA-Z]/.test(l));
+        const detail = failureLine ?? (meaningfulLines.length > 0 ? meaningfulLines[meaningfulLines.length - 1] : '');
+        const error = new Error(`Migration process exited with code ${code}.${detail ? `\n\n${detail}` : ''}`) as Error & { dbUnreachable?: boolean };
+        // Exit code 2 is the migrate script's signal that PostgreSQL itself is
+        // unreachable (not installed / wrong credentials), so startup can offer
+        // the Setup Wizard instead of aborting.
+        error.dbUnreachable = code === 2;
+        reject(error);
       }
     });
   });
@@ -603,7 +623,6 @@ function createWindow(isSetupMode = false): void {
   mainWindow.webContents.on('unresponsive', () => {
     log.warn('Window became unresponsive');
     if (mainWindow) {
-      const { dialog } = require('electron');
       const choice = dialog.showMessageBoxSync(mainWindow, {
         type: 'warning',
         title: 'Application Not Responding',
@@ -624,7 +643,6 @@ function createWindow(isSetupMode = false): void {
   mainWindow.webContents.on('render-process-gone', (_event: any, details: any) => {
     log.error('Renderer process crashed:', details);
     if (mainWindow && details.reason !== 'killed') {
-      const { dialog } = require('electron');
       dialog.showErrorBox(
         'Application Crashed',
         'The application has crashed. It will be reloaded.'
@@ -661,6 +679,31 @@ app.whenReady().then(async () => {
     try {
       await runMigrationsOnStartup(startupEnv);
     } catch (err: any) {
+      if (err.dbUnreachable) {
+        // PostgreSQL is not installed or not reachable — this is a setup
+        // problem, not a corrupted database. Offer the Setup Wizard, which
+        // installs PostgreSQL and runs the migrations itself.
+        log.warn('⚠️ PostgreSQL unreachable during startup migrations. Offering Setup Wizard...');
+        const choice = dialog.showMessageBoxSync({
+          type: 'warning',
+          title: 'Database Connection Failed',
+          message: 'The application could not connect to its PostgreSQL database.',
+          detail: 'This usually means PostgreSQL is not installed yet or the connection settings are incorrect. Run the Setup Wizard to install and configure the database.',
+          buttons: ['Run Setup Wizard', 'Exit'],
+          defaultId: 0,
+          cancelId: 1,
+        });
+
+        if (choice === 0) {
+          log.info('User chose to run setup wizard after failed database connection.');
+          createWindow(true); // Open in setup mode
+          setupApplicationMenu();
+          return;
+        }
+        app.quit();
+        return;
+      }
+
       showStartupErrorAndQuit(
         'Database Migration Failed',
         `A database migration could not be applied and the application cannot start safely.\n\n${err.message}\n\nPlease restore from a backup or contact support.`
@@ -710,17 +753,14 @@ app.whenReady().then(async () => {
 
     createWindow();
     setupApplicationMenu();
-    require(path.join(app.getAppPath(), 'updater/updateManager.js'))
+    loadUpdateManager()
       .init(mainWindow, appDbConfig, app.getPath('desktop'))
       .catch((err: any) => log.error('Update manager init failed:', err));
   } else {
     // In dev mode, backend is started separately
     createWindow(!setupComplete);
     setupApplicationMenu();
-    const updaterPath = isDev
-      ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
-      : path.join(app.getAppPath(), 'updater/updateManager.js');
-    require(updaterPath)
+    loadUpdateManager()
       .init(mainWindow, appDbConfig, app.getPath('desktop'))
       .catch((err: any) => log.error('Update manager init failed:', err));
   }
@@ -765,13 +805,8 @@ function setupApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-// Handle power state changes (sleep/wake)
-const powerSaveBlocker = require('electron').powerSaveBlocker;
-let powerSaveBlockerId: number | null = null;
-
-// Prevent system sleep during active use (optional - can be enabled for long sessions)
-// Uncomment if you want to prevent sleep during active POS usage
-// powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+// To prevent system sleep during active POS usage, import electron's
+// powerSaveBlocker and call powerSaveBlocker.start('prevent-app-suspension').
 
 app.on('window-all-closed', () => {
   stopBackendServer();
@@ -791,17 +826,11 @@ ipcMain.handle('app:getVersion', () => {
 });
 
 ipcMain.handle('app:installUpdate', async () => {
-  const updaterPath = isDev
-    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
-    : path.join(app.getAppPath(), 'updater/updateManager.js');
-  await require(updaterPath).backupAndInstall();
+  await loadUpdateManager().backupAndInstall();
 });
 
 ipcMain.handle('app:getUpdateStatus', () => {
-  const updaterPath = isDev
-    ? path.join(app.getAppPath(), '..', 'updater/updateManager.js')
-    : path.join(app.getAppPath(), 'updater/updateManager.js');
-  return require(updaterPath).getLastStatus();
+  return loadUpdateManager().getLastStatus();
 });
 
 ipcMain.handle('app:getPlatform', () => {
@@ -866,7 +895,7 @@ ipcMain.handle('app:openLogs', () => {
   const logPath = log.transports.file.getFile().path;
   const logDir = path.dirname(logPath);
   if (fs.existsSync(logDir)) {
-    require('electron').shell.openPath(logDir);
+    shell.openPath(logDir);
     return { success: true };
   }
   return { success: false, error: 'Log directory not found' };
@@ -1079,7 +1108,7 @@ Write-Host "OK:$w"`;
     ps.stdout?.on('data', (d: Buffer) => { stdout += d.toString(); });
     ps.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
     ps.on('close', (code: number) => {
-      try { fs.unlinkSync(tmpPath); } catch {}
+      try { fs.unlinkSync(tmpPath); } catch { /* temp file already gone */ }
       if (code === 0 && stdout.includes('OK:')) {
         log.info('[rawPrint] Success:', stdout.trim());
         resolve({ success: true });
@@ -1152,7 +1181,7 @@ ipcMain.handle('app:print-silent', async (event, deviceName?: string, html?: str
         printWindow.destroy();
         try {
           if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-        } catch (e) {}
+        } catch { /* temp file cleanup is best-effort */ }
         resolve({ success: false, error: `Failed to load temp file: ${err.message}` });
       });
 

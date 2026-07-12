@@ -37,6 +37,7 @@ export function useForm<T extends Record<string, any>>({
   /**
    * Validates a single field
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const validateField = useCallback((_name: keyof T, _value: any): string | null => {
     // Field-specific validation can be added here
     // For now, we'll rely on component-level validation
@@ -48,7 +49,7 @@ export function useForm<T extends Record<string, any>>({
    */
   const validateForm = useCallback((): boolean => {
     const errors: Record<string, string> = {};
-    let isValid = true;
+    const isValid = true;
 
     // Basic validation - check required fields
     Object.keys(formData).forEach((key) => {

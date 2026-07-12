@@ -7,6 +7,40 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config(); // Also try default location
 
+// Exit codes: 0 = success, 1 = migration/SQL failure, 2 = database unreachable.
+// The Electron main process uses code 2 to offer the Setup Wizard instead of
+// aborting startup with a fatal error.
+const EXIT_MIGRATION_FAILED = 1;
+const EXIT_DB_UNREACHABLE = 2;
+
+const CONNECTION_ERROR_CODES = new Set([
+  'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH',
+  '28P01', // invalid_password
+  '28000', // invalid_authorization_specification
+  '3D000', // invalid_catalog_name (database does not exist)
+  '57P03', // cannot_connect_now (server starting up)
+]);
+
+// Detects errors that mean "PostgreSQL is not reachable/authenticable" as
+// opposed to a genuine migration failure. Node may wrap multiple connection
+// attempts (IPv4 + IPv6) in an AggregateError, so check nested errors too.
+function isConnectionError(err: any): boolean {
+  if (!err) return false;
+  if (err.code && CONNECTION_ERROR_CODES.has(err.code)) return true;
+  if (Array.isArray(err.errors) && err.errors.some((e: any) => isConnectionError(e))) return true;
+  return typeof err.message === 'string' && err.message.includes('Failed to connect to database after retries');
+}
+
+// AggregateError (multiple connection attempts) has an empty .message, so
+// unwrap nested errors to produce a human-readable single-line description.
+function describeError(err: any): string {
+  if (!err) return 'Unknown error';
+  if (Array.isArray(err.errors) && err.errors.length > 0) {
+    return err.errors.map((e: any) => e?.message || String(e)).join('; ');
+  }
+  return err.message || String(err);
+}
+
 async function runMigrations() {
   let DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME;
 
@@ -94,15 +128,17 @@ async function runMigrations() {
     } else {
       console.log(`Database "${DB_NAME}" already exists.`);
     }
-  } catch (error) {
-    console.error('Failed to initialize database:', error);
-    process.exit(1);
+  } catch (error: any) {
+    if (isConnectionError(error)) {
+      console.error(`Could not reach PostgreSQL at ${DB_HOST}:${DB_PORT || 5432} — ${describeError(error)}`);
+      process.exit(EXIT_DB_UNREACHABLE);
+    }
+    console.error(`Failed to initialize database: ${describeError(error)}`);
+    process.exit(EXIT_MIGRATION_FAILED);
   } finally {
     if (initClient) await initClient.end();
   }
 
-  console.log(`Connecting to "${DB_NAME}" to run migrations...`);
-  
   console.log(`Connecting to "${DB_NAME}" to run migrations...`);
 
   let client: Client | null = null;
@@ -222,7 +258,7 @@ async function runMigrations() {
         console.log(`✅ ${file} executed successfully.`);
       } catch (err: any) {
         await client.query('ROLLBACK');
-        console.error(`❌ Failed to execute migration ${file}:`, err);
+        console.error(`❌ Failed to execute migration ${file}: ${err?.message || err}`);
         throw new Error(`Migration "${file}" failed: ${err?.message || err}`);
       }
     }
@@ -230,8 +266,8 @@ async function runMigrations() {
     console.log('All migrations completed successfully.');
 
   } catch (error: any) {
-    console.error(`Migration failed: ${error?.message || error}`);
-    process.exit(1);
+    console.error(`Migration failed: ${describeError(error)}`);
+    process.exit(isConnectionError(error) ? EXIT_DB_UNREACHABLE : EXIT_MIGRATION_FAILED);
   } finally {
     if (client) await client.end();
   }

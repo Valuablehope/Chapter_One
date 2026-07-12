@@ -73,10 +73,6 @@
     ],
     "extraResources": [
       {
-        "from": ".env",
-        "to": ".env"
-      },
-      {
         "from": "env.example",
         "to": ".env.example"
       },

@@ -2,8 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken, TokenPayload } from '../utils/jwt';
 import { CustomError } from './errorHandler';
 
-// Extend Express Request to include user
+// Extend Express Request to include user.
+// Augmenting Express's types requires the global namespace — the ES-module
+// alternative does not exist for this pattern.
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: TokenPayload;

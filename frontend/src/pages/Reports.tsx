@@ -152,49 +152,57 @@ export default function Reports() {
 
       if (activeTab === 'sales') {
         switch (salesReportType) {
-          case 'summary':
+          case 'summary': {
             const summary = await reportService.getSalesSummary(filters);
             setSalesSummary(summary);
             break;
-          case 'products':
+          }
+          case 'products': {
             const products = await reportService.getProductSales(filters);
             setProductSales(products);
             break;
-          case 'customers':
+          }
+          case 'customers': {
             const customers = await reportService.getCustomerSales(filters);
             setCustomerSales(customers);
             break;
-          case 'payment-methods':
+          }
+          case 'payment-methods': {
             const payments = await reportService.getPaymentMethodReport(filters);
             setPaymentMethods(payments);
             break;
+          }
         }
       } else if (activeTab === 'purchases') {
         switch (purchaseReportType) {
-          case 'summary':
+          case 'summary': {
             const summary = await reportService.getPurchaseSummary(filters);
             setPurchaseSummary(summary);
             break;
-          case 'suppliers':
+          }
+          case 'suppliers': {
             const suppliers = await reportService.getSupplierPurchases(filters);
             setSupplierPurchases(suppliers);
             break;
+          }
         }
       } else if (activeTab === 'profit') {
         const profit = await reportService.getProfitReport(filters);
         setProfitReport(profit);
       } else if (activeTab === 'inventory') {
         switch (inventoryReportType) {
-          case 'stock':
+          case 'stock': {
             const stockRes = await reportService.getStockReport(undefined, inventoryQuery, inventoryPage, 50);
             setStockReport(stockRes.data);
             setInventoryPagination(stockRes.pagination);
             break;
-          case 'low-stock':
+          }
+          case 'low-stock': {
             const lowRes = await reportService.getLowStockReport(undefined, 10, inventoryQuery, inventoryPage, 50);
             setLowStock(lowRes.data);
             setInventoryPagination(lowRes.pagination);
             break;
+          }
         }
       }
     } catch (err: any) {

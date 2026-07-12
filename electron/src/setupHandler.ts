@@ -2,6 +2,7 @@ import { ipcMain, app, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
+import { Client } from 'pg';
 import log from 'electron-log';
 import { isSetupComplete } from './main';
 
@@ -68,52 +69,51 @@ export function setupIpcHandlers(
   });
 
   ipcMain.handle('setup:installPostgres', async (_event, { password, port }) => {
-    return new Promise(async (resolve) => {
+    try {
+      log.info(`Checking if PostgreSQL is already installed and running on port ${port || '5432'}...`);
+      const testClient = new Client({
+        host: 'localhost',
+        port: parseInt(port || '5432', 10),
+        user: 'postgres',
+        password: password,
+        database: 'postgres'
+      });
+
       try {
-        log.info(`Checking if PostgreSQL is already installed and running on port ${port || '5432'}...`);
-        const { Client } = require('pg');
-        const testClient = new Client({
-          host: 'localhost',
-          port: parseInt(port || '5432', 10),
-          user: 'postgres',
-          password: password,
-          database: 'postgres'
-        });
+        await testClient.connect();
+        await testClient.end();
+        log.info('✅ PostgreSQL is already installed and accessible. Skipping installation.');
+        return { success: true, skipped: true };
+      } catch (e: any) {
+        log.warn(`PostgreSQL connection check failed. Reason: ${e.message}`);
+        log.info('Proceeding with installation...');
+      }
 
-        try {
-          await testClient.connect();
-          await testClient.end();
-          log.info('✅ PostgreSQL is already installed and accessible. Skipping installation.');
-          return resolve({ success: true, skipped: true });
-        } catch (e: any) {
-          log.warn(`PostgreSQL connection check failed. Reason: ${e.message}`);
-          log.info('Proceeding with installation...');
+      log.info('Looking for PostgreSQL installer...');
+      let installerPath = '';
+      if (app.isPackaged) {
+        installerPath = path.join(process.resourcesPath, 'installers', 'postgresql-installer.exe');
+      } else {
+        installerPath = path.join(__dirname, '../../installers/postgresql-installer.exe');
+      }
+
+      if (!fs.existsSync(installerPath)) {
+        if (!app.isPackaged) {
+          log.warn(`PostgreSQL installer not found at ${installerPath}. Bypassing installation in development mode.`);
+          return { success: true, skipped: true };
         }
+        throw new Error(`PostgreSQL installer not found at ${installerPath}. Please place postgresql-installer.exe in the installers folder.`);
+      }
 
-        log.info('Looking for PostgreSQL installer...');
-        let installerPath = '';
-        if (app.isPackaged) {
-          installerPath = path.join(process.resourcesPath, 'installers', 'postgresql-installer.exe');
-        } else {
-          installerPath = path.join(__dirname, '../../installers/postgresql-installer.exe');
-        }
+      log.info(`Running PostgreSQL silent installation from: ${installerPath}`);
 
-        if (!fs.existsSync(installerPath)) {
-          if (!app.isPackaged) {
-            log.warn(`PostgreSQL installer not found at ${installerPath}. Bypassing installation in development mode.`);
-            return resolve({ success: true, skipped: true });
-          }
-          throw new Error(`PostgreSQL installer not found at ${installerPath}. Please place postgresql-installer.exe in the installers folder.`);
-        }
+      // Execute unattended installation with UAC elevation using PowerShell
+      const psCommand = `
+        $process = Start-Process -FilePath '${installerPath}' -ArgumentList '--mode', 'unattended', '--unattendedmodeui', 'none', '--superpassword', '${password.replace(/'/g, "''")}', '--serverport', '${port || '5432'}' -Verb RunAs -Wait -PassThru
+        if ($process) { exit $process.ExitCode } else { exit 1 }
+      `;
 
-        log.info(`Running PostgreSQL silent installation from: ${installerPath}`);
-        
-        // Execute unattended installation with UAC elevation using PowerShell
-        const psCommand = `
-          $process = Start-Process -FilePath '${installerPath}' -ArgumentList '--mode', 'unattended', '--unattendedmodeui', 'none', '--superpassword', '${password.replace(/'/g, "''")}', '--serverport', '${port || '5432'}' -Verb RunAs -Wait -PassThru
-          if ($process) { exit $process.ExitCode } else { exit 1 }
-        `;
-
+      return await new Promise((resolve) => {
         const pgProcess = spawn('powershell.exe', [
           '-NoProfile',
           '-ExecutionPolicy', 'Bypass',
@@ -139,11 +139,11 @@ export function setupIpcHandlers(
             resolve({ success: false, error: `Installation exited with code ${code}` });
           }
         });
-      } catch (err: any) {
-        log.error('Failed to initiate PostgreSQL install:', err);
-        resolve({ success: false, error: err.message });
-      }
-    });
+      });
+    } catch (err: any) {
+      log.error('Failed to initiate PostgreSQL install:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('setup:runMigrations', async (_event, { password, port }) => {

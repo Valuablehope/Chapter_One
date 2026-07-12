@@ -115,7 +115,7 @@ export const listLicenses = query({
     plan:   v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let q = ctx.db.query("chapterone_licenses");
+    const q = ctx.db.query("chapterone_licenses");
 
     const rows = await (
       args.status

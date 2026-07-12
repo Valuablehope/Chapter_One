@@ -156,7 +156,7 @@ export class ExpensesModel extends BaseModel {
 
   /** Called inside day closure transaction to lock expenses to a closure */
   static async attachToClosureClient(
-    client: { query: Function },
+    client: { query: (sql: string, params?: unknown[]) => Promise<{ rowCount: number | null }> },
     storeId: string,
     closureId: number
   ): Promise<number> {

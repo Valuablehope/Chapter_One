@@ -1253,10 +1253,10 @@ export class SaleModel extends BaseModel {
       await client.query('COMMIT');
       logger.info(`Sale ${saleId} permanently deleted`);
     } catch (error) {
-      try { await client.query('ROLLBACK'); } catch (_) {}
+      try { await client.query('ROLLBACK'); } catch { /* connection already gone — nothing to roll back */ }
       throw error;
     } finally {
-      try { client.release(); } catch (_) {}
+      try { client.release(); } catch { /* client already released */ }
     }
   }
 

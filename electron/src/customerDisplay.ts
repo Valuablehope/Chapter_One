@@ -7,7 +7,6 @@
  * Very long receipts: break-inside behavior is a browser concern; serial is independent.
  */
 import log from 'electron-log';
-// @ts-ignore
 import { SerialPort } from 'serialport';
 
 let port: SerialPort | null = null;

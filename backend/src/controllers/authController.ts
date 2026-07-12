@@ -11,7 +11,7 @@ interface LoginRequest {
 }
 
 export const login = asyncHandler(
-  async (req: Request<{}, {}, LoginRequest>, res: Response, next: NextFunction) => {
+  async (req: Request<Record<string, string>, unknown, LoginRequest>, res: Response, next: NextFunction) => {
     const { username, password } = req.body;
 
     // Validate input

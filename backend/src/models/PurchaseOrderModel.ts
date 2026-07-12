@@ -107,7 +107,7 @@ export class PurchaseOrderModel extends BaseModel {
 
     // Loop until we find a sequence that doesn't already exist
     // (handles rapid concurrent creation)
-    while (true) {
+    for (;;) {
       const candidate = `PO-${date}-${String(sequence).padStart(4, '0')}`;
       const exists = await client.query(
         'SELECT 1 FROM purchase_orders WHERE po_number = $1',
