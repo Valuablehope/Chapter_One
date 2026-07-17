@@ -55,15 +55,25 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
   const subtotal = Number(sale.subtotal || 0);
   const taxTotal = Number(sale.tax_total || 0);
   const discountTotal = Number(sale.discount_total || 0);
+  const serviceFeeAmount = Number(sale.restaurant_service_fee_amount || 0);
+  const serviceFeeRate = Number(sale.restaurant_service_fee_rate || 0);
+  const isRestaurantSale = sale.restaurant_table_number != null || serviceFeeAmount > 0;
 
   // Robust heuristic: Check if this specific sale was saved with delivery already in its grand_total.
-  // We compare the saved grand_total (drawerTotal) against the calculated merchandise total 
+  // We compare the saved grand_total (drawerTotal) against the calculated merchandise total
   // with and without delivery to see which one it matches more closely.
   const merchTotal = subtotal + (settings?.tax_inclusive ? 0 : taxTotal) - discountTotal;
-  const wasSavedWithDelivery = deliveryCharge > 0 && 
+  const wasSavedWithDelivery = deliveryCharge > 0 &&
     Math.abs(drawerTotal - (merchTotal + deliveryCharge)) < Math.abs(drawerTotal - merchTotal);
-  
-  const invoiceTotal = wasSavedWithDelivery ? drawerTotal : (drawerTotal + deliveryCharge);
+
+  // Same heuristic for the restaurant service fee: older restaurant sales stored the fee
+  // only in restaurant_sale_context, so their grand_total excludes it.
+  const baseTotal = wasSavedWithDelivery ? merchTotal + deliveryCharge : merchTotal;
+  const wasSavedWithServiceFee = serviceFeeAmount > 0 &&
+    Math.abs(drawerTotal - (baseTotal + serviceFeeAmount)) < Math.abs(drawerTotal - baseTotal);
+
+  const invoiceTotal = (wasSavedWithDelivery ? drawerTotal : (drawerTotal + deliveryCharge)) +
+    (serviceFeeAmount > 0 && !wasSavedWithServiceFee ? serviceFeeAmount : 0);
 
   const lbp = settings?.show_lbp_price !== false
     ? formatLbpGrand(invoiceTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
@@ -100,6 +110,13 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
         value: formatCurrency(Number(sale.tax_total)),
       });
     }
+  }
+
+  if (serviceFeeAmount > 0) {
+    totalRows.push({
+      label: t('receipt.service_fee', { rate: serviceFeeRate }),
+      value: formatCurrency(serviceFeeAmount),
+    });
   }
 
   if (Number(sale.discount_total) > 0) {
@@ -146,6 +163,19 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     });
   }
 
+  if (sale.restaurant_table_number != null) {
+    metaRows.push({
+      label: t('receipt.table'),
+      value: String(sale.restaurant_table_number),
+    });
+    if (settings?.restaurant_track_guests_per_table && sale.restaurant_guest_count != null) {
+      metaRows.push({
+        label: t('receipt.guests'),
+        value: String(sale.restaurant_guest_count),
+      });
+    }
+  }
+
   const rawPayments: { method: string; amount: number | string }[] = Array.isArray(sale.payments) ? sale.payments : [];
   const payments = [...rawPayments.map(p => ({ ...p, amount: Number(p.amount) }))];
 
@@ -174,7 +204,7 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
             formatCurrency={formatCurrency}
           />
         )}
-        <MinimalReceiptFooter settings={settings} variant="sale" />
+        <MinimalReceiptFooter settings={settings} variant={isRestaurantSale ? 'restaurant' : 'sale'} />
       </div>
     </div>
   );

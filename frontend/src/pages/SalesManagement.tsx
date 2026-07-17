@@ -414,9 +414,14 @@ export default function SalesManagement() {
     const discountAmount = editDiscountRate > 0
       ? (subtotal + taxTotal) * (editDiscountRate / 100)
       : 0;
-    const grandTotal = subtotal + taxTotal - discountAmount;
+    // Restaurant service fee follows the merchandise total at the rate stored at checkout
+    // (mirrors the backend recalculation on save).
+    const serviceFeeAmount = editingSale?.restaurant_service_fee_enabled
+      ? (subtotal + taxTotal - discountAmount) * (Number(editingSale.restaurant_service_fee_rate || 0) / 100)
+      : 0;
+    const grandTotal = subtotal + taxTotal - discountAmount + serviceFeeAmount;
     const paidTotal = editPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    return { subtotal, taxTotal, discountAmount, grandTotal, paidTotal };
+    return { subtotal, taxTotal, discountAmount, serviceFeeAmount, grandTotal, paidTotal };
   };
 
   const handleSaveEdit = async () => {
@@ -857,6 +862,17 @@ export default function SalesManagement() {
                     <p className="text-sm font-medium text-gray-900">{selectedSale.cashier_name}</p>
                   </div>
                 )}
+                {selectedSale.restaurant_table_number != null && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.table')}</label>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedSale.restaurant_table_number}
+                      {storeSettings?.restaurant_track_guests_per_table && selectedSale.restaurant_guest_count != null
+                        ? ` · ${selectedSale.restaurant_guest_count} ${t('receipt.guests')}`
+                        : ''}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Items */}
@@ -923,6 +939,12 @@ export default function SalesManagement() {
                       </div>
                     );
                   })()}
+                  {Number(selectedSale.restaurant_service_fee_amount || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t('receipt.service_fee', { rate: Number(selectedSale.restaurant_service_fee_rate || 0) })}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(Number(selectedSale.restaurant_service_fee_amount))}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
                      <span>{t('sales_management.totals.grand_total')}</span>
                     <span>{formatCurrency(selectedSale.grand_total)}</span>
@@ -1237,7 +1259,7 @@ export default function SalesManagement() {
               {/* Totals */}
               <div className="border-t pt-4">
                 {(() => {
-                  const { subtotal, taxTotal, discountAmount, grandTotal, paidTotal } = calculateEditTotals();
+                  const { subtotal, taxTotal, discountAmount, serviceFeeAmount, grandTotal, paidTotal } = calculateEditTotals();
                   return (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
@@ -1266,6 +1288,12 @@ export default function SalesManagement() {
                           <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                       )}
+                      {serviceFeeAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>{t('receipt.service_fee', { rate: Number(editingSale.restaurant_service_fee_rate || 0) })}</span>
+                          <span>{formatCurrency(serviceFeeAmount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">
                         <span>{t('sales_management.totals.grand_total')}</span>
                         <span>{formatCurrency(grandTotal)}</span>
@@ -1285,7 +1313,7 @@ export default function SalesManagement() {
           ) : (
             // Print Preview
             (() => {
-              const { subtotal, taxTotal, discountAmount, grandTotal } = calculateEditTotals();
+              const { subtotal, taxTotal, discountAmount, serviceFeeAmount, grandTotal } = calculateEditTotals();
               const previewSale = {
                 ...editingSale,
                 subtotal,
@@ -1293,6 +1321,7 @@ export default function SalesManagement() {
                 grand_total: grandTotal,
                 discount_total: discountAmount,
                 discount_rate: editDiscountRate,
+                restaurant_service_fee_amount: serviceFeeAmount,
                 payments: editPayments
               };
               return (

@@ -127,6 +127,17 @@ export interface Sale {
   store_name?: string;
   terminal_name?: string;
   cashier_name?: string;
+  // Present only for restaurant checkouts
+  restaurant_service_fee_enabled?: boolean;
+  restaurant_service_fee_rate?: number;
+  restaurant_service_fee_amount?: number;
+  restaurant_subtotal_before_service?: number;
+  restaurant_notes?: string | null;
+  restaurant_table_number?: number;
+  restaurant_guest_count?: number;
+  restaurant_waiter_name?: string | null;
+  restaurant_seated_at?: string;
+  restaurant_closed_at?: string;
 }
 
 export interface SaleFilters {

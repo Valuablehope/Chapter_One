@@ -8,6 +8,8 @@ import { StoreSettingsModel } from './StoreSettingsModel';
 
 // Cached once at runtime — information_schema is stable after migrations complete
 let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean; hasDeliveryCharge: boolean } | null = null;
+// Both restaurant tables are created by the same migration, so one check covers both
+let restaurantContextTableCache: boolean | null = null;
 import {
   aggregateLines,
   computeLineAmounts,
@@ -119,6 +121,17 @@ export interface SaleWithDetails extends Sale {
   store_name?: string;
   terminal_name?: string;
   cashier_name?: string;
+  // Present only for restaurant checkouts (joined from restaurant_sale_context / restaurant_table_sessions)
+  restaurant_service_fee_enabled?: boolean;
+  restaurant_service_fee_rate?: number;
+  restaurant_service_fee_amount?: number;
+  restaurant_subtotal_before_service?: number;
+  restaurant_notes?: string | null;
+  restaurant_table_number?: number;
+  restaurant_guest_count?: number;
+  restaurant_waiter_name?: string | null;
+  restaurant_seated_at?: string;
+  restaurant_closed_at?: string;
 }
 
 export interface SaleFilters {
@@ -133,6 +146,19 @@ export interface SaleFilters {
 }
 
 export class SaleModel extends BaseModel {
+  private static async hasRestaurantContextTables(client?: any): Promise<boolean> {
+    if (restaurantContextTableCache !== null) {
+      return restaurantContextTableCache;
+    }
+    const query = `
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'restaurant_sale_context'
+    `;
+    const result = client ? await client.query(query) : await this.query(query);
+    restaurantContextTableCache = result.rows.length > 0;
+    return restaurantContextTableCache;
+  }
+
   private static async persistRestaurantContext(
     client: any,
     sale: { sale_id: string; store_id: string; terminal_id: string },
@@ -418,11 +444,21 @@ export class SaleModel extends BaseModel {
           const deliveryCharge = roundMoney(Number(data.delivery_charge || 0));
           const includeDelivery = storeSettings?.include_delivery_in_drawer !== false;
           
+          // Restaurant service fee — recomputed server-side from the merchandise total
+          // so the stored grand_total always includes exactly what the customer was charged.
+          const restaurantServiceFeeRate = data.restaurant_context
+            ? Math.min(100, Math.max(0, Number(data.restaurant_context.service_fee_rate || 0)))
+            : 0;
+          const restaurantServiceFeeAmount = data.restaurant_context?.service_fee_enabled
+            ? roundMoney(merchandiseGrandTotal * (restaurantServiceFeeRate / 100))
+            : 0;
+
           const isTaxInclusive = !!(storeSettings?.tax_inclusive);
           const grandTotal = roundMoney(
-            merchandiseGrandTotal + 
-            (isTaxInclusive ? 0 : taxTotal) + 
-            (includeDelivery ? deliveryCharge : 0)
+            merchandiseGrandTotal +
+            (isTaxInclusive ? 0 : taxTotal) +
+            (includeDelivery ? deliveryCharge : 0) +
+            restaurantServiceFeeAmount
           );
           const paidTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
 
@@ -646,7 +682,12 @@ export class SaleModel extends BaseModel {
           }
 
           if (data.restaurant_context) {
-            await this.persistRestaurantContext(client, sale, cashierId, data.restaurant_context);
+            await this.persistRestaurantContext(client, sale, cashierId, {
+              ...data.restaurant_context,
+              service_fee_rate: restaurantServiceFeeRate,
+              service_fee_amount: restaurantServiceFeeAmount,
+              subtotal_before_service: merchandiseGrandTotal,
+            });
           }
 
           await client.query('COMMIT');
@@ -991,14 +1032,34 @@ export class SaleModel extends BaseModel {
             currentDeliveryCharge = Number(deliveryResult.rows[0]?.delivery_charge || 0);
           }
 
+          // Preserve the restaurant service fee (if any) in the recalculated grand total,
+          // recomputed against the new merchandise total at the fee rate stored at checkout.
+          let editServiceFeeAmount = 0;
+          if (await this.hasRestaurantContextTables(client)) {
+            const rcResult = await client.query(
+              'SELECT service_fee_enabled, service_fee_rate FROM restaurant_sale_context WHERE sale_id = $1',
+              [saleId]
+            );
+            const rc = rcResult.rows[0];
+            if (rc?.service_fee_enabled) {
+              const rcRate = Math.min(100, Math.max(0, Number(rc.service_fee_rate || 0)));
+              editServiceFeeAmount = roundMoney(merchandiseGrandTotal * (rcRate / 100));
+              await client.query(
+                'UPDATE restaurant_sale_context SET service_fee_amount = $1, subtotal_before_service = $2 WHERE sale_id = $3',
+                [editServiceFeeAmount, merchandiseGrandTotal, saleId]
+              );
+            }
+          }
+
           // Heuristic: only include delivery in grand_total (drawer total) if the setting is ON.
           // For updates, we usually want to maintain the same "in-drawer" status as original creation?
           // Actually, let's just use the current store setting for simplicity.
           const includeDeliveryInDrawer = editStoreSettings?.include_delivery_in_drawer !== false;
           const grandTotal = roundMoney(
-            merchandiseGrandTotal + 
-            (editTaxInclusive ? 0 : taxTotal) + 
-            (includeDeliveryInDrawer ? currentDeliveryCharge : 0)
+            merchandiseGrandTotal +
+            (editTaxInclusive ? 0 : taxTotal) +
+            (includeDeliveryInDrawer ? currentDeliveryCharge : 0) +
+            editServiceFeeAmount
           );
 
           const paymentsResult = await client.query(
@@ -1262,11 +1323,26 @@ export class SaleModel extends BaseModel {
 
   // Get sale by ID - Using subqueries to avoid Cartesian product with payments
   static async findById(saleId: string, client?: any): Promise<SaleWithDetails | null> {
+    const hasRestaurantContext = await this.hasRestaurantContextTables(client);
+    const restaurantSelect = hasRestaurantContext ? `
+        rc.service_fee_enabled as restaurant_service_fee_enabled,
+        rc.service_fee_rate as restaurant_service_fee_rate,
+        rc.service_fee_amount as restaurant_service_fee_amount,
+        rc.subtotal_before_service as restaurant_subtotal_before_service,
+        rc.notes as restaurant_notes,
+        rts.table_number as restaurant_table_number,
+        rts.guest_count as restaurant_guest_count,
+        rts.waiter_name as restaurant_waiter_name,
+        rts.seated_at as restaurant_seated_at,
+        rts.closed_at as restaurant_closed_at,` : '';
+    const restaurantJoin = hasRestaurantContext ? `
+      LEFT JOIN restaurant_sale_context rc ON rc.sale_id = s.sale_id
+      LEFT JOIN restaurant_table_sessions rts ON rts.session_id = rc.session_id` : '';
     const query = `
-      SELECT 
+      SELECT
         s.*,
         c.full_name as customer_name,
-        c.phone as customer_phone,
+        c.phone as customer_phone,${restaurantSelect}
         COALESCE(
           (
             SELECT json_agg(
@@ -1307,7 +1383,7 @@ export class SaleModel extends BaseModel {
           '[]'::json
         ) as payments
       FROM sales s
-      LEFT JOIN customers c ON c.customer_id = s.customer_id
+      LEFT JOIN customers c ON c.customer_id = s.customer_id${restaurantJoin}
       WHERE s.sale_id = $1
     `;
     const saleResult = client ? await client.query(query, [saleId]) : await this.query(query, [saleId]);
@@ -1334,9 +1410,25 @@ export class SaleModel extends BaseModel {
   static async findAll(filters: SaleFilters = {}): Promise<PaginatedResult<SaleWithDetails>> {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
 
+    const hasRestaurantContext = await this.hasRestaurantContextTables();
+    const restaurantSelect = hasRestaurantContext ? `
+        rc.service_fee_enabled as restaurant_service_fee_enabled,
+        rc.service_fee_rate as restaurant_service_fee_rate,
+        rc.service_fee_amount as restaurant_service_fee_amount,
+        rc.subtotal_before_service as restaurant_subtotal_before_service,
+        rc.notes as restaurant_notes,
+        rts.table_number as restaurant_table_number,
+        rts.guest_count as restaurant_guest_count,
+        rts.waiter_name as restaurant_waiter_name,
+        rts.seated_at as restaurant_seated_at,
+        rts.closed_at as restaurant_closed_at,` : '';
+    const restaurantJoin = hasRestaurantContext ? `
+      LEFT JOIN restaurant_sale_context rc ON rc.sale_id = s.sale_id
+      LEFT JOIN restaurant_table_sessions rts ON rts.session_id = rc.session_id` : '';
+
     let query = `
-      SELECT 
-        s.*,
+      SELECT
+        s.*,${restaurantSelect}
         c.full_name as customer_name,
         c.phone as customer_phone,
         st.name as store_name,
@@ -1346,7 +1438,7 @@ export class SaleModel extends BaseModel {
       LEFT JOIN customers c ON c.customer_id = s.customer_id
       LEFT JOIN stores st ON st.store_id = s.store_id
       LEFT JOIN terminals t ON t.terminal_id = s.terminal_id
-      LEFT JOIN app_users u ON u.user_id = s.cashier_id
+      LEFT JOIN app_users u ON u.user_id = s.cashier_id${restaurantJoin}
       WHERE 1=1
     `;
     const params: any[] = [];

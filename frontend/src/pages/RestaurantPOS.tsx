@@ -58,6 +58,7 @@ interface TableOrder {
   waiterName?: string;
   serviceFeeEnabled: boolean;
   serviceFeeRate: number;       // percentage, e.g. 10 = 10%
+  notes?: string;
 }
 
 interface CompletedOrder {
@@ -76,6 +77,7 @@ interface CompletedOrder {
   change: number;
   completedAt: string;
   receiptNo: string;
+  notes?: string;
 }
 
 const STORAGE_KEY = 'restaurant_table_orders_v1';
@@ -99,6 +101,7 @@ function formatDuration(startTime: string): string {
 
 export default function RestaurantPOS() {
   const { user } = useAuthStore();
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,6 +117,8 @@ export default function RestaurantPOS() {
   const [showSeatModal, setShowSeatModal] = useState(false);
   const [seatTableNum, setSeatTableNum] = useState<number | null>(null);
   const [guestCount, setGuestCount] = useState(2);
+  const [seatEditMode, setSeatEditMode] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'other'>('cash');
@@ -134,7 +139,7 @@ export default function RestaurantPOS() {
   useEffect(() => {
     storeService.getDefaultStore()
       .then(s => { setSettings(s); setIsLoading(false); })
-      .catch(() => { setLoadError('Failed to load store settings'); setIsLoading(false); });
+      .catch(() => { setLoadError('load_failed'); setIsLoading(false); });
   }, []);
 
   // Load active menus for the current restaurant store
@@ -151,7 +156,7 @@ export default function RestaurantPOS() {
       })
       .catch(() => {
         setMenus([]);
-        setMenuLoadError('Failed to load menus from Admin. Please try again.');
+        setMenuLoadError('menu_load_failed');
       });
   }, [settings?.store_id]);
 
@@ -174,9 +179,29 @@ export default function RestaurantPOS() {
     return () => clearInterval(t);
   }, []);
 
+  // Auto-print receipt when checkout completes and auto_print is enabled
+  useEffect(() => {
+    if (showReceipt && completedOrder && settings?.auto_print) {
+      // Defer slightly to ensure React has fully rendered the print portal in the DOM.
+      // window.print() blocks until the dialog is resolved, so cleanup can safely follow.
+      const timer = setTimeout(() => {
+        window.print();
+        setShowReceipt(false);
+        setCompletedOrder(null);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [showReceipt, completedOrder, settings?.auto_print]);
+
   // ── Derived
   const tableCount = Math.max(1, settings?.restaurant_table_count || 10);
   const tableNumbers = Array.from({ length: tableCount }, (_, i) => i + 1);
+  const trackGuests = !!settings?.restaurant_track_guests_per_table;
+  const enabledPaymentMethods = ([
+    { value: 'cash' as const,  enabled: settings?.pm_cash  !== false },
+    { value: 'card' as const,  enabled: settings?.pm_card  !== false },
+    { value: 'other' as const, enabled: settings?.pm_other !== false },
+  ]).filter(m => m.enabled).map(m => m.value);
 
   const getTableStatus = (n: number): TableStatus => tableOrders[n]?.status ?? 'available';
   const getOrder = (n: number): TableOrder | null => tableOrders[n] ?? null;
@@ -199,8 +224,9 @@ export default function RestaurantPOS() {
     }
     const sfBase = subtotal;
     const sfRate = order.serviceFeeEnabled ? (order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE) : 0;
-    const serviceFeeAmount = order.serviceFeeEnabled ? sfBase * (sfRate / 100) : 0;
-    const total = subtotal + serviceFeeAmount;
+    // Round to cents so the total matches the backend's recomputed grand total exactly
+    const serviceFeeAmount = order.serviceFeeEnabled ? Math.round(sfBase * (sfRate / 100) * 100) / 100 : 0;
+    const total = Math.round((subtotal + serviceFeeAmount) * 100) / 100;
     return { subtotal, taxAmount, serviceFeeAmount, total, taxRate };
   };
 
@@ -237,7 +263,7 @@ export default function RestaurantPOS() {
       return results;
     }
     const menu = menus[activeMenuIdx];
-    const cat  = menu?.categories[activeMenuIdx === 0 ? activeCategoryIdx : activeCategoryIdx];
+    const cat  = menu?.categories[activeCategoryIdx];
     if (!menu || !cat) return [];
     return cat.items.map(item => ({
       item,
@@ -257,21 +283,12 @@ export default function RestaurantPOS() {
   };
 
   // ── Handlers
-  const handleTableClick = (n: number) => {
-    if (getTableStatus(n) === 'available') {
-      setSeatTableNum(n); setGuestCount(2); setShowSeatModal(true);
-    } else {
-      setSelectedTable(n); setActiveMenuIdx(0); setActiveCategoryIdx(0); setMenuSearchQuery('');
-    }
-  };
-
-  const confirmSeat = () => {
-    if (!seatTableNum) return;
+  const seatTable = (n: number, guests: number) => {
     setTableOrders(prev => ({
       ...prev,
-      [seatTableNum]: {
-        tableNumber: seatTableNum,
-        guestCount,
+      [n]: {
+        tableNumber: n,
+        guestCount: guests,
         startTime: new Date().toISOString(),
         items: [],
         status: 'occupied',
@@ -280,10 +297,66 @@ export default function RestaurantPOS() {
         serviceFeeRate: DEFAULT_SERVICE_FEE_RATE,
       },
     }));
-    setSelectedTable(seatTableNum);
+    setSelectedTable(n);
+    setActiveMenuIdx(0);
+    setActiveCategoryIdx(0);
     setMenuSearchQuery('');
+  };
+
+  const handleTableClick = (n: number) => {
+    if (getTableStatus(n) === 'available') {
+      if (trackGuests) {
+        setSeatTableNum(n); setGuestCount(2); setSeatEditMode(false); setShowSeatModal(true);
+      } else {
+        // Guest tracking disabled in store settings — seat immediately
+        seatTable(n, 1);
+      }
+    } else {
+      setSelectedTable(n); setActiveMenuIdx(0); setActiveCategoryIdx(0); setMenuSearchQuery('');
+    }
+  };
+
+  const openEditGuests = () => {
+    if (!selectedTable) return;
+    const order = getOrder(selectedTable);
+    if (!order) return;
+    setSeatTableNum(selectedTable);
+    setGuestCount(order.guestCount);
+    setSeatEditMode(true);
+    setShowSeatModal(true);
+  };
+
+  const confirmSeat = () => {
+    if (!seatTableNum) return;
+    if (seatEditMode) {
+      setTableOrders(prev => {
+        const order = prev[seatTableNum];
+        if (!order) return prev;
+        return { ...prev, [seatTableNum]: { ...order, guestCount } };
+      });
+    } else {
+      seatTable(seatTableNum, guestCount);
+    }
     setShowSeatModal(false);
     setSeatTableNum(null);
+    setSeatEditMode(false);
+  };
+
+  const confirmCancelOrder = () => {
+    if (!selectedTable) return;
+    setTableOrders(prev => { const n = { ...prev }; delete n[selectedTable]; return n; });
+    setSelectedTable(null);
+    setMenuSearchQuery('');
+    setShowCancelConfirm(false);
+  };
+
+  const updateOrderNotes = (notes: string) => {
+    if (!selectedTable) return;
+    setTableOrders(prev => {
+      const order = prev[selectedTable];
+      if (!order) return prev;
+      return { ...prev, [selectedTable]: { ...order, notes } };
+    });
   };
 
   const addMenuItem = (item: { name: string; price: number; product_id?: string }, menuName: string, categoryName: string) => {
@@ -360,7 +433,9 @@ export default function RestaurantPOS() {
     setTableOrders(prev => ({ ...prev, [selectedTable]: updated }));
     const { subtotal, taxAmount, serviceFeeAmount, total } = computeTotals(updated);
     setBillPrintOrder({ order: updated, totals: { subtotal, taxAmount, serviceFeeAmount, total } });
-    setTimeout(() => window.print(), 100);
+    // window.print() blocks until the dialog resolves; clear the print overlay afterwards
+    // so a later receipt print doesn't also include the bill.
+    setTimeout(() => { window.print(); setBillPrintOrder(null); }, 100);
   };
 
   const handleCheckout = () => {
@@ -369,7 +444,7 @@ export default function RestaurantPOS() {
     if (!order || order.items.length === 0) return;
     const { total } = computeTotals(order);
     setCashGiven(total.toFixed(2));
-    setPaymentMethod('cash');
+    setPaymentMethod(enabledPaymentMethods.includes('cash') ? 'cash' : (enabledPaymentMethods[0] ?? 'cash'));
     setCheckoutError(null);
     setShowCheckoutModal(true);
   };
@@ -406,12 +481,14 @@ export default function RestaurantPOS() {
       }
 
       const checkoutAt = new Date().toISOString();
+      const orderNotes = order.notes?.trim();
       const sale = await saleService.createSale({
         items: saleItems,
         payments: [
           {
             method: paymentMethod,
-            amount: given,
+            // Amount applied to the sale (matches grand_total), not cash tendered — tender is for UX/change only.
+            amount: Math.round(total * 100) / 100,
           },
         ],
         restaurant_context: {
@@ -424,6 +501,7 @@ export default function RestaurantPOS() {
           service_fee_rate: order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE,
           service_fee_amount: serviceFeeAmount,
           subtotal_before_service: subtotal,
+          notes: orderNotes || undefined,
         },
       });
 
@@ -443,9 +521,11 @@ export default function RestaurantPOS() {
         change: paymentMethod === 'cash' ? Math.max(0, given - total) : 0,
         completedAt: sale.created_at || checkoutAt,
         receiptNo: sale.receipt_no,
+        notes: orderNotes || undefined,
       };
 
       setCompletedOrder(completed);
+      setBillPrintOrder(null);
       setTableOrders(prev => { const n = { ...prev }; delete n[selectedTable]; return n; });
       setSelectedTable(null);
       setMenuSearchQuery('');
@@ -470,7 +550,7 @@ export default function RestaurantPOS() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
         <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-secondary-200 border-t-secondary-600 mb-3" />
-        <p className="text-gray-500 text-sm">Loading restaurant...</p>
+        <p className="text-gray-500 text-sm">{t('restaurant_pos.loading')}</p>
       </div>
     </div>
   );
@@ -479,7 +559,7 @@ export default function RestaurantPOS() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
         <ExclamationCircleIcon className="w-12 h-12 text-red-400 mx-auto mb-3" />
-        <p className="text-red-600 font-medium">{loadError}</p>
+        <p className="text-red-600 font-medium">{t(`restaurant_pos.${loadError}`)}</p>
       </div>
     </div>
   );
@@ -506,32 +586,49 @@ export default function RestaurantPOS() {
                 className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm font-medium flex-shrink-0"
               >
                 <ChevronLeftIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Tables</span>
+                <span className="hidden sm:inline">{t('restaurant_pos.tables')}</span>
               </button>
               <div className="w-px h-6 bg-white/20 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="font-extrabold text-lg leading-tight">Table {selectedTable}</div>
+                <div className="font-extrabold text-lg leading-tight">{t('restaurant_pos.table')} {selectedTable}</div>
                 <div className="flex items-center gap-2 text-blue-200 text-xs mt-0.5 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <UsersIcon className="w-3.5 h-3.5" />
-                    {selectedOrder!.guestCount} guest{selectedOrder!.guestCount !== 1 ? 's' : ''}
-                  </span>
-                  <span>·</span>
+                  {trackGuests && (
+                    <>
+                      <button
+                        onClick={openEditGuests}
+                        className="flex items-center gap-1 hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+                        title={t('restaurant_pos.edit_guests_title', { table: selectedTable })}
+                      >
+                        <UsersIcon className="w-3.5 h-3.5" />
+                        {selectedOrder!.guestCount} {t(selectedOrder!.guestCount !== 1 ? 'restaurant_pos.guests_v' : 'restaurant_pos.guest_v')}
+                      </button>
+                      <span>·</span>
+                    </>
+                  )}
                   <span className="flex items-center gap-1">
                     <ClockIcon className="w-3.5 h-3.5" />
                     {formatDuration(selectedOrder!.startTime)}
                   </span>
                   {selectedOrder!.status === 'bill_requested' && (
-                    <><span>·</span><span className="text-amber-300 font-semibold animate-pulse">● Bill Out</span></>
+                    <><span>·</span><span className="text-amber-300 font-semibold animate-pulse">● {t('restaurant_pos.bill_out')}</span></>
                   )}
                 </div>
               </div>
             </div>
-            <div className="text-right flex-shrink-0 ml-4">
-              <div className="text-2xl font-extrabold tabular-nums">{formatCurrency(selectedTotals!.total)}</div>
-              <div className="text-blue-200 text-xs">
-                {selectedOrder!.items.reduce((s, i) => s + i.qty, 0)} item{selectedOrder!.items.reduce((s, i) => s + i.qty, 0) !== 1 ? 's' : ''}
+            <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+              <div className="text-right">
+                <div className="text-2xl font-extrabold tabular-nums">{formatCurrency(selectedTotals!.total)}</div>
+                <div className="text-blue-200 text-xs">
+                  {selectedOrder!.items.reduce((s, i) => s + i.qty, 0)} {t(selectedOrder!.items.reduce((s, i) => s + i.qty, 0) !== 1 ? 'restaurant_pos.items_v' : 'restaurant_pos.item_v')}
+                </div>
               </div>
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="p-2 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 transition-colors"
+                title={t('restaurant_pos.cancel_order')}
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
             </div>
           </div>
         ) : (
@@ -552,9 +649,9 @@ export default function RestaurantPOS() {
             </div>
             <div className="flex items-center gap-5">
               {[
-                { label: 'Available', value: availableCount, color: 'text-emerald-300' },
-                { label: 'Occupied',  value: occupiedCount,  color: 'text-blue-200'   },
-                { label: 'Bill Req.', value: billCount,      color: 'text-amber-300'  },
+                { label: t('restaurant_pos.available'),            value: availableCount, color: 'text-emerald-300' },
+                { label: t('restaurant_pos.occupied'),             value: occupiedCount,  color: 'text-blue-200'   },
+                { label: t('restaurant_pos.bill_requested_short'), value: billCount,      color: 'text-amber-300'  },
               ].map(s => (
                 <div key={s.label} className="text-center hidden sm:block">
                   <div className={`text-xl font-extrabold ${s.color}`}>{s.value}</div>
@@ -573,7 +670,7 @@ export default function RestaurantPOS() {
             {/* ── LEFT: Category Sidebar ── */}
             <div className="w-52 flex-shrink-0 bg-white border-r border-gray-200 hidden md:flex flex-col overflow-hidden">
               <div className="px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Menu</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('restaurant_pos.menu')}</p>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {menus.map((menu, mi) => (
@@ -619,7 +716,7 @@ export default function RestaurantPOS() {
                     type="text"
                     value={menuSearchQuery}
                     onChange={e => setMenuSearchQuery(e.target.value)}
-                    placeholder="Search items across all menus…"
+                    placeholder={t('restaurant_pos.search_placeholder')}
                     className="w-full pl-9 pr-9 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors placeholder-gray-400"
                   />
                   {menuSearchQuery && (
@@ -633,9 +730,9 @@ export default function RestaurantPOS() {
                 </div>
                 <p className="text-xs text-gray-400 px-0.5">
                   {menuSearchQuery ? (
-                    <><span className="font-semibold text-gray-600">{itemsToDisplay.length}</span> result{itemsToDisplay.length !== 1 ? 's' : ''} for "<span className="text-gray-700">{menuSearchQuery}</span>"</>
+                    <>{t('restaurant_pos.search_results', { count: itemsToDisplay.length, query: menuSearchQuery })}</>
                   ) : (
-                    <><span className="text-gray-500 font-medium">{menus[activeMenuIdx]?.name}</span> › <span className="font-semibold text-gray-700">{menus[activeMenuIdx]?.categories[activeCategoryIdx]?.name}</span> <span className="text-gray-300">·</span> {menus[activeMenuIdx]?.categories[activeCategoryIdx]?.items.length ?? 0} items</>
+                    <><span className="text-gray-500 font-medium">{menus[activeMenuIdx]?.name}</span> › <span className="font-semibold text-gray-700">{menus[activeMenuIdx]?.categories[activeCategoryIdx]?.name}</span> <span className="text-gray-300">·</span> {t('restaurant_pos.items_in_category', { count: menus[activeMenuIdx]?.categories[activeCategoryIdx]?.items.length ?? 0 })}</>
                   )}
                 </p>
               </div>
@@ -667,13 +764,13 @@ export default function RestaurantPOS() {
                     {menuSearchQuery ? (
                       <>
                         <MagnifyingGlassIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-sm font-semibold">No items found for "{menuSearchQuery}"</p>
-                        <p className="text-xs mt-1 text-gray-300">Try a different search term</p>
+                        <p className="text-sm font-semibold">{t('restaurant_pos.no_search_results', { query: menuSearchQuery })}</p>
+                        <p className="text-xs mt-1 text-gray-300">{t('restaurant_pos.try_different')}</p>
                       </>
                     ) : (
                       <>
                         <DocumentTextIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-sm font-semibold">No items in this category</p>
+                        <p className="text-sm font-semibold">{t('restaurant_pos.no_items_in_category')}</p>
                       </>
                     )}
                   </div>
@@ -734,9 +831,9 @@ export default function RestaurantPOS() {
 
               {/* Cart header */}
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0 bg-gray-50">
-                <span className="font-bold text-gray-700 text-sm">Order</span>
+                <span className="font-bold text-gray-700 text-sm">{t('restaurant_pos.order')}</span>
                 <span className="text-xs text-gray-400 tabular-nums">
-                  {selectedOrder!.items.reduce((s, i) => s + i.qty, 0)} item{selectedOrder!.items.reduce((s, i) => s + i.qty, 0) !== 1 ? 's' : ''}
+                  {selectedOrder!.items.reduce((s, i) => s + i.qty, 0)} {t(selectedOrder!.items.reduce((s, i) => s + i.qty, 0) !== 1 ? 'restaurant_pos.items_v' : 'restaurant_pos.item_v')}
                 </span>
               </div>
 
@@ -745,8 +842,8 @@ export default function RestaurantPOS() {
                 {selectedOrder!.items.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-300 p-6 text-center">
                     <DocumentTextIcon className="w-10 h-10 mb-2" />
-                    <p className="text-sm font-medium text-gray-400">Order is empty</p>
-                    <p className="text-xs mt-1 text-gray-300">Tap items from the menu to add them</p>
+                    <p className="text-sm font-medium text-gray-400">{t('restaurant_pos.order_empty')}</p>
+                    <p className="text-xs mt-1 text-gray-300">{t('restaurant_pos.tap_to_add')}</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-50">
@@ -789,6 +886,21 @@ export default function RestaurantPOS() {
               {/* Totals + Action buttons */}
               <div className="border-t border-gray-200 flex-shrink-0">
 
+                {/* ── Order Notes ── */}
+                <div className="px-4 py-2.5 bg-white border-b border-gray-100">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                    {t('restaurant_pos.order_notes')}
+                  </label>
+                  <textarea
+                    value={selectedOrder!.notes ?? ''}
+                    onChange={e => updateOrderNotes(e.target.value)}
+                    placeholder={t('restaurant_pos.order_notes_placeholder')}
+                    rows={selectedOrder!.notes ? 2 : 1}
+                    maxLength={1000}
+                    className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors placeholder-gray-300 resize-none"
+                  />
+                </div>
+
                 {/* ── Service Fee Toggle ── */}
                 <div className="px-4 py-3 bg-white border-b border-gray-100">
                   <div className="flex items-center justify-between gap-3">
@@ -807,7 +919,7 @@ export default function RestaurantPOS() {
                         }`} />
                       </button>
                       <span className={`text-sm font-semibold truncate ${selectedOrder!.serviceFeeEnabled ? 'text-gray-800' : 'text-gray-400'}`}>
-                        Service Fee
+                        {t('restaurant_pos.service_fee')}
                       </span>
                     </div>
                     {/* Rate input */}
@@ -825,7 +937,7 @@ export default function RestaurantPOS() {
                   </div>
                   {selectedOrder!.serviceFeeEnabled && selectedTotals!.serviceFeeAmount > 0 && (
                     <div className="flex justify-between text-xs text-secondary-600 mt-2 pl-[52px]">
-                      <span>+{selectedOrder!.serviceFeeRate}% on subtotal</span>
+                      <span>{t('restaurant_pos.service_fee_on_subtotal', { rate: selectedOrder!.serviceFeeRate })}</span>
                       <span className="font-bold tabular-nums">{formatCurrency(selectedTotals!.serviceFeeAmount)}</span>
                     </div>
                   )}
@@ -835,23 +947,23 @@ export default function RestaurantPOS() {
                 {selectedOrder!.items.length > 0 && (
                   <div className="px-4 pt-3 pb-2 space-y-1.5 text-sm bg-gray-50">
                     <div className="flex justify-between text-gray-500">
-                      <span>Subtotal</span>
+                      <span>{t('restaurant_pos.subtotal')}</span>
                       <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.subtotal)}</span>
                     </div>
                     {selectedOrder!.serviceFeeEnabled && selectedTotals!.serviceFeeAmount > 0 && (
                       <div className="flex justify-between text-gray-500">
-                        <span>Service Fee ({selectedOrder!.serviceFeeRate}%)</span>
+                        <span>{t('receipt.service_fee', { rate: selectedOrder!.serviceFeeRate })}</span>
                         <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.serviceFeeAmount)}</span>
                       </div>
                     )}
                     {selectedTotals!.taxAmount > 0 && (
                       <div className="flex justify-between text-gray-500">
-                        <span>Tax ({settings?.tax_rate}%)</span>
+                        <span>{t('restaurant_pos.tax_with_rate', { rate: settings?.tax_rate ?? 0 })}</span>
                         <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.taxAmount)}</span>
                       </div>
                     )}
                     <div className="flex justify-between font-extrabold text-gray-900 text-base pt-1.5 border-t border-gray-200">
-                      <span>Total</span>
+                      <span>{t('restaurant_pos.total')}</span>
                       <span className="tabular-nums">{formatCurrency(selectedTotals!.total)}</span>
                     </div>
                   </div>
@@ -863,7 +975,7 @@ export default function RestaurantPOS() {
                     className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-amber-400 text-amber-600 font-semibold text-sm hover:bg-amber-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <PrinterIcon className="w-4 h-4" />
-                    {selectedOrder!.status === 'bill_requested' ? 'Reprint Bill' : 'Print Bill'}
+                    {selectedOrder!.status === 'bill_requested' ? t('restaurant_pos.reprint_bill') : t('restaurant_pos.print_bill')}
                   </button>
                   <button
                     onClick={handleCheckout}
@@ -871,7 +983,7 @@ export default function RestaurantPOS() {
                     className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                   >
                     <CheckIcon className="w-4 h-4" />
-                    Checkout
+                    {t('restaurant_pos.checkout')}
                   </button>
                 </div>
               </div>
@@ -883,13 +995,13 @@ export default function RestaurantPOS() {
             {menuLoadError && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
                 <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
-                {menuLoadError}
+                {t(`restaurant_pos.${menuLoadError}`)}
               </div>
             )}
             {menus.length === 0 && (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm flex items-center gap-2">
                 <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
-                No menus configured. Go to Admin → Menus to add menus.
+                {t('restaurant_pos.no_menus')}
               </div>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
@@ -921,15 +1033,17 @@ export default function RestaurantPOS() {
                       status === 'occupied'       ? 'text-secondary-600' : '',
                       status === 'bill_requested' ? 'text-amber-600' : '',
                     ].join(' ')}>{num}</div>
-                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Table</div>
+                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">{t('restaurant_pos.table')}</div>
                     {status === 'available' ? (
-                      <div className="text-xs text-emerald-600 font-semibold">Available</div>
+                      <div className="text-xs text-emerald-600 font-semibold">{t('restaurant_pos.available')}</div>
                     ) : order ? (
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <UsersIcon className="w-3 h-3" />
-                          <span>{order.guestCount} guest{order.guestCount !== 1 ? 's' : ''}</span>
-                        </div>
+                        {trackGuests && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <UsersIcon className="w-3 h-3" />
+                            <span>{order.guestCount} {t(order.guestCount !== 1 ? 'restaurant_pos.guests_v' : 'restaurant_pos.guest_v')}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 text-xs text-gray-400">
                           <ClockIcon className="w-3 h-3" />
                           <span>{formatDuration(order.startTime)}</span>
@@ -942,7 +1056,7 @@ export default function RestaurantPOS() {
                           </div>
                         )}
                         {status === 'bill_requested' && (
-                          <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">Bill Requested</div>
+                          <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">{t('restaurant_pos.bill_requested')}</div>
                         )}
                       </div>
                     ) : null}
@@ -960,12 +1074,14 @@ export default function RestaurantPOS() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900">Seat Guests — Table {seatTableNum}</h2>
-                <button onClick={() => setShowSeatModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <h2 className="text-lg font-bold text-gray-900">
+                  {t(seatEditMode ? 'restaurant_pos.edit_guests_title' : 'restaurant_pos.seat_guests_title', { table: seatTableNum })}
+                </h2>
+                <button onClick={() => { setShowSeatModal(false); setSeatEditMode(false); }} className="text-gray-400 hover:text-gray-600 transition-colors">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-gray-500 text-sm text-center mb-4">How many guests?</p>
+              <p className="text-gray-500 text-sm text-center mb-4">{t('restaurant_pos.how_many_guests')}</p>
               <div className="flex items-center justify-center gap-6 mb-5">
                 <button
                   onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
@@ -999,7 +1115,9 @@ export default function RestaurantPOS() {
                 className="w-full py-3.5 bg-secondary-500 hover:bg-secondary-600 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
               >
                 <CheckIcon className="w-5 h-5" />
-                Seat {guestCount} Guest{guestCount !== 1 ? 's' : ''}
+                {seatEditMode
+                  ? t('restaurant_pos.update_guests_cta')
+                  : t('restaurant_pos.seat_guests_cta', { count: guestCount })}
               </button>
             </div>
           </div>
@@ -1010,7 +1128,7 @@ export default function RestaurantPOS() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900">Checkout — Table {selectedTable}</h2>
+                <h2 className="text-lg font-bold text-gray-900">{t('restaurant_pos.checkout_title', { table: selectedTable ?? '' })}</h2>
                 <button onClick={() => setShowCheckoutModal(false)} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
@@ -1025,19 +1143,19 @@ export default function RestaurantPOS() {
                     </div>
                   ))}
                   <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-base">
-                    <span>Total</span>
+                    <span>{t('restaurant_pos.total')}</span>
                     <span className="tabular-nums">{formatCurrency(selectedTotals.total)}</span>
                   </div>
                 </div>
                 {/* Payment method */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('restaurant_pos.payment_method')}</label>
+                  <div className={`grid gap-2 ${enabledPaymentMethods.length === 3 ? 'grid-cols-3' : enabledPaymentMethods.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {([
-                      { value: 'cash',  label: 'Cash',  icon: BanknotesIcon   },
-                      { value: 'card',  label: 'Card',  icon: CreditCardIcon  },
-                      { value: 'other', label: 'Other', icon: DocumentTextIcon },
-                    ] as const).map(({ value, label, icon: Icon }) => (
+                      { value: 'cash',  label: t('restaurant_pos.cash'),  icon: BanknotesIcon   },
+                      { value: 'card',  label: t('restaurant_pos.card'),  icon: CreditCardIcon  },
+                      { value: 'other', label: t('restaurant_pos.other'), icon: DocumentTextIcon },
+                    ] as const).filter(({ value }) => enabledPaymentMethods.includes(value)).map(({ value, label, icon: Icon }) => (
                       <button
                         key={value}
                         onClick={() => setPaymentMethod(value)}
@@ -1056,7 +1174,7 @@ export default function RestaurantPOS() {
                 {/* Cash amount */}
                 {paymentMethod === 'cash' && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Amount Given</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('restaurant_pos.amount_given')}</label>
                     <input
                       type="number"
                       value={cashGiven}
@@ -1067,7 +1185,7 @@ export default function RestaurantPOS() {
                     />
                     {parseFloat(cashGiven) >= selectedTotals.total && (
                       <div className="mt-2 flex justify-between text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                        <span className="text-emerald-700 font-medium">Change Due</span>
+                        <span className="text-emerald-700 font-medium">{t('restaurant_pos.change_due')}</span>
                         <span className="text-emerald-700 font-extrabold tabular-nums">
                           {formatCurrency(Math.max(0, parseFloat(cashGiven) - selectedTotals.total))}
                         </span>
@@ -1086,7 +1204,7 @@ export default function RestaurantPOS() {
                   onClick={() => setShowCheckoutModal(false)}
                   className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
                 >
-                  Cancel
+                  {t('restaurant_pos.cancel')}
                 </button>
                 <button
                   onClick={confirmCheckout}
@@ -1097,7 +1215,38 @@ export default function RestaurantPOS() {
                   className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                 >
                   <CheckCircleIconSolid className="w-5 h-5" />
-                  {isSubmittingCheckout ? 'Processing...' : 'Complete & Checkout'}
+                  {isSubmittingCheckout ? t('restaurant_pos.processing') : t('restaurant_pos.complete_checkout')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Order confirmation */}
+        {showCancelConfirm && selectedTable && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <TrashIcon className="w-5 h-5 text-red-500" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {t('restaurant_pos.cancel_order_title', { table: selectedTable })}
+                </h2>
+              </div>
+              <p className="text-sm text-gray-500 mb-5">{t('restaurant_pos.cancel_order_message')}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
+                >
+                  {t('restaurant_pos.keep_order')}
+                </button>
+                <button
+                  onClick={confirmCancelOrder}
+                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors shadow-sm"
+                >
+                  {t('restaurant_pos.cancel_order')}
                 </button>
               </div>
             </div>
@@ -1111,7 +1260,7 @@ export default function RestaurantPOS() {
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <CheckCircleIconSolid className="w-6 h-6 text-emerald-500" />
-                  <h2 className="text-lg font-bold text-gray-900">Checkout Complete!</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{t('restaurant_pos.checkout_complete')}</h2>
                 </div>
                 <button onClick={() => { setShowReceipt(false); setCompletedOrder(null); }} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="w-5 h-5" />
@@ -1126,13 +1275,13 @@ export default function RestaurantPOS() {
                   className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold rounded-xl transition-colors"
                 >
                   <PrinterIcon className="w-5 h-5" />
-                  Print Receipt
+                  {t('restaurant_pos.print_receipt')}
                 </button>
                 <button
                   onClick={() => { setShowReceipt(false); setCompletedOrder(null); }}
                   className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
                 >
-                  Close
+                  {t('restaurant_pos.close')}
                 </button>
               </div>
             </div>
@@ -1188,8 +1337,13 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
     { label: t('receipt.receipt_no'), value: order.receiptNo },
     { label: t('receipt.date'), value: formatDate(order.completedAt) },
     { label: t('receipt.table'), value: String(order.tableNumber) },
-    { label: t('receipt.guests'), value: String(order.guestCount) },
+    ...(settings?.restaurant_track_guests_per_table
+      ? [{ label: t('receipt.guests'), value: String(order.guestCount) }]
+      : []),
     { label: t('receipt.seated'), value: formatDate(order.startTime) },
+    ...(order.notes?.trim()
+      ? [{ label: t('receipt.notes'), value: order.notes.trim() }]
+      : []),
   ];
 
   const lineRows = order.items.map((item) => ({
@@ -1267,11 +1421,16 @@ function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
       value: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     },
     { label: t('receipt.table'), value: String(order.tableNumber) },
-    { label: t('receipt.guests'), value: String(order.guestCount) },
+    ...(settings?.restaurant_track_guests_per_table
+      ? [{ label: t('receipt.guests'), value: String(order.guestCount) }]
+      : []),
     {
       label: t('receipt.seated'),
       value: new Date(order.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     },
+    ...(order.notes?.trim()
+      ? [{ label: t('receipt.notes'), value: order.notes.trim() }]
+      : []),
   ];
 
   const lineRows = order.items.map((item) => ({
