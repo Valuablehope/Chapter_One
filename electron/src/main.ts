@@ -881,6 +881,23 @@ ipcMain.handle('app:resetSetup', async () => {
   return { success: false };
 });
 
+// Workaround for a long-standing Chromium/Electron bug on Windows: after a
+// native blocking dialog closes (window.print()'s print dialog, alert(),
+// confirm()), the window still looks focused but keyboard events stop being
+// delivered to input fields until the OS window is re-activated — users had
+// to minimize/restore or restart the app. Cycling blur → focus re-activates
+// keyboard input delivery. Only runs when the window still has OS focus;
+// otherwise the user is in another app and a natural activation will occur
+// when they return, so forcing focus would steal it.
+ipcMain.on('app:refocus-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed() && win.isFocused()) {
+    win.blur();
+    win.focus();
+    win.webContents.focus();
+  }
+});
+
 ipcMain.on('app:log', (_event, { level, message }) => {
   const logMessage = `[Renderer] ${message}`;
   switch (level) {

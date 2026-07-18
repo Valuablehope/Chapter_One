@@ -19,6 +19,7 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { restoreInputFocus } from '../utils/nativeDialogFocusFix';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const MM_TO_PX = 3.7795;
@@ -917,7 +918,10 @@ export default function Labels() {
     if (!win) { alert('Please allow pop-ups to print.'); return; }
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Labels</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}@media print{html,body{width:100%;height:100%;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{margin:0;}}</style></head><body>${html}</body></html>`);
     win.document.close(); win.focus();
-    const printWhenReady = () => { setTimeout(() => { win.print(); win.close(); }, 120); };
+    // win.print() runs on the popup (not covered by the global window.print
+    // patch) and closing the popup triggers the same Windows keyboard-freeze
+    // bug on the main window — restore input focus explicitly.
+    const printWhenReady = () => { setTimeout(() => { win.print(); win.close(); restoreInputFocus(); }, 120); };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((win.document as any).fonts) { (win.document as any).fonts.ready.then(printWhenReady); }
     else { setTimeout(printWhenReady, 900); }

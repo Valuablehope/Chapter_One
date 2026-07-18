@@ -5,6 +5,11 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import './styles/receiptPrint.css';
+import { installNativeDialogFocusFix } from './utils/nativeDialogFocusFix';
+
+// Restore keyboard input after native dialogs (print/alert/confirm) — must run
+// before any component can call window.print()/confirm()/alert().
+installNativeDialogFocusFix();
 // Apply persisted theme immediately (before first paint)
 import { getTheme } from './styles/themes';
 (function initTheme() {

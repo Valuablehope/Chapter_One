@@ -19,6 +19,7 @@ import {
   DayClosureRecord,
 } from '../services/dayClosureService';
 import { logger } from '../utils/logger';
+import { restoreInputFocus } from '../utils/nativeDialogFocusFix';
 import { useTranslation } from '../i18n/I18nContext';
 
 function round2(n: number): number {
@@ -52,6 +53,9 @@ function openPrintWindow(
   w.focus();
   w.print();
   w.close();
+  // The popup's print dialog + close trigger the Windows keyboard-freeze bug
+  // on the main window (not covered by the global window.print patch).
+  restoreInputFocus();
 }
 
 function escapeHtml(s: string): string {

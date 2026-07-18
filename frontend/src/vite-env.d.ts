@@ -9,6 +9,7 @@ declare global {
       getPlatform: () => Promise<string>;
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;
+      refocusWindow?: () => void;
       customerDisplayShow?: (payload: {
         storeName: string;
         amount: number;
