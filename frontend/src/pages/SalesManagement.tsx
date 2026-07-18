@@ -862,7 +862,24 @@ export default function SalesManagement() {
                     <p className="text-sm font-medium text-gray-900">{selectedSale.cashier_name}</p>
                   </div>
                 )}
-                {selectedSale.restaurant_table_number != null && (
+                {(selectedSale.restaurant_order_type === 'takeaway' || selectedSale.restaurant_order_type === 'delivery') ? (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.order_type')}</label>
+                      <p className="text-sm font-medium text-gray-900">
+                        {t(selectedSale.restaurant_order_type === 'delivery' ? 'restaurant_pos.delivery' : 'restaurant_pos.walk_in')}
+                        {selectedSale.restaurant_customer_name ? ` · ${selectedSale.restaurant_customer_name}` : ''}
+                        {selectedSale.restaurant_customer_phone ? ` · ${selectedSale.restaurant_customer_phone}` : ''}
+                      </p>
+                    </div>
+                    {selectedSale.restaurant_order_type === 'delivery' && selectedSale.restaurant_delivery_address && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.address')}</label>
+                        <p className="text-sm font-medium text-gray-900">{selectedSale.restaurant_delivery_address}</p>
+                      </div>
+                    )}
+                  </>
+                ) : selectedSale.restaurant_table_number != null && (
                   <div>
                     <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.table')}</label>
                     <p className="text-sm font-medium text-gray-900">

@@ -57,7 +57,7 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
   const discountTotal = Number(sale.discount_total || 0);
   const serviceFeeAmount = Number(sale.restaurant_service_fee_amount || 0);
   const serviceFeeRate = Number(sale.restaurant_service_fee_rate || 0);
-  const isRestaurantSale = sale.restaurant_table_number != null || serviceFeeAmount > 0;
+  const isRestaurantSale = sale.restaurant_table_number != null || sale.restaurant_order_type != null || serviceFeeAmount > 0;
 
   // Robust heuristic: Check if this specific sale was saved with delivery already in its grand_total.
   // We compare the saved grand_total (drawerTotal) against the calculated merchandise total
@@ -163,7 +163,21 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     });
   }
 
-  if (sale.restaurant_table_number != null) {
+  if (sale.restaurant_order_type === 'takeaway' || sale.restaurant_order_type === 'delivery') {
+    metaRows.push({
+      label: t('receipt.order_type'),
+      value: t(sale.restaurant_order_type === 'delivery' ? 'restaurant_pos.delivery' : 'restaurant_pos.walk_in'),
+    });
+    if (sale.restaurant_customer_name) {
+      metaRows.push({ label: t('receipt.customer'), value: String(sale.restaurant_customer_name) });
+    }
+    if (sale.restaurant_customer_phone) {
+      metaRows.push({ label: t('receipt.phone'), value: String(sale.restaurant_customer_phone) });
+    }
+    if (sale.restaurant_order_type === 'delivery' && sale.restaurant_delivery_address) {
+      metaRows.push({ label: t('receipt.address'), value: String(sale.restaurant_delivery_address) });
+    }
+  } else if (sale.restaurant_table_number != null) {
     metaRows.push({
       label: t('receipt.table'),
       value: String(sale.restaurant_table_number),

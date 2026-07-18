@@ -56,10 +56,16 @@ export interface CreateSalePayment {
   amount: number;
 }
 
+export type RestaurantOrderType = 'dine_in' | 'takeaway' | 'delivery';
+
 export interface RestaurantContextInput {
-  table_number: number;
-  guest_count: number;
+  order_type?: RestaurantOrderType;
+  table_number?: number;
+  guest_count?: number;
   waiter_name?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  delivery_address?: string;
   seated_at: string;
   checkout_at: string;
   service_fee_enabled: boolean;
@@ -133,9 +139,13 @@ export interface Sale {
   restaurant_service_fee_amount?: number;
   restaurant_subtotal_before_service?: number;
   restaurant_notes?: string | null;
-  restaurant_table_number?: number;
-  restaurant_guest_count?: number;
+  restaurant_order_type?: RestaurantOrderType;
+  restaurant_table_number?: number | null;
+  restaurant_guest_count?: number | null;
   restaurant_waiter_name?: string | null;
+  restaurant_customer_name?: string | null;
+  restaurant_customer_phone?: string | null;
+  restaurant_delivery_address?: string | null;
   restaurant_seated_at?: string;
   restaurant_closed_at?: string;
 }

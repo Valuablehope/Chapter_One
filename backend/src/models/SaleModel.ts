@@ -10,6 +10,8 @@ import { StoreSettingsModel } from './StoreSettingsModel';
 let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean; hasDeliveryCharge: boolean } | null = null;
 // Both restaurant tables are created by the same migration, so one check covers both
 let restaurantContextTableCache: boolean | null = null;
+// order_type/customer columns arrive with migration 048; degrade gracefully when absent
+let restaurantOrderTypeColumnsCache: boolean | null = null;
 import {
   aggregateLines,
   computeLineAmounts,
@@ -80,9 +82,13 @@ export interface CreateSaleData {
     amount: number;
   }[];
   restaurant_context?: {
-    table_number: number;
-    guest_count: number;
+    order_type?: 'dine_in' | 'takeaway' | 'delivery';
+    table_number?: number;
+    guest_count?: number;
     waiter_name?: string;
+    customer_name?: string;
+    customer_phone?: string;
+    delivery_address?: string;
     seated_at: string;
     checkout_at: string;
     service_fee_enabled: boolean;
@@ -127,9 +133,13 @@ export interface SaleWithDetails extends Sale {
   restaurant_service_fee_amount?: number;
   restaurant_subtotal_before_service?: number;
   restaurant_notes?: string | null;
-  restaurant_table_number?: number;
-  restaurant_guest_count?: number;
+  restaurant_order_type?: 'dine_in' | 'takeaway' | 'delivery';
+  restaurant_table_number?: number | null;
+  restaurant_guest_count?: number | null;
   restaurant_waiter_name?: string | null;
+  restaurant_customer_name?: string | null;
+  restaurant_customer_phone?: string | null;
+  restaurant_delivery_address?: string | null;
   restaurant_seated_at?: string;
   restaurant_closed_at?: string;
 }
@@ -159,41 +169,101 @@ export class SaleModel extends BaseModel {
     return restaurantContextTableCache;
   }
 
+  private static async hasRestaurantOrderTypeColumns(client?: any): Promise<boolean> {
+    if (restaurantOrderTypeColumnsCache !== null) {
+      return restaurantOrderTypeColumnsCache;
+    }
+    const query = `
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'restaurant_table_sessions'
+        AND column_name = 'order_type'
+    `;
+    const result = client ? await client.query(query) : await this.query(query);
+    restaurantOrderTypeColumnsCache = result.rows.length > 0;
+    return restaurantOrderTypeColumnsCache;
+  }
+
   private static async persistRestaurantContext(
     client: any,
     sale: { sale_id: string; store_id: string; terminal_id: string },
     cashierId: string,
     context: NonNullable<CreateSaleData['restaurant_context']>
   ): Promise<void> {
-    const sessionResult = await client.query(
-      `
-        INSERT INTO restaurant_table_sessions (
-          store_id,
-          terminal_id,
-          cashier_id,
-          table_number,
-          guest_count,
-          waiter_name,
-          seated_at,
-          closed_at,
-          status
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, 'closed')
-        RETURNING session_id
-      `,
-      [
-        sale.store_id,
-        sale.terminal_id,
-        cashierId,
-        context.table_number,
-        context.guest_count,
-        context.waiter_name || null,
-        context.seated_at,
-        context.checkout_at,
-      ]
-    );
+    const orderType = context.order_type || 'dine_in';
+    const hasOrderTypeColumns = await this.hasRestaurantOrderTypeColumns(client);
 
-    const sessionId = sessionResult.rows[0]?.session_id || null;
+    let sessionId: string | null = null;
+    if (hasOrderTypeColumns) {
+      const sessionResult = await client.query(
+        `
+          INSERT INTO restaurant_table_sessions (
+            store_id,
+            terminal_id,
+            cashier_id,
+            order_type,
+            table_number,
+            guest_count,
+            waiter_name,
+            customer_name,
+            customer_phone,
+            delivery_address,
+            seated_at,
+            closed_at,
+            status
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::timestamptz, 'closed')
+          RETURNING session_id
+        `,
+        [
+          sale.store_id,
+          sale.terminal_id,
+          cashierId,
+          orderType,
+          orderType === 'dine_in' ? (context.table_number ?? null) : null,
+          orderType === 'dine_in' ? (context.guest_count ?? null) : null,
+          context.waiter_name || null,
+          context.customer_name || null,
+          context.customer_phone || null,
+          context.delivery_address || null,
+          context.seated_at,
+          context.checkout_at,
+        ]
+      );
+      sessionId = sessionResult.rows[0]?.session_id || null;
+    } else if (context.table_number != null) {
+      // Pre-048 schema: table_number is required, so only dine-in sessions can be stored
+      const sessionResult = await client.query(
+        `
+          INSERT INTO restaurant_table_sessions (
+            store_id,
+            terminal_id,
+            cashier_id,
+            table_number,
+            guest_count,
+            waiter_name,
+            seated_at,
+            closed_at,
+            status
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, 'closed')
+          RETURNING session_id
+        `,
+        [
+          sale.store_id,
+          sale.terminal_id,
+          cashierId,
+          context.table_number,
+          context.guest_count ?? 1,
+          context.waiter_name || null,
+          context.seated_at,
+          context.checkout_at,
+        ]
+      );
+      sessionId = sessionResult.rows[0]?.session_id || null;
+    } else {
+      logger.warn('Migration 048 not applied: skipping restaurant session for non-dine-in order');
+    }
 
     await client.query(
       `
@@ -1324,6 +1394,7 @@ export class SaleModel extends BaseModel {
   // Get sale by ID - Using subqueries to avoid Cartesian product with payments
   static async findById(saleId: string, client?: any): Promise<SaleWithDetails | null> {
     const hasRestaurantContext = await this.hasRestaurantContextTables(client);
+    const hasOrderType = hasRestaurantContext && await this.hasRestaurantOrderTypeColumns(client);
     const restaurantSelect = hasRestaurantContext ? `
         rc.service_fee_enabled as restaurant_service_fee_enabled,
         rc.service_fee_rate as restaurant_service_fee_rate,
@@ -1334,7 +1405,11 @@ export class SaleModel extends BaseModel {
         rts.guest_count as restaurant_guest_count,
         rts.waiter_name as restaurant_waiter_name,
         rts.seated_at as restaurant_seated_at,
-        rts.closed_at as restaurant_closed_at,` : '';
+        rts.closed_at as restaurant_closed_at,${hasOrderType ? `
+        rts.order_type as restaurant_order_type,
+        rts.customer_name as restaurant_customer_name,
+        rts.customer_phone as restaurant_customer_phone,
+        rts.delivery_address as restaurant_delivery_address,` : ''}` : '';
     const restaurantJoin = hasRestaurantContext ? `
       LEFT JOIN restaurant_sale_context rc ON rc.sale_id = s.sale_id
       LEFT JOIN restaurant_table_sessions rts ON rts.session_id = rc.session_id` : '';
@@ -1411,6 +1486,7 @@ export class SaleModel extends BaseModel {
     const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
 
     const hasRestaurantContext = await this.hasRestaurantContextTables();
+    const hasOrderType = hasRestaurantContext && await this.hasRestaurantOrderTypeColumns();
     const restaurantSelect = hasRestaurantContext ? `
         rc.service_fee_enabled as restaurant_service_fee_enabled,
         rc.service_fee_rate as restaurant_service_fee_rate,
@@ -1421,7 +1497,11 @@ export class SaleModel extends BaseModel {
         rts.guest_count as restaurant_guest_count,
         rts.waiter_name as restaurant_waiter_name,
         rts.seated_at as restaurant_seated_at,
-        rts.closed_at as restaurant_closed_at,` : '';
+        rts.closed_at as restaurant_closed_at,${hasOrderType ? `
+        rts.order_type as restaurant_order_type,
+        rts.customer_name as restaurant_customer_name,
+        rts.customer_phone as restaurant_customer_phone,
+        rts.delivery_address as restaurant_delivery_address,` : ''}` : '';
     const restaurantJoin = hasRestaurantContext ? `
       LEFT JOIN restaurant_sale_context rc ON rc.sale_id = s.sale_id
       LEFT JOIN restaurant_table_sessions rts ON rts.session_id = rc.session_id` : '';

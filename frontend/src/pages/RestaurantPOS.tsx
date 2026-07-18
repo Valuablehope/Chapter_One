@@ -32,6 +32,10 @@ import {
   DocumentTextIcon,
   ExclamationCircleIcon,
   MagnifyingGlassIcon,
+  ShoppingBagIcon,
+  TruckIcon,
+  PencilIcon,
+  PhoneIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/solid';
 
@@ -49,9 +53,17 @@ interface OrderItem {
 
 type TableStatus = 'available' | 'occupied' | 'bill_requested';
 
-interface TableOrder {
-  tableNumber: number;
+type RestaurantOrderType = 'dine_in' | 'takeaway' | 'delivery';
+
+interface RestaurantOrder {
+  orderType: RestaurantOrderType;
+  tableNumber?: number;         // dine_in only
+  seq?: number;                 // takeaway/delivery order number (#1, #2, …)
   guestCount: number;
+  customerName?: string;
+  customerPhone?: string;       // delivery
+  deliveryAddress?: string;     // delivery
+  deliveryCharge?: number;      // delivery
   startTime: string;
   items: OrderItem[];
   status: 'occupied' | 'bill_requested';
@@ -62,13 +74,19 @@ interface TableOrder {
 }
 
 interface CompletedOrder {
-  tableNumber: number;
+  orderType: RestaurantOrderType;
+  tableNumber?: number;
+  seq?: number;
   guestCount: number;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryCharge: number;
   startTime: string;
   items: OrderItem[];
   paymentMethod: 'cash' | 'card' | 'other';
   amountGiven: number;
-  grandTotal: number;
+  grandTotal: number;           // full invoice total (incl. delivery fee)
   subtotal: number;
   taxAmount: number;
   serviceFeeAmount: number;
@@ -108,8 +126,8 @@ export default function RestaurantPOS() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [menuLoadError, setMenuLoadError] = useState<string | null>(null);
 
-  const [tableOrders, setTableOrders] = useState<Record<string, TableOrder>>({});
-  const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [orders, setOrders] = useState<Record<string, RestaurantOrder>>({});
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [activeMenuIdx, setActiveMenuIdx] = useState(0);
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
@@ -120,6 +138,15 @@ export default function RestaurantPOS() {
   const [seatEditMode, setSeatEditMode] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  // Walk-in / delivery order creation + customer-details editing
+  const [newOrderModal, setNewOrderModal] = useState<'takeaway' | 'delivery' | null>(null);
+  const [editCustomerKey, setEditCustomerKey] = useState<string | null>(null);
+  const [custName, setCustName] = useState('');
+  const [custPhone, setCustPhone] = useState('');
+  const [custAddress, setCustAddress] = useState('');
+  const [custDeliveryFee, setCustDeliveryFee] = useState('');
+  const [newOrderError, setNewOrderError] = useState<string | null>(null);
+
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'other'>('cash');
   const [cashGiven, setCashGiven] = useState('');
@@ -129,8 +156,8 @@ export default function RestaurantPOS() {
   const [completedOrder, setCompletedOrder] = useState<CompletedOrder | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [billPrintOrder, setBillPrintOrder] = useState<{
-    order: TableOrder;
-    totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; total: number };
+    order: RestaurantOrder;
+    totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; deliveryCharge: number; total: number };
   } | null>(null);
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -160,18 +187,29 @@ export default function RestaurantPOS() {
       });
   }, [settings?.store_id]);
 
-  // Restore from localStorage
+  // Restore from localStorage (older entries predate orderType — normalize to dine_in)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setTableOrders(JSON.parse(stored));
+      if (stored) {
+        const parsed: Record<string, RestaurantOrder> = JSON.parse(stored);
+        const normalized: Record<string, RestaurantOrder> = {};
+        for (const [key, order] of Object.entries(parsed)) {
+          normalized[key] = {
+            ...order,
+            orderType: order.orderType ?? 'dine_in',
+            tableNumber: order.tableNumber ?? (order.orderType == null ? Number(key) : undefined),
+          };
+        }
+        setOrders(normalized);
+      }
     } catch { /* ignore */ }
   }, []);
 
   // Persist to localStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tableOrders));
-  }, [tableOrders]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  }, [orders]);
 
   // Clock tick
   useEffect(() => {
@@ -203,14 +241,33 @@ export default function RestaurantPOS() {
     { value: 'other' as const, enabled: settings?.pm_other !== false },
   ]).filter(m => m.enabled).map(m => m.value);
 
-  const getTableStatus = (n: number): TableStatus => tableOrders[n]?.status ?? 'available';
-  const getOrder = (n: number): TableOrder | null => tableOrders[n] ?? null;
+  const getTableStatus = (n: number): TableStatus => orders[n]?.status ?? 'available';
+  const getTableOrder = (n: number): RestaurantOrder | null => orders[n] ?? null;
+  const getOrderByKey = (key: string): RestaurantOrder | null => orders[key] ?? null;
 
   const availableCount = tableNumbers.filter(n => getTableStatus(n) === 'available').length;
   const occupiedCount  = tableNumbers.filter(n => getTableStatus(n) === 'occupied').length;
   const billCount      = tableNumbers.filter(n => getTableStatus(n) === 'bill_requested').length;
 
-  const computeTotals = (order: TableOrder) => {
+  const walkinEntries   = Object.entries(orders)
+    .filter(([, o]) => o.orderType === 'takeaway')
+    .sort(([, a], [, b]) => (a.seq ?? 0) - (b.seq ?? 0));
+  const deliveryEntries = Object.entries(orders)
+    .filter(([, o]) => o.orderType === 'delivery')
+    .sort(([, a], [, b]) => (a.seq ?? 0) - (b.seq ?? 0));
+
+  const nextSeq = (type: 'takeaway' | 'delivery') =>
+    Object.values(orders)
+      .filter(o => o.orderType === type)
+      .reduce((max, o) => Math.max(max, o.seq ?? 0), 0) + 1;
+
+  const orderLabel = (order: RestaurantOrder): string => {
+    if (order.orderType === 'takeaway') return `${t('restaurant_pos.walk_in')} #${order.seq ?? '?'}`;
+    if (order.orderType === 'delivery') return `${t('restaurant_pos.delivery')} #${order.seq ?? '?'}`;
+    return `${t('restaurant_pos.table')} ${order.tableNumber ?? '?'}`;
+  };
+
+  const computeTotals = (order: RestaurantOrder) => {
     const subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
     const taxInclusive = !!(settings?.tax_inclusive);
     const taxRate = Number(settings?.tax_rate ?? 0);
@@ -226,8 +283,15 @@ export default function RestaurantPOS() {
     const sfRate = order.serviceFeeEnabled ? (order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE) : 0;
     // Round to cents so the total matches the backend's recomputed grand total exactly
     const serviceFeeAmount = order.serviceFeeEnabled ? Math.round(sfBase * (sfRate / 100) * 100) / 100 : 0;
-    const total = Math.round((subtotal + serviceFeeAmount) * 100) / 100;
-    return { subtotal, taxAmount, serviceFeeAmount, total, taxRate };
+    const deliveryCharge = order.orderType === 'delivery'
+      ? Math.max(0, Math.round(Number(order.deliveryCharge || 0) * 100) / 100)
+      : 0;
+    // Full invoice total the customer pays; the drawer total may exclude the
+    // delivery fee when include_delivery_in_drawer is off (mirrors retail POS).
+    const total = Math.round((subtotal + serviceFeeAmount + deliveryCharge) * 100) / 100;
+    const deliveryInDrawer = settings?.include_delivery_in_drawer !== false;
+    const drawerTotal = Math.round((subtotal + serviceFeeAmount + (deliveryInDrawer ? deliveryCharge : 0)) * 100) / 100;
+    return { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal, taxRate };
   };
 
   const formatCurrency = (amount: number) => {
@@ -276,17 +340,25 @@ export default function RestaurantPOS() {
 
   // ── How many of this menu item are already in the current order
   const getItemQtyInOrder = (itemName: string, menuName: string, categoryName: string): number => {
-    if (!selectedTable) return 0;
-    return getOrder(selectedTable)?.items.find(
+    if (!selectedKey) return 0;
+    return getOrderByKey(selectedKey)?.items.find(
       i => i.itemName === itemName && i.menuName === menuName && i.categoryName === categoryName
     )?.qty ?? 0;
   };
 
   // ── Handlers
+  const openOrder = (key: string) => {
+    setSelectedKey(key);
+    setActiveMenuIdx(0);
+    setActiveCategoryIdx(0);
+    setMenuSearchQuery('');
+  };
+
   const seatTable = (n: number, guests: number) => {
-    setTableOrders(prev => ({
+    setOrders(prev => ({
       ...prev,
       [n]: {
+        orderType: 'dine_in',
         tableNumber: n,
         guestCount: guests,
         startTime: new Date().toISOString(),
@@ -297,10 +369,7 @@ export default function RestaurantPOS() {
         serviceFeeRate: DEFAULT_SERVICE_FEE_RATE,
       },
     }));
-    setSelectedTable(n);
-    setActiveMenuIdx(0);
-    setActiveCategoryIdx(0);
-    setMenuSearchQuery('');
+    openOrder(String(n));
   };
 
   const handleTableClick = (n: number) => {
@@ -312,15 +381,99 @@ export default function RestaurantPOS() {
         seatTable(n, 1);
       }
     } else {
-      setSelectedTable(n); setActiveMenuIdx(0); setActiveCategoryIdx(0); setMenuSearchQuery('');
+      openOrder(String(n));
     }
   };
 
+  const openNewOrderModal = (type: 'takeaway' | 'delivery') => {
+    setCustName(''); setCustPhone(''); setCustAddress(''); setCustDeliveryFee('');
+    setNewOrderError(null);
+    setEditCustomerKey(null);
+    setNewOrderModal(type);
+  };
+
+  const openEditCustomer = () => {
+    if (!selectedKey) return;
+    const order = getOrderByKey(selectedKey);
+    if (!order || order.orderType === 'dine_in') return;
+    setCustName(order.customerName ?? '');
+    setCustPhone(order.customerPhone ?? '');
+    setCustAddress(order.deliveryAddress ?? '');
+    setCustDeliveryFee(order.deliveryCharge != null ? String(order.deliveryCharge) : '');
+    setNewOrderError(null);
+    setEditCustomerKey(selectedKey);
+    setNewOrderModal(order.orderType);
+  };
+
+  const confirmNewOrder = () => {
+    if (!newOrderModal) return;
+    const name = custName.trim();
+    const phone = custPhone.trim();
+    const address = custAddress.trim();
+    const fee = Math.max(0, Math.round((parseFloat(custDeliveryFee) || 0) * 100) / 100);
+
+    if (newOrderModal === 'delivery' && (!name || !address)) {
+      setNewOrderError('delivery_details_required');
+      return;
+    }
+
+    if (editCustomerKey) {
+      setOrders(prev => {
+        const order = prev[editCustomerKey];
+        if (!order) return prev;
+        return {
+          ...prev,
+          [editCustomerKey]: {
+            ...order,
+            customerName: name || undefined,
+            customerPhone: phone || undefined,
+            deliveryAddress: order.orderType === 'delivery' ? address : undefined,
+            deliveryCharge: order.orderType === 'delivery' ? fee : undefined,
+          },
+        };
+      });
+    } else {
+      const seq = nextSeq(newOrderModal);
+      const key = `${newOrderModal === 'takeaway' ? 'w' : 'd'}${seq}_${Date.now()}`;
+      setOrders(prev => ({
+        ...prev,
+        [key]: {
+          orderType: newOrderModal,
+          seq,
+          guestCount: 1,
+          customerName: name || undefined,
+          customerPhone: phone || undefined,
+          deliveryAddress: newOrderModal === 'delivery' ? address : undefined,
+          deliveryCharge: newOrderModal === 'delivery' ? fee : undefined,
+          startTime: new Date().toISOString(),
+          items: [],
+          status: 'occupied',
+          waiterName: user?.fullName,
+          serviceFeeEnabled: false,
+          serviceFeeRate: DEFAULT_SERVICE_FEE_RATE,
+        },
+      }));
+      openOrder(key);
+    }
+    setNewOrderModal(null);
+    setEditCustomerKey(null);
+  };
+
+  const updateDeliveryFee = (fee: number) => {
+    if (!selectedKey) return;
+    const clamped = Math.max(0, Math.round(fee * 100) / 100);
+    setOrders(prev => {
+      const order = prev[selectedKey];
+      if (!order || order.orderType !== 'delivery') return prev;
+      return { ...prev, [selectedKey]: { ...order, deliveryCharge: clamped } };
+    });
+  };
+
   const openEditGuests = () => {
-    if (!selectedTable) return;
-    const order = getOrder(selectedTable);
-    if (!order) return;
-    setSeatTableNum(selectedTable);
+    if (!selectedKey) return;
+    const order = getOrderByKey(selectedKey);
+    if (!order || order.orderType !== 'dine_in' || !order.tableNumber) return;
+    setSeatTableNum(order.tableNumber);
     setGuestCount(order.guestCount);
     setSeatEditMode(true);
     setShowSeatModal(true);
@@ -329,7 +482,7 @@ export default function RestaurantPOS() {
   const confirmSeat = () => {
     if (!seatTableNum) return;
     if (seatEditMode) {
-      setTableOrders(prev => {
+      setOrders(prev => {
         const order = prev[seatTableNum];
         if (!order) return prev;
         return { ...prev, [seatTableNum]: { ...order, guestCount } };
@@ -343,26 +496,26 @@ export default function RestaurantPOS() {
   };
 
   const confirmCancelOrder = () => {
-    if (!selectedTable) return;
-    setTableOrders(prev => { const n = { ...prev }; delete n[selectedTable]; return n; });
-    setSelectedTable(null);
+    if (!selectedKey) return;
+    setOrders(prev => { const n = { ...prev }; delete n[selectedKey]; return n; });
+    setSelectedKey(null);
     setMenuSearchQuery('');
     setShowCancelConfirm(false);
   };
 
   const updateOrderNotes = (notes: string) => {
-    if (!selectedTable) return;
-    setTableOrders(prev => {
-      const order = prev[selectedTable];
+    if (!selectedKey) return;
+    setOrders(prev => {
+      const order = prev[selectedKey];
       if (!order) return prev;
-      return { ...prev, [selectedTable]: { ...order, notes } };
+      return { ...prev, [selectedKey]: { ...order, notes } };
     });
   };
 
   const addMenuItem = (item: { name: string; price: number; product_id?: string }, menuName: string, categoryName: string) => {
-    if (!selectedTable) return;
-    setTableOrders(prev => {
-      const order = prev[selectedTable];
+    if (!selectedKey) return;
+    setOrders(prev => {
+      const order = prev[selectedKey];
       if (!order) return prev;
       const existingIdx = order.items.findIndex(
         i => i.itemName === item.name && i.menuName === menuName && i.categoryName === categoryName
@@ -381,66 +534,66 @@ export default function RestaurantPOS() {
               productId: item.product_id,
             },
           ];
-      return { ...prev, [selectedTable]: { ...order, items: newItems } };
+      return { ...prev, [selectedKey]: { ...order, items: newItems } };
     });
   };
 
   const updateItemQty = (itemId: string, delta: number) => {
-    if (!selectedTable) return;
-    setTableOrders(prev => {
-      const order = prev[selectedTable];
+    if (!selectedKey) return;
+    setOrders(prev => {
+      const order = prev[selectedKey];
       if (!order) return prev;
       const newItems = order.items
         .map(i => i.id === itemId ? { ...i, qty: Math.max(0, i.qty + delta) } : i)
         .filter(i => i.qty > 0);
-      return { ...prev, [selectedTable]: { ...order, items: newItems } };
+      return { ...prev, [selectedKey]: { ...order, items: newItems } };
     });
   };
 
   const removeItem = (itemId: string) => {
-    if (!selectedTable) return;
-    setTableOrders(prev => {
-      const order = prev[selectedTable];
+    if (!selectedKey) return;
+    setOrders(prev => {
+      const order = prev[selectedKey];
       if (!order) return prev;
-      return { ...prev, [selectedTable]: { ...order, items: order.items.filter(i => i.id !== itemId) } };
+      return { ...prev, [selectedKey]: { ...order, items: order.items.filter(i => i.id !== itemId) } };
     });
   };
 
   const toggleServiceFee = () => {
-    if (!selectedTable) return;
-    setTableOrders(prev => {
-      const order = prev[selectedTable];
+    if (!selectedKey) return;
+    setOrders(prev => {
+      const order = prev[selectedKey];
       if (!order) return prev;
-      return { ...prev, [selectedTable]: { ...order, serviceFeeEnabled: !order.serviceFeeEnabled } };
+      return { ...prev, [selectedKey]: { ...order, serviceFeeEnabled: !order.serviceFeeEnabled } };
     });
   };
 
   const updateServiceFeeRate = (rate: number) => {
-    if (!selectedTable) return;
+    if (!selectedKey) return;
     const clamped = Math.max(0, Math.min(100, rate));
-    setTableOrders(prev => {
-      const order = prev[selectedTable];
+    setOrders(prev => {
+      const order = prev[selectedKey];
       if (!order) return prev;
-      return { ...prev, [selectedTable]: { ...order, serviceFeeRate: clamped } };
+      return { ...prev, [selectedKey]: { ...order, serviceFeeRate: clamped } };
     });
   };
 
   const handlePrintBill = () => {
-    if (!selectedTable) return;
-    const order = getOrder(selectedTable);
+    if (!selectedKey) return;
+    const order = getOrderByKey(selectedKey);
     if (!order) return;
     const updated = { ...order, status: 'bill_requested' as const };
-    setTableOrders(prev => ({ ...prev, [selectedTable]: updated }));
-    const { subtotal, taxAmount, serviceFeeAmount, total } = computeTotals(updated);
-    setBillPrintOrder({ order: updated, totals: { subtotal, taxAmount, serviceFeeAmount, total } });
+    setOrders(prev => ({ ...prev, [selectedKey]: updated }));
+    const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total } = computeTotals(updated);
+    setBillPrintOrder({ order: updated, totals: { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total } });
     // window.print() blocks until the dialog resolves; clear the print overlay afterwards
     // so a later receipt print doesn't also include the bill.
     setTimeout(() => { window.print(); setBillPrintOrder(null); }, 100);
   };
 
   const handleCheckout = () => {
-    if (!selectedTable) return;
-    const order = getOrder(selectedTable);
+    if (!selectedKey) return;
+    const order = getOrderByKey(selectedKey);
     if (!order || order.items.length === 0) return;
     const { total } = computeTotals(order);
     setCashGiven(total.toFixed(2));
@@ -459,13 +612,13 @@ export default function RestaurantPOS() {
   };
 
   const confirmCheckout = async () => {
-    if (!selectedTable) return;
-    const order = getOrder(selectedTable);
+    if (!selectedKey) return;
+    const order = getOrderByKey(selectedKey);
     if (!order) return;
     setCheckoutError(null);
     setIsSubmittingCheckout(true);
 
-    const { subtotal, taxAmount, serviceFeeAmount, total } = computeTotals(order);
+    const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal } = computeTotals(order);
     const given = paymentMethod === 'cash' ? (parseFloat(cashGiven) || total) : total;
 
     try {
@@ -482,19 +635,25 @@ export default function RestaurantPOS() {
 
       const checkoutAt = new Date().toISOString();
       const orderNotes = order.notes?.trim();
+      const isDineIn = order.orderType === 'dine_in';
       const sale = await saleService.createSale({
         items: saleItems,
+        delivery_charge: deliveryCharge > 0 ? deliveryCharge : undefined,
         payments: [
           {
             method: paymentMethod,
             // Amount applied to the sale (matches grand_total), not cash tendered — tender is for UX/change only.
-            amount: Math.round(total * 100) / 100,
+            amount: drawerTotal,
           },
         ],
         restaurant_context: {
-          table_number: selectedTable,
-          guest_count: order.guestCount,
+          order_type: order.orderType,
+          table_number: isDineIn ? order.tableNumber : undefined,
+          guest_count: isDineIn ? order.guestCount : undefined,
           waiter_name: order.waiterName,
+          customer_name: order.customerName || undefined,
+          customer_phone: order.customerPhone || undefined,
+          delivery_address: order.orderType === 'delivery' ? (order.deliveryAddress || undefined) : undefined,
           seated_at: order.startTime,
           checkout_at: checkoutAt,
           service_fee_enabled: order.serviceFeeEnabled,
@@ -506,8 +665,14 @@ export default function RestaurantPOS() {
       });
 
       const completed: CompletedOrder = {
-        tableNumber: selectedTable,
+        orderType: order.orderType,
+        tableNumber: order.tableNumber,
+        seq: order.seq,
         guestCount: order.guestCount,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        deliveryAddress: order.deliveryAddress,
+        deliveryCharge,
         startTime: order.startTime,
         items: [...order.items],
         paymentMethod,
@@ -526,8 +691,8 @@ export default function RestaurantPOS() {
 
       setCompletedOrder(completed);
       setBillPrintOrder(null);
-      setTableOrders(prev => { const n = { ...prev }; delete n[selectedTable]; return n; });
-      setSelectedTable(null);
+      setOrders(prev => { const n = { ...prev }; delete n[selectedKey]; return n; });
+      setSelectedKey(null);
       setMenuSearchQuery('');
       setShowCheckoutModal(false);
       setShowReceipt(true);
@@ -542,7 +707,7 @@ export default function RestaurantPOS() {
     }
   };
 
-  const selectedOrder  = selectedTable ? getOrder(selectedTable) : null;
+  const selectedOrder  = selectedKey ? getOrderByKey(selectedKey) : null;
   const selectedTotals = selectedOrder ? computeTotals(selectedOrder) : null;
 
   // ── Loading / error states
@@ -564,7 +729,7 @@ export default function RestaurantPOS() {
     </div>
   );
 
-  const inOrderView = !!(selectedTable && selectedOrder && selectedTotals);
+  const inOrderView = !!(selectedKey && selectedOrder && selectedTotals);
 
   // ── Render
   return (
@@ -582,7 +747,7 @@ export default function RestaurantPOS() {
           >
             <div className="flex items-center gap-4 min-w-0">
               <button
-                onClick={() => { setSelectedTable(null); setMenuSearchQuery(''); }}
+                onClick={() => { setSelectedKey(null); setMenuSearchQuery(''); }}
                 className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm font-medium flex-shrink-0"
               >
                 <ChevronLeftIcon className="w-4 h-4" />
@@ -590,18 +755,46 @@ export default function RestaurantPOS() {
               </button>
               <div className="w-px h-6 bg-white/20 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="font-extrabold text-lg leading-tight">{t('restaurant_pos.table')} {selectedTable}</div>
+                <div className="font-extrabold text-lg leading-tight flex items-center gap-2">
+                  {selectedOrder!.orderType === 'takeaway' && <ShoppingBagIcon className="w-5 h-5 text-blue-200 flex-shrink-0" />}
+                  {selectedOrder!.orderType === 'delivery' && <TruckIcon className="w-5 h-5 text-blue-200 flex-shrink-0" />}
+                  <span className="truncate">{orderLabel(selectedOrder!)}</span>
+                </div>
                 <div className="flex items-center gap-2 text-blue-200 text-xs mt-0.5 flex-wrap">
-                  {trackGuests && (
+                  {selectedOrder!.orderType === 'dine_in' && trackGuests && (
                     <>
                       <button
                         onClick={openEditGuests}
                         className="flex items-center gap-1 hover:text-white transition-colors underline decoration-dotted underline-offset-2"
-                        title={t('restaurant_pos.edit_guests_title', { table: selectedTable })}
+                        title={t('restaurant_pos.edit_guests_title', { table: selectedOrder!.tableNumber ?? '' })}
                       >
                         <UsersIcon className="w-3.5 h-3.5" />
                         {selectedOrder!.guestCount} {t(selectedOrder!.guestCount !== 1 ? 'restaurant_pos.guests_v' : 'restaurant_pos.guest_v')}
                       </button>
+                      <span>·</span>
+                    </>
+                  )}
+                  {selectedOrder!.orderType !== 'dine_in' && (
+                    <>
+                      <button
+                        onClick={openEditCustomer}
+                        className="flex items-center gap-1 hover:text-white transition-colors underline decoration-dotted underline-offset-2 max-w-[180px]"
+                        title={t('restaurant_pos.edit_customer_title')}
+                      >
+                        <PencilIcon className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">
+                          {selectedOrder!.customerName || t('restaurant_pos.customer_name')}
+                        </span>
+                      </button>
+                      {selectedOrder!.customerPhone && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <PhoneIcon className="w-3 h-3" />
+                            {selectedOrder!.customerPhone}
+                          </span>
+                        </>
+                      )}
                       <span>·</span>
                     </>
                   )}
@@ -649,9 +842,11 @@ export default function RestaurantPOS() {
             </div>
             <div className="flex items-center gap-5">
               {[
-                { label: t('restaurant_pos.available'),            value: availableCount, color: 'text-emerald-300' },
-                { label: t('restaurant_pos.occupied'),             value: occupiedCount,  color: 'text-blue-200'   },
-                { label: t('restaurant_pos.bill_requested_short'), value: billCount,      color: 'text-amber-300'  },
+                { label: t('restaurant_pos.available'),            value: availableCount,         color: 'text-emerald-300' },
+                { label: t('restaurant_pos.occupied'),             value: occupiedCount,          color: 'text-blue-200'   },
+                { label: t('restaurant_pos.bill_requested_short'), value: billCount,              color: 'text-amber-300'  },
+                { label: t('restaurant_pos.walk_in'),              value: walkinEntries.length,   color: 'text-violet-300' },
+                { label: t('restaurant_pos.delivery'),             value: deliveryEntries.length, color: 'text-orange-300' },
               ].map(s => (
                 <div key={s.label} className="text-center hidden sm:block">
                   <div className={`text-xl font-extrabold ${s.color}`}>{s.value}</div>
@@ -901,47 +1096,66 @@ export default function RestaurantPOS() {
                   />
                 </div>
 
-                {/* ── Service Fee Toggle ── */}
-                <div className="px-4 py-3 bg-white border-b border-gray-100">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {/* Toggle switch */}
-                      <button
-                        onClick={toggleServiceFee}
-                        role="switch"
-                        aria-checked={selectedOrder!.serviceFeeEnabled}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                          selectedOrder!.serviceFeeEnabled ? 'bg-secondary-500' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                          selectedOrder!.serviceFeeEnabled ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                      </button>
-                      <span className={`text-sm font-semibold truncate ${selectedOrder!.serviceFeeEnabled ? 'text-gray-800' : 'text-gray-400'}`}>
-                        {t('restaurant_pos.service_fee')}
-                      </span>
+                {/* ── Service Fee Toggle (dine-in only) ── */}
+                {selectedOrder!.orderType === 'dine_in' && (
+                  <div className="px-4 py-3 bg-white border-b border-gray-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Toggle switch */}
+                        <button
+                          onClick={toggleServiceFee}
+                          role="switch"
+                          aria-checked={selectedOrder!.serviceFeeEnabled}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                            selectedOrder!.serviceFeeEnabled ? 'bg-secondary-500' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                            selectedOrder!.serviceFeeEnabled ? 'translate-x-6' : 'translate-x-1'
+                          }`} />
+                        </button>
+                        <span className={`text-sm font-semibold truncate ${selectedOrder!.serviceFeeEnabled ? 'text-gray-800' : 'text-gray-400'}`}>
+                          {t('restaurant_pos.service_fee')}
+                        </span>
+                      </div>
+                      {/* Rate input */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <input
+                          type="number"
+                          value={selectedOrder!.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE}
+                          onChange={e => updateServiceFeeRate(parseFloat(e.target.value) || 0)}
+                          disabled={!selectedOrder!.serviceFeeEnabled}
+                          className="w-14 text-right text-sm font-bold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-secondary-400 disabled:opacity-30 disabled:bg-gray-50 bg-white transition-colors tabular-nums"
+                          min="0" max="100" step="0.5"
+                        />
+                        <span className={`text-sm font-semibold ${selectedOrder!.serviceFeeEnabled ? 'text-gray-500' : 'text-gray-300'}`}>%</span>
+                      </div>
                     </div>
-                    {/* Rate input */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <input
-                        type="number"
-                        value={selectedOrder!.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE}
-                        onChange={e => updateServiceFeeRate(parseFloat(e.target.value) || 0)}
-                        disabled={!selectedOrder!.serviceFeeEnabled}
-                        className="w-14 text-right text-sm font-bold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-secondary-400 disabled:opacity-30 disabled:bg-gray-50 bg-white transition-colors tabular-nums"
-                        min="0" max="100" step="0.5"
-                      />
-                      <span className={`text-sm font-semibold ${selectedOrder!.serviceFeeEnabled ? 'text-gray-500' : 'text-gray-300'}`}>%</span>
-                    </div>
+                    {selectedOrder!.serviceFeeEnabled && selectedTotals!.serviceFeeAmount > 0 && (
+                      <div className="flex justify-between text-xs text-secondary-600 mt-2 pl-[52px]">
+                        <span>{t('restaurant_pos.service_fee_on_subtotal', { rate: selectedOrder!.serviceFeeRate })}</span>
+                        <span className="font-bold tabular-nums">{formatCurrency(selectedTotals!.serviceFeeAmount)}</span>
+                      </div>
+                    )}
                   </div>
-                  {selectedOrder!.serviceFeeEnabled && selectedTotals!.serviceFeeAmount > 0 && (
-                    <div className="flex justify-between text-xs text-secondary-600 mt-2 pl-[52px]">
-                      <span>{t('restaurant_pos.service_fee_on_subtotal', { rate: selectedOrder!.serviceFeeRate })}</span>
-                      <span className="font-bold tabular-nums">{formatCurrency(selectedTotals!.serviceFeeAmount)}</span>
-                    </div>
-                  )}
-                </div>
+                )}
+
+                {/* ── Delivery Fee (delivery only) ── */}
+                {selectedOrder!.orderType === 'delivery' && (
+                  <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-gray-800 flex items-center gap-2 min-w-0">
+                      <TruckIcon className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      <span className="truncate">{t('restaurant_pos.delivery_fee')}</span>
+                    </span>
+                    <input
+                      type="number"
+                      value={selectedOrder!.deliveryCharge ?? 0}
+                      onChange={e => updateDeliveryFee(parseFloat(e.target.value) || 0)}
+                      className="w-24 text-right text-sm font-bold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-secondary-400 bg-white transition-colors tabular-nums"
+                      min="0" step="0.25"
+                    />
+                  </div>
+                )}
 
                 {/* ── Totals ── */}
                 {selectedOrder!.items.length > 0 && (
@@ -954,6 +1168,12 @@ export default function RestaurantPOS() {
                       <div className="flex justify-between text-gray-500">
                         <span>{t('receipt.service_fee', { rate: selectedOrder!.serviceFeeRate })}</span>
                         <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.serviceFeeAmount)}</span>
+                      </div>
+                    )}
+                    {selectedTotals!.deliveryCharge > 0 && (
+                      <div className="flex justify-between text-gray-500">
+                        <span>{t('receipt.delivery')}</span>
+                        <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.deliveryCharge)}</span>
                       </div>
                     )}
                     {selectedTotals!.taxAmount > 0 && (
@@ -1004,10 +1224,93 @@ export default function RestaurantPOS() {
                 {t('restaurant_pos.no_menus')}
               </div>
             )}
+
+            {/* ── Walk-in & Delivery strip ── */}
+            <div className="mb-6">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">
+                {t('restaurant_pos.takeaway_delivery')}
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                {/* New Walk-in */}
+                <button
+                  onClick={() => openNewOrderModal('takeaway')}
+                  className="flex flex-col items-center justify-center gap-1.5 w-32 min-h-[104px] rounded-2xl border-2 border-dashed border-violet-300 text-violet-500 hover:bg-violet-50 hover:border-violet-400 transition-all active:scale-[0.97] focus:outline-none"
+                >
+                  <span className="relative">
+                    <ShoppingBagIcon className="w-7 h-7" />
+                    <PlusIcon className="w-3.5 h-3.5 absolute -top-1 -right-2 bg-violet-500 text-white rounded-full p-0.5" />
+                  </span>
+                  <span className="text-xs font-bold">{t('restaurant_pos.new_walkin')}</span>
+                </button>
+                {/* New Delivery */}
+                <button
+                  onClick={() => openNewOrderModal('delivery')}
+                  className="flex flex-col items-center justify-center gap-1.5 w-32 min-h-[104px] rounded-2xl border-2 border-dashed border-orange-300 text-orange-500 hover:bg-orange-50 hover:border-orange-400 transition-all active:scale-[0.97] focus:outline-none"
+                >
+                  <span className="relative">
+                    <TruckIcon className="w-7 h-7" />
+                    <PlusIcon className="w-3.5 h-3.5 absolute -top-1 -right-2 bg-orange-500 text-white rounded-full p-0.5" />
+                  </span>
+                  <span className="text-xs font-bold">{t('restaurant_pos.new_delivery')}</span>
+                </button>
+                {/* Active walk-in / delivery order cards */}
+                {[...walkinEntries, ...deliveryEntries].map(([key, order]) => {
+                  const totals = computeTotals(order);
+                  const isDelivery = order.orderType === 'delivery';
+                  const isBill = order.status === 'bill_requested';
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => openOrder(key)}
+                      className={[
+                        'relative w-44 min-h-[104px] rounded-2xl p-3.5 text-left transition-all duration-200 focus:outline-none',
+                        'hover:scale-[1.03] hover:shadow-lg active:scale-[0.97] bg-white border-2',
+                        isBill
+                          ? 'border-amber-400 bg-amber-50 shadow-md'
+                          : isDelivery
+                            ? 'border-orange-300 hover:border-orange-400 shadow-sm'
+                            : 'border-violet-300 hover:border-violet-400 shadow-sm',
+                      ].join(' ')}
+                    >
+                      <span className={[
+                        'absolute top-3 right-3 w-2.5 h-2.5 rounded-full',
+                        isBill ? 'bg-amber-500 animate-pulse' : isDelivery ? 'bg-orange-400' : 'bg-violet-400',
+                      ].join(' ')} />
+                      <div className={`flex items-center gap-1.5 font-extrabold text-sm mb-1 ${
+                        isBill ? 'text-amber-600' : isDelivery ? 'text-orange-600' : 'text-violet-600'
+                      }`}>
+                        {isDelivery ? <TruckIcon className="w-4 h-4 flex-shrink-0" /> : <ShoppingBagIcon className="w-4 h-4 flex-shrink-0" />}
+                        <span className="truncate">{orderLabel(order)}</span>
+                      </div>
+                      {order.customerName && (
+                        <div className="text-xs text-gray-600 font-medium truncate mb-0.5">{order.customerName}</div>
+                      )}
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <ClockIcon className="w-3 h-3" />
+                        <span>{formatDuration(order.startTime)}</span>
+                      </div>
+                      <div className={`text-sm font-extrabold mt-1 tabular-nums ${
+                        isBill ? 'text-amber-600' : isDelivery ? 'text-orange-600' : 'text-violet-600'
+                      }`}>
+                        {formatCurrency(totals.total)}
+                      </div>
+                      {isBill && (
+                        <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">{t('restaurant_pos.bill_requested')}</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Tables ── */}
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">
+              {t('restaurant_pos.tables')}
+            </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
               {tableNumbers.map(num => {
                 const status = getTableStatus(num);
-                const order  = getOrder(num);
+                const order  = getTableOrder(num);
                 const totals = order ? computeTotals(order) : null;
                 return (
                   <button
@@ -1123,12 +1426,110 @@ export default function RestaurantPOS() {
           </div>
         )}
 
+        {/* New Walk-in / Delivery order + edit customer details */}
+        {newOrderModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  {newOrderModal === 'delivery'
+                    ? <TruckIcon className="w-5 h-5 text-orange-500" />
+                    : <ShoppingBagIcon className="w-5 h-5 text-violet-500" />}
+                  {editCustomerKey
+                    ? t('restaurant_pos.edit_customer_title')
+                    : t(newOrderModal === 'delivery' ? 'restaurant_pos.new_delivery_title' : 'restaurant_pos.new_walkin_title')}
+                </h2>
+                <button
+                  onClick={() => { setNewOrderModal(null); setEditCustomerKey(null); }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    {t('restaurant_pos.customer_name')}
+                    {newOrderModal === 'takeaway' && (
+                      <span className="text-gray-400 font-normal"> ({t('restaurant_pos.optional')})</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={custName}
+                    onChange={e => setCustName(e.target.value)}
+                    maxLength={255}
+                    autoFocus
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    {t('restaurant_pos.customer_phone')}
+                    <span className="text-gray-400 font-normal"> ({t('restaurant_pos.optional')})</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={custPhone}
+                    onChange={e => setCustPhone(e.target.value)}
+                    maxLength={50}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors"
+                  />
+                </div>
+                {newOrderModal === 'delivery' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t('restaurant_pos.delivery_address')}</label>
+                      <textarea
+                        value={custAddress}
+                        onChange={e => setCustAddress(e.target.value)}
+                        rows={2}
+                        maxLength={1000}
+                        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                        {t('restaurant_pos.delivery_fee')}
+                        <span className="text-gray-400 font-normal"> ({t('restaurant_pos.optional')})</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={custDeliveryFee}
+                        onChange={e => setCustDeliveryFee(e.target.value)}
+                        min="0"
+                        step="0.25"
+                        placeholder="0.00"
+                        className="w-full px-3 py-2.5 text-sm text-right font-bold border border-gray-200 rounded-xl focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors tabular-nums"
+                      />
+                    </div>
+                  </>
+                )}
+                {newOrderError && (
+                  <div className="text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2">
+                    {t(`restaurant_pos.${newOrderError}`)}
+                  </div>
+                )}
+                <button
+                  onClick={confirmNewOrder}
+                  className={`w-full py-3.5 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm ${
+                    newOrderModal === 'delivery' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-violet-500 hover:bg-violet-600'
+                  }`}
+                >
+                  <CheckIcon className="w-5 h-5" />
+                  {editCustomerKey ? t('restaurant_pos.save_details') : t('restaurant_pos.start_order')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Checkout */}
         {showCheckoutModal && selectedOrder && selectedTotals && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900">{t('restaurant_pos.checkout_title', { table: selectedTable ?? '' })}</h2>
+                <h2 className="text-lg font-bold text-gray-900">{t('restaurant_pos.checkout_title', { label: orderLabel(selectedOrder) })}</h2>
                 <button onClick={() => setShowCheckoutModal(false)} className="text-gray-400 hover:text-gray-600">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
@@ -1142,6 +1543,18 @@ export default function RestaurantPOS() {
                       <span className="font-medium text-gray-800 tabular-nums flex-shrink-0">{formatCurrency(item.price * item.qty)}</span>
                     </div>
                   ))}
+                  {selectedTotals.serviceFeeAmount > 0 && (
+                    <div className="flex justify-between text-gray-500">
+                      <span>{t('receipt.service_fee', { rate: selectedOrder.serviceFeeRate })}</span>
+                      <span className="tabular-nums">{formatCurrency(selectedTotals.serviceFeeAmount)}</span>
+                    </div>
+                  )}
+                  {selectedTotals.deliveryCharge > 0 && (
+                    <div className="flex justify-between text-gray-500">
+                      <span>{t('receipt.delivery')}</span>
+                      <span className="tabular-nums">{formatCurrency(selectedTotals.deliveryCharge)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-base">
                     <span>{t('restaurant_pos.total')}</span>
                     <span className="tabular-nums">{formatCurrency(selectedTotals.total)}</span>
@@ -1223,7 +1636,7 @@ export default function RestaurantPOS() {
         )}
 
         {/* Cancel Order confirmation */}
-        {showCancelConfirm && selectedTable && (
+        {showCancelConfirm && selectedOrder && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
               <div className="flex items-center gap-3 mb-3">
@@ -1231,7 +1644,7 @@ export default function RestaurantPOS() {
                   <TrashIcon className="w-5 h-5 text-red-500" />
                 </div>
                 <h2 className="text-lg font-bold text-gray-900">
-                  {t('restaurant_pos.cancel_order_title', { table: selectedTable })}
+                  {t('restaurant_pos.cancel_order_title', { label: orderLabel(selectedOrder) })}
                 </h2>
               </div>
               <p className="text-sm text-gray-500 mb-5">{t('restaurant_pos.cancel_order_message')}</p>
@@ -1336,11 +1749,25 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
   const metaRows = [
     { label: t('receipt.receipt_no'), value: order.receiptNo },
     { label: t('receipt.date'), value: formatDate(order.completedAt) },
-    { label: t('receipt.table'), value: String(order.tableNumber) },
-    ...(settings?.restaurant_track_guests_per_table
-      ? [{ label: t('receipt.guests'), value: String(order.guestCount) }]
-      : []),
-    { label: t('receipt.seated'), value: formatDate(order.startTime) },
+    ...(order.orderType === 'dine_in'
+      ? [
+          { label: t('receipt.table'), value: String(order.tableNumber ?? '') },
+          ...(settings?.restaurant_track_guests_per_table
+            ? [{ label: t('receipt.guests'), value: String(order.guestCount) }]
+            : []),
+          { label: t('receipt.seated'), value: formatDate(order.startTime) },
+        ]
+      : [
+          {
+            label: t('receipt.order_type'),
+            value: `${t(order.orderType === 'delivery' ? 'restaurant_pos.delivery' : 'restaurant_pos.walk_in')} #${order.seq ?? ''}`,
+          },
+          ...(order.customerName ? [{ label: t('receipt.customer'), value: order.customerName }] : []),
+          ...(order.customerPhone ? [{ label: t('receipt.phone'), value: order.customerPhone }] : []),
+          ...(order.orderType === 'delivery' && order.deliveryAddress
+            ? [{ label: t('receipt.address'), value: order.deliveryAddress }]
+            : []),
+        ]),
     ...(order.notes?.trim()
       ? [{ label: t('receipt.notes'), value: order.notes.trim() }]
       : []),
@@ -1363,6 +1790,12 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
     totalRows.push({
       label: t('receipt.service_fee', { rate: order.serviceFeeRate }),
       value: formatCurrency(order.serviceFeeAmount),
+    });
+  }
+  if (order.deliveryCharge > 0) {
+    totalRows.push({
+      label: t('receipt.delivery'),
+      value: formatCurrency(order.deliveryCharge),
     });
   }
   if (order.taxAmount > 0) {
@@ -1403,7 +1836,7 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
 // ─── BillReceipt (print before checkout) ────────────────────────────────────
 
 interface BillReceiptProps {
-  data: { order: TableOrder; totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; total: number } };
+  data: { order: RestaurantOrder; totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; deliveryCharge: number; total: number } };
   settings: StoreSettings | null;
   formatCurrency: (n: number) => string;
 }
@@ -1420,14 +1853,28 @@ function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
       label: t('receipt.bill'),
       value: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     },
-    { label: t('receipt.table'), value: String(order.tableNumber) },
-    ...(settings?.restaurant_track_guests_per_table
-      ? [{ label: t('receipt.guests'), value: String(order.guestCount) }]
-      : []),
-    {
-      label: t('receipt.seated'),
-      value: new Date(order.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-    },
+    ...(order.orderType === 'dine_in'
+      ? [
+          { label: t('receipt.table'), value: String(order.tableNumber ?? '') },
+          ...(settings?.restaurant_track_guests_per_table
+            ? [{ label: t('receipt.guests'), value: String(order.guestCount) }]
+            : []),
+          {
+            label: t('receipt.seated'),
+            value: new Date(order.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+          },
+        ]
+      : [
+          {
+            label: t('receipt.order_type'),
+            value: `${t(order.orderType === 'delivery' ? 'restaurant_pos.delivery' : 'restaurant_pos.walk_in')} #${order.seq ?? ''}`,
+          },
+          ...(order.customerName ? [{ label: t('receipt.customer'), value: order.customerName }] : []),
+          ...(order.customerPhone ? [{ label: t('receipt.phone'), value: order.customerPhone }] : []),
+          ...(order.orderType === 'delivery' && order.deliveryAddress
+            ? [{ label: t('receipt.address'), value: order.deliveryAddress }]
+            : []),
+        ]),
     ...(order.notes?.trim()
       ? [{ label: t('receipt.notes'), value: order.notes.trim() }]
       : []),
@@ -1450,6 +1897,12 @@ function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
     totalRows.push({
       label: t('receipt.service_fee', { rate: order.serviceFeeRate }),
       value: formatCurrency(totals.serviceFeeAmount),
+    });
+  }
+  if (totals.deliveryCharge > 0) {
+    totalRows.push({
+      label: t('receipt.delivery'),
+      value: formatCurrency(totals.deliveryCharge),
     });
   }
   if (totals.taxAmount > 0) {
