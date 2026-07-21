@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { storeService } from '../services/storeService';
 import type { StoreSettings } from '../services/storeService';
 import { menuService } from '../services/adminService';
@@ -27,6 +27,7 @@ import {
   CreditCardIcon,
   XMarkIcon,
   BanknotesIcon,
+  CurrencyDollarIcon,
   CheckIcon,
   ChevronLeftIcon,
   DocumentTextIcon,
@@ -150,6 +151,7 @@ export default function RestaurantPOS() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'other'>('cash');
   const [cashGiven, setCashGiven] = useState('');
+  const [cashGivenLBP, setCashGivenLBP] = useState('');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [isSubmittingCheckout, setIsSubmittingCheckout] = useState(false);
 
@@ -302,6 +304,63 @@ export default function RestaurantPOS() {
       return `${currency} ${amount.toFixed(2)}`;
     }
   };
+
+  const formatLBP = useCallback((amount: number): string | null => {
+    if (settings?.show_lbp_price === false) return null;
+    const lbp = formatLbpGrand(amount, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000);
+    return lbp === null ? null : `${formatLbpPlain(lbp)} LBP`;
+  }, [settings?.show_lbp_price, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000]);
+
+  const isLbpPrimary = !!settings?.lbp_primary_price;
+  const lbpRate = settings?.show_lbp_price !== false ? Math.max(0, Number(settings?.lbp_exchange_rate ?? 0) || 0) : 0;
+
+  // USD/LBP price-tag pair: same size for both lines, amber-600 = LBP, secondary-400 = muted USD
+  // (mirrors Sales.tsx cart-item price display). When lbp_primary_price is on, LBP renders first.
+  const renderDualAmount = (amount: number, baseClass: string, contextColor = 'text-secondary-600') => {
+    const lbp = formatLBP(amount);
+    if (isLbpPrimary && lbp) {
+      return (
+        <>
+          <div className={`${baseClass} text-amber-600`}>{lbp}</div>
+          <div className={`${baseClass} text-secondary-400`}>{formatCurrency(amount)}</div>
+        </>
+      );
+    }
+    return (
+      <>
+        <div className={`${baseClass} ${contextColor}`}>{formatCurrency(amount)}</div>
+        {lbp && <div className={`${baseClass} text-amber-600`}>{lbp}</div>}
+      </>
+    );
+  };
+
+  // Hero banner total (white text on brand-blue gradient), mirrors Sales.tsx payment modal grand total
+  const renderHeroAmount = (
+    amount: number,
+    primaryClass = 'text-2xl font-extrabold tabular-nums',
+    secondaryClass = 'text-xs font-semibold text-white/80 mt-0.5 tabular-nums'
+  ) => {
+    const lbp = formatLBP(amount);
+    if (isLbpPrimary && lbp) {
+      return (
+        <>
+          <div className={primaryClass}>{lbp}</div>
+          <div className={secondaryClass}>{formatCurrency(amount)}</div>
+        </>
+      );
+    }
+    return (
+      <>
+        <div className={primaryClass}>{formatCurrency(amount)}</div>
+        {lbp && <div className={secondaryClass}>≈ {lbp}</div>}
+      </>
+    );
+  };
+
+  const usdGiven = parseFloat(cashGiven || '0') || 0;
+  const lbpGiven = parseFloat(cashGivenLBP || '0') || 0;
+  const lbpGivenInUsd = lbpRate > 0 && lbpGiven > 0 ? lbpGiven / lbpRate : 0;
+  const totalTenderedUSD = usdGiven + lbpGivenInUsd;
 
   // ── Items to display in the menu grid
   const itemsToDisplay = useMemo(() => {
@@ -597,6 +656,7 @@ export default function RestaurantPOS() {
     if (!order || order.items.length === 0) return;
     const { total } = computeTotals(order);
     setCashGiven(total.toFixed(2));
+    setCashGivenLBP('');
     setPaymentMethod(enabledPaymentMethods.includes('cash') ? 'cash' : (enabledPaymentMethods[0] ?? 'cash'));
     setCheckoutError(null);
     setShowCheckoutModal(true);
@@ -619,7 +679,7 @@ export default function RestaurantPOS() {
     setIsSubmittingCheckout(true);
 
     const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal } = computeTotals(order);
-    const given = paymentMethod === 'cash' ? (parseFloat(cashGiven) || total) : total;
+    const given = paymentMethod === 'cash' ? (totalTenderedUSD || total) : total;
 
     try {
       const saleItems = [];
@@ -810,7 +870,7 @@ export default function RestaurantPOS() {
             </div>
             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
               <div className="text-right">
-                <div className="text-2xl font-extrabold tabular-nums">{formatCurrency(selectedTotals!.total)}</div>
+                {renderHeroAmount(selectedTotals!.total, 'text-2xl font-extrabold tabular-nums', 'text-xs font-semibold text-blue-200 mt-0.5 tabular-nums')}
                 <div className="text-blue-200 text-xs">
                   {selectedOrder!.items.reduce((s, i) => s + i.qty, 0)} {t(selectedOrder!.items.reduce((s, i) => s + i.qty, 0) !== 1 ? 'restaurant_pos.items_v' : 'restaurant_pos.item_v')}
                 </div>
@@ -1000,9 +1060,9 @@ export default function RestaurantPOS() {
                           <div className={`font-semibold text-sm leading-snug mb-3 line-clamp-2 ${inOrder ? 'text-secondary-700' : 'text-gray-800 group-hover:text-secondary-700'}`}>
                             {item.name}
                           </div>
-                          <div className="flex items-end justify-between">
-                            <div className={`font-extrabold text-sm ${inOrder ? 'text-secondary-600' : 'text-secondary-600'}`}>
-                              {formatCurrency(item.price)}
+                          <div className="flex items-end justify-between gap-2">
+                            <div className="flex flex-col leading-tight min-w-0">
+                              {renderDualAmount(item.price, 'font-extrabold text-sm', 'text-secondary-600')}
                             </div>
                             <div className={[
                               'w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0',
@@ -1182,9 +1242,11 @@ export default function RestaurantPOS() {
                         <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.taxAmount)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-extrabold text-gray-900 text-base pt-1.5 border-t border-gray-200">
+                    <div className="flex justify-between items-start font-extrabold text-gray-900 text-base pt-1.5 border-t border-gray-200">
                       <span>{t('restaurant_pos.total')}</span>
-                      <span className="tabular-nums">{formatCurrency(selectedTotals!.total)}</span>
+                      <div className="text-right">
+                        {renderDualAmount(selectedTotals!.total, 'font-extrabold text-base tabular-nums', 'text-gray-900')}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1289,11 +1351,9 @@ export default function RestaurantPOS() {
                         <ClockIcon className="w-3 h-3" />
                         <span>{formatDuration(order.startTime)}</span>
                       </div>
-                      <div className={`text-sm font-extrabold mt-1 tabular-nums ${
+                      {renderDualAmount(totals.total, 'text-sm font-extrabold mt-1 tabular-nums',
                         isBill ? 'text-amber-600' : isDelivery ? 'text-orange-600' : 'text-violet-600'
-                      }`}>
-                        {formatCurrency(totals.total)}
-                      </div>
+                      )}
                       {isBill && (
                         <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">{t('restaurant_pos.bill_requested')}</div>
                       )}
@@ -1351,12 +1411,8 @@ export default function RestaurantPOS() {
                           <ClockIcon className="w-3 h-3" />
                           <span>{formatDuration(order.startTime)}</span>
                         </div>
-                        {totals && (
-                          <div className={`text-sm font-extrabold mt-1 tabular-nums ${
-                            status === 'bill_requested' ? 'text-amber-600' : 'text-secondary-600'
-                          }`}>
-                            {formatCurrency(totals.total)}
-                          </div>
+                        {totals && renderDualAmount(totals.total, 'text-sm font-extrabold mt-1 tabular-nums',
+                          status === 'bill_requested' ? 'text-amber-600' : 'text-secondary-600'
                         )}
                         {status === 'bill_requested' && (
                           <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">{t('restaurant_pos.bill_requested')}</div>
@@ -1555,9 +1611,11 @@ export default function RestaurantPOS() {
                       <span className="tabular-nums">{formatCurrency(selectedTotals.deliveryCharge)}</span>
                     </div>
                   )}
-                  <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-base">
+                  <div className="border-t border-gray-200 pt-2 flex justify-between items-start font-bold text-base">
                     <span>{t('restaurant_pos.total')}</span>
-                    <span className="tabular-nums">{formatCurrency(selectedTotals.total)}</span>
+                    <div className="text-right">
+                      {renderDualAmount(selectedTotals.total, 'font-bold text-base tabular-nums', 'text-gray-900')}
+                    </div>
                   </div>
                 </div>
                 {/* Payment method */}
@@ -1588,20 +1646,73 @@ export default function RestaurantPOS() {
                 {paymentMethod === 'cash' && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">{t('restaurant_pos.amount_given')}</label>
-                    <input
-                      type="number"
-                      value={cashGiven}
-                      onChange={e => setCashGiven(e.target.value)}
-                      className="w-full text-right text-2xl font-extrabold px-4 py-3 border-2 border-gray-200 focus:border-secondary-400 rounded-xl outline-none transition-colors tabular-nums"
-                      min="0"
-                      step="0.01"
-                    />
-                    {parseFloat(cashGiven) >= selectedTotals.total && (
-                      <div className="mt-2 flex justify-between text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                    <div className={`grid ${lbpRate > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+                      <div>
+                        <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1.5">
+                          <CurrencyDollarIcon className="w-3.5 h-3.5 text-gray-400" />
+                          Amount ($)
+                        </label>
+                        <input
+                          type="number"
+                          value={cashGiven}
+                          onChange={e => setCashGiven(e.target.value)}
+                          onFocus={e => e.target.select()}
+                          autoFocus
+                          placeholder="0.00"
+                          className="w-full text-right text-lg font-extrabold px-3 py-2.5 border-2 border-gray-200 focus:border-secondary-400 rounded-xl outline-none transition-colors tabular-nums"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      {lbpRate > 0 && (
+                        <div>
+                          <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1.5">
+                            <span className="text-xs">🇱🇧</span>
+                            Amount (LBP)
+                          </label>
+                          <input
+                            type="number"
+                            value={cashGivenLBP}
+                            onChange={e => setCashGivenLBP(e.target.value)}
+                            placeholder="0"
+                            className="w-full text-right text-lg font-extrabold px-3 py-2.5 border-2 border-gray-200 focus:border-secondary-400 rounded-xl outline-none transition-colors tabular-nums"
+                            min="0"
+                            step="500"
+                          />
+                          {lbpGiven > 0 && (
+                            <p className="mt-1 text-[10px] text-gray-500 font-medium">≈ {formatCurrency(lbpGivenInUsd)}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {(usdGiven > 0 || (lbpRate > 0 && lbpGiven > 0)) && (
+                      <div className="mt-2 flex justify-between items-center text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        <span className="text-gray-600 font-semibold">Total Received</span>
+                        <div className="text-right">
+                          <div className="font-bold text-gray-900 tabular-nums">{formatCurrency(totalTenderedUSD)}</div>
+                          {lbpRate > 0 && usdGiven > 0 && lbpGiven > 0 && (
+                            <div className="text-[10px] text-gray-500 tabular-nums">
+                              {formatCurrency(usdGiven)} + {lbpGiven.toLocaleString()} LBP
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {totalTenderedUSD >= selectedTotals.total ? (
+                      <div className="mt-2 flex justify-between items-start text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                         <span className="text-emerald-700 font-medium">{t('restaurant_pos.change_due')}</span>
-                        <span className="text-emerald-700 font-extrabold tabular-nums">
-                          {formatCurrency(Math.max(0, parseFloat(cashGiven) - selectedTotals.total))}
-                        </span>
+                        <div className="text-right">
+                          {renderDualAmount(totalTenderedUSD - selectedTotals.total, 'font-extrabold tabular-nums', 'text-emerald-700')}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex justify-between items-start text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                        <span className="text-red-700 font-medium">Remaining</span>
+                        <div className="text-right">
+                          {renderDualAmount(selectedTotals.total - totalTenderedUSD, 'font-extrabold tabular-nums', 'text-red-700')}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1623,7 +1734,7 @@ export default function RestaurantPOS() {
                   onClick={confirmCheckout}
                   disabled={
                     isSubmittingCheckout ||
-                    (paymentMethod === 'cash' && parseFloat(cashGiven) < selectedTotals.total)
+                    (paymentMethod === 'cash' && totalTenderedUSD < selectedTotals.total)
                   }
                   className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                 >
