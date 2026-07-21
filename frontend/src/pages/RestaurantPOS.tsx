@@ -4,6 +4,8 @@ import type { StoreSettings } from '../services/storeService';
 import { menuService } from '../services/adminService';
 import type { Menu } from '../services/adminService';
 import { saleService } from '../services/saleService';
+import { productService } from '../services/productService';
+import { API_BASE_URL } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { gradients, fonts } from '../styles/tokens';
 import { useTranslation } from '../i18n/I18nContext';
@@ -126,6 +128,7 @@ export default function RestaurantPOS() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [menuLoadError, setMenuLoadError] = useState<string | null>(null);
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
 
   const [orders, setOrders] = useState<Record<string, RestaurantOrder>>({});
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -187,6 +190,22 @@ export default function RestaurantPOS() {
         setMenus([]);
         setMenuLoadError('menu_load_failed');
       });
+  }, [settings?.store_id]);
+
+  // Load product images for menu items that are synced to a product (Admin -> Products image)
+  useEffect(() => {
+    if (!settings?.store_id) return;
+
+    productService
+      .getProducts({ limit: 1000 })
+      .then((response) => {
+        const images: Record<string, string> = {};
+        for (const product of response.data) {
+          if (product.image_url) images[product.product_id] = product.image_url;
+        }
+        setProductImages(images);
+      })
+      .catch(() => setProductImages({}));
   }, [settings?.store_id]);
 
   // Restore from localStorage (older entries predate orderType — normalize to dine_in)
@@ -1057,6 +1076,32 @@ export default function RestaurantPOS() {
                               {categoryName}
                             </div>
                           )}
+                          {/* Item image */}
+                          <div className="w-full h-16 mb-2 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden group-hover:bg-secondary-50 transition-colors">
+                            {item.product_id && productImages[item.product_id] ? (
+                              <img
+                                src={`${API_BASE_URL}${productImages[item.product_id]}`}
+                                alt={item.name}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                loading="lazy"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent && !parent.querySelector('.fallback-initials')) {
+                                    const span = document.createElement('span');
+                                    span.className = 'text-lg font-bold text-secondary-400 fallback-initials';
+                                    span.innerText = item.name.charAt(0).toUpperCase();
+                                    parent.appendChild(span);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <span className="text-lg font-bold text-secondary-300">
+                                {item.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
                           <div className={`font-semibold text-sm leading-snug mb-3 line-clamp-2 ${inOrder ? 'text-secondary-700' : 'text-gray-800 group-hover:text-secondary-700'}`}>
                             {item.name}
                           </div>

@@ -95,7 +95,7 @@ export default function Dashboard() {
       accent: colors.brand,
       accentBg: colors.brandLight,
       sub: t('dashboard.stats.today'),
-      link: '/sales',
+      link: '/sales-management',
     },
     {
       title: t('dashboard.stats.low_stock_title'),
