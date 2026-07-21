@@ -385,6 +385,8 @@ export const en = {
     new_delivery_title: "New Delivery Order",
     edit_customer_title: "Edit Customer Details",
     customer_name: "Customer Name",
+    customer_name_placeholder: "Search existing customers or type a name",
+    linked_customer: "Linked to an existing customer",
     optional: "optional",
     customer_phone: "Phone",
     delivery_address: "Delivery Address",

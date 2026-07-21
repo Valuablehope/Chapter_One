@@ -385,6 +385,8 @@ export const ar = {
     new_delivery_title: "طلب توصيل جديد",
     edit_customer_title: "تعديل بيانات الزبون",
     customer_name: "اسم الزبون",
+    customer_name_placeholder: "ابحث عن زبون حالي أو اكتب اسمًا",
+    linked_customer: "مرتبط بزبون موجود",
     optional: "اختياري",
     customer_phone: "الهاتف",
     delivery_address: "عنوان التوصيل",

@@ -5,6 +5,8 @@ import { menuService } from '../services/adminService';
 import type { Menu } from '../services/adminService';
 import { saleService } from '../services/saleService';
 import { productService } from '../services/productService';
+import { customerService } from '../services/customerService';
+import type { Customer } from '../services/customerService';
 import { API_BASE_URL } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { gradients, fonts } from '../styles/tokens';
@@ -63,6 +65,7 @@ interface RestaurantOrder {
   tableNumber?: number;         // dine_in only
   seq?: number;                 // takeaway/delivery order number (#1, #2, …)
   guestCount: number;
+  customerId?: string;          // set when linked to an existing Customers record
   customerName?: string;
   customerPhone?: string;       // delivery
   deliveryAddress?: string;     // delivery
@@ -145,11 +148,14 @@ export default function RestaurantPOS() {
   // Walk-in / delivery order creation + customer-details editing
   const [newOrderModal, setNewOrderModal] = useState<'takeaway' | 'delivery' | null>(null);
   const [editCustomerKey, setEditCustomerKey] = useState<string | null>(null);
+  const [custId, setCustId] = useState<string | null>(null);
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [custAddress, setCustAddress] = useState('');
   const [custDeliveryFee, setCustDeliveryFee] = useState('');
   const [newOrderError, setNewOrderError] = useState<string | null>(null);
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
 
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'other'>('cash');
@@ -207,6 +213,20 @@ export default function RestaurantPOS() {
       })
       .catch(() => setProductImages({}));
   }, [settings?.store_id]);
+
+  // Search existing Customers as the walk-in/delivery customer name is typed —
+  // an empty query still fetches a default list so the field can be "browsed" on focus.
+  useEffect(() => {
+    if (!newOrderModal || !showCustomerSuggestions) return;
+    const query = custName.trim();
+    const handle = setTimeout(() => {
+      customerService
+        .getCustomers({ search: query || undefined, limit: 6 })
+        .then(res => setCustomerSuggestions(res.data))
+        .catch(() => setCustomerSuggestions([]));
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [custName, newOrderModal, showCustomerSuggestions]);
 
   // Restore from localStorage (older entries predate orderType — normalize to dine_in)
   useEffect(() => {
@@ -464,7 +484,8 @@ export default function RestaurantPOS() {
   };
 
   const openNewOrderModal = (type: 'takeaway' | 'delivery') => {
-    setCustName(''); setCustPhone(''); setCustAddress(''); setCustDeliveryFee('');
+    setCustId(null); setCustName(''); setCustPhone(''); setCustAddress(''); setCustDeliveryFee('');
+    setCustomerSuggestions([]); setShowCustomerSuggestions(false);
     setNewOrderError(null);
     setEditCustomerKey(null);
     setNewOrderModal(type);
@@ -474,10 +495,12 @@ export default function RestaurantPOS() {
     if (!selectedKey) return;
     const order = getOrderByKey(selectedKey);
     if (!order || order.orderType === 'dine_in') return;
+    setCustId(order.customerId ?? null);
     setCustName(order.customerName ?? '');
     setCustPhone(order.customerPhone ?? '');
     setCustAddress(order.deliveryAddress ?? '');
     setCustDeliveryFee(order.deliveryCharge != null ? String(order.deliveryCharge) : '');
+    setCustomerSuggestions([]); setShowCustomerSuggestions(false);
     setNewOrderError(null);
     setEditCustomerKey(selectedKey);
     setNewOrderModal(order.orderType);
@@ -503,6 +526,7 @@ export default function RestaurantPOS() {
           ...prev,
           [editCustomerKey]: {
             ...order,
+            customerId: custId ?? undefined,
             customerName: name || undefined,
             customerPhone: phone || undefined,
             deliveryAddress: order.orderType === 'delivery' ? address : undefined,
@@ -519,6 +543,7 @@ export default function RestaurantPOS() {
           orderType: newOrderModal,
           seq,
           guestCount: 1,
+          customerId: custId ?? undefined,
           customerName: name || undefined,
           customerPhone: phone || undefined,
           deliveryAddress: newOrderModal === 'delivery' ? address : undefined,
@@ -717,6 +742,7 @@ export default function RestaurantPOS() {
       const isDineIn = order.orderType === 'dine_in';
       const sale = await saleService.createSale({
         items: saleItems,
+        customer_id: order.customerId || undefined,
         delivery_charge: deliveryCharge > 0 ? deliveryCharge : undefined,
         payments: [
           {
@@ -1548,7 +1574,7 @@ export default function RestaurantPOS() {
                 </button>
               </div>
               <div className="space-y-4">
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                     {t('restaurant_pos.customer_name')}
                     {newOrderModal === 'takeaway' && (
@@ -1558,11 +1584,49 @@ export default function RestaurantPOS() {
                   <input
                     type="text"
                     value={custName}
-                    onChange={e => setCustName(e.target.value)}
+                    onChange={e => {
+                      setCustName(e.target.value);
+                      setCustId(null);
+                      setShowCustomerSuggestions(true);
+                    }}
+                    onFocus={() => setShowCustomerSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 150)}
                     maxLength={255}
+                    autoComplete="off"
                     autoFocus
+                    placeholder={t('restaurant_pos.customer_name_placeholder')}
                     className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors"
                   />
+                  {custId && (
+                    <p className="mt-1 text-[11px] font-medium text-secondary-600">
+                      {t('restaurant_pos.linked_customer')}
+                    </p>
+                  )}
+                  {showCustomerSuggestions && customerSuggestions.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {customerSuggestions.map(c => (
+                        <button
+                          key={c.customer_id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setCustName(c.full_name || '');
+                            setCustPhone(c.phone || '');
+                            setCustId(c.customer_id);
+                            setShowCustomerSuggestions(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-secondary-50 flex items-center justify-between gap-2 transition-colors"
+                        >
+                          <span className="font-medium text-gray-800 truncate">
+                            {c.full_name || t('restaurant_pos.customer_name')}
+                          </span>
+                          {c.phone && (
+                            <span className="text-xs text-gray-400 flex-shrink-0">{c.phone}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
