@@ -39,6 +39,17 @@ let backendProcess: ChildProcess | null = null;
 let appDbConfig: Record<string, string> | null = null;
 const BACKEND_HEALTH_URL = 'http://127.0.0.1:3001/health';
 
+// window.print()/alert()/confirm() are synchronous — they block the renderer's JS
+// thread for as long as the native dialog stays open, which is entirely user-paced
+// (picking a printer, reading a message, etc.) and routinely exceeds Chromium's ~5s
+// hang-detection window. That falsely trips the 'unresponsive' handler below and pops
+// a scary "Application Not Responding" dialog on top of a dialog the user just hasn't
+// dismissed yet. The renderer tells us (via nativeDialogFocusFix.ts) when it's about
+// to enter one of these calls so we can ignore the false alarm; the timer is a safety
+// net in case the renderer crashes mid-dialog and never sends the "ending" signal.
+let suppressUnresponsiveDialog = false;
+let suppressUnresponsiveTimer: ReturnType<typeof setTimeout> | null = null;
+
 function showStartupErrorAndQuit(title: string, message: string): void {
   log.error(`${title}: ${message}`);
   dialog.showErrorBox(title, message);
@@ -621,6 +632,10 @@ function createWindow(isSetupMode = false): void {
 
   // Handle uncaught exceptions in renderer
   mainWindow.webContents.on('unresponsive', () => {
+    if (suppressUnresponsiveDialog) {
+      log.info('Ignoring unresponsive event — renderer is blocked on an expected native dialog (print/alert/confirm)');
+      return;
+    }
     log.warn('Window became unresponsive');
     if (mainWindow) {
       const choice = dialog.showMessageBoxSync(mainWindow, {
@@ -895,6 +910,25 @@ ipcMain.on('app:refocus-window', (event) => {
     win.blur();
     win.focus();
     win.webContents.focus();
+  }
+});
+
+// See `suppressUnresponsiveDialog` above — renderer calls these right before/after
+// a native window.print()/alert()/confirm() so the main process doesn't mistake the
+// expected block for a real hang and show a false "Application Not Responding" dialog.
+ipcMain.on('app:print-starting', () => {
+  suppressUnresponsiveDialog = true;
+  if (suppressUnresponsiveTimer) clearTimeout(suppressUnresponsiveTimer);
+  // Safety net: if the renderer never sends 'app:print-ending' (e.g. it crashed
+  // while the native dialog was open), don't mask real hangs forever.
+  suppressUnresponsiveTimer = setTimeout(() => { suppressUnresponsiveDialog = false; }, 10 * 60 * 1000);
+});
+
+ipcMain.on('app:print-ending', () => {
+  suppressUnresponsiveDialog = false;
+  if (suppressUnresponsiveTimer) {
+    clearTimeout(suppressUnresponsiveTimer);
+    suppressUnresponsiveTimer = null;
   }
 });
 

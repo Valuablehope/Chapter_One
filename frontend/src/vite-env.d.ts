@@ -10,6 +10,8 @@ declare global {
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;
       refocusWindow?: () => void;
+      printStarting?: () => void;
+      printEnding?: () => void;
       customerDisplayShow?: (payload: {
         storeName: string;
         amount: number;

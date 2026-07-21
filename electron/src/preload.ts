@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   log: (level: string, message: string) => ipcRenderer.send('app:log', { level, message }),
   openLogs: () => ipcRenderer.invoke('app:openLogs'),
   refocusWindow: () => ipcRenderer.send('app:refocus-window'),
+  printStarting: () => ipcRenderer.send('app:print-starting'),
+  printEnding: () => ipcRenderer.send('app:print-ending'),
   getPrinters: () => ipcRenderer.invoke('app:getPrinters'),
   printSilent: (deviceName?: string, html?: string, paperSize?: string) => ipcRenderer.invoke('app:print-silent', deviceName, html, paperSize),
   customerDisplayShow: (payload: { storeName: string; amount: number }) =>
@@ -57,6 +59,8 @@ declare global {
       log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => void;
       openLogs: () => Promise<{ success: boolean; error?: string }>;
       refocusWindow: () => void;
+      printStarting: () => void;
+      printEnding: () => void;
       getPrinters: () => Promise<any[]>;
       printSilent: (deviceName?: string, html?: string, paperSize?: string) => Promise<{ success: boolean; error?: string }>;
       customerDisplayShow: (payload: {
