@@ -13,6 +13,7 @@ export const en = {
     reports: "Reports",
     admin: "Admin",
     day_closure: "Day Closure",
+    dispose: "Dispose Items",
     sign_out: "Sign Out",
   },
   admin: {

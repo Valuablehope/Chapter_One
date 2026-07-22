@@ -13,6 +13,7 @@ export const ar = {
     reports: "التقارير",
     admin: "المشرف",
     day_closure: "إغلاق اليوم",
+    dispose: "إتلاف الأصناف",
     sign_out: "تسجيل الخروج",
   },
   admin: {

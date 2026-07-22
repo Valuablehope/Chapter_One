@@ -18,6 +18,7 @@ import {
   TableCellsIcon,
   ClipboardDocumentCheckIcon,
   ArchiveBoxArrowDownIcon,
+  ArchiveBoxXMarkIcon,
   BanknotesIcon,
   ChartPieIcon,
   PresentationChartLineIcon,
@@ -36,6 +37,7 @@ import {
   TableCellsIcon as TableCellsIconSolid,
   ClipboardDocumentCheckIcon as ClipboardDocumentCheckIconSolid,
   ArchiveBoxArrowDownIcon as ArchiveBoxArrowDownIconSolid,
+  ArchiveBoxXMarkIcon as ArchiveBoxXMarkIconSolid,
   BanknotesIcon as BanknotesIconSolid,
   PresentationChartLineIcon as PresentationChartLineIconSolid,
 } from '@heroicons/react/24/solid';
@@ -262,6 +264,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/purchases',        label: t('nav.purchases'),        icon: TruckIcon,                   iconSolid: TruckIconSolid },
     { path: '/opening-stock',   label: t('nav.opening_stock'),   icon: ArchiveBoxArrowDownIcon,     iconSolid: ArchiveBoxArrowDownIconSolid },
     { path: '/expenses',        label: t('nav.expenses'),        icon: BanknotesIcon,               iconSolid: BanknotesIconSolid },
+    { path: '/dispose',         label: t('nav.dispose'),         icon: ArchiveBoxXMarkIcon,         iconSolid: ArchiveBoxXMarkIconSolid,         blockedRoles: ['cashier', 'self_checkout'] as string[] },
     { path: '/labels',           label: 'Labels',                  icon: TagIcon,                     iconSolid: TagIconSolid },
     { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
     { path: '/suppliers',        label: t('nav.suppliers'),        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },

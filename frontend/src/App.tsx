@@ -22,6 +22,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const SetupWizard = lazy(() => import('./pages/SetupWizard/SetupWizard'));
 const OpeningStock = lazy(() => import('./pages/OpeningStock'));
 const Expenses = lazy(() => import('./pages/Expenses'));
+const Dispose = lazy(() => import('./pages/Dispose'));
 const ProfileAnalytics = lazy(() => import('./pages/ProfileAnalytics'));
 
 // Loading fallback component
@@ -216,6 +217,18 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <Expenses />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dispose"
+          element={
+            <ProtectedRoute blockedRoles={['cashier', 'self_checkout']}>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <Dispose />
                 </Suspense>
               </Layout>
             </ProtectedRoute>
