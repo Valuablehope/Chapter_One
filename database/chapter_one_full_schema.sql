@@ -261,6 +261,11 @@ CREATE TABLE IF NOT EXISTS day_closures (
     z_number          INTEGER      NOT NULL,
     notes             TEXT,
     cash_breakdown    JSONB,
+    opening_float     NUMERIC(12,2) NOT NULL DEFAULT 0,
+    opening_float_breakdown JSONB,
+    cash_left_in_drawer NUMERIC(12,2) NOT NULL DEFAULT 0,
+    cash_left_in_drawer_breakdown JSONB,
+    cash_to_bank      NUMERIC(12,2) NOT NULL DEFAULT 0,
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (store_id, z_number)
 );
@@ -974,6 +979,11 @@ COMMENT ON COLUMN store_settings.lbp_primary_price   IS 'If true, LBP is shown a
 COMMENT ON COLUMN product_types.press_to_add         IS 'Adds product to cart directly (qty 1) bypassing Quick Add modal';
 COMMENT ON COLUMN sales.day_closure_id               IS 'Set when sale is locked in a Z closure; non-null sales are immutable';
 COMMENT ON COLUMN day_closures.cash_breakdown        IS 'Notes and coins counted during closure';
+COMMENT ON COLUMN day_closures.opening_float         IS 'Cash float carried in from the previous closure''s cash_left_in_drawer';
+COMMENT ON COLUMN day_closures.opening_float_breakdown IS 'Notes and coins breakdown of the opening float';
+COMMENT ON COLUMN day_closures.cash_left_in_drawer   IS 'Amount of counted cash kept in the drawer for the next closure''s opening float';
+COMMENT ON COLUMN day_closures.cash_left_in_drawer_breakdown IS 'Notes and coins breakdown of the cash left in the drawer';
+COMMENT ON COLUMN day_closures.cash_to_bank          IS 'Amount of counted cash to deposit/bank = cash_actual - cash_left_in_drawer';
 
 -- =====================================================================
 -- END OF SCHEMA

@@ -490,10 +490,23 @@ export const en = {
     notes_label: "Notes (optional)",
     total_expenses: "Total expenses",
     net_cash_after_expenses: "Net cash (after expenses)",
+    opening_float: "Opening float",
+    opening_float_carried: "Carried from Z-{{z}} · closed {{date}}",
+    opening_float_none: "No previous closure — starting fresh",
+    opening_float_adjust: "Adjust opening float",
+    opening_float_reset: "Reset to carried amount",
+    leave_float_question: "Leave cash in the drawer for tomorrow?",
+    leave_float_hint: "This amount stays in the drawer as the next closure's opening float instead of being deposited.",
+    yes: "Yes",
+    no: "No",
+    use_same_float: "Use same as opening ({{amount}})",
+    cash_left_in_drawer_label: "Cash left in drawer",
+    cash_to_bank: "Amount to bank/deposit",
     errors: {
       load_preview: "Could not load closure preview",
       close_failed: "Could not complete day closure",
-      invalid_cash: "Enter a valid cash amount (0 or greater)."
+      invalid_cash: "Enter a valid cash amount (0 or greater).",
+      float_exceeds_cash: "Cash left in drawer cannot exceed the cash counted."
     }
   },
   products: {

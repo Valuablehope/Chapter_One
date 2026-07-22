@@ -5,6 +5,8 @@ import {
   ArrowPathIcon,
   PrinterIcon,
   ExclamationTriangleIcon,
+  PencilSquareIcon,
+  ArrowUturnLeftIcon,
 } from '@heroicons/react/24/outline';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -77,6 +79,19 @@ export default function DayClosure() {
   const [result, setResult] = useState<DayClosureRecord | null>(null);
   const [cashBreakdown, setCashBreakdown] = useState<Record<string, number> | null>(null);
 
+  // Opening float: carried from the previous closure's "left in drawer" amount.
+  // Editable in case the actual count in the drawer differs from what was recorded.
+  const [openingFloat, setOpeningFloat] = useState(0);
+  const [openingFloatBreakdown, setOpeningFloatBreakdown] = useState<Record<string, number> | null>(null);
+  const [editingOpeningFloat, setEditingOpeningFloat] = useState(false);
+  const [openingFloatEditorKey, setOpeningFloatEditorKey] = useState(0);
+
+  // Cash left in drawer for tomorrow (becomes the next closure's opening float).
+  const [cashLeftTotal, setCashLeftTotal] = useState(0);
+  const [cashLeftBreakdown, setCashLeftBreakdown] = useState<Record<string, number> | null>(null);
+  const [cashLeftEditorKey, setCashLeftEditorKey] = useState(0);
+  const [leaveFloatInDrawer, setLeaveFloatInDrawer] = useState(false);
+
   const formatCurrency = useCallback(
     (amount: number) =>
       new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
@@ -92,6 +107,14 @@ export default function DayClosure() {
       const p = await dayClosureService.getPreview();
       setPreview(p);
       setCashActualStr(String(round2(p.cash_expected)));
+      setOpeningFloat(round2(p.opening_float));
+      setOpeningFloatBreakdown(p.opening_float_breakdown);
+      setEditingOpeningFloat(false);
+      setOpeningFloatEditorKey((k) => k + 1);
+      setLeaveFloatInDrawer(false);
+      setCashLeftTotal(0);
+      setCashLeftBreakdown(null);
+      setCashLeftEditorKey((k) => k + 1);
     } catch (err: unknown) {
       logger.error('Day closure preview', err);
       toast.error(t('day_closure.errors.load_preview'));
@@ -104,15 +127,17 @@ export default function DayClosure() {
     void loadPreview();
   }, [loadPreview]);
 
-  const cashExpected = preview?.cash_expected ?? 0;
+  // The portion of expected cash that isn't the carried-over float (sales − refunds − expenses).
+  const rawExpected = preview ? round2(preview.cash_expected - preview.opening_float) : 0;
+  const cashExpected = round2(openingFloat + rawExpected);
+
   const cashActualNum = useMemo(() => {
     const n = parseFloat(cashActualStr.replace(',', '.'));
     if (!Number.isFinite(n) || n < 0) return null;
     return round2(n);
   }, [cashActualStr]);
 
-  const difference =
-    cashActualNum !== null && preview ? round2(cashActualNum - cashExpected) : null;
+  const difference = cashActualNum !== null && preview ? round2(cashActualNum - cashExpected) : null;
 
   const diffLabel = useMemo(() => {
     if (difference === null) return '';
@@ -121,11 +146,22 @@ export default function DayClosure() {
     return t('day_closure.over');
   }, [difference, t]);
 
+  const cashLeftNum = leaveFloatInDrawer ? round2(cashLeftTotal) : 0;
+  const cashLeftExceedsActual = cashActualNum !== null && cashLeftNum > cashActualNum;
+  const cashToBank = cashActualNum !== null ? round2(cashActualNum - cashLeftNum) : null;
+
   const canClose =
     preview &&
     preview.total_transactions > 0 &&
     cashActualNum !== null &&
+    !cashLeftExceedsActual &&
     !closing;
+
+  const handleUseSameFloat = useCallback(() => {
+    setLeaveFloatInDrawer(true);
+    setCashLeftBreakdown(openingFloatBreakdown);
+    setCashLeftEditorKey((k) => k + 1);
+  }, [openingFloatBreakdown]);
 
   const handlePrint = useCallback(
     (closure: DayClosureRecord, storeLabel: string) => {
@@ -137,15 +173,26 @@ export default function DayClosure() {
         { label: t('day_closure.transactions'), value: String(closure.total_transactions) },
         { label: t('day_closure.card'), value: formatCurrency(closure.card_total) },
         { label: t('day_closure.other_payments'), value: formatCurrency(closure.other_payments) },
-        { label: t('day_closure.cash_expected'), value: formatCurrency(closure.cash_expected) },
       ];
+      if ((closure.opening_float ?? 0) > 0) {
+        rows.push({ label: t('day_closure.opening_float'), value: formatCurrency(closure.opening_float) });
+      }
       if ((closure.total_expenses ?? 0) > 0) {
         rows.push({ label: `  ${t('day_closure.total_expenses')}`, value: `− ${formatCurrency(closure.total_expenses)}` });
       }
       rows.push(
+        { label: t('day_closure.cash_expected'), value: formatCurrency(closure.cash_expected) },
         { label: t('day_closure.cash_actual_label'), value: formatCurrency(closure.cash_actual ?? 0) },
         { label: t('day_closure.cash_difference'), value: formatCurrency(closure.cash_difference ?? 0) },
       );
+      if ((closure.cash_left_in_drawer ?? 0) > 0) {
+        rows.push(
+          { label: t('day_closure.cash_left_in_drawer_label'), value: formatCurrency(closure.cash_left_in_drawer) },
+          { label: t('day_closure.cash_to_bank'), value: formatCurrency(closure.cash_to_bank) },
+        );
+      } else {
+        rows.push({ label: t('day_closure.cash_to_bank'), value: formatCurrency(closure.cash_to_bank) });
+      }
       if (closure.notes?.trim()) {
         rows.push({ label: t('day_closure.notes_label'), value: closure.notes.trim() });
       }
@@ -159,13 +206,21 @@ export default function DayClosure() {
       toast.error(t('day_closure.errors.invalid_cash'));
       return;
     }
+    if (cashLeftExceedsActual) {
+      toast.error(t('day_closure.errors.float_exceeds_cash'));
+      return;
+    }
     try {
       setClosing(true);
-      const closure = await dayClosureService.close(
-        cashActualNum,
-        notes.trim() || undefined,
-        cashBreakdown || undefined
-      );
+      const closure = await dayClosureService.close({
+        cashActual: cashActualNum,
+        notes: notes.trim() || undefined,
+        cashBreakdown: cashBreakdown || undefined,
+        cashLeftInDrawer: cashLeftNum,
+        cashLeftInDrawerBreakdown: leaveFloatInDrawer ? cashLeftBreakdown || undefined : undefined,
+        openingFloat,
+        openingFloatBreakdown,
+      });
       setResult(closure);
       setShowConfirm(false);
       toast.success(t('day_closure.success_title'));
@@ -208,10 +263,12 @@ export default function DayClosure() {
               <dt className="text-gray-600">{t('day_closure.total_sales')}</dt>
               <dd className="font-semibold tabular-nums">{formatCurrency(result.total_sales)}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-gray-600">{t('day_closure.cash_expected')}</dt>
-              <dd className="font-semibold tabular-nums">{formatCurrency(result.cash_expected)}</dd>
-            </div>
+            {(result.opening_float ?? 0) > 0 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500 text-xs">{t('day_closure.opening_float')}</dt>
+                <dd className="font-medium tabular-nums text-xs">{formatCurrency(result.opening_float)}</dd>
+              </div>
+            )}
             {(result.total_expenses ?? 0) > 0 && (
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500 text-xs">{t('day_closure.total_expenses')}</dt>
@@ -219,10 +276,22 @@ export default function DayClosure() {
               </div>
             )}
             <div className="flex justify-between gap-4">
+              <dt className="text-gray-600">{t('day_closure.cash_expected')}</dt>
+              <dd className="font-semibold tabular-nums">{formatCurrency(result.cash_expected)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
               <dt className="text-gray-600">{t('day_closure.cash_difference')}</dt>
               <dd className={`font-semibold tabular-nums ${(result.cash_difference ?? 0) < 0 ? 'text-red-600' : (result.cash_difference ?? 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                 {formatCurrency(result.cash_difference ?? 0)}
               </dd>
+            </div>
+            <div className="border-t border-gray-100 pt-3 flex justify-between gap-4">
+              <dt className="text-gray-600">{t('day_closure.cash_left_in_drawer_label')}</dt>
+              <dd className="font-semibold tabular-nums">{formatCurrency(result.cash_left_in_drawer ?? 0)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-gray-900 font-medium">{t('day_closure.cash_to_bank')}</dt>
+              <dd className="font-bold tabular-nums text-emerald-700">{formatCurrency(result.cash_to_bank ?? 0)}</dd>
             </div>
           </dl>
           <div className="flex flex-wrap gap-3 pt-2">
@@ -289,6 +358,64 @@ export default function DayClosure() {
               <p className="text-lg font-semibold text-gray-900">{preview?.store_name || '—'}</p>
             </div>
 
+            {/* Opening float carried from the previous closure */}
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-indigo-900">{t('day_closure.opening_float')}</p>
+                  <p className="text-xs text-indigo-700/80 mt-0.5">
+                    {preview?.previous_z_number
+                      ? t('day_closure.opening_float_carried', {
+                          z: preview.previous_z_number,
+                          date: preview.previous_closed_at
+                            ? new Date(preview.previous_closed_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')
+                            : '',
+                        })
+                      : t('day_closure.opening_float_none')}
+                  </p>
+                </div>
+                <span className="text-xl font-bold tabular-nums text-indigo-900 whitespace-nowrap">
+                  {formatCurrency(openingFloat)}
+                </span>
+              </div>
+              {!editingOpeningFloat ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingOpeningFloat(true)}
+                  leftIcon={<PencilSquareIcon className="w-4 h-4" />}
+                >
+                  {t('day_closure.opening_float_adjust')}
+                </Button>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  <CashBreakdown
+                    key={openingFloatEditorKey}
+                    currencyCode={preview?.currency_code || 'USD'}
+                    lbpRate={preview?.lbp_exchange_rate}
+                    initialBreakdown={openingFloatBreakdown || undefined}
+                    onChange={(total, breakdown) => {
+                      setOpeningFloat(round2(total));
+                      setOpeningFloatBreakdown(breakdown);
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setOpeningFloat(round2(preview?.opening_float ?? 0));
+                      setOpeningFloatBreakdown(preview?.opening_float_breakdown ?? null);
+                      setOpeningFloatEditorKey((k) => k + 1);
+                      setEditingOpeningFloat(false);
+                    }}
+                    leftIcon={<ArrowUturnLeftIcon className="w-4 h-4" />}
+                  >
+                    {t('day_closure.opening_float_reset')}
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <dl className="grid sm:grid-cols-2 gap-4 text-sm">
               <div className="rounded-lg bg-gray-50 p-4">
                 <dt className="text-gray-600">{t('day_closure.total_sales')}</dt>
@@ -314,6 +441,12 @@ export default function DayClosure() {
 
             {/* Expected cash breakdown */}
             <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2 text-sm">
+              {openingFloat > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-indigo-700">{t('day_closure.opening_float')}</span>
+                  <span className="tabular-nums font-medium text-indigo-700">{formatCurrency(openingFloat)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">{t('day_closure.gross_cash')}</span>
                 <span className="tabular-nums font-medium">{formatCurrency(preview?.gross_cash ?? 0)}</span>
@@ -337,20 +470,20 @@ export default function DayClosure() {
               <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
                 <span className="text-gray-900 font-semibold">{t('day_closure.cash_expected')}</span>
                 <span className="text-lg font-bold tabular-nums text-gray-900">
-                  {formatCurrency(preview?.cash_expected ?? 0)}
+                  {formatCurrency(cashExpected)}
                 </span>
               </div>
             </div>
 
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">{t('day_closure.cash_actual_label')}</label>
-              <CashBreakdown 
+              <CashBreakdown
                 currencyCode={preview?.currency_code || 'USD'}
                 lbpRate={preview?.lbp_exchange_rate}
                 onChange={(total, breakdown) => {
                   setCashActualStr(total.toString());
                   setCashBreakdown(breakdown);
-                }} 
+                }}
               />
             </div>
 
@@ -370,6 +503,66 @@ export default function DayClosure() {
                 </span>
               </div>
             )}
+
+            {/* Leave cash in the drawer for tomorrow */}
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-emerald-900">{t('day_closure.leave_float_question')}</p>
+                  <p className="text-xs text-emerald-700/80 mt-0.5">{t('day_closure.leave_float_hint')}</p>
+                </div>
+                <div className="flex rounded-lg border border-emerald-200 bg-white overflow-hidden shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setLeaveFloatInDrawer(false)}
+                    className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                      !leaveFloatInDrawer ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {t('day_closure.no')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaveFloatInDrawer(true)}
+                    className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                      leaveFloatInDrawer ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {t('day_closure.yes')}
+                  </button>
+                </div>
+              </div>
+
+              {leaveFloatInDrawer && (
+                <div className="space-y-4">
+                  {openingFloat > 0 && (
+                    <Button variant="ghost" size="sm" onClick={handleUseSameFloat}>
+                      {t('day_closure.use_same_float', { amount: formatCurrency(openingFloat) })}
+                    </Button>
+                  )}
+                  <CashBreakdown
+                    key={cashLeftEditorKey}
+                    currencyCode={preview?.currency_code || 'USD'}
+                    lbpRate={preview?.lbp_exchange_rate}
+                    initialBreakdown={cashLeftBreakdown || undefined}
+                    onChange={(total, breakdown) => {
+                      setCashLeftTotal(round2(total));
+                      setCashLeftBreakdown(breakdown);
+                    }}
+                  />
+                  {cashLeftExceedsActual && (
+                    <p className="text-sm text-red-700 font-medium">{t('day_closure.errors.float_exceeds_cash')}</p>
+                  )}
+                </div>
+              )}
+
+              {cashToBank !== null && (
+                <div className="rounded-lg bg-white border border-emerald-200 px-4 py-3 flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">{t('day_closure.cash_to_bank')}</span>
+                  <span className="text-lg font-bold tabular-nums text-emerald-700">{formatCurrency(cashToBank)}</span>
+                </div>
+              )}
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('day_closure.notes_label')}</label>
@@ -412,6 +605,11 @@ export default function DayClosure() {
         <p className="text-gray-700 text-sm leading-relaxed">{t('day_closure.confirm_body')}</p>
         {preview && (
           <ul className="mt-4 text-sm text-gray-600 space-y-1">
+            {openingFloat > 0 && (
+              <li>
+                {t('day_closure.opening_float')}: <strong className="text-indigo-700">{formatCurrency(openingFloat)}</strong>
+              </li>
+            )}
             <li>
               {t('day_closure.total_sales')}: <strong className="text-gray-900">{formatCurrency(preview.total_sales)}</strong>
             </li>
@@ -429,11 +627,19 @@ export default function DayClosure() {
             )}
             <li>
               {t('day_closure.cash_expected')}:{' '}
-              <strong className="text-gray-900">{formatCurrency(preview.cash_expected)}</strong>
+              <strong className="text-gray-900">{formatCurrency(cashExpected)}</strong>
             </li>
             <li>
               {t('day_closure.cash_actual_label')}:{' '}
               <strong className="text-gray-900">{cashActualNum !== null ? formatCurrency(cashActualNum) : '—'}</strong>
+            </li>
+            <li className="pt-2 border-t border-gray-100 mt-2">
+              {t('day_closure.cash_left_in_drawer_label')}:{' '}
+              <strong className="text-gray-900">{formatCurrency(cashLeftNum)}</strong>
+            </li>
+            <li>
+              {t('day_closure.cash_to_bank')}:{' '}
+              <strong className="text-emerald-700">{cashToBank !== null ? formatCurrency(cashToBank) : '—'}</strong>
             </li>
           </ul>
         )}

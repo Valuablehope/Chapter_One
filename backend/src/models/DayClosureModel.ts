@@ -18,7 +18,14 @@ export interface DayClosureStats {
   include_delivery_in_drawer: boolean;
 }
 
-export interface DayClosurePreview extends DayClosureStats {
+export interface OpeningFloatInfo {
+  opening_float: number;
+  opening_float_breakdown: any | null;
+  previous_z_number: number | null;
+  previous_closed_at: string | null;
+}
+
+export interface DayClosurePreview extends DayClosureStats, OpeningFloatInfo {
   store_id: string;
   store_name: string | null;
   currency_code: string;
@@ -43,6 +50,11 @@ export interface DayClosureRecord {
   notes: string | null;
   cash_breakdown: any | null;
   total_expenses: number;
+  opening_float: number;
+  opening_float_breakdown: any | null;
+  cash_left_in_drawer: number;
+  cash_left_in_drawer_breakdown: any | null;
+  cash_to_bank: number;
   created_at: string;
 }
 
@@ -148,6 +160,37 @@ async function computePreview(
   };
 }
 
+// The float left in the drawer by the most recent prior closure becomes the
+// opening float for the next one — it's physically still sitting in the drawer.
+async function getOpeningFloat(
+  executor: Pick<PoolClient, 'query'>,
+  storeId: string
+): Promise<OpeningFloatInfo> {
+  const r = await executor.query(
+    `SELECT z_number, closed_at, cash_left_in_drawer, cash_left_in_drawer_breakdown
+     FROM day_closures
+     WHERE store_id = $1
+     ORDER BY closed_at DESC, z_number DESC
+     LIMIT 1`,
+    [storeId]
+  );
+  if (r.rows.length === 0) {
+    return {
+      opening_float: 0,
+      opening_float_breakdown: null,
+      previous_z_number: null,
+      previous_closed_at: null,
+    };
+  }
+  const row = r.rows[0];
+  return {
+    opening_float: roundMoney(Number(row.cash_left_in_drawer) || 0),
+    opening_float_breakdown: row.cash_left_in_drawer_breakdown ?? null,
+    previous_z_number: Number(row.z_number),
+    previous_closed_at: row.closed_at,
+  };
+}
+
 export class DayClosureModel {
   static async resolveStoreId(explicitStoreId?: string | null): Promise<string> {
     if (explicitStoreId?.trim()) {
@@ -178,10 +221,14 @@ export class DayClosureModel {
     const info = storeInfoResult.rows[0] || { name: null, currency_code: 'USD', lbp_exchange_rate: null, round_lbp_to_1000: false };
 
     const data = await computePreview(pool, storeId);
-    return { 
-      store_id: storeId, 
-      store_name: info.name, 
+    const floatInfo = await getOpeningFloat(pool, storeId);
+    const cash_expected = roundMoney(floatInfo.opening_float + data.cash_expected);
+    return {
+      store_id: storeId,
+      store_name: info.name,
       ...data,
+      cash_expected,
+      ...floatInfo,
       currency_code: info.currency_code,
       lbp_exchange_rate: info.lbp_exchange_rate ? Number(info.lbp_exchange_rate) : null,
       round_lbp_to_1000: info.round_lbp_to_1000
@@ -193,7 +240,11 @@ export class DayClosureModel {
     closedByUserId: string,
     cashActual: number,
     notes: string | null,
-    cashBreakdown: any | null = null
+    cashBreakdown: any | null = null,
+    cashLeftInDrawer: number = 0,
+    cashLeftInDrawerBreakdown: any | null = null,
+    openingFloatOverride?: number | null,
+    openingFloatBreakdownOverride?: any | null
   ): Promise<DayClosureRecord> {
     const client = await pool.connect();
     try {
@@ -206,8 +257,22 @@ export class DayClosureModel {
         throw new Error('No unclosed sales to include in this closure');
       }
 
-      const cash_expected = preview.cash_expected;
+      const defaultFloat = await getOpeningFloat(client, storeId);
+      const opening_float =
+        openingFloatOverride != null && Number.isFinite(openingFloatOverride)
+          ? roundMoney(Math.max(0, openingFloatOverride))
+          : defaultFloat.opening_float;
+      const opening_float_breakdown =
+        openingFloatOverride != null ? openingFloatBreakdownOverride ?? null : defaultFloat.opening_float_breakdown;
+
+      const cash_expected = roundMoney(opening_float + preview.cash_expected);
       const cash_difference = roundMoney(cashActual - cash_expected);
+
+      if (cashLeftInDrawer > cashActual) {
+        await client.query('ROLLBACK');
+        throw new Error('cash_left_in_drawer cannot exceed cash counted');
+      }
+      const cash_to_bank = roundMoney(cashActual - cashLeftInDrawer);
 
       const zRes = await client.query(
         `SELECT COALESCE(MAX(z_number), 0)::int AS m FROM day_closures WHERE store_id = $1`,
@@ -231,7 +296,12 @@ export class DayClosureModel {
           closed_by,
           z_number,
           notes,
-          cash_breakdown
+          cash_breakdown,
+          opening_float,
+          opening_float_breakdown,
+          cash_left_in_drawer,
+          cash_left_in_drawer_breakdown,
+          cash_to_bank
         )
         VALUES (
           $1,
@@ -247,7 +317,12 @@ export class DayClosureModel {
           $10,
           $11,
           $12,
-          $13
+          $13,
+          $14,
+          $15,
+          $16,
+          $17,
+          $18
         )
         RETURNING *
       `,
@@ -265,6 +340,11 @@ export class DayClosureModel {
           z_number,
           notes?.trim() || null,
           cashBreakdown ? JSON.stringify(cashBreakdown) : null,
+          opening_float,
+          opening_float_breakdown ? JSON.stringify(opening_float_breakdown) : null,
+          roundMoney(cashLeftInDrawer),
+          cashLeftInDrawerBreakdown ? JSON.stringify(cashLeftInDrawerBreakdown) : null,
+          cash_to_bank,
         ]
       );
 

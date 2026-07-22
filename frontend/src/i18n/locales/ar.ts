@@ -490,10 +490,23 @@ export const ar = {
     notes_label: "ملاحظات (اختياري)",
     total_expenses: "إجمالي المصروفات",
     net_cash_after_expenses: "صافي النقد (بعد المصروفات)",
+    opening_float: "الرصيد الافتتاحي",
+    opening_float_carried: "مُرحّل من Z-{{z}} · أُغلق {{date}}",
+    opening_float_none: "لا يوجد إغلاق سابق — بداية جديدة",
+    opening_float_adjust: "تعديل الرصيد الافتتاحي",
+    opening_float_reset: "إعادة التعيين إلى القيمة المرحّلة",
+    leave_float_question: "هل سيُترك نقد في الدرج ليوم غد؟",
+    leave_float_hint: "يبقى هذا المبلغ في الدرج كرصيد افتتاحي للإغلاق القادم بدلاً من إيداعه.",
+    yes: "نعم",
+    no: "لا",
+    use_same_float: "استخدام نفس الرصيد الافتتاحي ({{amount}})",
+    cash_left_in_drawer_label: "النقد المتروك في الدرج",
+    cash_to_bank: "المبلغ المطلوب إيداعه",
     errors: {
       load_preview: "تعذر تحميل معاينة الإغلاق",
       close_failed: "تعذر إتمام إغلاق اليوم",
-      invalid_cash: "أدخل مبلغ نقد صالحًا (صفر أو أكبر)."
+      invalid_cash: "أدخل مبلغ نقد صالحًا (صفر أو أكبر).",
+      float_exceeds_cash: "لا يمكن أن يتجاوز النقد المتروك في الدرج المبلغ المعدود."
     }
   },
   products: {
