@@ -315,6 +315,14 @@ export default function Sales() {
     return finalLbp.toLocaleString() + ' LBP';
   }, [lbpExchangeRatePerUsd, storeSettings?.round_lbp_to_1000]);
 
+  // Prefer the exact LBP price saved on the product (set from the Products page)
+  // over a rate-derived estimate, so the primary price shown here matches what
+  // was actually entered instead of drifting through a USD round-trip.
+  const formatProductLBP = useCallback((p: { lbp_price?: number | null; sale_price?: number; list_price?: number }): string | null => {
+    if (p.lbp_price != null) return Number(p.lbp_price).toLocaleString() + ' LBP';
+    return formatLBP(Number(p.sale_price || p.list_price || 0));
+  }, [formatLBP]);
+
 
   const cartAmounts = useMemo(
     () =>
@@ -1365,10 +1373,10 @@ export default function Sales() {
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                {storeSettings?.lbp_primary_price && formatLBP(Number(product.sale_price || product.list_price || 0)) ? (
+                                {storeSettings?.lbp_primary_price && formatProductLBP(product) ? (
                                   <>
                                     <p className="font-bold text-sm text-amber-600">
-                                      {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                                      {formatProductLBP(product)}
                                     </p>
                                     <p className="text-[10px] font-bold text-secondary-400 leading-none">
                                       ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
@@ -1936,10 +1944,10 @@ export default function Sales() {
                   {product.name}
                 </span>
                 <div className="mt-auto pt-2 border-t border-gray-50 w-full">
-                  {storeSettings?.lbp_primary_price && formatLBP(Number(product.sale_price || product.list_price || 0)) ? (
+                  {storeSettings?.lbp_primary_price && formatProductLBP(product) ? (
                     <>
                       <span className="text-sm font-black text-amber-600 block">
-                        {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                        {formatProductLBP(product)}
                       </span>
                       <span className="text-[10px] font-bold text-secondary-500 leading-none">
                         ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
@@ -2012,10 +2020,10 @@ export default function Sales() {
           <div className="space-y-2.5">
             <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-between px-3">
               <h3 className="text-sm font-bold text-gray-900 truncate flex-1 mr-2">{quickAddProduct.name}</h3>
-              {storeSettings?.lbp_primary_price && formatLBP(Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0)) ? (
+              {storeSettings?.lbp_primary_price && formatProductLBP(quickAddProduct) ? (
                 <div className="text-right whitespace-nowrap">
                   <p className="text-amber-600 font-bold text-sm">
-                    {formatLBP(Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0))} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
+                    {formatProductLBP(quickAddProduct)} / {quickAddProduct.unit_of_measure?.toLowerCase() || 'unit'}
                   </p>
                   <p className="text-[10px] text-secondary-400 font-bold leading-none">
                     ${Number(quickAddProduct.sale_price || quickAddProduct.list_price || 0).toFixed(2)}

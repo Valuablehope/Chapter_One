@@ -13,6 +13,8 @@ export interface Product {
   list_price?: number;
   sale_price?: number;
   margin_pct?: number;
+  lbp_price?: number | null;
+  lbp_list_price?: number | null;
   tax_rate?: number;
   track_inventory: boolean;
   image_url?: string;
@@ -267,9 +269,9 @@ export class ProductModel extends BaseModel {
     const query = `
       INSERT INTO products (
         sku, barcode, plu_code, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
-        tax_rate, track_inventory, image_url, menu_id, menu_category, menu_display_order, menu_note
+        tax_rate, track_inventory, image_url, menu_id, menu_category, menu_display_order, menu_note, lbp_price, lbp_list_price
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *
     `;
     const values = [
@@ -289,6 +291,8 @@ export class ProductModel extends BaseModel {
       product.menu_category || null,
       product.menu_display_order ?? 0,
       product.menu_note || null,
+      product.lbp_price ?? null,
+      product.lbp_list_price ?? null,
     ];
     const result = await this.query<Product>(query, values);
     return result.rows[0];
@@ -378,6 +382,16 @@ export class ProductModel extends BaseModel {
       paramCount++;
       fields.push(`menu_note = $${paramCount}`);
       values.push(updates.menu_note);
+    }
+    if (updates.lbp_price !== undefined) {
+      paramCount++;
+      fields.push(`lbp_price = $${paramCount}`);
+      values.push(updates.lbp_price);
+    }
+    if (updates.lbp_list_price !== undefined) {
+      paramCount++;
+      fields.push(`lbp_list_price = $${paramCount}`);
+      values.push(updates.lbp_list_price);
     }
 
     if (fields.length === 0) {

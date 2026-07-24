@@ -15,6 +15,8 @@ export interface Product {
   list_price?: number;
   sale_price?: number;
   margin_pct?: number;
+  lbp_price?: number | null;
+  lbp_list_price?: number | null;
   tax_rate?: number;
   track_inventory: boolean;
   image_url?: string;
@@ -59,6 +61,8 @@ export interface CreateProductData {
   list_price?: number;
   sale_price?: number;
   margin_pct?: number;
+  lbp_price?: number | null;
+  lbp_list_price?: number | null;
   tax_rate?: number;
   track_inventory?: boolean;
   image_url?: string;

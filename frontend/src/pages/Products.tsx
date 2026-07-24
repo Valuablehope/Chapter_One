@@ -90,6 +90,8 @@ export default function Products() {
     list_price: '',
     sale_price: '',
     margin_pct: '',
+    lbp_price: '',
+    lbp_list_price: '',
     tax_rate: '',
     track_inventory: true,
     image_url: '',
@@ -100,6 +102,13 @@ export default function Products() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  // "Show LBP as primary price in POS Sales" (Admin > Regional) unlocks an LBP price
+  // input in this form that back-calculates Sale Price / Margin via the exchange rate.
+  const lbpRate = useMemo(() => {
+    if (!storeSettings?.show_lbp_price || !storeSettings?.lbp_primary_price) return null;
+    const rate = Number(storeSettings.lbp_exchange_rate ?? 0);
+    return rate > 0 ? rate : null;
+  }, [storeSettings?.show_lbp_price, storeSettings?.lbp_primary_price, storeSettings?.lbp_exchange_rate]);
   const [restaurantStores, setRestaurantStores] = useState<Store[]>([]);
   const [restaurantMenus, setRestaurantMenus] = useState<Menu[]>([]);
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -462,6 +471,8 @@ export default function Products() {
       list_price: '',
       sale_price: '',
       margin_pct: '',
+      lbp_price: '',
+      lbp_list_price: '',
       tax_rate: '',
       track_inventory: true,
       image_url: '',
@@ -483,6 +494,17 @@ export default function Products() {
     if (_list && _sale && parseFloat(_list) > 0) {
       _margin = (((parseFloat(_sale) - parseFloat(_list)) / parseFloat(_list)) * 100).toFixed(2);
     }
+    // Prefer the exact LBP value the user previously entered/saved — only fall
+    // back to a rate-derived estimate when this product has never had one set,
+    // so a saved value never drifts on reload (round-tripping through USD cents
+    // and back would turn e.g. 300000 into ~299825).
+    const _effectiveUsd = _sale || _list;
+    const _lbp = product.lbp_price != null
+      ? String(product.lbp_price)
+      : (lbpRate && _effectiveUsd ? Math.round(parseFloat(_effectiveUsd) * lbpRate).toString() : '');
+    const _lbpList = product.lbp_list_price != null
+      ? String(product.lbp_list_price)
+      : (lbpRate && _list ? Math.round(parseFloat(_list) * lbpRate).toString() : '');
     setFormData({
       name: product.name,
       sku: product.sku || '',
@@ -493,6 +515,8 @@ export default function Products() {
       list_price: _list,
       sale_price: _sale,
       margin_pct: _margin,
+      lbp_price: _lbp,
+      lbp_list_price: _lbpList,
       tax_rate: product.tax_rate?.toString() || '',
       track_inventory: product.track_inventory,
       image_url: product.image_url || '',
@@ -502,7 +526,7 @@ export default function Products() {
     });
     setFormErrors({});
     setShowModal(true);
-  }, []);
+  }, [lbpRate]);
 
   const closeModal = useCallback(() => {
     setShowModal(false);
@@ -518,6 +542,8 @@ export default function Products() {
       list_price: '',
       sale_price: '',
       margin_pct: '',
+      lbp_price: '',
+      lbp_list_price: '',
       tax_rate: '',
       track_inventory: true,
       image_url: '',
@@ -562,41 +588,89 @@ export default function Products() {
     return Object.keys(errors).length === 0;
   }, [formData, t]);
 
-  const handlePriceChange = useCallback((field: 'list_price' | 'sale_price' | 'margin_pct', value: string) => {
+  const handlePriceChange = useCallback((field: 'list_price' | 'sale_price' | 'margin_pct' | 'lbp_price' | 'lbp_list_price', value: string) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
-      
-      const listPrice = parseFloat(next.list_price);
-      if (isNaN(listPrice) || listPrice <= 0) {
+
+      // LBP Price is a convenience input (only shown when LBP is the primary POS price):
+      // typing it back-calculates Sale Price / Margin via the store's exchange rate.
+      if (field === 'lbp_price') {
+        if (!lbpRate) return next;
+        if (value === '') { next.sale_price = ''; next.margin_pct = ''; return next; }
+        const lbpVal = parseFloat(value);
+        if (isNaN(lbpVal)) return next;
+        const usd = lbpVal / lbpRate;
+        next.sale_price = usd.toFixed(2);
+        const listPrice = parseFloat(next.list_price);
+        next.margin_pct = (!isNaN(listPrice) && listPrice > 0)
+          ? (((usd - listPrice) / listPrice) * 100).toFixed(2)
+          : '';
         return next;
       }
 
-      if (field === 'margin_pct') {
-        const margin = parseFloat(value);
-        if (!isNaN(margin)) {
-          // Sale Price = List Price + (List Price * Margin %)
-          next.sale_price = (listPrice * (1 + margin / 100)).toFixed(2);
-        } else if (value === '') {
-          next.sale_price = '';
-        }
-      } else if (field === 'sale_price') {
-        const salePrice = parseFloat(value);
-        if (!isNaN(salePrice)) {
-          next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
-        } else if (value === '') {
-          next.margin_pct = '';
-        }
-      } else if (field === 'list_price') {
-        // If List Price changes, keep Sale Price static if it exists and adjust Margin
+      // Same idea, mirrored for List Price.
+      if (field === 'lbp_list_price') {
+        if (!lbpRate) return next;
+        if (value === '') { next.list_price = ''; next.margin_pct = ''; return next; }
+        const lbpVal = parseFloat(value);
+        if (isNaN(lbpVal)) return next;
+        const usdList = lbpVal / lbpRate;
+        next.list_price = usdList.toFixed(2);
         const salePrice = parseFloat(next.sale_price);
-        if (!isNaN(salePrice)) {
-          next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+        next.margin_pct = (!isNaN(salePrice) && usdList > 0)
+          ? (((salePrice - usdList) / usdList) * 100).toFixed(2)
+          : '';
+        return next;
+      }
+
+      const listPrice = parseFloat(next.list_price);
+      if (!isNaN(listPrice) && listPrice > 0) {
+        if (field === 'margin_pct') {
+          const margin = parseFloat(value);
+          if (!isNaN(margin)) {
+            // Sale Price = List Price + (List Price * Margin %)
+            next.sale_price = (listPrice * (1 + margin / 100)).toFixed(2);
+          } else if (value === '') {
+            next.sale_price = '';
+          }
+        } else if (field === 'sale_price') {
+          const salePrice = parseFloat(value);
+          if (!isNaN(salePrice)) {
+            next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+          } else if (value === '') {
+            next.margin_pct = '';
+          }
+        } else if (field === 'list_price') {
+          // If List Price changes, keep Sale Price static if it exists and adjust Margin
+          const salePrice = parseFloat(next.sale_price);
+          if (!isNaN(salePrice)) {
+            next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+          }
         }
+      }
+
+      // Keep the LBP field in sync with whatever USD price is now in effect
+      // (Sale Price if set, otherwise List Price — same fallback used everywhere
+      // else in the app, e.g. Sales.tsx). Runs on every USD field edit, even if
+      // List Price isn't set yet, so typing a price in USD always reflects in LBP.
+      if (lbpRate) {
+        const effectiveUsd = next.sale_price !== '' ? parseFloat(next.sale_price) : parseFloat(next.list_price);
+        next.lbp_price = (!isNaN(effectiveUsd) && effectiveUsd >= 0)
+          ? Math.round(effectiveUsd * lbpRate).toString()
+          : '';
+      }
+
+      // Keep the List Price LBP field in sync whenever List Price itself changed.
+      if (lbpRate && field === 'list_price') {
+        const listPriceNum = parseFloat(next.list_price);
+        next.lbp_list_price = (!isNaN(listPriceNum) && listPriceNum >= 0)
+          ? Math.round(listPriceNum * lbpRate).toString()
+          : '';
       }
 
       return next;
     });
-  }, []);
+  }, [lbpRate]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -624,6 +698,14 @@ export default function Products() {
         menu_id: formData.menu_id || null,
         menu_category: formData.menu_id ? formData.menu_category.trim() : null,
         menu_note: formData.menu_id ? (formData.menu_note.trim() || null) : null,
+        // Save the LBP prices exactly as entered — only touch them while the section
+        // is visible (feature enabled), otherwise leave whatever's already stored alone.
+        lbp_price: (storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price)
+          ? (formData.lbp_price.trim() ? parseFloat(formData.lbp_price) : null)
+          : undefined,
+        lbp_list_price: (storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price)
+          ? (formData.lbp_list_price.trim() ? parseFloat(formData.lbp_list_price) : null)
+          : undefined,
       };
 
       if (editingProduct) {
@@ -646,7 +728,7 @@ export default function Products() {
     } finally {
       setSubmitting(false);
     }
-  }, [formData, editingProduct, closeModal, loadProducts, validateForm, t]);
+  }, [formData, editingProduct, closeModal, loadProducts, validateForm, t, storeSettings]);
 
   const handleDelete = useCallback(async (product: Product) => {
     if (!window.confirm(t('products.confirm.delete_product', { name: product.name }))) {
@@ -1304,6 +1386,22 @@ export default function Products() {
               />
             </div>
 
+            {storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price && (
+              <div>
+                <Input
+                  label={t('products.form.lbp_list_price')}
+                  type="number"
+                  step="1"
+                  min={0}
+                  value={formData.lbp_list_price}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('lbp_list_price', e.target.value)}
+                  disabled={!lbpRate}
+                  rightIcon={<span className="text-gray-500 font-semibold">LBP</span>}
+                  helperText={lbpRate ? t('products.form.lbp_list_price_helper') : t('products.form.lbp_price_no_rate')}
+                />
+              </div>
+            )}
+
             <div>
               <Input
                 label={t('products.form.margin')}
@@ -1329,6 +1427,22 @@ export default function Products() {
                 leftIcon={<span className="text-gray-500 font-semibold">$</span>}
               />
             </div>
+
+            {storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price && (
+              <div>
+                <Input
+                  label={t('products.form.lbp_price')}
+                  type="number"
+                  step="1"
+                  min={0}
+                  value={formData.lbp_price}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('lbp_price', e.target.value)}
+                  disabled={!lbpRate}
+                  rightIcon={<span className="text-gray-500 font-semibold">LBP</span>}
+                  helperText={lbpRate ? t('products.form.lbp_price_helper') : t('products.form.lbp_price_no_rate')}
+                />
+              </div>
+            )}
 
             <div>
               <Input

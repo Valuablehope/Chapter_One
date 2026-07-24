@@ -94,6 +94,8 @@ router.post(
     body('menu_category').optional({ nullable: true }).isString(),
     body('menu_display_order').optional().isInt({ min: 0 }),
     body('menu_note').optional({ nullable: true }).isString(),
+    body('lbp_price').optional({ nullable: true }).isFloat({ min: 0 }),
+    body('lbp_list_price').optional({ nullable: true }).isFloat({ min: 0 }),
   ],
   validateRequest,
   createProduct
@@ -119,6 +121,8 @@ router.put(
     body('menu_category').optional({ nullable: true }).isString(),
     body('menu_display_order').optional().isInt({ min: 0 }),
     body('menu_note').optional({ nullable: true }).isString(),
+    body('lbp_price').optional({ nullable: true }).isFloat({ min: 0 }),
+    body('lbp_list_price').optional({ nullable: true }).isFloat({ min: 0 }),
   ],
   validateRequest,
   updateProduct
