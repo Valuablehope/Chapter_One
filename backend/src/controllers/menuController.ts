@@ -48,7 +48,7 @@ export async function getMenuById(req: Request, res: Response, next: NextFunctio
 
 export async function createMenu(req: Request, res: Response, next: NextFunction) {
   try {
-    const { store_id, name, description, menu_type, is_active, display_order, categories } =
+    const { store_id, name, description, menu_type, is_active, display_order } =
       req.body as { store_id: string } & MenuInput;
 
     if (!store_id) return apiError(res, 400, 'store_id is required');
@@ -60,7 +60,6 @@ export async function createMenu(req: Request, res: Response, next: NextFunction
       menu_type,
       is_active,
       display_order,
-      categories,
     });
     return res.status(201).json({ success: true, data: menu });
   } catch (err) {
@@ -71,14 +70,13 @@ export async function createMenu(req: Request, res: Response, next: NextFunction
 export async function updateMenu(req: Request, res: Response, next: NextFunction) {
   try {
     const input: Partial<MenuInput> = {};
-    const { name, description, menu_type, is_active, display_order, categories } = req.body;
+    const { name, description, menu_type, is_active, display_order } = req.body;
 
     if (name !== undefined) input.name = String(name).trim();
     if (description !== undefined) input.description = description;
     if (menu_type !== undefined) input.menu_type = menu_type as MenuType;
     if (is_active !== undefined) input.is_active = Boolean(is_active);
     if (display_order !== undefined) input.display_order = Number(display_order);
-    if (categories !== undefined) input.categories = categories;
 
     if (input.name !== undefined && !input.name) {
       return apiError(res, 400, 'name cannot be empty');

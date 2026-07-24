@@ -596,7 +596,15 @@ export const ar = {
       track_inventory_helper: "تفعيل تتبع المخزون لهذا المنتج",
       product_image: "صورة المنتج",
       image_helper: "موصى به: صورة مربعة (800x800 بكسل)",
-      image_specs: "الحد الأقصى للحجم: 5 ميجابايت. التنسيقات: JPG, PNG, WEBP."
+      image_specs: "الحد الأقصى للحجم: 5 ميجابايت. التنسيقات: JPG, PNG, WEBP.",
+      menu_section_title: "قائمة المطعم",
+      menu: "القائمة",
+      menu_none: "— ليس ضمن قائمة —",
+      menu_category: "فئة القائمة",
+      menu_category_placeholder: "مثال: مقبلات، أطباق رئيسية…",
+      menu_note: "ملاحظة القائمة",
+      menu_note_placeholder: "مثال: يحتوي على مكسرات، نباتي…",
+      menu_helper: "أضف هذا المنتج إلى قائمة وفئة في المطعم ليصبح قابلاً للبيع من نقطة بيع المطعم. يمكن عرضه للقراءة فقط من الإدارة > القوائم."
     },
     units: {
       each: "قطعة",
@@ -641,7 +649,8 @@ export const ar = {
       barcode_invalid: "الباركود يجب أن يكون من 8 إلى 13 رقم",
       list_price_positive: "سعر القائمة يجب أن يكون موجباً",
       sale_price_positive: "سعر البيع يجب أن يكون موجباً",
-      tax_rate_range: "نسبة الضريبة يجب أن تكون بين 0 و100"
+      tax_rate_range: "نسبة الضريبة يجب أن تكون بين 0 و100",
+      menu_category_required: "اختر فئة لهذا الصنف في القائمة"
     },
     success: {
       product_created: "تم إنشاء المنتج بنجاح",

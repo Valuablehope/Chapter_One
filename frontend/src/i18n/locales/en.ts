@@ -596,7 +596,15 @@ export const en = {
       track_inventory_helper: "Enable inventory tracking for this product",
       product_image: "Product Image",
       image_helper: "Recommended: Square image (800x800px)",
-      image_specs: "Max size: 5MB. Formats: JPG, PNG, WEBP."
+      image_specs: "Max size: 5MB. Formats: JPG, PNG, WEBP.",
+      menu_section_title: "Restaurant Menu",
+      menu: "Menu",
+      menu_none: "— Not on a menu —",
+      menu_category: "Menu Category",
+      menu_category_placeholder: "e.g. Starters, Mains…",
+      menu_note: "Menu Note",
+      menu_note_placeholder: "e.g. Contains nuts, Vegan…",
+      menu_helper: "Assign this product to a restaurant menu & category to make it sellable from the Restaurant POS. Viewable read-only from Admin > Menus."
     },
     units: {
       each: "each",
@@ -641,7 +649,8 @@ export const en = {
       barcode_invalid: "Barcode must be 8-13 digits",
       list_price_positive: "List price must be positive",
       sale_price_positive: "Sale price must be positive",
-      tax_rate_range: "Tax rate must be between 0 and 100"
+      tax_rate_range: "Tax rate must be between 0 and 100",
+      menu_category_required: "Pick a category for this menu item"
     },
     success: {
       product_created: "Product created successfully",

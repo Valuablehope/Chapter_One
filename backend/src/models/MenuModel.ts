@@ -33,7 +33,6 @@ export interface MenuInput {
   menu_type?: MenuType;
   is_active?: boolean;
   display_order?: number;
-  categories?: MenuCategoryRow[];
 }
 
 export interface MenuFilters {
@@ -52,24 +51,71 @@ interface RawMenu {
   menu_type: MenuType;
   is_active: boolean;
   display_order: number;
-  categories: unknown;
   created_at: string;
   updated_at: string;
 }
 
-function parseCategories(raw: unknown): MenuCategoryRow[] {
-  if (Array.isArray(raw)) return raw as MenuCategoryRow[];
-  if (typeof raw === 'string') {
-    try { return JSON.parse(raw) as MenuCategoryRow[]; } catch { return []; }
-  }
-  return [];
+interface MenuProductRow {
+  menu_id: string;
+  product_id: string;
+  name: string;
+  sale_price: number | null;
+  list_price: number | null;
+  menu_category: string | null;
+  menu_display_order: number;
+  menu_note: string | null;
 }
 
-function normalise(row: RawMenu): Menu {
-  return { ...row, categories: parseCategories(row.categories) };
-}
+const UNCATEGORIZED = 'Uncategorized';
 
 export class MenuModel extends BaseModel {
+
+  // Products assigned to each menu, grouped into categories — this is the
+  // live read model that replaces the old categories JSONB column.
+  private static async attachCategories(menus: RawMenu[]): Promise<Menu[]> {
+    if (menus.length === 0) return [];
+    const menuIds = menus.map(m => m.menu_id);
+
+    const result = await this.query<MenuProductRow>(
+      `SELECT menu_id, product_id, name, sale_price, list_price, menu_category, menu_display_order, menu_note
+       FROM products
+       WHERE menu_id = ANY($1::uuid[])
+       ORDER BY menu_display_order ASC, name ASC`,
+      [menuIds]
+    );
+
+    const byMenu = new Map<string, Map<string, MenuCategoryRow>>();
+    const catOrder = new Map<string, Map<string, number>>();
+
+    for (const row of result.rows) {
+      let cats = byMenu.get(row.menu_id);
+      if (!cats) { cats = new Map(); byMenu.set(row.menu_id, cats); }
+      let orders = catOrder.get(row.menu_id);
+      if (!orders) { orders = new Map(); catOrder.set(row.menu_id, orders); }
+
+      const catName = row.menu_category?.trim() || UNCATEGORIZED;
+      if (!cats.has(catName)) cats.set(catName, { name: catName, items: [] });
+      if (!orders.has(catName)) orders.set(catName, row.menu_display_order);
+
+      cats.get(catName)!.items.push({
+        name: row.name,
+        price: Number(row.sale_price ?? row.list_price ?? 0),
+        description: row.menu_note ?? undefined,
+        product_id: row.product_id,
+      });
+    }
+
+    return menus.map(m => {
+      const cats = byMenu.get(m.menu_id);
+      const orders = catOrder.get(m.menu_id);
+      const categories = cats
+        ? Array.from(cats.values()).sort(
+            (a, b) => (orders?.get(a.name) ?? 0) - (orders?.get(b.name) ?? 0)
+          )
+        : [];
+      return { ...m, categories };
+    });
+  }
 
   static async findAll(
     storeId: string,
@@ -118,7 +164,8 @@ export class MenuModel extends BaseModel {
       values
     );
 
-    return { data: result.rows.map(normalise), total };
+    const data = await this.attachCategories(result.rows);
+    return { data, total };
   }
 
   static async findById(menuId: string): Promise<Menu | null> {
@@ -127,38 +174,9 @@ export class MenuModel extends BaseModel {
       [menuId]
     );
     const row = result.rows[0];
-    return row ? normalise(row) : null;
-  }
-
-  private static async syncProducts(categories: MenuCategoryRow[]): Promise<MenuCategoryRow[]> {
-    if (!categories || !Array.isArray(categories)) return categories;
-    for (const cat of categories) {
-      if (!cat.items || !Array.isArray(cat.items)) continue;
-      for (const item of cat.items) {
-        if (!item.name) continue;
-        const name = item.name.trim();
-
-        const res = await this.query<{ product_id: string }>(
-          'SELECT product_id FROM products WHERE LOWER(name) = LOWER($1) LIMIT 1',
-          [name]
-        );
-
-        let productId = res.rows[0]?.product_id;
-
-        if (!productId) {
-          const insertRes = await this.query<{ product_id: string }>(
-            `INSERT INTO products (name, sale_price, product_type, track_inventory)
-             VALUES ($1, $2, 'OTHER', false)
-             RETURNING product_id`,
-            [name, item.price || 0]
-          );
-          productId = insertRes.rows[0].product_id;
-        }
-
-        item.product_id = productId;
-      }
-    }
-    return categories;
+    if (!row) return null;
+    const [menu] = await this.attachCategories([row]);
+    return menu;
   }
 
   static async create(storeId: string, input: MenuInput): Promise<Menu> {
@@ -168,20 +186,17 @@ export class MenuModel extends BaseModel {
       menu_type = 'regular',
       is_active = true,
       display_order = 0,
-      categories = [],
     } = input;
-
-    const syncedCategories = await this.syncProducts(categories);
 
     const result = await this.query<RawMenu>(
       `INSERT INTO restaurant_menus
-         (store_id, name, description, menu_type, is_active, display_order, categories)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+         (store_id, name, description, menu_type, is_active, display_order)
+       VALUES ($1,$2,$3,$4,$5,$6)
        RETURNING *`,
-      [storeId, name, description, menu_type, is_active, display_order,
-       JSON.stringify(syncedCategories)]
+      [storeId, name, description, menu_type, is_active, display_order]
     );
-    return normalise(result.rows[0]);
+    const [menu] = await this.attachCategories([result.rows[0]]);
+    return menu;
   }
 
   static async update(menuId: string, input: Partial<MenuInput>): Promise<Menu> {
@@ -194,10 +209,6 @@ export class MenuModel extends BaseModel {
     if (input.menu_type !== undefined) { p++; fields.push(`menu_type = $${p}`); values.push(input.menu_type); }
     if (input.is_active !== undefined) { p++; fields.push(`is_active = $${p}`); values.push(input.is_active); }
     if (input.display_order !== undefined) { p++; fields.push(`display_order = $${p}`); values.push(input.display_order); }
-    if (input.categories !== undefined) {
-      const syncedCategories = await this.syncProducts(input.categories);
-      p++; fields.push(`categories = $${p}::jsonb`); values.push(JSON.stringify(syncedCategories));
-    }
 
     if (fields.length === 0) {
       const existing = await this.findById(menuId);
@@ -212,7 +223,8 @@ export class MenuModel extends BaseModel {
       values
     );
     if (!result.rows[0]) throw new Error('Menu not found');
-    return normalise(result.rows[0]);
+    const [menu] = await this.attachCategories([result.rows[0]]);
+    return menu;
   }
 
   static async delete(menuId: string): Promise<boolean> {

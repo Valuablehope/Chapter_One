@@ -16,6 +16,10 @@ export interface Product {
   tax_rate?: number;
   track_inventory: boolean;
   image_url?: string;
+  menu_id?: string | null;
+  menu_category?: string | null;
+  menu_display_order?: number;
+  menu_note?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -263,9 +267,9 @@ export class ProductModel extends BaseModel {
     const query = `
       INSERT INTO products (
         sku, barcode, plu_code, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
-        tax_rate, track_inventory, image_url
+        tax_rate, track_inventory, image_url, menu_id, menu_category, menu_display_order, menu_note
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
     const values = [
@@ -281,6 +285,10 @@ export class ProductModel extends BaseModel {
       product.tax_rate || null,
       product.track_inventory !== undefined ? product.track_inventory : true,
       product.image_url || null,
+      product.menu_id || null,
+      product.menu_category || null,
+      product.menu_display_order ?? 0,
+      product.menu_note || null,
     ];
     const result = await this.query<Product>(query, values);
     return result.rows[0];
@@ -350,6 +358,26 @@ export class ProductModel extends BaseModel {
       paramCount++;
       fields.push(`image_url = $${paramCount}`);
       values.push(updates.image_url);
+    }
+    if (updates.menu_id !== undefined) {
+      paramCount++;
+      fields.push(`menu_id = $${paramCount}`);
+      values.push(updates.menu_id);
+    }
+    if (updates.menu_category !== undefined) {
+      paramCount++;
+      fields.push(`menu_category = $${paramCount}`);
+      values.push(updates.menu_category);
+    }
+    if (updates.menu_display_order !== undefined) {
+      paramCount++;
+      fields.push(`menu_display_order = $${paramCount}`);
+      values.push(updates.menu_display_order);
+    }
+    if (updates.menu_note !== undefined) {
+      paramCount++;
+      fields.push(`menu_note = $${paramCount}`);
+      values.push(updates.menu_note);
     }
 
     if (fields.length === 0) {

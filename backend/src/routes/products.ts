@@ -90,6 +90,10 @@ router.post(
     body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
     body('track_inventory').optional().isBoolean(),
     body('image_url').optional().isString(),
+    body('menu_id').optional({ nullable: true, values: 'falsy' }).isUUID(),
+    body('menu_category').optional({ nullable: true }).isString(),
+    body('menu_display_order').optional().isInt({ min: 0 }),
+    body('menu_note').optional({ nullable: true }).isString(),
   ],
   validateRequest,
   createProduct
@@ -111,6 +115,10 @@ router.put(
     body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
     body('track_inventory').optional().isBoolean(),
     body('image_url').optional().isString(),
+    body('menu_id').optional({ nullable: true, values: 'falsy' }).isUUID(),
+    body('menu_category').optional({ nullable: true }).isString(),
+    body('menu_display_order').optional().isInt({ min: 0 }),
+    body('menu_note').optional({ nullable: true }).isString(),
   ],
   validateRequest,
   updateProduct

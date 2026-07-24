@@ -3,6 +3,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { productService, Product, ProductFilters } from '../services/productService';
 import { productTypeService, ProductType } from '../services/productTypeService';
 import { storeService, StoreSettings } from '../services/storeService';
+import { adminService, menuService, Store, Menu } from '../services/adminService';
 import { API_BASE_URL } from '../services/api';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
@@ -92,10 +93,15 @@ export default function Products() {
     tax_rate: '',
     track_inventory: true,
     image_url: '',
+    menu_id: '',
+    menu_category: '',
+    menu_note: '',
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [restaurantStores, setRestaurantStores] = useState<Store[]>([]);
+  const [restaurantMenus, setRestaurantMenus] = useState<Menu[]>([]);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false, press_to_add: false });
@@ -382,6 +388,26 @@ export default function Products() {
     }
   }, []);
 
+  // Load restaurant-module stores + all of their menus so products can be
+  // assigned to a menu/category directly from this page.
+  const loadRestaurantMenus = useCallback(async () => {
+    try {
+      const { data: stores } = await adminService.getStores({ limit: 100 });
+      const restaurant = stores.filter(s => s.pos_module_type === 'restaurant');
+      setRestaurantStores(restaurant);
+      if (restaurant.length === 0) {
+        setRestaurantMenus([]);
+        return;
+      }
+      const menuLists = await Promise.all(
+        restaurant.map(s => menuService.getMenus({ store_id: s.store_id, limit: 200 }).catch(() => null))
+      );
+      setRestaurantMenus(menuLists.filter(Boolean).flatMap(r => r!.data));
+    } catch (err) {
+      logger.error('Failed to load restaurant menus', err);
+    }
+  }, []);
+
   // Load products when filters change
   useEffect(() => {
     loadProducts();
@@ -389,7 +415,8 @@ export default function Products() {
 
   useEffect(() => {
     loadConfigData();
-  }, [loadConfigData]);
+    loadRestaurantMenus();
+  }, [loadConfigData, loadRestaurantMenus]);
 
   // Debounced search to reduce API calls
   const debouncedSearch = useDebouncedCallback((search: string) => {
@@ -438,6 +465,9 @@ export default function Products() {
       tax_rate: '',
       track_inventory: true,
       image_url: '',
+      menu_id: '',
+      menu_category: '',
+      menu_note: '',
     });
     setFormErrors({});
     setShowModal(true);
@@ -466,6 +496,9 @@ export default function Products() {
       tax_rate: product.tax_rate?.toString() || '',
       track_inventory: product.track_inventory,
       image_url: product.image_url || '',
+      menu_id: product.menu_id || '',
+      menu_category: product.menu_category || '',
+      menu_note: product.menu_note || '',
     });
     setFormErrors({});
     setShowModal(true);
@@ -488,6 +521,9 @@ export default function Products() {
       tax_rate: '',
       track_inventory: true,
       image_url: '',
+      menu_id: '',
+      menu_category: '',
+      menu_note: '',
     });
     setFormErrors({});
   }, []);
@@ -516,6 +552,10 @@ export default function Products() {
       if (taxRate < 0 || taxRate > 100) {
         errors.tax_rate = t('products.validation.tax_rate_range');
       }
+    }
+
+    if (formData.menu_id && !formData.menu_category.trim()) {
+      errors.menu_category = t('products.validation.menu_category_required');
     }
 
     setFormErrors(errors);
@@ -581,6 +621,9 @@ export default function Products() {
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
         track_inventory: formData.track_inventory,
         image_url: formData.image_url || undefined,
+        menu_id: formData.menu_id || null,
+        menu_category: formData.menu_id ? formData.menu_category.trim() : null,
+        menu_note: formData.menu_id ? (formData.menu_note.trim() || null) : null,
       };
 
       if (editingProduct) {
@@ -1317,6 +1360,65 @@ export default function Products() {
                 </div>
               </label>
             </div>
+
+            {restaurantMenus.length > 0 && (
+              <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-1">
+                <p className="text-xs font-semibold text-gray-700 mb-2">{t('products.form.menu_section_title')}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      {t('products.form.menu')}
+                    </label>
+                    <select
+                      value={formData.menu_id}
+                      onChange={(e) => setFormData({ ...formData, menu_id: e.target.value, menu_category: '' })}
+                      className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
+                    >
+                      <option value="">{t('products.form.menu_none')}</option>
+                      {restaurantStores.map(store => {
+                        const storeMenus = restaurantMenus.filter(m => m.store_id === store.store_id);
+                        if (storeMenus.length === 0) return null;
+                        return (
+                          <optgroup key={store.store_id} label={store.name}>
+                            {storeMenus.map(m => (
+                              <option key={m.menu_id} value={m.menu_id}>{m.name}</option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Input
+                      label={t('products.form.menu_category')}
+                      list="product-menu-category-options"
+                      value={formData.menu_category}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, menu_category: e.target.value })}
+                      error={formErrors.menu_category}
+                      disabled={!formData.menu_id}
+                      placeholder={t('products.form.menu_category_placeholder')}
+                    />
+                    <datalist id="product-menu-category-options">
+                      {(restaurantMenus.find(m => m.menu_id === formData.menu_id)?.categories ?? []).map(c => (
+                        <option key={c.name} value={c.name} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <Input
+                      label={t('products.form.menu_note')}
+                      value={formData.menu_note}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, menu_note: e.target.value })}
+                      disabled={!formData.menu_id}
+                      placeholder={t('products.form.menu_note_placeholder')}
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1.5">{t('products.form.menu_helper')}</p>
+              </div>
+            )}
           </div>
         </form>
       </Modal>

@@ -36,7 +36,6 @@ export interface MenuInput {
   menu_type?: MenuType;
   is_active?: boolean;
   display_order?: number;
-  categories?: MenuCategoryDef[];
 }
 
 // ── Existing entity types ────────────────────────────────────────────────

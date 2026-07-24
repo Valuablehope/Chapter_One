@@ -181,6 +181,45 @@ export const THEMES: AppTheme[] = [
       muted:  '#4b6180',
     },
   },
+
+  // ── 5. Blossom (Pink) ──────────────────────────────────────────────────────
+  {
+    id: 'pink',
+    name: 'Pink',
+    description: 'Playful pink tones with a soft, warm feel',
+    swatches: ['#831843', '#ec4899', '#fce7f3'],
+    vars: {
+      '--color-brand':          '#ec4899',
+      '--color-brand-dark':     '#831843',
+      '--color-brand-light':    '#fce7f3',
+      '--color-secondary':      '#ec4899',
+      '--color-secondary-50':   '#fdf2f8',
+      '--color-secondary-100':  '#fce7f3',
+      '--color-secondary-200':  '#fbcfe8',
+      '--color-secondary-300':  '#f9a8d4',
+      '--color-secondary-400':  '#f472b6',
+      '--color-secondary-500':  '#ec4899',
+      '--color-secondary-600':  '#db2777',
+      '--color-secondary-700':  '#be185d',
+      '--color-secondary-800':  '#9d174d',
+      '--color-secondary-900':  '#831843',
+      '--color-accent':         '#ec4899',
+      '--color-accent-light':   '#fce7f3',
+      '--color-bg':             '#fdf2f8',
+      '--gradient-brand':       'linear-gradient(135deg, #500724 0%, #9d174d 60%, #ec4899 100%)',
+      '--gradient-brand-blue':  'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+      '--shadow-sidebar':       '4px 0 20px rgba(131,24,67,0.30)',
+      '--shadow-sidebar-mobile':'4px 0 20px rgba(131,24,67,0.40)',
+    },
+    sidebar: {
+      bg:     '#500724',
+      hover:  '#831843',
+      active: '#9d174d',
+      border: '#6e1638',
+      text:   '#f3b8d4',
+      muted:  '#b5688f',
+    },
+  },
 ];
 
 export const getTheme = (id: string): AppTheme =>

@@ -711,7 +711,7 @@ export default function RestaurantPOS() {
       return orderItem.productId;
     }
     throw new Error(
-      `Menu item "${orderItem.itemName}" hasn't been synced to the database yet. Please edit and re-save this menu in Admin -> Menus to automatically sync it, then add the item to the table again.`
+      `Menu item "${orderItem.itemName}" isn't linked to a product yet. Assign it to a menu & category from the Products page, then add the item to the table again.`
     );
   };
 

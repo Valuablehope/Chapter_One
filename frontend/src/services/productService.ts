@@ -18,6 +18,10 @@ export interface Product {
   tax_rate?: number;
   track_inventory: boolean;
   image_url?: string;
+  menu_id?: string | null;
+  menu_category?: string | null;
+  menu_display_order?: number;
+  menu_note?: string | null;
   created_at: string;
   updated_at: string;
   qty_in?: number;      // Sum of purchases
@@ -58,6 +62,10 @@ export interface CreateProductData {
   tax_rate?: number;
   track_inventory?: boolean;
   image_url?: string;
+  menu_id?: string | null;
+  menu_category?: string | null;
+  menu_display_order?: number;
+  menu_note?: string | null;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {}

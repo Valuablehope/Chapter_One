@@ -1,9 +1,8 @@
 import { useState, useEffect, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Menu,
   MenuType,
-  MenuCategoryDef,
-  MenuItemDef,
   menuService,
   MenuInput,
 } from '../../../services/adminService';
@@ -12,17 +11,13 @@ import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
 import {
-  PlusIcon,
-  TrashIcon,
   ClipboardDocumentListIcon,
   TagIcon,
   CheckCircleIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 
 // ── helpers ────────────────────────────────────────────────────────────────
-function emptyItem(): MenuItemDef { return { name: '', price: 0, description: '' }; }
-function emptyCategory(): MenuCategoryDef { return { name: '', items: [emptyItem()] }; }
-
 const MENU_TYPE_OPTIONS: { value: MenuType; label: string; emoji: string; color: string }[] = [
   { value: 'regular',  label: 'Regular',  emoji: '🍽️', color: 'bg-blue-50 border-blue-200 text-blue-700' },
   { value: 'holiday',  label: 'Holiday',  emoji: '🎄', color: 'bg-red-50 border-red-200 text-red-700' },
@@ -61,7 +56,6 @@ interface FormState {
   menu_type: MenuType;
   is_active: boolean;
   display_order: number;
-  categories: MenuCategoryDef[];
 }
 
 const DEFAULT_FORM: FormState = {
@@ -70,7 +64,6 @@ const DEFAULT_FORM: FormState = {
   menu_type: 'regular',
   is_active: true,
   display_order: 0,
-  categories: [emptyCategory()],
 };
 
 function menuToForm(m: Menu): FormState {
@@ -80,37 +73,18 @@ function menuToForm(m: Menu): FormState {
     menu_type: m.menu_type,
     is_active: m.is_active,
     display_order: m.display_order,
-    categories: m.categories.length > 0
-      ? m.categories.map(cat => ({
-          name: cat.name,
-          items: cat.items.length > 0 ? cat.items.map(it => ({
-            name: it.name,
-            price: it.price,
-            description: it.description ?? '',
-            product_id: it.product_id,
-          })) : [emptyItem()],
-        }))
-      : [emptyCategory()],
   };
 }
 
 function validate(form: FormState): Record<string, string> {
   const err: Record<string, string> = {};
-  if (!form.name.trim()) { err.name = 'Menu name is required'; return err; }
-  for (const cat of form.categories) {
-    if (!cat.name.trim()) { err.categories = 'Each category must have a name'; return err; }
-    for (const item of cat.items) {
-      if (!item.name.trim()) { err.categories = 'Each item must have a name'; return err; }
-      if (!Number.isFinite(item.price) || item.price < 0) {
-        err.categories = 'Each item must have a valid price (0 or more)'; return err;
-      }
-    }
-  }
+  if (!form.name.trim()) err.name = 'Menu name is required';
   return err;
 }
 
 // ── component ─────────────────────────────────────────────────────────────
 function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: MenuModalProps) {
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -120,52 +94,6 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
     setErrors({});
     setForm(editingMenu ? menuToForm(editingMenu) : DEFAULT_FORM);
   }, [isOpen, editingMenu]);
-
-  // ── category mutations ─────────────────────────────────────────────────
-  const addCategory = () =>
-    setForm(p => ({ ...p, categories: [...p.categories, emptyCategory()] }));
-
-  const removeCategory = (ci: number) =>
-    setForm(p => ({ ...p, categories: p.categories.filter((_, i) => i !== ci) }));
-
-  const setCategoryName = (ci: number, name: string) =>
-    setForm(p => ({
-      ...p,
-      categories: p.categories.map((c, i) => i === ci ? { ...c, name } : c),
-    }));
-
-  const addItem = (ci: number) =>
-    setForm(p => ({
-      ...p,
-      categories: p.categories.map((c, i) =>
-        i === ci ? { ...c, items: [...c.items, emptyItem()] } : c
-      ),
-    }));
-
-  const removeItem = (ci: number, ii: number) =>
-    setForm(p => ({
-      ...p,
-      categories: p.categories.map((c, i) =>
-        i === ci ? { ...c, items: c.items.filter((_, k) => k !== ii) } : c
-      ),
-    }));
-
-  const setItemField = (ci: number, ii: number, field: keyof MenuItemDef, val: string | number) =>
-    setForm(p => ({
-      ...p,
-      categories: p.categories.map((c, i) =>
-        i === ci
-          ? {
-              ...c,
-              items: c.items.map((it, k) =>
-                k === ii ? { ...it, [field]: val } : it
-              ),
-            }
-          : c
-      ),
-    }));
-
-
 
   // ── submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,7 +109,6 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
         menu_type: form.menu_type,
         is_active: form.is_active,
         display_order: form.display_order,
-        categories: form.categories,
         store_id: storeId,
       };
       if (editingMenu) {
@@ -201,7 +128,14 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
     }
   };
 
+  const goToProducts = () => {
+    onClose();
+    navigate('/products');
+  };
+
   const selectedType = MENU_TYPE_OPTIONS.find(o => o.value === form.menu_type) ?? MENU_TYPE_OPTIONS[0];
+  const categories = editingMenu?.categories ?? [];
+  const totalItems = categories.reduce((s, c) => s + c.items.length, 0);
 
   return (
     <Modal
@@ -322,121 +256,58 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
           </div>
         </div>
 
-        {/* ── CATEGORY / ITEM EDITOR ───────────────────────────────────── */}
+        {/* ── ITEMS PREVIEW (read-only — managed from Products) ───────── */}
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <TagIcon className="w-4 h-4 text-secondary-500" />
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-              Categories &amp; Items
-            </span>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <TagIcon className="w-4 h-4 text-secondary-500" />
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                Categories &amp; Items
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              rightIcon={<ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />}
+              onClick={goToProducts}
+            >
+              Manage in Products
+            </Button>
           </div>
 
-          {errors.categories && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600">
-              {errors.categories}
+          <p className="mb-3 px-3 py-2 rounded-lg bg-secondary-50 border border-secondary-100 text-xs text-secondary-700">
+            Menu items are assigned from the Products page — open a product and pick this menu &amp; a category
+            to add it here. This section just shows a live preview.
+          </p>
+
+          {!editingMenu ? (
+            <div className="px-4 py-6 text-center text-xs text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+              Save this menu first, then assign products to it from the Products page.
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="px-4 py-6 text-center text-xs text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+              No products are assigned to this menu yet.
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[min(400px,45vh)] overflow-y-auto pr-1 scroll-smooth">
+              {categories.map((cat, ci) => (
+                <div key={ci} className="border-2 border-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                    <p className="text-sm font-semibold text-gray-800">{cat.name}</p>
+                  </div>
+                  <div className="p-3 space-y-1.5">
+                    {cat.items.map((item, ii) => (
+                      <div key={ii} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-gray-700 truncate">{item.name}</span>
+                        <span className="font-semibold text-gray-800 flex-shrink-0">{item.price.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-
-          <div className="space-y-4 max-h-[min(400px,45vh)] overflow-y-auto pr-1 scroll-smooth">
-            {form.categories.map((cat, ci) => (
-              <div
-                key={ci}
-                className="border-2 border-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden"
-              >
-                {/* Category header */}
-                <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      value={cat.name}
-                      onChange={e => setCategoryName(ci, e.target.value)}
-                      placeholder={`Category ${ci + 1} name (e.g. Starters, Mains…)`}
-                      className="w-full text-sm font-semibold bg-transparent border-none outline-none text-gray-800 placeholder:text-gray-400 placeholder:font-normal"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeCategory(ci)}
-                    disabled={form.categories.length <= 1}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Remove category"
-                  >
-                    <TrashIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Items */}
-                <div className="p-3 space-y-2">
-                  {cat.items.map((item, ii) => (
-                    <div key={ii} className="flex gap-2 items-end group">
-
-                      <div className="flex-1 min-w-0">
-                        {ii === 0 && <FieldLabel>Item Name</FieldLabel>}
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={e => setItemField(ci, ii, 'name', e.target.value)}
-                          placeholder="Item name"
-                          className={inputCls()}
-                        />
-                      </div>
-                      <div className="w-24 flex-shrink-0">
-                        {ii === 0 && <FieldLabel>Price</FieldLabel>}
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={item.price}
-                          onChange={e => setItemField(ci, ii, 'price', parseFloat(e.target.value) || 0)}
-                          className={inputCls()}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {ii === 0 && <FieldLabel>Note (optional)</FieldLabel>}
-                        <input
-                          type="text"
-                          value={item.description ?? ''}
-                          onChange={e => setItemField(ci, ii, 'description', e.target.value)}
-                          placeholder="e.g. Contains nuts, Vegan…"
-                          className={inputCls()}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(ci, ii)}
-                        disabled={cat.items.length <= 1}
-                        className="mb-0.5 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Remove item"
-                      >
-                        <TrashIcon className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
-                    onClick={() => addItem(ci)}
-                    className="mt-1"
-                  >
-                    Add item
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            leftIcon={<PlusIcon className="w-3.5 h-3.5" />}
-            onClick={addCategory}
-            className="mt-3 border-dashed"
-          >
-            Add category
-          </Button>
         </div>
 
         {/* Summary badge */}
@@ -444,8 +315,8 @@ function MenuModalComponent({ isOpen, storeId, editingMenu, onClose, onSaved }: 
           <span className="text-base">{selectedType.emoji}</span>
           <span className="font-medium">{selectedType.label} menu</span>
           <span className="ml-auto text-gray-500">
-            {form.categories.length} {form.categories.length === 1 ? 'category' : 'categories'} ·{' '}
-            {form.categories.reduce((s, c) => s + c.items.length, 0)} items
+            {categories.length} {categories.length === 1 ? 'category' : 'categories'} ·{' '}
+            {totalItems} items
           </span>
         </div>
       </form>
