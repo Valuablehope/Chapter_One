@@ -34,6 +34,7 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { storeService, StoreSettings } from '../services/storeService';
+import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n/I18nContext';
 
 interface PurchaseOrderItem {
@@ -70,6 +71,8 @@ export default function Purchases() {
   const [invoiceNo, setInvoiceNo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const { user } = useAuthStore();
+  const canSeeListPrice = user?.role === 'admin' || storeSettings?.show_list_price_to_users !== false;
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -604,7 +607,9 @@ export default function Purchases() {
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.supplier')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.status')}</th>
                     <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.items')}</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.total_cost')}</th>
+                    {canSeeListPrice && (
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.total_cost')}</th>
+                    )}
                     {storeSettings?.ui_resolution !== '1024x768' && (
                       <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">{t('purchases.table.ordered_at')}</th>
                     )}
@@ -649,11 +654,13 @@ export default function Purchases() {
                            <span className="text-xs text-gray-600 sm:hidden lg:inline">{t('purchases.table.items_count', { count: po.items_count ?? po.items.length })}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <div className="text-xs font-bold text-secondary-500">
-                          {formatCurrency(Number(po.total_cost))}
-                        </div>
-                      </td>
+                      {canSeeListPrice && (
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-xs font-bold text-secondary-500">
+                            {formatCurrency(Number(po.total_cost))}
+                          </div>
+                        </td>
+                      )}
                       {storeSettings?.ui_resolution !== '1024x768' && (
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-xs text-gray-600">
@@ -753,7 +760,7 @@ export default function Purchases() {
         size="xl"
         footer={
           <div className="flex justify-end gap-3 print:hidden">
-            {editingPO && !showPrintPreview && (
+            {editingPO && !showPrintPreview && canSeeListPrice && (
               <Button
                 onClick={() => setShowPrintPreview(true)}
                 className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
@@ -762,7 +769,7 @@ export default function Purchases() {
                 {t('purchases.actions.print_preview')}
               </Button>
             )}
-            {editingPO && showPrintPreview && (
+            {editingPO && showPrintPreview && canSeeListPrice && (
               <Button
                 onClick={handlePrint}
                 className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
@@ -955,9 +962,11 @@ export default function Purchases() {
                           )}
                         </div>
                         <div className="text-right ml-3">
-                          <p className="font-bold text-sm text-secondary-500">
-                            {formatCurrency(Number(product.list_price || 0))}
-                          </p>
+                          {canSeeListPrice && (
+                            <p className="font-bold text-sm text-secondary-500">
+                              {formatCurrency(Number(product.list_price || 0))}
+                            </p>
+                          )}
                           <ArrowRightIcon className="w-3 h-3 text-gray-400 group-hover:text-secondary-500 mt-1 ml-auto transition-colors" />
                         </div>
                       </div>
@@ -981,8 +990,12 @@ export default function Purchases() {
                         <tr>
                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.product')}</th>
                            <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.quantity')}</th>
-                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.unit_cost')}</th>
-                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.total')}</th>
+                           {canSeeListPrice && (
+                             <>
+                               <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.unit_cost')}</th>
+                               <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">{t('purchases.form.total')}</th>
+                             </>
+                           )}
                            <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">{t('purchases.table.actions')}</th>
                          </tr>
                       </thead>
@@ -1035,21 +1048,25 @@ export default function Purchases() {
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={item.unit_cost}
-                                onChange={(e) => updateItem(item.product.product_id, 'unit_cost', parseFloat(e.target.value) || 0)}
-                                className="w-24 px-2 py-1.5 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 font-medium"
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="text-xs font-bold text-secondary-500">
-                                {formatCurrency(item.qty_ordered * item.unit_cost)}
-                              </div>
-                            </td>
+                            {canSeeListPrice && (
+                              <>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={item.unit_cost}
+                                    onChange={(e) => updateItem(item.product.product_id, 'unit_cost', parseFloat(e.target.value) || 0)}
+                                    className="w-24 px-2 py-1.5 text-xs border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 font-medium"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="text-xs font-bold text-secondary-500">
+                                    {formatCurrency(item.qty_ordered * item.unit_cost)}
+                                  </div>
+                                </td>
+                              </>
+                            )}
                             <td className="px-3 py-2 text-right">
                               <Button
                                 type="button"
@@ -1064,19 +1081,21 @@ export default function Purchases() {
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="bg-secondary-50">
-                        <tr>
-                          <td colSpan={3} className="px-3 py-2.5 text-right font-bold text-xs text-gray-700">
-                            {t('purchases.form.total_label')}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <div className="text-base font-extrabold text-secondary-500">
-                              {formatCurrency(totalCost)}
-                            </div>
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
+                      {canSeeListPrice && (
+                        <tfoot className="bg-secondary-50">
+                          <tr>
+                            <td colSpan={3} className="px-3 py-2.5 text-right font-bold text-xs text-gray-700">
+                              {t('purchases.form.total_label')}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="text-base font-extrabold text-secondary-500">
+                                {formatCurrency(totalCost)}
+                              </div>
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
                   </div>
                 </div>

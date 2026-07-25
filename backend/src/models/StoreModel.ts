@@ -62,6 +62,7 @@ export interface Store {
   pm_voucher?: boolean;
   pm_other?: boolean;
   show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
 }
 
 export interface StoreFilters {
@@ -154,6 +155,7 @@ export class StoreModel extends BaseModel {
       pm_voucher: 'ss.pm_voucher',
       pm_other: 'ss.pm_other',
       show_analytics_tab: 'ss.show_analytics_tab',
+      show_list_price_to_users: 'ss.show_list_price_to_users',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

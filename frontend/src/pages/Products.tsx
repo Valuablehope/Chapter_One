@@ -4,6 +4,7 @@ import { productService, Product, ProductFilters } from '../services/productServ
 import { productTypeService, ProductType } from '../services/productTypeService';
 import { storeService, StoreSettings } from '../services/storeService';
 import { adminService, menuService, Store, Menu } from '../services/adminService';
+import { useAuthStore } from '../store/authStore';
 import { API_BASE_URL } from '../services/api';
 import { logger } from '../utils/logger';
 import { INPUT_LIMITS } from '../config/constants';
@@ -102,6 +103,8 @@ export default function Products() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const { user } = useAuthStore();
+  const canSeeListPrice = user?.role === 'admin' || storeSettings?.show_list_price_to_users !== false;
   // "Show LBP as primary price in POS Sales" (Admin > Regional) unlocks an LBP price
   // input in this form that back-calculates Sale Price / Margin via the exchange rate.
   const lbpRate = useMemo(() => {
@@ -811,8 +814,8 @@ export default function Products() {
   }, [t]);
 
   const visibleColumnConfigs = useMemo(
-    () => columnsConfig.filter(column => column.visible),
-    [columnsConfig]
+    () => columnsConfig.filter(column => column.visible && (column.id !== 'list_price' || canSeeListPrice)),
+    [columnsConfig, canSeeListPrice]
   );
 
   const visibleColumns = useMemo(
@@ -1001,7 +1004,7 @@ export default function Products() {
                     <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('products.columns.show_hide')}</span>
                     </div>
-                    {columnsConfig.map(col => (
+                    {columnsConfig.filter(col => col.id !== 'list_price' || canSeeListPrice).map(col => (
                       <label key={col.id} className="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1372,21 +1375,23 @@ export default function Products() {
               <p className="text-[10px] text-gray-500 mt-1">{t('products.form.unit_helper')}</p>
             </div>
 
-            <div>
-              <Input
-                label={t('products.form.list_price')}
-                type="number"
-                step="0.01"
-                min={INPUT_LIMITS.PRICE_MIN}
-                max={INPUT_LIMITS.PRICE_MAX}
-                value={formData.list_price}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('list_price', e.target.value)}
-                error={formErrors.list_price}
-                leftIcon={<span className="text-gray-500 font-semibold">$</span>}
-              />
-            </div>
+            {canSeeListPrice && (
+              <div>
+                <Input
+                  label={t('products.form.list_price')}
+                  type="number"
+                  step="0.01"
+                  min={INPUT_LIMITS.PRICE_MIN}
+                  max={INPUT_LIMITS.PRICE_MAX}
+                  value={formData.list_price}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('list_price', e.target.value)}
+                  error={formErrors.list_price}
+                  leftIcon={<span className="text-gray-500 font-semibold">$</span>}
+                />
+              </div>
+            )}
 
-            {storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price && (
+            {canSeeListPrice && storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price && (
               <div>
                 <Input
                   label={t('products.form.lbp_list_price')}
@@ -1402,17 +1407,19 @@ export default function Products() {
               </div>
             )}
 
-            <div>
-              <Input
-                label={t('products.form.margin')}
-                type="number"
-                step="0.01"
-                value={formData.margin_pct}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('margin_pct', e.target.value)}
-                rightIcon={<span className="text-gray-500 font-semibold">%</span>}
-                helperText={t('products.form.margin_helper')}
-              />
-            </div>
+            {canSeeListPrice && (
+              <div>
+                <Input
+                  label={t('products.form.margin')}
+                  type="number"
+                  step="0.01"
+                  value={formData.margin_pct}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('margin_pct', e.target.value)}
+                  rightIcon={<span className="text-gray-500 font-semibold">%</span>}
+                  helperText={t('products.form.margin_helper')}
+                />
+              </div>
+            )}
 
             <div>
               <Input

@@ -68,6 +68,7 @@ export interface StoreSettings {
   pm_voucher?: boolean;
   pm_other?: boolean;
   show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

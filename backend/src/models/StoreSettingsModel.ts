@@ -59,6 +59,7 @@ export interface StoreSettings {
   pm_voucher?: boolean;
   pm_other?: boolean;
   show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
 }
 
 export interface StoreSettingsInput {
@@ -114,6 +115,7 @@ export interface StoreSettingsInput {
   pm_voucher?: boolean;
   pm_other?: boolean;
   show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -524,6 +526,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('show_analytics_tab');
       values.push(settings.show_analytics_tab);
     }
+    if (settings.show_list_price_to_users !== undefined && availableColumns.has('show_list_price_to_users')) {
+      paramCount++;
+      fields.push('show_list_price_to_users');
+      values.push(settings.show_list_price_to_users);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -799,6 +806,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`show_analytics_tab = $${paramCount}`);
       values.push(settings.show_analytics_tab);
+    }
+    if (settings.show_list_price_to_users !== undefined && availableColumns.has('show_list_price_to_users')) {
+      paramCount++;
+      fields.push(`show_list_price_to_users = $${paramCount}`);
+      values.push(settings.show_list_price_to_users);
     }
 
     if (fields.length === 0) {

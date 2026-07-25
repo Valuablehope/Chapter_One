@@ -65,6 +65,7 @@ export interface StoreFormData {
   pm_voucher: boolean;
   pm_other: boolean;
   show_analytics_tab: boolean;
+  show_list_price_to_users: boolean;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -115,6 +116,7 @@ const initialFormData: StoreFormData = {
   pm_voucher: true,
   pm_other: true,
   show_analytics_tab: true,
+  show_list_price_to_users: true,
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -165,6 +167,7 @@ function storeToFormData(s: Store): StoreFormData {
     pm_voucher: s.pm_voucher ?? true,
     pm_other: s.pm_other ?? true,
     show_analytics_tab: s.show_analytics_tab ?? true,
+    show_list_price_to_users: s.show_list_price_to_users ?? true,
   };
 }
 
@@ -365,6 +368,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       pm_voucher: formData.pm_voucher,
       pm_other: formData.pm_other,
       show_analytics_tab: formData.show_analytics_tab,
+      show_list_price_to_users: formData.show_list_price_to_users,
     };
 
     setSubmitting(true);
@@ -1076,6 +1080,12 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                 onChange={(v) => set('show_analytics_tab', v)}
                 label="Show Analytics Tab"
                 description="When enabled, the Analytics tab and pie chart icon will be visible in the sidebar."
+              />
+              <Toggle
+                checked={formData.show_list_price_to_users}
+                onChange={(v) => set('show_list_price_to_users', v)}
+                label="Show List Prices to Users"
+                description="When disabled, non-admin users won't see List Price on the Products grid, the Product edit form, or Purchase Order screens. Admins can always see it."
               />
             </div>
 
