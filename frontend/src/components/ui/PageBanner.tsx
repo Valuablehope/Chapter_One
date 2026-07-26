@@ -19,7 +19,7 @@ interface PageBannerProps {
 export default function PageBanner({ title, subtitle, icon, action }: PageBannerProps) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl text-white px-5 sm:px-6 py-5 sm:py-6 mb-5"
+      className="brand-surface relative overflow-hidden rounded-2xl text-white px-5 sm:px-6 py-5 sm:py-6 mb-5"
       style={{ background: gradients.brand }}
     >
       {/* Decorative circles — same as Dashboard */}
@@ -37,7 +37,7 @@ export default function PageBanner({ title, subtitle, icon, action }: PageBanner
         <div className="flex items-center gap-3.5">
           <div
             className="flex-shrink-0 p-2.5 rounded-xl border border-white/15"
-            style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)' }}
+            style={{ background: 'var(--on-brand-overlay)', backdropFilter: 'blur(6px)' }}
           >
             {icon}
           </div>

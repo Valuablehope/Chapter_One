@@ -299,7 +299,7 @@ export default function Layout({ children }: LayoutProps) {
         onMouseEnter={() => { setIsSidebarHovered(true); if (!isPinned) setIsSidebarCollapsed(false); }}
         onMouseLeave={() => { setIsSidebarHovered(false); if (!isPinned) setIsSidebarCollapsed(true); }}
         className={`
-          hidden md:flex flex-col
+          sidebar-shell hidden md:flex flex-col
           bg-sidebar-bg border-r border-sidebar-border
           transition-all duration-300 ease-in-out
           ${sidebarExpanded ? 'w-60' : 'w-[68px]'}
@@ -432,7 +432,7 @@ export default function Layout({ children }: LayoutProps) {
         {/* Mobile menu button */}
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden fixed top-3 left-3 z-40 p-2 rounded-lg bg-sidebar-bg text-white shadow-lg"
+          className="sidebar-shell md:hidden fixed top-3 left-3 z-40 p-2 rounded-lg bg-sidebar-bg text-white shadow-lg"
           aria-label="Toggle menu"
         >
           {isMobileMenuOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
@@ -485,7 +485,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
           <div
             ref={sidebarRef}
-            className="fixed top-0 left-0 bottom-0 w-64 flex flex-col overflow-y-auto"
+            className="sidebar-shell fixed top-0 left-0 bottom-0 w-64 flex flex-col overflow-y-auto"
             style={{ background: 'var(--sidebar-bg, #0f1c2e)', boxShadow: shadows.sidebarMobile, animation: 'slideInLeft 0.25s ease-out' }}
             onClick={e => e.stopPropagation()}
           >

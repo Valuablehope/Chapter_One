@@ -52,6 +52,8 @@ interface OrderItem {
   categoryName: string;
   itemName: string;
   price: number;
+  /** Exact per-unit LBP price from the product; null/undefined ⇒ rate-derived. */
+  lbpPrice?: number | null;
   qty: number;
   productId?: string;
 }
@@ -99,6 +101,8 @@ interface CompletedOrder {
   serviceFeeRate: number;
   serviceFeeEnabled: boolean;
   change: number;
+  /** LBP grand total honouring each line's exact LBP price; null when LBP is off. */
+  grandTotalLbp: number | null;
   completedAt: string;
   receiptNo: string;
   notes?: string;
@@ -168,7 +172,7 @@ export default function RestaurantPOS() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [billPrintOrder, setBillPrintOrder] = useState<{
     order: RestaurantOrder;
-    totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; deliveryCharge: number; total: number };
+    totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; deliveryCharge: number; total: number; totalLbp: number | null };
   } | null>(null);
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -247,6 +251,44 @@ export default function RestaurantPOS() {
     } catch { /* ignore */ }
   }, []);
 
+  // Back-fill the exact LBP price on orders that were opened before menu items
+  // carried one, so a table left open across the upgrade still prices correctly.
+  useEffect(() => {
+    if (menus.length === 0) return;
+    const lbpByProduct = new Map<string, number>();
+    const lbpByName = new Map<string, number>();
+    for (const menu of menus) {
+      for (const cat of menu.categories) {
+        for (const item of cat.items) {
+          if (item.lbp_price == null) continue;
+          const lbp = Number(item.lbp_price);
+          if (item.product_id) lbpByProduct.set(item.product_id, lbp);
+          lbpByName.set(`${menu.name}|${cat.name}|${item.name}`, lbp);
+        }
+      }
+    }
+    if (lbpByProduct.size === 0 && lbpByName.size === 0) return;
+
+    setOrders(prev => {
+      let changed = false;
+      const next: Record<string, RestaurantOrder> = {};
+      for (const [key, order] of Object.entries(prev)) {
+        let orderChanged = false;
+        const items = order.items.map(i => {
+          if (i.lbpPrice != null) return i;
+          const lbp = (i.productId ? lbpByProduct.get(i.productId) : undefined)
+            ?? lbpByName.get(`${i.menuName}|${i.categoryName}|${i.itemName}`);
+          if (lbp == null) return i;
+          orderChanged = true;
+          return { ...i, lbpPrice: lbp };
+        });
+        if (orderChanged) changed = true;
+        next[key] = orderChanged ? { ...order, items } : order;
+      }
+      return changed ? next : prev;
+    });
+  }, [menus]);
+
   // Persist to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
@@ -308,6 +350,37 @@ export default function RestaurantPOS() {
     return `${t('restaurant_pos.table')} ${order.tableNumber ?? '?'}`;
   };
 
+  // ── LBP amounts
+  // A product can carry the exact LBP price typed on the Products page, and that
+  // value is authoritative: converting its USD price back through the exchange
+  // rate drifts (300,000 LBP → $3.35 → 299,825 LBP), which is what used to show
+  // on the item cards and in the cart. Only rate-derived figures get rounded —
+  // an exact price is displayed verbatim.
+  const lbpEnabled = settings?.show_lbp_price !== false;
+  const isLbpPrimary = !!settings?.lbp_primary_price;
+  const lbpRate = lbpEnabled ? Math.max(0, Number(settings?.lbp_exchange_rate ?? 0) || 0) : 0;
+  const lbpAvailable = lbpEnabled && lbpRate > 0;
+
+  const roundLbp = (lbp: number): number =>
+    settings?.round_lbp_to_1000 ? Math.ceil(lbp / 1000) * 1000 : Math.round(lbp);
+
+  type LbpPriced = { price: number; lbpPrice?: number | null; qty: number };
+
+  /** Unrounded LBP for a line: exact price × qty when known, else rate-derived. */
+  const rawLineLbp = (item: LbpPriced): number =>
+    item.lbpPrice != null ? Number(item.lbpPrice) * item.qty : item.price * item.qty * lbpRate;
+
+  /** Displayable LBP for a single order line, or null when LBP is unavailable. */
+  const lineLbp = (item: LbpPriced): number | null =>
+    lbpAvailable ? (item.lbpPrice != null ? Number(item.lbpPrice) * item.qty : roundLbp(rawLineLbp(item))) : null;
+
+  /** Displayable LBP for one unit of a menu item (item cards). */
+  const menuItemLbp = (item: { price: number; lbp_price?: number | null }): number | null =>
+    lineLbp({ price: item.price, lbpPrice: item.lbp_price, qty: 1 });
+
+  const lbpText = (lbp: number | null | undefined): string | null =>
+    lbp == null ? null : `${formatLbpPlain(lbp)} LBP`;
+
   const computeTotals = (order: RestaurantOrder) => {
     const subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
     const taxInclusive = !!(settings?.tax_inclusive);
@@ -332,7 +405,28 @@ export default function RestaurantPOS() {
     const total = Math.round((subtotal + serviceFeeAmount + deliveryCharge) * 100) / 100;
     const deliveryInDrawer = settings?.include_delivery_in_drawer !== false;
     const drawerTotal = Math.round((subtotal + serviceFeeAmount + (deliveryInDrawer ? deliveryCharge : 0)) * 100) / 100;
-    return { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal, taxRate };
+
+    // LBP side of the same invoice, summed from each line's exact LBP price where
+    // the product has one so the cart, checkout and receipt all agree with the
+    // Products page. With no exact prices this reduces to total × rate.
+    let subtotalLbp: number | null = null;
+    let serviceFeeLbp: number | null = null;
+    let deliveryLbp: number | null = null;
+    let totalLbp: number | null = null;
+    if (lbpAvailable) {
+      subtotalLbp = order.items.reduce((s, i) => s + rawLineLbp(i), 0);
+      serviceFeeLbp = order.serviceFeeEnabled ? subtotalLbp * (sfRate / 100) : 0;
+      deliveryLbp = deliveryCharge * lbpRate;
+      totalLbp = roundLbp(subtotalLbp + serviceFeeLbp + deliveryLbp);
+      subtotalLbp = roundLbp(subtotalLbp);
+      serviceFeeLbp = roundLbp(serviceFeeLbp);
+      deliveryLbp = roundLbp(deliveryLbp);
+    }
+
+    return {
+      subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal, taxRate,
+      subtotalLbp, serviceFeeLbp, deliveryLbp, totalLbp,
+    };
   };
 
   const formatCurrency = (amount: number) => {
@@ -344,19 +438,23 @@ export default function RestaurantPOS() {
     }
   };
 
+  /** Rate-derived LBP for a plain USD amount (fees, change) — no exact price exists. */
   const formatLBP = useCallback((amount: number): string | null => {
     if (settings?.show_lbp_price === false) return null;
     const lbp = formatLbpGrand(amount, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000);
     return lbp === null ? null : `${formatLbpPlain(lbp)} LBP`;
   }, [settings?.show_lbp_price, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000]);
 
-  const isLbpPrimary = !!settings?.lbp_primary_price;
-  const lbpRate = settings?.show_lbp_price !== false ? Math.max(0, Number(settings?.lbp_exchange_rate ?? 0) || 0) : 0;
-
   // USD/LBP price-tag pair: same size for both lines, amber-600 = LBP, secondary-400 = muted USD
   // (mirrors Sales.tsx cart-item price display). When lbp_primary_price is on, LBP renders first.
-  const renderDualAmount = (amount: number, baseClass: string, contextColor = 'text-secondary-600') => {
-    const lbp = formatLBP(amount);
+  // Pass lbpAmount to show a resolved LBP figure (exact product price) instead of converting.
+  const renderDualAmount = (
+    amount: number,
+    baseClass: string,
+    contextColor = 'text-secondary-600',
+    lbpAmount?: number | null
+  ) => {
+    const lbp = lbpText(lbpAmount) ?? formatLBP(amount);
     if (isLbpPrimary && lbp) {
       return (
         <>
@@ -377,9 +475,10 @@ export default function RestaurantPOS() {
   const renderHeroAmount = (
     amount: number,
     primaryClass = 'text-2xl font-extrabold tabular-nums',
-    secondaryClass = 'text-xs font-semibold text-white/80 mt-0.5 tabular-nums'
+    secondaryClass = 'text-xs font-semibold text-white/80 mt-0.5 tabular-nums',
+    lbpAmount?: number | null
   ) => {
-    const lbp = formatLBP(amount);
+    const lbp = lbpText(lbpAmount) ?? formatLBP(amount);
     if (isLbpPrimary && lbp) {
       return (
         <>
@@ -400,11 +499,14 @@ export default function RestaurantPOS() {
   const lbpGiven = parseFloat(cashGivenLBP || '0') || 0;
   const lbpGivenInUsd = lbpRate > 0 && lbpGiven > 0 ? lbpGiven / lbpRate : 0;
   const totalTenderedUSD = usdGiven + lbpGivenInUsd;
+  // Tender measured in LBP, so change against an exact-LBP total nets to zero
+  // when the customer hands over precisely the LBP figure on the bill.
+  const totalTenderedLBP = lbpAvailable ? lbpGiven + usdGiven * lbpRate : null;
 
   // ── Items to display in the menu grid
   const itemsToDisplay = useMemo(() => {
     type DisplayItem = {
-      item: { name: string; price: number; product_id?: string };
+      item: { name: string; price: number; product_id?: string; lbp_price?: number | null };
       menuName: string;
       categoryName: string;
       menuIdx: number;
@@ -615,7 +717,11 @@ export default function RestaurantPOS() {
     });
   };
 
-  const addMenuItem = (item: { name: string; price: number; product_id?: string }, menuName: string, categoryName: string) => {
+  const addMenuItem = (
+    item: { name: string; price: number; product_id?: string; lbp_price?: number | null },
+    menuName: string,
+    categoryName: string
+  ) => {
     if (!selectedKey) return;
     setOrders(prev => {
       const order = prev[selectedKey];
@@ -624,7 +730,11 @@ export default function RestaurantPOS() {
         i => i.itemName === item.name && i.menuName === menuName && i.categoryName === categoryName
       );
       const newItems = existingIdx >= 0
-        ? order.items.map((i, idx) => idx === existingIdx ? { ...i, qty: i.qty + 1 } : i)
+        // Re-stamp the LBP price so open orders restored from localStorage before
+        // this existed pick it up on the next tap.
+        ? order.items.map((i, idx) => idx === existingIdx
+            ? { ...i, qty: i.qty + 1, lbpPrice: item.lbp_price ?? i.lbpPrice ?? null }
+            : i)
         : [
             ...order.items,
             {
@@ -633,6 +743,7 @@ export default function RestaurantPOS() {
               categoryName,
               itemName: item.name,
               price: item.price,
+              lbpPrice: item.lbp_price ?? null,
               qty: 1,
               productId: item.product_id,
             },
@@ -687,8 +798,8 @@ export default function RestaurantPOS() {
     if (!order) return;
     const updated = { ...order, status: 'bill_requested' as const };
     setOrders(prev => ({ ...prev, [selectedKey]: updated }));
-    const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total } = computeTotals(updated);
-    setBillPrintOrder({ order: updated, totals: { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total } });
+    const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, totalLbp } = computeTotals(updated);
+    setBillPrintOrder({ order: updated, totals: { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, totalLbp } });
     // window.print() blocks until the dialog resolves; clear the print overlay afterwards
     // so a later receipt print doesn't also include the bill.
     setTimeout(() => { window.print(); setBillPrintOrder(null); }, 100);
@@ -722,7 +833,7 @@ export default function RestaurantPOS() {
     setCheckoutError(null);
     setIsSubmittingCheckout(true);
 
-    const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal } = computeTotals(order);
+    const { subtotal, taxAmount, serviceFeeAmount, deliveryCharge, total, drawerTotal, totalLbp } = computeTotals(order);
     const given = paymentMethod === 'cash' ? (totalTenderedUSD || total) : total;
 
     try {
@@ -789,6 +900,7 @@ export default function RestaurantPOS() {
         serviceFeeRate: order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE,
         serviceFeeEnabled: order.serviceFeeEnabled,
         change: paymentMethod === 'cash' ? Math.max(0, given - total) : 0,
+        grandTotalLbp: totalLbp,
         completedAt: sale.created_at || checkoutAt,
         receiptNo: sale.receipt_no,
         notes: orderNotes || undefined,
@@ -848,7 +960,7 @@ export default function RestaurantPOS() {
           // Order-view header
           <div
             style={{ background: gradients.brandBlue }}
-            className="text-white px-5 py-3 flex items-center justify-between flex-shrink-0"
+            className="brand-surface text-white px-5 py-3 flex items-center justify-between flex-shrink-0"
           >
             <div className="flex items-center gap-4 min-w-0">
               <button
@@ -915,7 +1027,7 @@ export default function RestaurantPOS() {
             </div>
             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
               <div className="text-right">
-                {renderHeroAmount(selectedTotals!.total, 'text-2xl font-extrabold tabular-nums', 'text-xs font-semibold text-blue-200 mt-0.5 tabular-nums')}
+                {renderHeroAmount(selectedTotals!.total, 'text-2xl font-extrabold tabular-nums', 'text-xs font-semibold text-blue-200 mt-0.5 tabular-nums', selectedTotals!.totalLbp)}
                 <div className="text-blue-200 text-xs">
                   {selectedOrder!.items.reduce((s, i) => s + i.qty, 0)} {t(selectedOrder!.items.reduce((s, i) => s + i.qty, 0) !== 1 ? 'restaurant_pos.items_v' : 'restaurant_pos.item_v')}
                 </div>
@@ -933,7 +1045,7 @@ export default function RestaurantPOS() {
           // Table-grid header
           <div
             style={{ background: gradients.brand }}
-            className="text-white px-5 py-3.5 flex items-center justify-between flex-shrink-0"
+            className="brand-surface text-white px-5 py-3.5 flex items-center justify-between flex-shrink-0"
           >
             <div>
               <h1 className="text-lg font-bold leading-tight" style={{ fontFamily: fonts.display }}>
@@ -1133,7 +1245,7 @@ export default function RestaurantPOS() {
                           </div>
                           <div className="flex items-end justify-between gap-2">
                             <div className="flex flex-col leading-tight min-w-0">
-                              {renderDualAmount(item.price, 'font-extrabold text-sm', 'text-secondary-600')}
+                              {renderDualAmount(item.price, 'font-extrabold text-sm', 'text-secondary-600', menuItemLbp(item))}
                             </div>
                             <div className={[
                               'w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0',
@@ -1194,8 +1306,8 @@ export default function RestaurantPOS() {
                             <PlusIcon className="w-3 h-3 text-gray-500" />
                           </button>
                         </div>
-                        <div className="text-xs font-bold text-gray-700 w-14 text-right flex-shrink-0 tabular-nums">
-                          {formatCurrency(item.price * item.qty)}
+                        <div className="w-[88px] text-right flex-shrink-0 flex flex-col leading-tight">
+                          {renderDualAmount(item.price * item.qty, 'text-xs font-bold tabular-nums', 'text-gray-700', lineLbp(item))}
                         </div>
                         <button
                           onClick={() => removeItem(item.id)}
@@ -1293,7 +1405,12 @@ export default function RestaurantPOS() {
                   <div className="px-4 pt-3 pb-2 space-y-1.5 text-sm bg-gray-50">
                     <div className="flex justify-between text-gray-500">
                       <span>{t('restaurant_pos.subtotal')}</span>
-                      <span className="font-medium tabular-nums">{formatCurrency(selectedTotals!.subtotal)}</span>
+                      <span className="font-medium tabular-nums text-right">
+                        {formatCurrency(selectedTotals!.subtotal)}
+                        {lbpText(selectedTotals!.subtotalLbp) && (
+                          <span className="block text-xs text-amber-600">{lbpText(selectedTotals!.subtotalLbp)}</span>
+                        )}
+                      </span>
                     </div>
                     {selectedOrder!.serviceFeeEnabled && selectedTotals!.serviceFeeAmount > 0 && (
                       <div className="flex justify-between text-gray-500">
@@ -1316,7 +1433,7 @@ export default function RestaurantPOS() {
                     <div className="flex justify-between items-start font-extrabold text-gray-900 text-base pt-1.5 border-t border-gray-200">
                       <span>{t('restaurant_pos.total')}</span>
                       <div className="text-right">
-                        {renderDualAmount(selectedTotals!.total, 'font-extrabold text-base tabular-nums', 'text-gray-900')}
+                        {renderDualAmount(selectedTotals!.total, 'font-extrabold text-base tabular-nums', 'text-gray-900', selectedTotals!.totalLbp)}
                       </div>
                     </div>
                   </div>
@@ -1423,7 +1540,8 @@ export default function RestaurantPOS() {
                         <span>{formatDuration(order.startTime)}</span>
                       </div>
                       {renderDualAmount(totals.total, 'text-sm font-extrabold mt-1 tabular-nums',
-                        isBill ? 'text-amber-600' : isDelivery ? 'text-orange-600' : 'text-violet-600'
+                        isBill ? 'text-amber-600' : isDelivery ? 'text-orange-600' : 'text-violet-600',
+                        totals.totalLbp
                       )}
                       {isBill && (
                         <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">{t('restaurant_pos.bill_requested')}</div>
@@ -1483,7 +1601,8 @@ export default function RestaurantPOS() {
                           <span>{formatDuration(order.startTime)}</span>
                         </div>
                         {totals && renderDualAmount(totals.total, 'text-sm font-extrabold mt-1 tabular-nums',
-                          status === 'bill_requested' ? 'text-amber-600' : 'text-secondary-600'
+                          status === 'bill_requested' ? 'text-amber-600' : 'text-secondary-600',
+                          totals.totalLbp
                         )}
                         {status === 'bill_requested' && (
                           <div className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">{t('restaurant_pos.bill_requested')}</div>
@@ -1705,7 +1824,12 @@ export default function RestaurantPOS() {
                   {selectedOrder.items.map(item => (
                     <div key={item.id} className="flex justify-between">
                       <span className="text-gray-600 truncate pr-2">{item.qty}× {item.itemName}</span>
-                      <span className="font-medium text-gray-800 tabular-nums flex-shrink-0">{formatCurrency(item.price * item.qty)}</span>
+                      <span className="font-medium text-gray-800 tabular-nums flex-shrink-0 text-right">
+                        {formatCurrency(item.price * item.qty)}
+                        {lbpText(lineLbp(item)) && (
+                          <span className="block text-[11px] font-semibold text-amber-600">{lbpText(lineLbp(item))}</span>
+                        )}
+                      </span>
                     </div>
                   ))}
                   {selectedTotals.serviceFeeAmount > 0 && (
@@ -1723,7 +1847,7 @@ export default function RestaurantPOS() {
                   <div className="border-t border-gray-200 pt-2 flex justify-between items-start font-bold text-base">
                     <span>{t('restaurant_pos.total')}</span>
                     <div className="text-right">
-                      {renderDualAmount(selectedTotals.total, 'font-bold text-base tabular-nums', 'text-gray-900')}
+                      {renderDualAmount(selectedTotals.total, 'font-bold text-base tabular-nums', 'text-gray-900', selectedTotals.totalLbp)}
                     </div>
                   </div>
                 </div>
@@ -1813,14 +1937,23 @@ export default function RestaurantPOS() {
                       <div className="mt-2 flex justify-between items-start text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                         <span className="text-emerald-700 font-medium">{t('restaurant_pos.change_due')}</span>
                         <div className="text-right">
-                          {renderDualAmount(totalTenderedUSD - selectedTotals.total, 'font-extrabold tabular-nums', 'text-emerald-700')}
+                          {renderDualAmount(totalTenderedUSD - selectedTotals.total, 'font-extrabold tabular-nums', 'text-emerald-700',
+                            // Netted in LBP, so handing over the exact LBP on the bill leaves no change
+                            totalTenderedLBP != null && selectedTotals.totalLbp != null
+                              ? Math.max(0, roundLbp(totalTenderedLBP - selectedTotals.totalLbp))
+                              : null
+                          )}
                         </div>
                       </div>
                     ) : (
                       <div className="mt-2 flex justify-between items-start text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                         <span className="text-red-700 font-medium">Remaining</span>
                         <div className="text-right">
-                          {renderDualAmount(selectedTotals.total - totalTenderedUSD, 'font-extrabold tabular-nums', 'text-red-700')}
+                          {renderDualAmount(selectedTotals.total - totalTenderedUSD, 'font-extrabold tabular-nums', 'text-red-700',
+                            totalTenderedLBP != null && selectedTotals.totalLbp != null
+                              ? Math.max(0, roundLbp(selectedTotals.totalLbp - totalTenderedLBP))
+                              : null
+                          )}
                         </div>
                       </div>
                     )}
@@ -1962,9 +2095,11 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
     }
   };
 
-  const lbp = settings?.show_lbp_price !== false
+  // Prefer the LBP total built from each line's exact LBP price; fall back to a
+  // rate conversion for orders captured before that was tracked.
+  const lbp = order.grandTotalLbp ?? (settings?.show_lbp_price !== false
     ? formatLbpGrand(order.grandTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
-    : null;
+    : null);
 
   const metaRows = [
     { label: t('receipt.receipt_no'), value: order.receiptNo },
@@ -2056,7 +2191,7 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
 // ─── BillReceipt (print before checkout) ────────────────────────────────────
 
 interface BillReceiptProps {
-  data: { order: RestaurantOrder; totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; deliveryCharge: number; total: number } };
+  data: { order: RestaurantOrder; totals: { subtotal: number; taxAmount: number; serviceFeeAmount: number; deliveryCharge: number; total: number; totalLbp?: number | null } };
   settings: StoreSettings | null;
   formatCurrency: (n: number) => string;
 }
@@ -2064,9 +2199,9 @@ interface BillReceiptProps {
 function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
   const { t } = useTranslation();
   const { order, totals } = data;
-  const lbp = settings?.show_lbp_price !== false
+  const lbp = totals.totalLbp ?? (settings?.show_lbp_price !== false
     ? formatLbpGrand(totals.total, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
-    : null;
+    : null);
 
   const metaRows = [
     {

@@ -25,6 +25,25 @@ export interface AppTheme {
   };
 }
 
+/**
+ * Chrome foregrounds for the four themes whose sidebar and banners are dark
+ * enough to carry white text. Every theme must spread or restate these keys:
+ * applyTheme() sets the vars it is given but never clears the ones it isn't,
+ * so a missing key would silently inherit the previously active theme's value.
+ * Values match index.css's :root defaults, i.e. the original look.
+ */
+const DARK_CHROME = {
+  '--chrome-fg':               '#ffffff',
+  '--chrome-fg-soft':          '#75abed',
+  '--chrome-danger-fg':        '#fca5a5',
+  '--chrome-active-fg':        '#ffffff',
+  '--chrome-overlay':          'rgba(255,255,255,0.10)',
+  '--on-brand-fg':             '#ffffff',
+  '--on-brand-fg-muted':       'rgba(255,255,255,0.62)',
+  '--on-brand-overlay':        'rgba(255,255,255,0.12)',
+  '--on-brand-overlay-border': 'rgba(255,255,255,0.15)',
+};
+
 export const THEMES: AppTheme[] = [
   // ── 1. Classic Blue (default) ──────────────────────────────────────────────
   {
@@ -33,6 +52,7 @@ export const THEMES: AppTheme[] = [
     description: 'The original blue brand palette',
     swatches: ['#0f1c2e', '#3582e2', '#e8f1fc'],
     vars: {
+      ...DARK_CHROME,
       '--color-brand':          '#3582e2',
       '--color-brand-dark':     '#0f1c2e',
       '--color-brand-light':    '#e8f1fc',
@@ -72,6 +92,7 @@ export const THEMES: AppTheme[] = [
     description: 'Pure black & white — no gradients',
     swatches: ['#111111', '#333333', '#f5f5f5'],
     vars: {
+      ...DARK_CHROME,
       '--color-brand':          '#1a1a1a',
       '--color-brand-dark':     '#000000',
       '--color-brand-light':    '#f0f0f0',
@@ -111,6 +132,7 @@ export const THEMES: AppTheme[] = [
     description: 'Fresh green tones for a vibrant feel',
     swatches: ['#064e3b', '#059669', '#d1fae5'],
     vars: {
+      ...DARK_CHROME,
       '--color-brand':          '#059669',
       '--color-brand-dark':     '#064e3b',
       '--color-brand-light':    '#d1fae5',
@@ -150,6 +172,7 @@ export const THEMES: AppTheme[] = [
     description: 'Cool slate grey with indigo highlights',
     swatches: ['#1e293b', '#6366f1', '#e0e7ff'],
     vars: {
+      ...DARK_CHROME,
       '--color-brand':          '#6366f1',
       '--color-brand-dark':     '#1e293b',
       '--color-brand-light':    '#e0e7ff',
@@ -183,41 +206,63 @@ export const THEMES: AppTheme[] = [
   },
 
   // ── 5. Blossom (Pink) ──────────────────────────────────────────────────────
+  // The only light-chrome theme: #F8B2B2 paints the sidebar and the top-bar
+  // gradients rather than the page background, which stays neutral so the pink
+  // reads as chrome instead of a wash. #F8B2B2 is hsl(0, 83%, 83.5%) — far too
+  // light for white text (1.75:1), so the chrome-* / on-brand-* vars flip the
+  // banner and sidebar foregrounds to deep rose; index.css redirects the
+  // markup's `text-white` utilities onto them. Buttons keep white-on-#c24a53.
   {
     id: 'pink',
     name: 'Pink',
-    description: 'Playful pink tones with a soft, warm feel',
-    swatches: ['#831843', '#ec4899', '#fce7f3'],
+    description: 'Blush #F8B2B2 navigation on a neutral canvas',
+    swatches: ['#4a1a20', '#c24a53', '#f8b2b2'],
     vars: {
-      '--color-brand':          '#ec4899',
-      '--color-brand-dark':     '#831843',
-      '--color-brand-light':    '#fce7f3',
-      '--color-secondary':      '#ec4899',
-      '--color-secondary-50':   '#fdf2f8',
-      '--color-secondary-100':  '#fce7f3',
-      '--color-secondary-200':  '#fbcfe8',
-      '--color-secondary-300':  '#f9a8d4',
-      '--color-secondary-400':  '#f472b6',
-      '--color-secondary-500':  '#ec4899',
-      '--color-secondary-600':  '#db2777',
-      '--color-secondary-700':  '#be185d',
-      '--color-secondary-800':  '#9d174d',
-      '--color-secondary-900':  '#831843',
-      '--color-accent':         '#ec4899',
-      '--color-accent-light':   '#fce7f3',
-      '--color-bg':             '#fdf2f8',
-      '--gradient-brand':       'linear-gradient(135deg, #500724 0%, #9d174d 60%, #ec4899 100%)',
-      '--gradient-brand-blue':  'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
-      '--shadow-sidebar':       '4px 0 20px rgba(131,24,67,0.30)',
-      '--shadow-sidebar-mobile':'4px 0 20px rgba(131,24,67,0.40)',
+      // Light chrome — deep-rose foregrounds instead of DARK_CHROME's whites.
+      '--chrome-fg':               '#6b262d', // brand name, user name  — deep rose
+      '--chrome-fg-soft':          '#a93e48', // profile link           — medium rose
+      '--chrome-danger-fg':        '#991829', // sign-out
+      '--chrome-active-fg':        '#ffffff', // on the deep active pill
+      '--chrome-overlay':          'rgba(194,74,83,0.12)',
+      '--on-brand-fg':             '#6b262d', // banner title
+      '--on-brand-fg-muted':       '#a93e48', // banner subtitle
+      '--on-brand-overlay':        'rgba(194,74,83,0.12)',
+      '--on-brand-overlay-border': 'rgba(194,74,83,0.20)',
+      '--color-brand':          '#e8717a',
+      '--color-brand-dark':     '#c24a53',
+      '--color-brand-light':    '#fce8e9',
+      '--color-secondary':      '#e8717a',
+      '--color-secondary-50':   '#fef5f5',
+      '--color-secondary-100':  '#fce8e9',
+      '--color-secondary-200':  '#f9d2d3',
+      '--color-secondary-300':  '#f8b2b2', // ← the requested colour
+      '--color-secondary-400':  '#f09098',
+      // 500 = primary action colour — bright coral-rose, not wine-dark.
+      '--color-secondary-500':  '#e8717a',
+      // 600 = hover on primary buttons — slightly deeper but still vivid rose.
+      '--color-secondary-600':  '#d45a63',
+      // 700 = group-hover text — warm rose, not dark red.
+      '--color-secondary-700':  '#c24a53',
+      // 800/900 kept deep for rare high-contrast needs (e.g. active pill text).
+      '--color-secondary-800':  '#a93e48',
+      '--color-secondary-900':  '#8a3139',
+      '--color-accent':         '#e8717a',
+      '--color-accent-light':   '#fce8e9',
+      // Neutral canvas — the pink lives on the chrome, not behind the content.
+      '--color-bg':             '#f6f7f9',
+      // Top bars: a shallow gradient across the blush range.
+      '--gradient-brand':       'linear-gradient(135deg, #f6a8a8 0%, #f8b2b2 55%, #fbc2c2 100%)',
+      '--gradient-brand-blue':  'linear-gradient(135deg, #f8b2b2 0%, #f4a0a0 100%)',
+      '--shadow-sidebar':       '4px 0 20px rgba(194,74,83,0.18)',
+      '--shadow-sidebar-mobile':'4px 0 20px rgba(194,74,83,0.28)',
     },
     sidebar: {
-      bg:     '#500724',
-      hover:  '#831843',
-      active: '#9d174d',
-      border: '#6e1638',
-      text:   '#f3b8d4',
-      muted:  '#b5688f',
+      bg:     '#f8b2b2', // ← the requested blush
+      hover:  '#fde8e8', // very light blush glow on hover — airy, not dark
+      active: '#c24a53', // vivid rose active pill
+      border: '#f0a0a0',
+      text:   '#a93e48', // medium rose — readable yet pink
+      muted:  '#c24a53', // rose sub-labels
     },
   },
 ];

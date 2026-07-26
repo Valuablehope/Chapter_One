@@ -5,6 +5,8 @@ export type MenuType = 'regular' | 'holiday' | 'seasonal' | 'event' | 'special';
 export interface MenuItemRow {
   name: string;
   price: number;
+  /** Exact LBP price entered on the product, for the same tier as `price`. */
+  lbp_price?: number | null;
   description?: string;
   product_id?: string;
 }
@@ -61,6 +63,8 @@ interface MenuProductRow {
   name: string;
   sale_price: number | null;
   list_price: number | null;
+  lbp_price: number | null;
+  lbp_list_price: number | null;
   menu_category: string | null;
   menu_display_order: number;
   menu_note: string | null;
@@ -77,7 +81,8 @@ export class MenuModel extends BaseModel {
     const menuIds = menus.map(m => m.menu_id);
 
     const result = await this.query<MenuProductRow>(
-      `SELECT menu_id, product_id, name, sale_price, list_price, menu_category, menu_display_order, menu_note
+      `SELECT menu_id, product_id, name, sale_price, list_price, lbp_price, lbp_list_price,
+              menu_category, menu_display_order, menu_note
        FROM products
        WHERE menu_id = ANY($1::uuid[])
        ORDER BY menu_display_order ASC, name ASC`,
@@ -97,9 +102,15 @@ export class MenuModel extends BaseModel {
       if (!cats.has(catName)) cats.set(catName, { name: catName, items: [] });
       if (!orders.has(catName)) orders.set(catName, row.menu_display_order);
 
+      // The LBP figure follows the same tier the USD price came from, so a menu
+      // item priced off list_price reports the LBP list price. Null means the
+      // product has no LBP price saved and the POS falls back to the exchange rate.
+      const rawLbp = row.sale_price != null ? row.lbp_price : row.lbp_list_price;
+
       cats.get(catName)!.items.push({
         name: row.name,
         price: Number(row.sale_price ?? row.list_price ?? 0),
+        lbp_price: rawLbp == null ? null : Number(rawLbp),
         description: row.menu_note ?? undefined,
         product_id: row.product_id,
       });

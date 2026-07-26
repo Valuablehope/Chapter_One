@@ -1844,7 +1844,7 @@ export default function Sales() {
                 )}
 
                 <div className="border-t border-[#e2e8f0] pt-2 mt-2">
-                  <div className="flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: `0 4px 14px color-mix(in srgb, var(--color-secondary) 30%, transparent)` }}>
+                  <div className="brand-surface flex justify-between items-center p-3.5 rounded-xl text-white" style={{ background: gradients.brandBlue, boxShadow: `0 4px 14px color-mix(in srgb, var(--color-secondary) 30%, transparent)` }}>
                     <span className="text-sm font-semibold opacity-90">{t('pos_sales.total_due')}</span>
                     <div className="text-right">
                       <span className="text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</span>
@@ -1861,7 +1861,7 @@ export default function Sales() {
               <Button
                 onClick={openPaymentModal}
                 disabled={cart.length === 0 || processing}
-                className="w-full text-white font-semibold shadow-brand hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-3 text-sm rounded-xl mt-1"
+                className="brand-surface w-full text-white font-semibold shadow-brand hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-3 text-sm rounded-xl mt-1"
               style={{ background: gradients.brandBlue }}
                 leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
                 isLoading={processing}
@@ -2303,9 +2303,11 @@ export default function Sales() {
             </p>
           </div>}
 
-          {/* ── Grand Total + Change Due ── */}
+          {/* ── Grand Total + Change Due ──
+              'other' paints a fixed red gradient that is dark in every theme, so it
+              keeps plain white text and opts out of the brand-surface remap. */}
           <div
-            className="p-4 rounded-xl text-white"
+            className={`p-4 rounded-xl text-white ${paymentMethod === 'other' ? '' : 'brand-surface'}`}
             style={{ background: paymentMethod === 'other' ? 'linear-gradient(135deg, #f87171 0%, #dc2626 100%)' : gradients.brandBlue }}
           >
             {/* Grand Total row */}

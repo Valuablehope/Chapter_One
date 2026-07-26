@@ -35,11 +35,25 @@ function applyTheme(theme: AppTheme): void {
 
     /* ── Sidebar ── */
     .bg-sidebar-bg          { background-color: ${s.bg}     !important; }
-    .bg-sidebar-hover       { background-color: ${s.hover}  !important; }
+    .bg-sidebar-hover,
+    .hover\\:bg-sidebar-hover:hover { background-color: ${s.hover}  !important; }
     .bg-sidebar-active      { background-color: ${s.active} !important; }
     .border-sidebar-border  { border-color:     ${s.border} !important; }
     .text-sidebar-text      { color: ${s.text}  !important; }
     .text-sidebar-muted     { color: ${s.muted} !important; }
+
+    /* ── Sidebar nav hover text — overrides hover:text-white so the
+       hover colour always matches the theme instead of going white
+       (which looks harsh on light shells) or dark-blue (browser default). ── */
+    .sidebar-shell .hover\\:text-white:hover,
+    .sidebar-shell .group:hover .group-hover\\:text-white {
+      color: ${s.text} !important;
+    }
+    /* Keep active-pill text and avatar text white regardless */
+    .sidebar-shell .bg-sidebar-active .hover\\:text-white,
+    .sidebar-shell .bg-sidebar-active .group-hover\\:text-white {
+      color: #ffffff !important;
+    }
 
     /* ── Secondary backgrounds ── */
     .bg-secondary-50   { background-color: ${cv('--color-secondary-50')}  !important; }

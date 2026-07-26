@@ -7,6 +7,8 @@ export type MenuType = 'regular' | 'holiday' | 'seasonal' | 'event' | 'special';
 export interface MenuItemDef {
   name: string;
   price: number;
+  /** Exact LBP price saved on the product; null when it should be rate-derived. */
+  lbp_price?: number | null;
   description?: string;
   product_id?: string;
 }

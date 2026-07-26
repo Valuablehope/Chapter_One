@@ -111,6 +111,23 @@
   --gradient-brand:      linear-gradient(135deg, #0a1a2e 0%, #1f4e88 60%, #3582e2 100%);
   --gradient-brand-blue: linear-gradient(135deg, #3582e2 0%, #1f4e88 100%);
 
+  /* ── Chrome foregrounds ───────────────────────────────────────────────────
+     The sidebar and the brand-gradient banners are "chrome": themes are free
+     to paint them light or dark, so the text colour on them cannot be a
+     hard-coded white. These vars are the contract — every theme in themes.ts
+     declares them, and the .sidebar-shell / .brand-surface rules further down
+     remap the white utilities onto them. Defaults here are the white-on-dark
+     values, so a theme that omits them still renders the classic look. */
+  --chrome-fg:                 #ffffff;   /* strong text on the sidebar */
+  --chrome-fg-soft:            #75abed;   /* secondary links (profile, etc.) */
+  --chrome-danger-fg:          #fca5a5;   /* sign-out */
+  --chrome-active-fg:          #ffffff;   /* text on the active nav pill */
+  --chrome-overlay:            rgba(255,255,255,0.10);
+  --on-brand-fg:               #ffffff;   /* text on brand-gradient surfaces */
+  --on-brand-fg-muted:         rgba(255,255,255,0.62);
+  --on-brand-overlay:          rgba(255,255,255,0.12);
+  --on-brand-overlay-border:   rgba(255,255,255,0.15);
+
   /* ── Shadows ── */
   --shadow-sidebar:        4px 0 20px rgba(15,28,46,0.25);
   --shadow-sidebar-mobile: 4px 0 20px rgba(15,28,46,0.35);
@@ -220,6 +237,74 @@ h1, h2 {
 .sidebar-dark ::-webkit-scrollbar-thumb:hover {
   background: #243d5e;
 }
+
+/* ─────────────────────────────────────────────
+   Themeable chrome (sidebar + brand banners)
+   ─────────────────────────────────────────────
+   Layout/Dashboard/PageBanner mark their chrome with .sidebar-shell or
+   .brand-surface. The markup keeps its `text-white` utilities; these rules
+   redirect them to the theme's chrome foreground so a theme can paint the
+   chrome light (e.g. Pink's #f8b2b2) without every label disappearing.
+   For the white-on-dark themes the vars resolve to #fff, so nothing changes.
+
+   Specificity note: `.sidebar-shell .text-white` (0,2,0) beats Tailwind's
+   `.text-white` (0,1,0) without needing !important.
+───────────────────────────────────────────── */
+
+/* ── Sidebar ── */
+/* Compound (.sidebar-shell.text-white) covers the floating mobile menu button,
+   which carries both classes on one element. */
+.sidebar-shell.text-white,
+.sidebar-shell .text-white { color: var(--chrome-fg); }
+.sidebar-shell .hover\:text-white:hover,
+.sidebar-shell .group:hover .group-hover\:text-white { color: var(--chrome-fg); }
+
+/* Secondary + danger links in the sidebar footer. Their raw Tailwind shades are
+   tuned for a dark shell, so they get their own chrome-aware values.
+   !important is required here: useTheme.ts injects `.text-secondary-400` with
+   !important for the ramp, which would otherwise win regardless of specificity
+   and paint the icon in the theme's 400 tint on top of a same-tint shell. */
+.sidebar-shell .text-secondary-300,
+.sidebar-shell .text-secondary-400,
+.sidebar-shell .text-accent-400 { color: var(--chrome-fg-soft) !important; }
+.sidebar-shell .text-red-300,
+.sidebar-shell .text-red-400 { color: var(--chrome-danger-fg); }
+
+/* Translucent chips (logo tile, pin button) — a white wash is invisible on a
+   light shell, so tint with the foreground instead. */
+.sidebar-shell .bg-white\/10,
+.sidebar-shell .bg-white\/15,
+.sidebar-shell .hover\:bg-white\/10:hover { background-color: var(--chrome-overlay); }
+
+/* The avatar circle is the sidebar's only use of bg-accent-500, and nothing
+   themes the accent-* ramp — so it rendered Tailwind's blue on every palette.
+   Track the theme's accent instead, which keeps Classic identical (its accent
+   IS that blue) and stops a blue disc landing on a pink shell. */
+.sidebar-shell .bg-accent-500 { background-color: var(--color-accent); }
+
+/* The active nav pill and the solid avatar/status chips stay deep in every
+   theme, so white text is still correct on top of them. Listed after the broad
+   rule above so it wins. */
+.sidebar-shell .bg-sidebar-active,
+.sidebar-shell .bg-sidebar-active .text-white,
+.sidebar-shell .bg-secondary-600,
+.sidebar-shell .bg-secondary-600 .text-white,
+.sidebar-shell .bg-accent-500,
+.sidebar-shell .bg-accent-500.text-white { color: var(--chrome-active-fg); }
+
+/* ── Brand-gradient surfaces (top bars, hero panels) ── */
+.brand-surface,
+.brand-surface .text-white { color: var(--on-brand-fg); }
+.brand-surface .text-white\/50,
+.brand-surface .text-white\/55,
+.brand-surface .text-white\/60,
+.brand-surface .text-white\/80,
+.brand-surface .text-blue-200 { color: var(--on-brand-fg-muted); }
+.brand-surface .bg-white\/10,
+.brand-surface .bg-white\/15 { background-color: var(--on-brand-overlay); }
+.brand-surface .border-white\/10,
+.brand-surface .border-white\/15,
+.brand-surface .border-white\/20 { border-color: var(--on-brand-overlay-border); }
 
 /* ─────────────────────────────────────────────
    Animations

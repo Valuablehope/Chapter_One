@@ -138,7 +138,7 @@ export default function Dashboard() {
 
       {/* ── Welcome Banner ── */}
       <div
-        className="relative overflow-hidden rounded-2xl text-white px-6 py-7"
+        className="brand-surface relative overflow-hidden rounded-2xl text-white px-6 py-7"
         style={{ background: gradients.brand }}
       >
         {/* Decorative circles */}
@@ -155,7 +155,7 @@ export default function Dashboard() {
             </h1>
             <div className="mt-2 flex items-center space-x-2">
               <span className="text-white/50 text-sm">{t('dashboard.signed_in_as')}</span>
-              <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'rgba(147,197,253,0.20)', color: colors.brandAccentText }}>
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-md capitalize" style={{ background: 'var(--on-brand-overlay)', color: 'var(--on-brand-fg)' }}>
                 {user?.role}
               </span>
             </div>

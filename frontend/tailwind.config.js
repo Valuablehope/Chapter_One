@@ -104,10 +104,11 @@ export default {
           900: '#164E63',
           DEFAULT: '#06B6D4',
         },
-        // Sidebar specific
+        // Sidebar specific — defaults for Classic (dark navy) theme.
+        // Per-theme overrides are injected at runtime via useTheme.ts.
         sidebar: {
           bg:     '#0f1c2e',
-          hover:  '#162438',
+          hover:  'rgba(255,255,255,0.08)', // subtle white tint — works on both light and dark shells
           active: '#1a2f4a',
           border: '#1c2d42',
           text:   '#a8bbd4',
