@@ -1,7 +1,8 @@
 @echo off
 cd /d "%~dp0"
-if not exist node_modules (
-  echo Installing dependencies, this only happens once...
-  call npm install
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ensure-node-and-run.ps1"
+if errorlevel 1 (
+  echo.
+  echo Something went wrong - see the messages above.
+  pause
 )
-npx tsx src/ui/server.ts

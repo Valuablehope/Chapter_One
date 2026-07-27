@@ -7,14 +7,33 @@ by hand during a remote support session.
 
 ## Easiest way: the GUI
 
-Double-click **`Start Upgrade Toolkit.bat`** in this folder. It installs
-dependencies on first run, starts a small local web server, and opens your
-browser to a page with a button for every step (Preflight, Backup, Verify
-Backup, Offsite Copy, Upgrade, Post-Verify, Rollback). Each button shows its
-live log output right on the page, and buttons that shouldn't run yet (e.g.
-Upgrade before the backup is verified) stay disabled with a clear reason.
+Double-click **`Start Upgrade Toolkit.bat`** in this folder. On first run it
+figures out Node.js on its own — see below — installs the toolkit's own
+dependencies, starts a small local web server, and opens your browser to a
+page with a button for every step (Preflight, Backup, Verify Backup, Offsite
+Copy, Upgrade, Post-Verify, Rollback). Each button shows its live log output
+right on the page, and buttons that shouldn't run yet (e.g. Upgrade before
+the backup is verified) stay disabled with a clear reason.
 
-To start it manually instead of double-clicking:
+**No prerequisites to install by hand.** The client's machine normally has
+no system-wide Node.js — the app bundles its own inside Electron, which
+isn't something a script can invoke directly. `Start Upgrade Toolkit.bat`
+handles this itself:
+
+1. Uses a suitable Node.js already on the machine's PATH, if there is one.
+2. Otherwise reuses a portable copy it downloaded on a previous run.
+3. Otherwise downloads the official Windows build straight from
+   `nodejs.org`, verifies its SHA-256 against nodejs.org's own published
+   checksums, and extracts it into `.node-portable/` next to this folder —
+   no installer, no admin rights, no system PATH changes. Delete that folder
+   afterward if you don't want to leave anything behind.
+
+This needs the client's machine to have internet access (same requirement
+the app's own auto-updater already has). If it doesn't, install Node.js
+manually from nodejs.org first and the script will just use that instead.
+
+To start it manually instead of double-clicking (once Node.js is available
+one way or another):
 
 ```
 npm install
@@ -64,9 +83,20 @@ backup itself.
 
 ### 0. Before you start
 
-- Confirm you have remote control of the client's machine.
-- Have the new version's installer `.exe` ready (and ideally the client's
-  *current* version's installer too, in case you need to roll back).
+- Confirm you have remote control of the client's machine, and that it has
+  internet access (needed once, to fetch Node.js automatically if it isn't
+  already on the machine — see above).
+- **Get this `upgrade-toolkit` folder onto the client's machine.** Easiest
+  way, no git required: on the client machine, go to
+  `https://github.com/Valuablehope/Chapter_One`, click **Code → Download
+  ZIP**, extract it, and copy just the `upgrade-toolkit` folder out
+  somewhere convenient (e.g. the Desktop) — you don't need the rest of the
+  repo.
+- Have the new version's installer `.exe` ready on the client's machine —
+  make sure it's a build made *after* any fixes you need (e.g. rebuild with
+  `npm run build:win` if `package.json`'s packaging config changed since the
+  last build) — and ideally the client's *current* version's installer too,
+  in case you need to roll back.
 - Decide where the off-machine backup copy will go (external drive, network
   share, cloud-synced folder) — you'll need this path in step 4.
 

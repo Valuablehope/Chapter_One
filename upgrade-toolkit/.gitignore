@@ -3,3 +3,6 @@ dist/
 
 # Real client backups (database dumps, uploaded files) must never be committed.
 backups/
+
+# Auto-downloaded portable Node.js runtime — fetched fresh on first run, never committed.
+.node-portable/
