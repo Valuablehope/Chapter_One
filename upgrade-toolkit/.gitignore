@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# Real client backups (database dumps, uploaded files) must never be committed.
+backups/

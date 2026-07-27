@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter One — Upgrade Toolkit</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Chapter One POS — Upgrade Toolkit</h1>
+    <p class="subtitle">Backup, verify, upgrade, and roll back a client installation — one step at a time.</p>
+  </header>
+
+  <main>
+    <section class="card" id="overrides-card">
+      <button class="collapse-toggle" id="overrides-toggle">Advanced overrides (usually not needed) ▾</button>
+      <div id="overrides-body" class="collapse-body hidden">
+        <p class="hint">Only fill these in if auto-discovery fails and an error message tells you to.</p>
+        <label>App .env path <input type="text" id="ov-envPath" placeholder="auto-detected" /></label>
+        <label>App install directory <input type="text" id="ov-installDir" placeholder="auto-detected" /></label>
+        <label>PostgreSQL bin directory <input type="text" id="ov-pgBinDir" placeholder="auto-detected" /></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1. Choose a run</h2>
+      <div id="runs-list"></div>
+      <button id="new-run-btn" class="primary">+ Start New Run (Preflight)</button>
+    </section>
+
+    <section class="card hidden" id="workflow-card">
+      <h2>2. Run directory: <span id="current-run-dir" class="mono"></span></h2>
+
+      <div class="step" data-step="backup">
+        <div class="step-header">
+          <span class="step-badge" id="badge-backup">pending</span>
+          <strong>Backup</strong> — custom + plain SQL dump, uploads/products backup
+        </div>
+        <div class="step-body">
+          <label><input type="checkbox" id="backup-force" /> Proceed even if other DB connections are active (not recommended)</label>
+          <button data-action="backup" class="action-btn">Run Backup</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="verifyBackup">
+        <div class="step-header">
+          <span class="step-badge" id="badge-verifyBackup">pending</span>
+          <strong>Verify Backup</strong> — the hard gate: restores into a scratch DB and reconciles row counts
+        </div>
+        <div class="step-body">
+          <button data-action="verify-backup" class="action-btn">Run Verify Backup</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="offsiteCopy">
+        <div class="step-header">
+          <span class="step-badge" id="badge-offsiteCopy">pending</span>
+          <strong>Offsite Copy</strong> — checksum-verified copy to an external drive or network path
+        </div>
+        <div class="step-body">
+          <label>Destination
+            <span class="path-row">
+              <input type="text" id="offsite-dest" placeholder="e.g. E:\ChapterOneBackups or \\server\share" />
+              <button data-browse="folder" data-target="offsite-dest">Browse…</button>
+            </span>
+          </label>
+          <button data-action="offsite-copy" class="action-btn">Run Offsite Copy</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="upgrade">
+        <div class="step-header">
+          <span class="step-badge" id="badge-upgrade">pending</span>
+          <strong>Upgrade</strong> — refuses unless Verify Backup passed. Installs the new version, then runs migrations.
+        </div>
+        <div class="step-body">
+          <label>New version installer
+            <span class="path-row">
+              <input type="text" id="upgrade-installer" placeholder="path to new version's Setup.exe" />
+              <button data-browse="file" data-target="upgrade-installer" data-filter="exe">Browse…</button>
+            </span>
+          </label>
+          <label>Expected version (optional) <input type="text" id="upgrade-expected-version" placeholder="e.g. 4.1.0" /></label>
+          <label><input type="checkbox" id="upgrade-force" /> Proceed even if other DB connections are active (not recommended)</label>
+          <button data-action="upgrade" class="action-btn danger">Run Upgrade</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="postVerify">
+        <div class="step-header">
+          <span class="step-badge" id="badge-postVerify">pending</span>
+          <strong>Post-Verify</strong> — confirms migrations, row counts, and uploads all reconcile
+        </div>
+        <div class="step-body">
+          <button data-action="post-verify" class="action-btn">Run Post-Verify</button>
+        </div>
+      </div>
+
+      <div class="step rollback-step">
+        <div class="step-header">
+          <span class="step-badge" id="badge-rollback">pending</span>
+          <strong>Rollback</strong> — always available. Restores DB + uploads from this run's verified backup.
+        </div>
+        <div class="step-body">
+          <label>Previous version installer (optional, reinstalls it over the current install)
+            <span class="path-row">
+              <input type="text" id="rollback-installer" placeholder="path to previous version's Setup.exe" />
+              <button data-browse="file" data-target="rollback-installer" data-filter="exe">Browse…</button>
+            </span>
+          </label>
+          <label><input type="checkbox" id="rollback-confirm" /> I understand this will DROP and recreate the live database</label>
+          <button data-action="rollback" class="action-btn danger">Run Rollback</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Log</h2>
+      <div id="job-banner" class="hidden"></div>
+      <pre id="log-panel">Waiting for an action…</pre>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
