@@ -108,4 +108,18 @@ if (-not (Test-Path (Join-Path $root 'node_modules'))) {
     }
 }
 
+$Port = if ($env:PORT) { $env:PORT } else { 5757 }
+$existing = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($existing) {
+    Write-Host ''
+    Write-Host "Port $Port is already in use — the toolkit is probably already running in another window." -ForegroundColor Yellow
+    Write-Host "Open http://localhost:$Port in your browser to use it, or close that other window first and run this again." -ForegroundColor Yellow
+    exit 1
+}
+
 & $npmCmd run ui
+# Propagate the server's exit code so the .bat wrapper can tell success from
+# failure — without this, a crashed server (e.g. port already in use) would
+# report a clean PowerShell exit and the console window would just close
+# before anyone could read why.
+exit $LASTEXITCODE
