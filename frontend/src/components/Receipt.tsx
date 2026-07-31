@@ -229,7 +229,7 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
                 formatCurrency={formatCurrency}
               />
             )}
-            <ModernReceiptQr value={settings?.receipt_qr_payment_link} />
+            <ModernReceiptQr imageUrl={settings?.receipt_qr_payment_link} />
             <ModernReceiptFooter settings={settings} variant={isRestaurantSale ? 'restaurant' : 'sale'} />
           </>
         ) : (

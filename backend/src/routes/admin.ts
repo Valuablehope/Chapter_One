@@ -12,6 +12,7 @@ import {
   createStore,
   updateStore,
   deleteStore,
+  uploadQrImage,
 } from '../controllers/storeController';
 import {
   getTerminals,
@@ -22,6 +23,7 @@ import {
 } from '../controllers/terminalController';
 import { authenticate, authorize } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
+import { uploadReceiptQrImage } from '../middleware/upload';
 import { body, query, param } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
 
@@ -270,6 +272,14 @@ router.delete(
   [param('id').isUUID()],
   validateRequest,
   deleteStore
+);
+
+// Upload the store's "Scan to Pay" QR code image (exported from Whish Money or
+// any payment app) — stored and printed as-is, never regenerated/re-encoded.
+router.post(
+  '/stores/upload-qr-image',
+  uploadReceiptQrImage.single('image'),
+  uploadQrImage
 );
 
 // Terminal Management Routes

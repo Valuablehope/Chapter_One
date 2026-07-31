@@ -1,38 +1,24 @@
-import { create } from 'qrcode';
+import { API_BASE_URL } from '../../services/api';
 
 /**
- * Renders the QR pattern as static SVG rects (via QRCode.create, which is
- * synchronous — no useEffect/promise race against the print snapshot).
+ * Prints the store's uploaded "Scan to Pay" QR code image exactly as-is.
+ * Deliberately does NOT regenerate/re-encode a QR from a link or phone number:
+ * payment apps (Whish Money, etc.) only recognize their own proprietary QR
+ * payload, so anything re-encoded here would look valid but fail to scan in
+ * that app. Printing the merchant's own exported QR image guarantees it's
+ * byte-for-byte what the payment app produced.
  */
-export function ModernReceiptQr({ value }: { value?: string | null }) {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-
-  let modules;
-  try {
-    modules = create(trimmed, { errorCorrectionLevel: 'M' }).modules;
-  } catch {
-    return null;
-  }
-
-  const size = modules.size;
-  const cell = 4; // px per module
-  const pixels = size * cell;
-
-  const rects: string[] = [];
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      if (modules.get(row, col)) {
-        rects.push(`<rect x="${col * cell}" y="${row * cell}" width="${cell}" height="${cell}" />`);
-      }
-    }
-  }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${pixels} ${pixels}" width="${pixels}" height="${pixels}" fill="#111827">${rects.join('')}</svg>`;
+export function ModernReceiptQr({ imageUrl }: { imageUrl?: string | null }) {
+  if (!imageUrl?.trim()) return null;
 
   return (
     <div className="text-center mt-3 pt-3 border-t border-dashed border-gray-400">
       <p className="text-[12px] font-semibold text-gray-700 mb-2">Scan to Pay</p>
-      <div className="inline-block" dangerouslySetInnerHTML={{ __html: svg }} />
+      <img
+        src={`${API_BASE_URL}${imageUrl}`}
+        alt="Scan to pay QR code"
+        className="mx-auto w-28 h-28 object-contain"
+      />
     </div>
   );
 }

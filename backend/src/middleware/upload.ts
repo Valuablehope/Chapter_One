@@ -33,3 +33,28 @@ export const uploadProductImage = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
 });
+
+// Store's "Scan to Pay" QR code image (uploaded from the payment app, e.g. Whish Money) —
+// printed as-is on the Modern receipt template, never regenerated/re-encoded.
+const qrUploadDir = path.join(__dirname, '../../uploads/receipt-qr');
+if (!fs.existsSync(qrUploadDir)) {
+  fs.mkdirSync(qrUploadDir, { recursive: true });
+}
+
+const qrStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, qrUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'receipt-qr-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+export const uploadReceiptQrImage = multer({
+  storage: qrStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});

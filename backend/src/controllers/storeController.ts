@@ -373,6 +373,21 @@ export const deleteStore = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+export const uploadQrImage = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) {
+    throw new CustomError('No image file uploaded', 400);
+  }
+
+  const imageUrl = `/uploads/receipt-qr/${req.file.filename}`;
+
+  res.json({
+    success: true,
+    data: {
+      url: imageUrl,
+    },
+  });
+});
+
 // Get store settings (public endpoint for all authenticated users)
 export const getStoreSettings = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;

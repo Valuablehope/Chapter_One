@@ -71,7 +71,7 @@ export interface StoreSettings {
   show_list_price_to_users?: boolean;
   /** Which printed receipt layout to use: 'classic' (dense tabular) or 'modern' (spaced-out, larger type) */
   receipt_template?: 'classic' | 'modern' | null;
-  /** Optional payment link/reference encoded as a QR code on the 'modern' receipt template */
+  /** Uploaded "Scan to Pay" QR code image path (e.g. exported from Whish Money), printed as-is on the 'modern' receipt template */
   receipt_qr_payment_link?: string | null;
 }
 
@@ -134,6 +134,21 @@ export const storeService = {
       payload
     );
     return response.data.data;
+  },
+
+  async uploadQrImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post<{ success: boolean; data: { url: string } }>(
+      '/admin/stores/upload-qr-image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data.url;
   },
 
   notifyStoreModuleChanged(): void {

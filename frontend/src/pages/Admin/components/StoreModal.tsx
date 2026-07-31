@@ -5,6 +5,7 @@ import {
   PosModuleType,
 } from '../../../services/adminService';
 import { storeService } from '../../../services/storeService';
+import { API_BASE_URL } from '../../../services/api';
 import { logger } from '../../../utils/logger';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
@@ -19,6 +20,9 @@ import {
   AdjustmentsHorizontalIcon,
   CheckIcon,
   SwatchIcon,
+  PhotoIcon,
+  ArrowPathIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useTranslation, Language } from '../../../i18n/I18nContext';
@@ -276,6 +280,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [formData, setFormData] = useState<StoreFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('identity');
   const [printers, setPrinters] = useState<any[]>([]);
   const { t, language, setLanguage } = useTranslation();
@@ -309,6 +314,30 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
 
   const set = <K extends keyof StoreFormData>(key: K, value: StoreFormData[K]) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const handleQrImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB');
+      return;
+    }
+
+    try {
+      setUploadingQr(true);
+      const url = await storeService.uploadQrImage(file);
+      set('receipt_qr_payment_link', url);
+      toast.success('QR image uploaded');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Upload failed');
+      logger.error('QR image upload failed:', err);
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
+  const removeQrImage = () => set('receipt_qr_payment_link', '');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -775,17 +804,54 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
               </div>
               {formData.receipt_template === 'modern' && (
                 <div>
-                  <FieldLabel>Payment QR Link (optional)</FieldLabel>
-                  <input
-                    type="text"
-                    value={formData.receipt_qr_payment_link}
-                    onChange={(e) => set('receipt_qr_payment_link', e.target.value)}
-                    placeholder="e.g. a payment link or phone/WhatsApp number"
-                    className={inputCls()}
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Shown as a "Scan to Pay" QR code on the Modern receipt when set
-                  </p>
+                  <FieldLabel>Scan to Pay QR Image (optional)</FieldLabel>
+                  <div className="flex items-start gap-4">
+                    <div className="relative group w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center overflow-hidden transition-all hover:border-secondary-500 hover:bg-secondary-50">
+                      {formData.receipt_qr_payment_link ? (
+                        <>
+                          <img
+                            src={`${API_BASE_URL}${formData.receipt_qr_payment_link}`}
+                            alt="QR preview"
+                            className="w-full h-full object-contain"
+                            crossOrigin="anonymous"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeQrImage}
+                            className="absolute top-1 right-1 p-1 bg-white/80 hover:bg-white text-red-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <XMarkIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleQrImageUpload}
+                            disabled={uploadingQr}
+                          />
+                          {uploadingQr ? (
+                            <div className="flex flex-col items-center">
+                              <ArrowPathIcon className="w-5 h-5 text-secondary-500 animate-spin" />
+                              <span className="text-[10px] text-gray-500 mt-1 font-medium">Uploading…</span>
+                            </div>
+                          ) : (
+                            <>
+                              <PhotoIcon className="w-6 h-6 text-gray-400 group-hover:text-secondary-500 transition-colors" />
+                              <span className="text-[10px] text-gray-400 mt-1 font-medium group-hover:text-secondary-500 transition-colors">Add image</span>
+                            </>
+                          )}
+                        </label>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 flex-1">
+                      Upload the exact QR image exported from your payment app (e.g. Whish Money).
+                      It's printed as-is on the Modern receipt — never regenerated — so it scans correctly
+                      with that app.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

@@ -2226,7 +2226,7 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
           grandTotal={order.grandTotal}
           formatCurrency={formatCurrency}
         />
-        <ModernReceiptQr value={settings?.receipt_qr_payment_link} />
+        <ModernReceiptQr imageUrl={settings?.receipt_qr_payment_link} />
         <ModernReceiptFooter settings={settings} variant="restaurant" />
       </div>
     );
