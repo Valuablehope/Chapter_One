@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { storeService } from '../services/storeService';
 import type { StoreSettings } from '../services/storeService';
 import { menuService } from '../services/adminService';
@@ -18,6 +18,13 @@ import {
   MinimalReceiptTotals,
   MinimalReceiptFooter,
   MinimalReceiptPayments,
+  ModernReceiptHeader,
+  ModernReceiptMeta,
+  ModernReceiptLineTable,
+  ModernReceiptTotals,
+  ModernReceiptFooter,
+  ModernReceiptPayments,
+  ModernReceiptQr,
   formatLbpGrand,
   formatLbpPlain,
 } from '../components/printReceipt';
@@ -143,6 +150,7 @@ export default function RestaurantPOS() {
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
 
+  const [showNotesInput, setShowNotesInput] = useState(false);
   const [showSeatModal, setShowSeatModal] = useState(false);
   const [seatTableNum, setSeatTableNum] = useState<number | null>(null);
   const [guestCount, setGuestCount] = useState(2);
@@ -552,6 +560,7 @@ export default function RestaurantPOS() {
     setActiveMenuIdx(0);
     setActiveCategoryIdx(0);
     setMenuSearchQuery('');
+    setShowNotesInput(false);
   };
 
   const seatTable = (n: number, guests: number) => {
@@ -810,9 +819,9 @@ export default function RestaurantPOS() {
     const order = getOrderByKey(selectedKey);
     if (!order || order.items.length === 0) return;
     const { total } = computeTotals(order);
-    setCashGiven(total.toFixed(2));
-    setCashGivenLBP('');
     setPaymentMethod(enabledPaymentMethods.includes('cash') ? 'cash' : (enabledPaymentMethods[0] ?? 'cash'));
+    setCashGiven(total > 0 ? total.toFixed(2) : '');
+    setCashGivenLBP('');
     setCheckoutError(null);
     setShowCheckoutModal(true);
   };
@@ -927,6 +936,25 @@ export default function RestaurantPOS() {
   const selectedOrder  = selectedKey ? getOrderByKey(selectedKey) : null;
   const selectedTotals = selectedOrder ? computeTotals(selectedOrder) : null;
 
+  // Fill exactly down to the viewport edge — measured instead of a hardcoded
+  // vh offset, since LicenseBanner/TrialBanner/offline-sync banners above this
+  // page push its top down by a variable amount.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [rootHeight, setRootHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const updateHeight = () => {
+      if (rootRef.current) {
+        setRootHeight(window.innerHeight - rootRef.current.getBoundingClientRect().top);
+      }
+    };
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+    // Re-measure once loading/error resolve and the real ref'd div actually mounts —
+    // on first mount isLoading is still true, so rootRef.current is null and this
+    // effect would otherwise never get a second chance to measure.
+  }, [isLoading, loadError]);
+
   // ── Loading / error states
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -952,8 +980,9 @@ export default function RestaurantPOS() {
   return (
     <>
       <div
+        ref={rootRef}
         className="flex flex-col -mx-4 -my-6 sm:-mx-6 lg:-mx-8 overflow-hidden print:hidden"
-        style={{ height: 'calc(100vh - 64px)' }}
+        style={{ height: rootHeight != null ? `${rootHeight}px` : 'calc(100vh - 64px)' }}
       >
         {/* ══════════════════════ HEADER ══════════════════════ */}
         {inOrderView ? (
@@ -1265,7 +1294,7 @@ export default function RestaurantPOS() {
             </div>
 
             {/* ── RIGHT: Order Cart ── */}
-            <div className="w-72 xl:w-80 flex-shrink-0 flex flex-col bg-white border-l border-gray-200 shadow-xl overflow-hidden">
+            <div className="w-80 xl:w-96 flex-shrink-0 flex flex-col bg-white border-l border-gray-200 shadow-xl overflow-hidden">
 
               {/* Cart header */}
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0 bg-gray-50">
@@ -1285,36 +1314,41 @@ export default function RestaurantPOS() {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-50">
-                    {selectedOrder!.items.map(item => (
-                      <div key={item.id} className="flex items-center gap-2 px-3 py-3 hover:bg-gray-50 group transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-800 text-xs leading-tight">{item.itemName}</div>
-                          <div className="text-[11px] text-gray-400 truncate mt-0.5">{item.categoryName}</div>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Newest addition shown first — the underlying order (receipts, kitchen bill) stays chronological */}
+                    {[...selectedOrder!.items].reverse().map(item => (
+                      <div key={item.id} className="group px-3 py-2 hover:bg-gray-50 transition-colors">
+                        {/* Name gets the full row width so long names wrap cleanly instead of truncating */}
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-semibold text-gray-800 leading-snug break-words min-w-0 flex-1">
+                            {item.itemName}
+                          </span>
                           <button
-                            onClick={() => updateItemQty(item.id, -1)}
-                            className="w-6 h-6 rounded-md border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center transition-colors"
+                            onClick={() => removeItem(item.id)}
+                            className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5"
                           >
-                            <MinusIcon className="w-3 h-3 text-gray-500" />
-                          </button>
-                          <span className="w-5 text-center font-bold text-sm text-gray-800 tabular-nums">{item.qty}</span>
-                          <button
-                            onClick={() => updateItemQty(item.id, 1)}
-                            className="w-6 h-6 rounded-md border border-gray-200 hover:border-secondary-300 hover:bg-secondary-50 flex items-center justify-center transition-colors"
-                          >
-                            <PlusIcon className="w-3 h-3 text-gray-500" />
+                            <TrashIcon className="w-3 h-3" />
                           </button>
                         </div>
-                        <div className="w-[88px] text-right flex-shrink-0 flex flex-col leading-tight">
-                          {renderDualAmount(item.price * item.qty, 'text-xs font-bold tabular-nums', 'text-gray-700', lineLbp(item))}
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => updateItemQty(item.id, -1)}
+                              className="w-6 h-6 rounded-md border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center transition-colors"
+                            >
+                              <MinusIcon className="w-3 h-3 text-gray-500" />
+                            </button>
+                            <span className="w-5 text-center font-bold text-sm text-gray-800 tabular-nums">{item.qty}</span>
+                            <button
+                              onClick={() => updateItemQty(item.id, 1)}
+                              className="w-6 h-6 rounded-md border border-gray-200 hover:border-secondary-300 hover:bg-secondary-50 flex items-center justify-center transition-colors"
+                            >
+                              <PlusIcon className="w-3 h-3 text-gray-500" />
+                            </button>
+                          </div>
+                          <div className="text-right flex-shrink-0 flex flex-col leading-tight">
+                            {renderDualAmount(item.price * item.qty, 'text-xs font-bold tabular-nums', 'text-gray-700', lineLbp(item))}
+                          </div>
                         </div>
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
-                        >
-                          <TrashIcon className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     ))}
                   </div>
@@ -1324,85 +1358,95 @@ export default function RestaurantPOS() {
               {/* Totals + Action buttons */}
               <div className="border-t border-gray-200 flex-shrink-0">
 
-                {/* ── Order Notes ── */}
-                <div className="px-4 py-2.5 bg-white border-b border-gray-100">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                    {t('restaurant_pos.order_notes')}
-                  </label>
-                  <textarea
-                    value={selectedOrder!.notes ?? ''}
-                    onChange={e => updateOrderNotes(e.target.value)}
-                    placeholder={t('restaurant_pos.order_notes_placeholder')}
-                    rows={selectedOrder!.notes ? 2 : 1}
-                    maxLength={1000}
-                    className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors placeholder-gray-300 resize-none"
-                  />
+                {/* ── Order Notes (collapsed to a one-line link until needed) ── */}
+                <div className="px-4 py-1.5 bg-white border-b border-gray-100">
+                  {selectedOrder!.notes || showNotesInput ? (
+                    <textarea
+                      autoFocus={showNotesInput && !selectedOrder!.notes}
+                      value={selectedOrder!.notes ?? ''}
+                      onChange={e => updateOrderNotes(e.target.value)}
+                      onBlur={() => { if (!selectedOrder!.notes) setShowNotesInput(false); }}
+                      placeholder={t('restaurant_pos.order_notes_placeholder')}
+                      rows={selectedOrder!.notes ? 2 : 1}
+                      maxLength={1000}
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-secondary-400 bg-gray-50 focus:bg-white transition-colors placeholder-gray-300 resize-none overflow-hidden"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setShowNotesInput(true)}
+                      className="w-full text-left text-xs font-medium text-gray-400 hover:text-secondary-600 py-1 transition-colors"
+                    >
+                      + {t('restaurant_pos.order_notes')}
+                    </button>
+                  )}
                 </div>
 
-                {/* ── Service Fee Toggle (dine-in only) ── */}
+                {/* ── Service Fee Toggle (dine-in only) — amount itself shows in Totals below ── */}
                 {selectedOrder!.orderType === 'dine_in' && (
-                  <div className="px-4 py-3 bg-white border-b border-gray-100">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {/* Toggle switch */}
-                        <button
-                          onClick={toggleServiceFee}
-                          role="switch"
-                          aria-checked={selectedOrder!.serviceFeeEnabled}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                            selectedOrder!.serviceFeeEnabled ? 'bg-secondary-500' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                            selectedOrder!.serviceFeeEnabled ? 'translate-x-6' : 'translate-x-1'
-                          }`} />
-                        </button>
-                        <span className={`text-sm font-semibold truncate ${selectedOrder!.serviceFeeEnabled ? 'text-gray-800' : 'text-gray-400'}`}>
-                          {t('restaurant_pos.service_fee')}
-                        </span>
-                      </div>
-                      {/* Rate input */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <input
-                          type="number"
-                          value={selectedOrder!.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE}
-                          onChange={e => updateServiceFeeRate(parseFloat(e.target.value) || 0)}
-                          disabled={!selectedOrder!.serviceFeeEnabled}
-                          className="w-14 text-right text-sm font-bold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-secondary-400 disabled:opacity-30 disabled:bg-gray-50 bg-white transition-colors tabular-nums"
-                          min="0" max="100" step="0.5"
-                        />
-                        <span className={`text-sm font-semibold ${selectedOrder!.serviceFeeEnabled ? 'text-gray-500' : 'text-gray-300'}`}>%</span>
-                      </div>
+                  <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Toggle switch */}
+                      <button
+                        onClick={toggleServiceFee}
+                        role="switch"
+                        aria-checked={selectedOrder!.serviceFeeEnabled}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                          selectedOrder!.serviceFeeEnabled ? 'bg-secondary-500' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                          selectedOrder!.serviceFeeEnabled ? 'translate-x-[18px]' : 'translate-x-1'
+                        }`} />
+                      </button>
+                      <span className={`text-sm font-semibold truncate ${selectedOrder!.serviceFeeEnabled ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {t('restaurant_pos.service_fee')}
+                      </span>
                     </div>
-                    {selectedOrder!.serviceFeeEnabled && selectedTotals!.serviceFeeAmount > 0 && (
-                      <div className="flex justify-between text-xs text-secondary-600 mt-2 pl-[52px]">
-                        <span>{t('restaurant_pos.service_fee_on_subtotal', { rate: selectedOrder!.serviceFeeRate })}</span>
-                        <span className="font-bold tabular-nums">{formatCurrency(selectedTotals!.serviceFeeAmount)}</span>
-                      </div>
-                    )}
+                    {/* Rate input */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <input
+                        type="number"
+                        value={selectedOrder!.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE}
+                        onChange={e => updateServiceFeeRate(parseFloat(e.target.value) || 0)}
+                        disabled={!selectedOrder!.serviceFeeEnabled}
+                        className="w-12 text-right text-xs font-bold border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:border-secondary-400 disabled:opacity-30 disabled:bg-gray-50 bg-white transition-colors tabular-nums"
+                        min="0" max="100" step="0.5"
+                      />
+                      <span className={`text-xs font-semibold ${selectedOrder!.serviceFeeEnabled ? 'text-gray-500' : 'text-gray-300'}`}>%</span>
+                    </div>
                   </div>
                 )}
 
-                {/* ── Delivery Fee (delivery only) ── */}
+                {/* ── Delivery Fee (delivery only) — mirrors Sales.tsx's Delivery Charge input ── */}
                 {selectedOrder!.orderType === 'delivery' && (
-                  <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-gray-800 flex items-center gap-2 min-w-0">
+                  <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 min-w-0">
                       <TruckIcon className="w-4 h-4 text-orange-500 flex-shrink-0" />
                       <span className="truncate">{t('restaurant_pos.delivery_fee')}</span>
+                      {settings?.include_delivery_in_drawer === false && (selectedOrder!.deliveryCharge ?? 0) > 0 && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 leading-none flex-shrink-0">
+                          Not in drawer
+                        </span>
+                      )}
                     </span>
-                    <input
-                      type="number"
-                      value={selectedOrder!.deliveryCharge ?? 0}
-                      onChange={e => updateDeliveryFee(parseFloat(e.target.value) || 0)}
-                      className="w-24 text-right text-sm font-bold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-secondary-400 bg-white transition-colors tabular-nums"
-                      min="0" step="0.25"
-                    />
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={selectedOrder!.deliveryCharge ?? 0}
+                        onChange={e => updateDeliveryFee(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 text-right font-semibold transition-all"
+                      />
+                    </div>
                   </div>
                 )}
 
                 {/* ── Totals ── */}
                 {selectedOrder!.items.length > 0 && (
-                  <div className="px-4 pt-3 pb-2 space-y-1.5 text-sm bg-gray-50">
+                  <div className="px-4 pt-2 pb-1.5 space-y-1 text-sm bg-gray-50">
                     <div className="flex justify-between text-gray-500">
                       <span>{t('restaurant_pos.subtotal')}</span>
                       <span className="font-medium tabular-nums text-right">
@@ -1438,19 +1482,20 @@ export default function RestaurantPOS() {
                     </div>
                   </div>
                 )}
-                <div className="p-3 space-y-2">
+
+                <div className="p-3 flex gap-2">
                   <button
                     onClick={handlePrintBill}
                     disabled={selectedOrder!.items.length === 0}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-amber-400 text-amber-600 font-semibold text-sm hover:bg-amber-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={selectedOrder!.status === 'bill_requested' ? t('restaurant_pos.reprint_bill') : t('restaurant_pos.print_bill')}
+                    className="w-11 flex-shrink-0 flex items-center justify-center py-2.5 rounded-xl border-2 border-amber-400 text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <PrinterIcon className="w-4 h-4" />
-                    {selectedOrder!.status === 'bill_requested' ? t('restaurant_pos.reprint_bill') : t('restaurant_pos.print_bill')}
                   </button>
                   <button
                     onClick={handleCheckout}
                     disabled={selectedOrder!.items.length === 0}
-                    className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                   >
                     <CheckIcon className="w-4 h-4" />
                     {t('restaurant_pos.checkout')}
@@ -1808,81 +1853,59 @@ export default function RestaurantPOS() {
           </div>
         )}
 
-        {/* Checkout */}
+        {/* Checkout — mirrors the Store POS (Sales.tsx) payment modal styling & flow */}
         {showCheckoutModal && selectedOrder && selectedTotals && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900">{t('restaurant_pos.checkout_title', { label: orderLabel(selectedOrder) })}</h2>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+                <h2 className="text-base font-bold text-gray-900">{t('restaurant_pos.checkout_title', { label: orderLabel(selectedOrder) })}</h2>
                 <button onClick={() => setShowCheckoutModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="w-5 h-5" />
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-6 space-y-5">
-                {/* Order summary */}
-                <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm max-h-48 overflow-y-auto">
-                  {selectedOrder.items.map(item => (
-                    <div key={item.id} className="flex justify-between">
-                      <span className="text-gray-600 truncate pr-2">{item.qty}× {item.itemName}</span>
-                      <span className="font-medium text-gray-800 tabular-nums flex-shrink-0 text-right">
-                        {formatCurrency(item.price * item.qty)}
-                        {lbpText(lineLbp(item)) && (
-                          <span className="block text-[11px] font-semibold text-amber-600">{lbpText(lineLbp(item))}</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                  {selectedTotals.serviceFeeAmount > 0 && (
-                    <div className="flex justify-between text-gray-500">
-                      <span>{t('receipt.service_fee', { rate: selectedOrder.serviceFeeRate })}</span>
-                      <span className="tabular-nums">{formatCurrency(selectedTotals.serviceFeeAmount)}</span>
-                    </div>
-                  )}
-                  {selectedTotals.deliveryCharge > 0 && (
-                    <div className="flex justify-between text-gray-500">
-                      <span>{t('receipt.delivery')}</span>
-                      <span className="tabular-nums">{formatCurrency(selectedTotals.deliveryCharge)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-gray-200 pt-2 flex justify-between items-start font-bold text-base">
-                    <span>{t('restaurant_pos.total')}</span>
-                    <div className="text-right">
-                      {renderDualAmount(selectedTotals.total, 'font-bold text-base tabular-nums', 'text-gray-900', selectedTotals.totalLbp)}
-                    </div>
-                  </div>
-                </div>
+              <div className="p-4 space-y-3">
                 {/* Payment method */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('restaurant_pos.payment_method')}</label>
-                  <div className={`grid gap-2 ${enabledPaymentMethods.length === 3 ? 'grid-cols-3' : enabledPaymentMethods.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1.5">
+                    {t('restaurant_pos.payment_method')}
+                  </label>
+                  <div className={`grid gap-1.5 ${enabledPaymentMethods.length === 3 ? 'grid-cols-3' : enabledPaymentMethods.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {([
                       { value: 'cash',  label: t('restaurant_pos.cash'),  icon: BanknotesIcon   },
                       { value: 'card',  label: t('restaurant_pos.card'),  icon: CreditCardIcon  },
                       { value: 'other', label: t('restaurant_pos.other'), icon: DocumentTextIcon },
-                    ] as const).filter(({ value }) => enabledPaymentMethods.includes(value)).map(({ value, label, icon: Icon }) => (
-                      <button
-                        key={value}
-                        onClick={() => setPaymentMethod(value)}
-                        className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 font-semibold text-sm transition-colors ${
-                          paymentMethod === value
-                            ? 'border-secondary-500 bg-secondary-50 text-secondary-700'
-                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                        {label}
-                      </button>
-                    ))}
+                    ] as const).filter(({ value }) => enabledPaymentMethods.includes(value)).map(({ value, label, icon: Icon }) => {
+                      const active = paymentMethod === value;
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => setPaymentMethod(value)}
+                          className={`p-2 rounded-lg border-2 transition-all duration-150 ${
+                            active ? 'border-secondary-500 bg-secondary-50 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <div className={`p-1 rounded-md ${active ? 'bg-secondary-500' : 'bg-gray-100'}`}>
+                              <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-gray-500'}`} />
+                            </div>
+                            <span className={`font-semibold text-[11px] ${active ? 'text-secondary-600' : 'text-gray-600'}`}>
+                              {label}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-                {/* Cash amount */}
+
+                {/* Cash Received — hidden for non-cash methods */}
                 {paymentMethod === 'cash' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('restaurant_pos.amount_given')}</label>
-                    <div className={`grid ${lbpRate > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('restaurant_pos.amount_given')}</p>
+                    <div className={`grid ${lbpRate > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
                       <div>
-                        <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1.5">
-                          <CurrencyDollarIcon className="w-3.5 h-3.5 text-gray-400" />
+                        <label className="flex items-center gap-1 text-[11px] font-semibold text-gray-700 mb-1">
+                          <CurrencyDollarIcon className="w-3 h-3 text-gray-400" />
                           Amount ($)
                         </label>
                         <input
@@ -1892,14 +1915,14 @@ export default function RestaurantPOS() {
                           onFocus={e => e.target.select()}
                           autoFocus
                           placeholder="0.00"
-                          className="w-full text-right text-lg font-extrabold px-3 py-2.5 border-2 border-gray-200 focus:border-secondary-400 rounded-xl outline-none transition-colors tabular-nums"
+                          className="w-full px-2.5 py-1.5 text-sm font-bold rounded-lg border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       {lbpRate > 0 && (
                         <div>
-                          <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1.5">
+                          <label className="flex items-center gap-1 text-[11px] font-semibold text-gray-700 mb-1">
                             <span className="text-xs">🇱🇧</span>
                             Amount (LBP)
                           </label>
@@ -1908,67 +1931,86 @@ export default function RestaurantPOS() {
                             value={cashGivenLBP}
                             onChange={e => setCashGivenLBP(e.target.value)}
                             placeholder="0"
-                            className="w-full text-right text-lg font-extrabold px-3 py-2.5 border-2 border-gray-200 focus:border-secondary-400 rounded-xl outline-none transition-colors tabular-nums"
+                            className="w-full px-2.5 py-1.5 text-sm font-bold rounded-lg border border-gray-200 bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all"
                             min="0"
                             step="500"
                           />
                           {lbpGiven > 0 && (
-                            <p className="mt-1 text-[10px] text-gray-500 font-medium">≈ {formatCurrency(lbpGivenInUsd)}</p>
+                            <p className="mt-0.5 text-[10px] text-gray-500 font-medium">≈ {formatCurrency(lbpGivenInUsd)}</p>
                           )}
                         </div>
                       )}
                     </div>
 
+                    {/* Live total received row */}
                     {(usdGiven > 0 || (lbpRate > 0 && lbpGiven > 0)) && (
-                      <div className="mt-2 flex justify-between items-center text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                        <span className="text-gray-600 font-semibold">Total Received</span>
+                      <div className="flex justify-between items-center px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
+                        <span className="text-[11px] font-semibold text-gray-600">Total Received</span>
                         <div className="text-right">
-                          <div className="font-bold text-gray-900 tabular-nums">{formatCurrency(totalTenderedUSD)}</div>
+                          <span className="text-xs font-bold text-gray-900">{formatCurrency(totalTenderedUSD)}</span>
                           {lbpRate > 0 && usdGiven > 0 && lbpGiven > 0 && (
-                            <div className="text-[10px] text-gray-500 tabular-nums">
+                            <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
                               {formatCurrency(usdGiven)} + {lbpGiven.toLocaleString()} LBP
-                            </div>
+                            </p>
                           )}
                         </div>
                       </div>
                     )}
 
-                    {totalTenderedUSD >= selectedTotals.total ? (
-                      <div className="mt-2 flex justify-between items-start text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                        <span className="text-emerald-700 font-medium">{t('restaurant_pos.change_due')}</span>
-                        <div className="text-right">
-                          {renderDualAmount(totalTenderedUSD - selectedTotals.total, 'font-extrabold tabular-nums', 'text-emerald-700',
-                            // Netted in LBP, so handing over the exact LBP on the bill leaves no change
-                            totalTenderedLBP != null && selectedTotals.totalLbp != null
-                              ? Math.max(0, roundLbp(totalTenderedLBP - selectedTotals.totalLbp))
-                              : null
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-2 flex justify-between items-start text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                        <span className="text-red-700 font-medium">Remaining</span>
-                        <div className="text-right">
-                          {renderDualAmount(selectedTotals.total - totalTenderedUSD, 'font-extrabold tabular-nums', 'text-red-700',
-                            totalTenderedLBP != null && selectedTotals.totalLbp != null
-                              ? Math.max(0, roundLbp(selectedTotals.totalLbp - totalTenderedLBP))
-                              : null
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-[11px] text-gray-400">
+                      Total due:&nbsp;<span className="font-semibold text-gray-600">{formatCurrency(selectedTotals.total)}</span>
+                    </p>
                   </div>
                 )}
+
+                {/* Grand Total + Change Due — mirrors Sales.tsx payment modal exactly */}
+                <div
+                  className="brand-surface flex justify-between items-center p-2.5 rounded-xl text-white"
+                  style={{ background: gradients.brandBlue, boxShadow: `0 4px 14px color-mix(in srgb, var(--color-secondary) 30%, transparent)` }}
+                >
+                  <span className="text-xs font-semibold opacity-90">{t('restaurant_pos.total')}</span>
+                  <div className="text-right">
+                    {renderHeroAmount(selectedTotals.total, 'text-xl font-bold tabular-nums', 'text-[11px] font-semibold text-white/80 mt-0.5 tabular-nums', selectedTotals.totalLbp)}
+                  </div>
+                </div>
+
+                {paymentMethod === 'cash' && totalTenderedUSD > 0 && (
+                  totalTenderedUSD >= selectedTotals.total ? (
+                    <div className="flex justify-between items-start px-2.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <span className="text-xs font-semibold text-emerald-700">{t('restaurant_pos.change_due')}</span>
+                      <div className="text-right">
+                        {renderDualAmount(totalTenderedUSD - selectedTotals.total, 'font-bold text-base tabular-nums', 'text-emerald-700',
+                          // Netted in LBP, so handing over the exact LBP on the bill leaves no change
+                          totalTenderedLBP != null && selectedTotals.totalLbp != null
+                            ? Math.max(0, roundLbp(totalTenderedLBP - selectedTotals.totalLbp))
+                            : null
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-start px-2.5 py-2 bg-red-50 border border-red-200 rounded-xl">
+                      <span className="text-xs font-semibold text-red-700">Remaining</span>
+                      <div className="text-right">
+                        {renderDualAmount(selectedTotals.total - totalTenderedUSD, 'font-bold text-base tabular-nums', 'text-red-700',
+                          totalTenderedLBP != null && selectedTotals.totalLbp != null
+                            ? Math.max(0, roundLbp(selectedTotals.totalLbp - totalTenderedLBP))
+                            : null
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
+
                 {checkoutError && (
-                  <div className="text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2">
+                  <div className="text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg px-2.5 py-1.5">
                     {checkoutError}
                   </div>
                 )}
               </div>
-              <div className="flex gap-3 px-6 pb-6">
+              <div className="flex gap-2 px-4 pb-4">
                 <button
                   onClick={() => setShowCheckoutModal(false)}
-                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm rounded-xl transition-colors"
                 >
                   {t('restaurant_pos.cancel')}
                 </button>
@@ -1978,9 +2020,9 @@ export default function RestaurantPOS() {
                     isSubmittingCheckout ||
                     (paymentMethod === 'cash' && totalTenderedUSD < selectedTotals.total)
                   }
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                 >
-                  <CheckCircleIconSolid className="w-5 h-5" />
+                  <CheckCircleIconSolid className="w-4 h-4" />
                   {isSubmittingCheckout ? t('restaurant_pos.processing') : t('restaurant_pos.complete_checkout')}
                 </button>
               </div>
@@ -2172,6 +2214,24 @@ function RestaurantReceipt({ order, settings, formatCurrency }: RestaurantReceip
     });
   }
 
+  if (settings?.receipt_template === 'modern') {
+    return (
+      <div className="bg-white receipt-print-root max-w-[80mm] mx-auto print:p-2 p-4 text-black text-xs">
+        <ModernReceiptHeader settings={settings} />
+        <ModernReceiptMeta rows={metaRows} />
+        <ModernReceiptLineTable rows={lineRows} />
+        <ModernReceiptTotals rows={totalRows} itemCount={lineRows.length} />
+        <ModernReceiptPayments
+          payments={[{ method: order.paymentMethod, amount: order.amountGiven }]}
+          grandTotal={order.grandTotal}
+          formatCurrency={formatCurrency}
+        />
+        <ModernReceiptQr value={settings?.receipt_qr_payment_link} />
+        <ModernReceiptFooter settings={settings} variant="restaurant" />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white receipt-print-root max-w-[80mm] mx-auto print:p-2 p-4 text-black text-xs">
       <MinimalReceiptHeader settings={settings} />
@@ -2277,6 +2337,18 @@ function BillReceipt({ data, settings, formatCurrency }: BillReceiptProps) {
       value: `${formatLbpPlain(lbp)} LBP`,
       emphasis: 'strongSub',
     });
+  }
+
+  if (settings?.receipt_template === 'modern') {
+    return (
+      <div className="bg-white receipt-print-root max-w-[80mm] mx-auto print:p-2 p-4 text-black text-xs">
+        <ModernReceiptHeader settings={settings} />
+        <ModernReceiptMeta rows={metaRows} />
+        <ModernReceiptLineTable rows={lineRows} />
+        <ModernReceiptTotals rows={totalRows} itemCount={lineRows.length} />
+        <ModernReceiptFooter settings={settings} variant="restaurant" />
+      </div>
+    );
   }
 
   return (

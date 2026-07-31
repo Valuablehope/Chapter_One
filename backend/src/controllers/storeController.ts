@@ -87,6 +87,8 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pm_other,
     show_analytics_tab,
     show_list_price_to_users,
+    receipt_template,
+    receipt_qr_payment_link,
     ...storeData
   } = req.body;
 
@@ -145,6 +147,8 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     pm_other,
     show_analytics_tab,
     show_list_price_to_users,
+    receipt_template,
+    receipt_qr_payment_link,
   };
 
   // Only create settings if at least one setting field is provided
@@ -234,6 +238,8 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pm_other,
     show_analytics_tab,
     show_list_price_to_users,
+    receipt_template,
+    receipt_qr_payment_link,
     ...storeData
   } = req.body;
 
@@ -315,6 +321,8 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     pm_other,
     show_analytics_tab,
     show_list_price_to_users,
+    receipt_template,
+    receipt_qr_payment_link,
   };
 
   // Only update settings if at least one setting field is provided

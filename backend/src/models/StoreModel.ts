@@ -156,6 +156,8 @@ export class StoreModel extends BaseModel {
       pm_other: 'ss.pm_other',
       show_analytics_tab: 'ss.show_analytics_tab',
       show_list_price_to_users: 'ss.show_list_price_to_users',
+      receipt_template: 'ss.receipt_template',
+      receipt_qr_payment_link: 'ss.receipt_qr_payment_link',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

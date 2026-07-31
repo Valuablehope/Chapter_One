@@ -10,6 +10,13 @@ import {
   type TotalRow,
   MinimalReceiptFooter,
   MinimalReceiptPayments,
+  ModernReceiptHeader,
+  ModernReceiptMeta,
+  ModernReceiptLineTable,
+  ModernReceiptTotals,
+  ModernReceiptFooter,
+  ModernReceiptPayments,
+  ModernReceiptQr,
   formatLbpGrand,
   formatLbpPlain,
 } from './printReceipt';
@@ -204,21 +211,43 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
     }
   }
 
+  const isModern = settings?.receipt_template === 'modern';
+
   return (
     <div className="bg-white print:shadow-none">
       <div className="receipt-container receipt-print-root max-w-[80mm] mx-auto print:p-2 p-4 bg-white text-black">
-        <MinimalReceiptHeader settings={settings} />
-        <MinimalReceiptMeta rows={metaRows} />
-        <MinimalReceiptLineTable rows={lineRows} />
-        <MinimalReceiptTotals rows={totalRows} />
-        {payments.length > 0 && (
-          <MinimalReceiptPayments
-            payments={payments}
-            grandTotal={invoiceTotal}
-            formatCurrency={formatCurrency}
-          />
+        {isModern ? (
+          <>
+            <ModernReceiptHeader settings={settings} />
+            <ModernReceiptMeta rows={metaRows} />
+            <ModernReceiptLineTable rows={lineRows} />
+            <ModernReceiptTotals rows={totalRows} itemCount={lineRows.length} />
+            {payments.length > 0 && (
+              <ModernReceiptPayments
+                payments={payments}
+                grandTotal={invoiceTotal}
+                formatCurrency={formatCurrency}
+              />
+            )}
+            <ModernReceiptQr value={settings?.receipt_qr_payment_link} />
+            <ModernReceiptFooter settings={settings} variant={isRestaurantSale ? 'restaurant' : 'sale'} />
+          </>
+        ) : (
+          <>
+            <MinimalReceiptHeader settings={settings} />
+            <MinimalReceiptMeta rows={metaRows} />
+            <MinimalReceiptLineTable rows={lineRows} />
+            <MinimalReceiptTotals rows={totalRows} />
+            {payments.length > 0 && (
+              <MinimalReceiptPayments
+                payments={payments}
+                grandTotal={invoiceTotal}
+                formatCurrency={formatCurrency}
+              />
+            )}
+            <MinimalReceiptFooter settings={settings} variant={isRestaurantSale ? 'restaurant' : 'sale'} />
+          </>
         )}
-        <MinimalReceiptFooter settings={settings} variant={isRestaurantSale ? 'restaurant' : 'sale'} />
       </div>
     </div>
   );

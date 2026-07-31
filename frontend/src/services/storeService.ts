@@ -69,6 +69,10 @@ export interface StoreSettings {
   pm_other?: boolean;
   show_analytics_tab?: boolean;
   show_list_price_to_users?: boolean;
+  /** Which printed receipt layout to use: 'classic' (dense tabular) or 'modern' (spaced-out, larger type) */
+  receipt_template?: 'classic' | 'modern' | null;
+  /** Optional payment link/reference encoded as a QR code on the 'modern' receipt template */
+  receipt_qr_payment_link?: string | null;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */

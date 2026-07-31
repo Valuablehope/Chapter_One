@@ -66,6 +66,8 @@ export interface StoreFormData {
   pm_other: boolean;
   show_analytics_tab: boolean;
   show_list_price_to_users: boolean;
+  receipt_template: string;
+  receipt_qr_payment_link: string;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -117,6 +119,8 @@ const initialFormData: StoreFormData = {
   pm_other: true,
   show_analytics_tab: true,
   show_list_price_to_users: true,
+  receipt_template: 'classic',
+  receipt_qr_payment_link: '',
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -168,6 +172,8 @@ function storeToFormData(s: Store): StoreFormData {
     pm_other: s.pm_other ?? true,
     show_analytics_tab: s.show_analytics_tab ?? true,
     show_list_price_to_users: s.show_list_price_to_users ?? true,
+    receipt_template: s.receipt_template || 'classic',
+    receipt_qr_payment_link: s.receipt_qr_payment_link || '',
   };
 }
 
@@ -369,6 +375,8 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       pm_other: formData.pm_other,
       show_analytics_tab: formData.show_analytics_tab,
       show_list_price_to_users: formData.show_list_price_to_users,
+      receipt_template: formData.receipt_template,
+      receipt_qr_payment_link: formData.receipt_qr_payment_link?.trim() || undefined,
     };
 
     setSubmitting(true);
@@ -747,6 +755,40 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
               </div>
             </div>
 
+
+            <SectionDivider>Receipt Layout</SectionDivider>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel>Receipt Template</FieldLabel>
+                <select
+                  value={formData.receipt_template}
+                  onChange={(e) => set('receipt_template', e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="classic">Classic (dense, tabular)</option>
+                  <option value="modern">Modern (spaced-out, larger type)</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  Layout used for printed customer receipts and restaurant bills
+                </p>
+              </div>
+              {formData.receipt_template === 'modern' && (
+                <div>
+                  <FieldLabel>Payment QR Link (optional)</FieldLabel>
+                  <input
+                    type="text"
+                    value={formData.receipt_qr_payment_link}
+                    onChange={(e) => set('receipt_qr_payment_link', e.target.value)}
+                    placeholder="e.g. a payment link or phone/WhatsApp number"
+                    className={inputCls()}
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Shown as a "Scan to Pay" QR code on the Modern receipt when set
+                  </p>
+                </div>
+              )}
+            </div>
 
             <SectionDivider>Receipt Content</SectionDivider>
 

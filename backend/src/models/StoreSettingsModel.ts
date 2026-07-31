@@ -60,6 +60,8 @@ export interface StoreSettings {
   pm_other?: boolean;
   show_analytics_tab?: boolean;
   show_list_price_to_users?: boolean;
+  receipt_template?: string | null;
+  receipt_qr_payment_link?: string | null;
 }
 
 export interface StoreSettingsInput {
@@ -116,6 +118,8 @@ export interface StoreSettingsInput {
   pm_other?: boolean;
   show_analytics_tab?: boolean;
   show_list_price_to_users?: boolean;
+  receipt_template?: string | null;
+  receipt_qr_payment_link?: string | null;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -531,6 +535,16 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('show_list_price_to_users');
       values.push(settings.show_list_price_to_users);
     }
+    if (settings.receipt_template !== undefined && availableColumns.has('receipt_template')) {
+      paramCount++;
+      fields.push('receipt_template');
+      values.push(settings.receipt_template);
+    }
+    if (settings.receipt_qr_payment_link !== undefined && availableColumns.has('receipt_qr_payment_link')) {
+      paramCount++;
+      fields.push('receipt_qr_payment_link');
+      values.push(settings.receipt_qr_payment_link);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -811,6 +825,16 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`show_list_price_to_users = $${paramCount}`);
       values.push(settings.show_list_price_to_users);
+    }
+    if (settings.receipt_template !== undefined && availableColumns.has('receipt_template')) {
+      paramCount++;
+      fields.push(`receipt_template = $${paramCount}`);
+      values.push(settings.receipt_template);
+    }
+    if (settings.receipt_qr_payment_link !== undefined && availableColumns.has('receipt_qr_payment_link')) {
+      paramCount++;
+      fields.push(`receipt_qr_payment_link = $${paramCount}`);
+      values.push(settings.receipt_qr_payment_link);
     }
 
     if (fields.length === 0) {
