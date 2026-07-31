@@ -7,7 +7,8 @@ import { cache } from '../utils/cache';
 import { StoreSettingsModel } from './StoreSettingsModel';
 
 // Cached once at runtime — information_schema is stable after migrations complete
-let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean; hasDeliveryCharge: boolean } | null = null;
+let salesColumnsCache: { hasClientSaleId: boolean; hasDiscountRate: boolean; hasDeliveryCharge: boolean; hasGrandTotalLbp: boolean } | null = null;
+let saleItemsColumnsCache: { hasLbpPrice: boolean } | null = null;
 // Both restaurant tables are created by the same migration, so one check covers both
 let restaurantContextTableCache: boolean | null = null;
 // order_type/customer columns arrive with migration 048; degrade gracefully when absent
@@ -37,6 +38,8 @@ export interface Sale {
   discount_rate?: number;  // Discount percentage (0-100)
   delivery_charge?: number;
   grand_total: number;
+  /** Exact LBP total shown to the cashier at checkout (snapshot, not re-derived from grand_total on reprint) */
+  grand_total_lbp?: number | null;
   paid_total: number;
   status: SaleStatus;
   created_at: string;
@@ -53,6 +56,8 @@ export interface SaleItem {
   unit_of_measure?: string;
   qty: number;
   unit_price: number;
+  /** Exact LBP unit price snapshotted from the product at time of sale */
+  lbp_price?: number | null;
   tax_rate: number;
   line_total: number;
   is_return?: boolean;
@@ -70,12 +75,16 @@ export interface CreateSaleData {
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
   discount_rate?: number;  // Discount percentage (0-100)
   delivery_charge?: number;
+  /** Exact LBP grand total computed client-side at checkout (see SaleItem.lbp_price) */
+  grand_total_lbp?: number | null;
   items: {
     product_id: string;
     qty: number;
     unit_price: number;
     tax_rate?: number;
     is_return?: boolean;
+    /** Exact LBP unit price snapshotted from the product's lbp_price at time of sale */
+    lbp_price?: number | null;
   }[];
   payments: {
     method: PaymentMethod;
@@ -407,12 +416,13 @@ export class SaleModel extends BaseModel {
             const columnCheck = await client.query(`
               SELECT column_name
               FROM information_schema.columns
-              WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge')
+              WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge', 'grand_total_lbp')
             `);
             salesColumnsCache = {
               hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
               hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
               hasDeliveryCharge: columnCheck.rows.some((r: any) => r.column_name === 'delivery_charge'),
+              hasGrandTotalLbp: columnCheck.rows.some((r: any) => r.column_name === 'grand_total_lbp'),
             };
           }
 
@@ -546,6 +556,7 @@ export class SaleModel extends BaseModel {
             const hasClientSaleId = salesColumnsCache!.hasClientSaleId;
             const hasDiscountRate = salesColumnsCache!.hasDiscountRate;
             const hasDeliveryCharge = salesColumnsCache!.hasDeliveryCharge;
+            const hasGrandTotalLbp = salesColumnsCache!.hasGrandTotalLbp;
 
             let paramCount = 11; // Base parameters
             const columns: string[] = [
@@ -577,6 +588,12 @@ export class SaleModel extends BaseModel {
               columns.push('delivery_charge');
               paramCount++;
               values.push(deliveryCharge);
+            }
+
+            if (hasGrandTotalLbp) {
+              columns.push('grand_total_lbp');
+              paramCount++;
+              values.push(data.grand_total_lbp ?? null);
             }
 
             if (hasClientSaleId) {
@@ -623,19 +640,25 @@ export class SaleModel extends BaseModel {
           const sale = saleResult.rows[0];
 
           // Create sale items
+          if (!saleItemsColumnsCache) {
+            const itemColumnCheck = await client.query(`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_name = 'sale_items' AND column_name = 'lbp_price'
+            `);
+            saleItemsColumnsCache = {
+              hasLbpPrice: itemColumnCheck.rows.some((r: any) => r.column_name === 'lbp_price'),
+            };
+          }
+          const hasLbpPrice = saleItemsColumnsCache.hasLbpPrice;
+
           const items: SaleItem[] = [];
           for (let i = 0; i < data.items.length; i++) {
             const item = data.items[i];
             const amounts = computedLines[i];
 
-            const itemQuery = `
-          INSERT INTO sale_items (
-            sale_id, product_id, qty, unit_price, tax_rate, line_total, is_return
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING *
-        `;
-            const itemValues = [
+            const itemColumns = ['sale_id', 'product_id', 'qty', 'unit_price', 'tax_rate', 'line_total', 'is_return'];
+            const itemValues: any[] = [
               sale.sale_id,
               item.product_id,
               item.qty,
@@ -644,6 +667,16 @@ export class SaleModel extends BaseModel {
               amounts.line_total,
               item.is_return ?? false,
             ];
+            if (hasLbpPrice) {
+              itemColumns.push('lbp_price');
+              itemValues.push(item.lbp_price ?? null);
+            }
+            const itemPlaceholders = itemValues.map((_, idx) => `$${idx + 1}`).join(', ');
+            const itemQuery = `
+          INSERT INTO sale_items (${itemColumns.join(', ')})
+          VALUES (${itemPlaceholders})
+          RETURNING *
+        `;
             const itemResult = await client.query(itemQuery, itemValues);
             items.push(itemResult.rows[0]);
 
@@ -829,12 +862,13 @@ export class SaleModel extends BaseModel {
             const columnCheck = await client.query(`
               SELECT column_name
               FROM information_schema.columns
-              WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge')
+              WHERE table_name = 'sales' AND column_name IN ('client_sale_id', 'discount_rate', 'delivery_charge', 'grand_total_lbp')
             `);
             salesColumnsCache = {
               hasClientSaleId: columnCheck.rows.some((r: any) => r.column_name === 'client_sale_id'),
               hasDiscountRate: columnCheck.rows.some((r: any) => r.column_name === 'discount_rate'),
               hasDeliveryCharge: columnCheck.rows.some((r: any) => r.column_name === 'delivery_charge'),
+              hasGrandTotalLbp: columnCheck.rows.some((r: any) => r.column_name === 'grand_total_lbp'),
             };
           }
 

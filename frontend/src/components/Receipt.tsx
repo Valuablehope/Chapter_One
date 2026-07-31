@@ -82,9 +82,14 @@ export default function Receipt({ settings, sale, customer, items }: ReceiptProp
   const invoiceTotal = (wasSavedWithDelivery ? drawerTotal : (drawerTotal + deliveryCharge)) +
     (serviceFeeAmount > 0 && !wasSavedWithServiceFee ? serviceFeeAmount : 0);
 
-  const lbp = settings?.show_lbp_price !== false
-    ? formatLbpGrand(invoiceTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000)
-    : null;
+  // Prefer the exact LBP total snapshotted at checkout over re-deriving it from
+  // invoiceTotal (which would drift if the exchange rate has changed since, or if
+  // any line's LBP price differs from a straight rate conversion of its USD price).
+  const lbp = settings?.show_lbp_price === false
+    ? null
+    : sale.grand_total_lbp != null
+      ? Number(sale.grand_total_lbp)
+      : formatLbpGrand(invoiceTotal, settings?.lbp_exchange_rate, settings?.round_lbp_to_1000);
 
   const lineRows = items.map((item) => {
     const isReturn = !!(item as any).is_return;

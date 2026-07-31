@@ -323,6 +323,14 @@ export default function Sales() {
     return formatLBP(Number(p.sale_price || p.list_price || 0));
   }, [formatLBP]);
 
+  // Same exact-over-estimated preference as formatProductLBP, scaled by qty for a cart line.
+  const formatCartLineLBP = useCallback((item: CartItem): string | null => {
+    if (item.product.lbp_price != null) {
+      return Math.round(Number(item.product.lbp_price) * item.qty).toLocaleString() + ' LBP';
+    }
+    return formatLBP(Number(item.line_total));
+  }, [formatLBP]);
+
 
   const cartAmounts = useMemo(
     () =>
@@ -375,11 +383,31 @@ export default function Sales() {
     const includeDelivery = storeSettings?.include_delivery_in_drawer !== false;
     const finalTotal = includeDelivery ? merch + deliveryAmount : merch;
     
-    return { 
-      discountAmount, 
-      grandTotal: Math.round(finalTotal * 100) / 100 
+    return {
+      discountAmount,
+      grandTotal: Math.round(finalTotal * 100) / 100
     };
   }, [merchandiseGross, discountRate, deliveryAmount, storeSettings?.include_delivery_in_drawer]);
+
+  // Exact LBP grand total: sums each line's stored lbp_price × qty where available,
+  // falling back to a rate conversion only for lines without one — instead of
+  // converting the blended USD grandTotal, which drifts from what was actually
+  // entered per product (see formatCartLineLBP for the equivalent per-line logic).
+  const cartLbpTotal = useMemo(() => {
+    if (!lbpRate || lbpRate <= 0) return null;
+    const merchLbpGross = roundMoney(cart.reduce((sum, item, i) => {
+      const sign = item.is_return ? -1 : 1;
+      const lineLbp = item.product.lbp_price != null
+        ? Number(item.product.lbp_price) * item.qty
+        : cartAmounts[i].line_total * lbpRate;
+      return sum + sign * lineLbp;
+    }, 0));
+    const dr = discountRate ? parseFloat(discountRate) : 0;
+    const { grandTotal: merchLbpNet } = discountAndGrand(merchLbpGross, dr);
+    const includeDelivery = storeSettings?.include_delivery_in_drawer !== false;
+    const finalLbp = includeDelivery ? merchLbpNet + deliveryAmount * lbpRate : merchLbpNet;
+    return storeSettings?.round_lbp_to_1000 ? Math.ceil(finalLbp / 1000) * 1000 : Math.round(finalLbp);
+  }, [cart, cartAmounts, lbpRate, discountRate, deliveryAmount, storeSettings?.include_delivery_in_drawer, storeSettings?.round_lbp_to_1000]);
 
   // ── Sync live cart/customer/discount → active session (must be after grandTotal) ──
   useEffect(() => {
@@ -969,6 +997,7 @@ export default function Sales() {
           unit_price: item.unit_price,
           tax_rate: item.tax_rate || 0,
           is_return: item.is_return || false,
+          lbp_price: item.product.lbp_price ?? null,
         }));
 
       // Validate we have valid items
@@ -982,6 +1011,7 @@ export default function Sales() {
         customer_id: selectedCustomer?.customer_id,
         discount_rate: discountRate ? parseFloat(discountRate) : undefined,
         delivery_charge: deliveryAmount > 0 ? deliveryAmount : undefined,
+        grand_total_lbp: cartLbpTotal,
         items: validItems,
         payments: [
           {
@@ -1603,10 +1633,10 @@ export default function Sales() {
                                         -${Number(item.line_total).toFixed(2)}
                                       </span>
                                     </div>
-                                  ) : storeSettings?.lbp_primary_price && formatLBP(Number(item.line_total)) ? (
+                                  ) : storeSettings?.lbp_primary_price && formatCartLineLBP(item) ? (
                                     <div className="flex flex-col items-end leading-tight">
                                       <span className="font-bold text-sm text-amber-600">
-                                        {formatLBP(Number(item.line_total))}
+                                        {formatCartLineLBP(item)}
                                       </span>
                                       <span className="font-bold text-sm text-secondary-400">
                                         ${Number(item.line_total).toFixed(2)}
@@ -1617,9 +1647,9 @@ export default function Sales() {
                                       <span className="font-bold text-sm text-secondary-600">
                                         ${Number(item.line_total).toFixed(2)}
                                       </span>
-                                      {formatLBP(Number(item.line_total)) && (
+                                      {formatCartLineLBP(item) && (
                                         <span className="font-bold text-sm text-amber-600">
-                                          {formatLBP(Number(item.line_total))}
+                                          {formatCartLineLBP(item)}
                                         </span>
                                       )}
                                     </div>
@@ -1958,9 +1988,9 @@ export default function Sales() {
                       <span className="text-sm font-black text-secondary-600 block">
                         ${Number(product.sale_price || product.list_price || 0).toFixed(2)}
                       </span>
-                      {formatLBP(Number(product.sale_price || product.list_price || 0)) && (
+                      {formatProductLBP(product) && (
                         <span className="text-[10px] font-bold text-amber-600 leading-none">
-                          ≈ {formatLBP(Number(product.sale_price || product.list_price || 0))}
+                          {product.lbp_price == null && '≈ '}{formatProductLBP(product)}
                         </span>
                       )}
                     </>

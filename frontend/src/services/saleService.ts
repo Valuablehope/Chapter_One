@@ -80,12 +80,16 @@ export interface CreateSaleData {
   client_sale_id?: string; // Unique client-side sale ID for conflict resolution
   discount_rate?: number; // Discount percentage (0-100)
   delivery_charge?: number;
+  /** Exact LBP grand total shown to the cashier at checkout (see items[].lbp_price) */
+  grand_total_lbp?: number | null;
   items: {
     product_id: string;
     qty: number;
     unit_price: number;
     tax_rate?: number;
     is_return?: boolean;
+    /** Exact LBP unit price snapshotted from the product at time of sale */
+    lbp_price?: number | null;
   }[];
   payments: CreateSalePayment[];
   restaurant_context?: RestaurantContextInput;
@@ -120,6 +124,7 @@ export interface Sale {
   discount_rate?: number;
   delivery_charge?: number;
   grand_total: number;
+  grand_total_lbp?: number | null;
   paid_total: number;
   status: string;
   created_at: string;
@@ -168,6 +173,7 @@ export interface SaleItem {
   product_name?: string;
   qty: number;
   unit_price: number;
+  lbp_price?: number | null;
   tax_rate: number;
   line_total: number;
   is_return?: boolean;

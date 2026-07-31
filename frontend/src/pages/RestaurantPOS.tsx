@@ -854,6 +854,7 @@ export default function RestaurantPOS() {
           qty: orderItem.qty,
           unit_price: orderItem.price,
           tax_rate: settings?.tax_inclusive ? Number(settings?.tax_rate ?? 0) : 0,
+          lbp_price: orderItem.lbpPrice ?? null,
         });
       }
 
@@ -864,6 +865,7 @@ export default function RestaurantPOS() {
         items: saleItems,
         customer_id: order.customerId || undefined,
         delivery_charge: deliveryCharge > 0 ? deliveryCharge : undefined,
+        grand_total_lbp: totalLbp,
         payments: [
           {
             method: paymentMethod,
