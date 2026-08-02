@@ -63,6 +63,9 @@ export interface Store {
   pm_other?: boolean;
   show_analytics_tab?: boolean;
   show_list_price_to_users?: boolean;
+  receipt_template?: string | null;
+  receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
 }
 
 export interface StoreFilters {
@@ -158,6 +161,7 @@ export class StoreModel extends BaseModel {
       show_list_price_to_users: 'ss.show_list_price_to_users',
       receipt_template: 'ss.receipt_template',
       receipt_qr_payment_link: 'ss.receipt_qr_payment_link',
+      receipt_logo_url: 'ss.receipt_logo_url',
     };
 
     for (const [column, select] of Object.entries(columnMap)) {

@@ -13,6 +13,7 @@ import {
   updateStore,
   deleteStore,
   uploadQrImage,
+  uploadLogoImage,
 } from '../controllers/storeController';
 import {
   getTerminals,
@@ -23,7 +24,7 @@ import {
 } from '../controllers/terminalController';
 import { authenticate, authorize } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
-import { uploadReceiptQrImage } from '../middleware/upload';
+import { uploadReceiptQrImage, uploadReceiptLogoImage } from '../middleware/upload';
 import { body, query, param } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
 
@@ -280,6 +281,14 @@ router.post(
   '/stores/upload-qr-image',
   uploadReceiptQrImage.single('image'),
   uploadQrImage
+);
+
+// Upload the store's logo image — printed at the top of both the Classic and
+// Modern receipt templates.
+router.post(
+  '/stores/upload-logo-image',
+  uploadReceiptLogoImage.single('image'),
+  uploadLogoImage
 );
 
 // Terminal Management Routes

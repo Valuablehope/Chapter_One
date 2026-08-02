@@ -73,6 +73,8 @@ export interface StoreSettings {
   receipt_template?: 'classic' | 'modern' | null;
   /** Uploaded "Scan to Pay" QR code image path (e.g. exported from Whish Money), printed as-is on the 'modern' receipt template */
   receipt_qr_payment_link?: string | null;
+  /** Uploaded logo image path, printed at the top of every receipt (both 'classic' and 'modern' templates) */
+  receipt_logo_url?: string | null;
 }
 
 /** Payload for PATCH /stores/:id/label-layout */
@@ -141,6 +143,21 @@ export const storeService = {
     formData.append('image', file);
     const response = await api.post<{ success: boolean; data: { url: string } }>(
       '/admin/stores/upload-qr-image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data.url;
+  },
+
+  async uploadLogoImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post<{ success: boolean; data: { url: string } }>(
+      '/admin/stores/upload-logo-image',
       formData,
       {
         headers: {

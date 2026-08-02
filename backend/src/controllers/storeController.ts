@@ -89,6 +89,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     show_list_price_to_users,
     receipt_template,
     receipt_qr_payment_link,
+    receipt_logo_url,
     ...storeData
   } = req.body;
 
@@ -149,6 +150,7 @@ export const createStore = asyncHandler(async (req: Request, res: Response) => {
     show_list_price_to_users,
     receipt_template,
     receipt_qr_payment_link,
+    receipt_logo_url,
   };
 
   // Only create settings if at least one setting field is provided
@@ -240,6 +242,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     show_list_price_to_users,
     receipt_template,
     receipt_qr_payment_link,
+    receipt_logo_url,
     ...storeData
   } = req.body;
 
@@ -323,6 +326,7 @@ export const updateStore = asyncHandler(async (req: Request, res: Response) => {
     show_list_price_to_users,
     receipt_template,
     receipt_qr_payment_link,
+    receipt_logo_url,
   };
 
   // Only update settings if at least one setting field is provided
@@ -379,6 +383,21 @@ export const uploadQrImage = asyncHandler(async (req: Request, res: Response) =>
   }
 
   const imageUrl = `/uploads/receipt-qr/${req.file.filename}`;
+
+  res.json({
+    success: true,
+    data: {
+      url: imageUrl,
+    },
+  });
+});
+
+export const uploadLogoImage = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) {
+    throw new CustomError('No image file uploaded', 400);
+  }
+
+  const imageUrl = `/uploads/receipt-logo/${req.file.filename}`;
 
   res.json({
     success: true,

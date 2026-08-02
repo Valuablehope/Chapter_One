@@ -58,3 +58,27 @@ export const uploadReceiptQrImage = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
 });
+
+// Store's logo image, printed at the top of both the Classic and Modern receipt templates.
+const logoUploadDir = path.join(__dirname, '../../uploads/receipt-logo');
+if (!fs.existsSync(logoUploadDir)) {
+  fs.mkdirSync(logoUploadDir, { recursive: true });
+}
+
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, logoUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'receipt-logo-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+export const uploadReceiptLogoImage = multer({
+  storage: logoStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});

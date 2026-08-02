@@ -62,6 +62,7 @@ export interface StoreSettings {
   show_list_price_to_users?: boolean;
   receipt_template?: string | null;
   receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
 }
 
 export interface StoreSettingsInput {
@@ -120,6 +121,7 @@ export interface StoreSettingsInput {
   show_list_price_to_users?: boolean;
   receipt_template?: string | null;
   receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
 }
 
 interface StoreSettingsSchemaAudit {
@@ -545,6 +547,11 @@ export class StoreSettingsModel extends BaseModel {
       fields.push('receipt_qr_payment_link');
       values.push(settings.receipt_qr_payment_link);
     }
+    if (settings.receipt_logo_url !== undefined && availableColumns.has('receipt_logo_url')) {
+      paramCount++;
+      fields.push('receipt_logo_url');
+      values.push(settings.receipt_logo_url);
+    }
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const query = `
       INSERT INTO store_settings (${fields.join(', ')})
@@ -835,6 +842,11 @@ export class StoreSettingsModel extends BaseModel {
       paramCount++;
       fields.push(`receipt_qr_payment_link = $${paramCount}`);
       values.push(settings.receipt_qr_payment_link);
+    }
+    if (settings.receipt_logo_url !== undefined && availableColumns.has('receipt_logo_url')) {
+      paramCount++;
+      fields.push(`receipt_logo_url = $${paramCount}`);
+      values.push(settings.receipt_logo_url);
     }
 
     if (fields.length === 0) {

@@ -72,6 +72,7 @@ export interface StoreFormData {
   show_list_price_to_users: boolean;
   receipt_template: string;
   receipt_qr_payment_link: string;
+  receipt_logo_url: string;
 }
 
 function validateRestaurantForm(formData: StoreFormData): Record<string, string> {
@@ -125,6 +126,7 @@ const initialFormData: StoreFormData = {
   show_list_price_to_users: true,
   receipt_template: 'classic',
   receipt_qr_payment_link: '',
+  receipt_logo_url: '',
 };
 
 function storeToFormData(s: Store): StoreFormData {
@@ -178,6 +180,7 @@ function storeToFormData(s: Store): StoreFormData {
     show_list_price_to_users: s.show_list_price_to_users ?? true,
     receipt_template: s.receipt_template || 'classic',
     receipt_qr_payment_link: s.receipt_qr_payment_link || '',
+    receipt_logo_url: s.receipt_logo_url || '',
   };
 }
 
@@ -281,6 +284,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('identity');
   const [printers, setPrinters] = useState<any[]>([]);
   const { t, language, setLanguage } = useTranslation();
@@ -338,6 +342,30 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
   };
 
   const removeQrImage = () => set('receipt_qr_payment_link', '');
+
+  const handleLogoImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB');
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      const url = await storeService.uploadLogoImage(file);
+      set('receipt_logo_url', url);
+      toast.success('Logo uploaded');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Upload failed');
+      logger.error('Logo upload failed:', err);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeLogoImage = () => set('receipt_logo_url', '');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -406,6 +434,7 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
       show_list_price_to_users: formData.show_list_price_to_users,
       receipt_template: formData.receipt_template,
       receipt_qr_payment_link: formData.receipt_qr_payment_link?.trim() || undefined,
+      receipt_logo_url: formData.receipt_logo_url?.trim() || undefined,
     };
 
     setSubmitting(true);
@@ -802,7 +831,59 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                   Layout used for printed customer receipts and restaurant bills
                 </p>
               </div>
-              {formData.receipt_template === 'modern' && (
+              <div>
+                <FieldLabel>Receipt Logo (optional)</FieldLabel>
+                <div className="flex items-start gap-4">
+                  <div className="relative group w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center overflow-hidden transition-all hover:border-secondary-500 hover:bg-secondary-50">
+                    {formData.receipt_logo_url ? (
+                      <>
+                        <img
+                          src={`${API_BASE_URL}${formData.receipt_logo_url}`}
+                          alt="Logo preview"
+                          className="w-full h-full object-contain"
+                          crossOrigin="anonymous"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeLogoImage}
+                          className="absolute top-1 right-1 p-1 bg-white/80 hover:bg-white text-red-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XMarkIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleLogoImageUpload}
+                          disabled={uploadingLogo}
+                        />
+                        {uploadingLogo ? (
+                          <div className="flex flex-col items-center">
+                            <ArrowPathIcon className="w-5 h-5 text-secondary-500 animate-spin" />
+                            <span className="text-[10px] text-gray-500 mt-1 font-medium">Uploading…</span>
+                          </div>
+                        ) : (
+                          <>
+                            <PhotoIcon className="w-6 h-6 text-gray-400 group-hover:text-secondary-500 transition-colors" />
+                            <span className="text-[10px] text-gray-400 mt-1 font-medium group-hover:text-secondary-500 transition-colors">Add image</span>
+                          </>
+                        )}
+                      </label>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 flex-1">
+                    Printed at the top of every receipt, above the store name. Works with both
+                    the Classic and Modern layouts.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {formData.receipt_template === 'modern' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <FieldLabel>Scan to Pay QR Image (optional)</FieldLabel>
                   <div className="flex items-start gap-4">
@@ -853,8 +934,8 @@ function StoreModalComponent({ isOpen, editingStore, onClose, onSaved }: StoreMo
                     </p>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <SectionDivider>Receipt Content</SectionDivider>
 

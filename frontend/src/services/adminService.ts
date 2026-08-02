@@ -113,6 +113,7 @@ export interface Store {
   show_list_price_to_users?: boolean;
   receipt_template?: string | null;
   receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
 }
 
 export interface Terminal {
