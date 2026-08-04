@@ -49,7 +49,7 @@ import LicenseBanner from './LicenseBanner';
 import PageErrorBoundary from './PageErrorBoundary';
 import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { useOfflineSync } from '../hooks/useOfflineSync';
-import { CloudArrowUpIcon, WifiIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon, WifiIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { APP_BRAND_POS_LINE } from '../constants/branding';
 import { storeService } from '../services/storeService';
 import type { PosModuleType } from '../services/adminService';
@@ -165,7 +165,7 @@ export default function Layout({ children }: LayoutProps) {
   const { setFontSizes } = useFontSize();
 
   useTokenRefresh();
-  const { pendingCount, isOnline, isSyncing, syncPendingSales } = useOfflineSync();
+  const { pendingCount, isOnline, isSyncing, lowDiskSpace, syncPendingSales } = useOfflineSync();
 
   const refreshPosModuleType = useCallback(async () => {
     try {
@@ -440,6 +440,16 @@ export default function Layout({ children }: LayoutProps) {
 
         <LicenseBanner />
         <TrialBanner />
+
+        {/* Low disk space warning — surfaced early, before it can block a checkout */}
+        {lowDiskSpace && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center space-x-2">
+            <ExclamationTriangleIcon className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-red-800">
+              Low disk space on this device — the offline sales queue may stop working. Please free up space or contact IT.
+            </span>
+          </div>
+        )}
 
         {/* Offline sync indicator */}
         {pendingCount > 0 && (

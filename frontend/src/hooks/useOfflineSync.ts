@@ -5,6 +5,10 @@ import { stockService } from '../services/stockService';
 import { logger } from '../utils/logger';
 import toast from 'react-hot-toast';
 
+// Warn well before checkQuota's 10MB hard block, so staff have time to act
+// before a sale attempt actually fails.
+const LOW_DISK_SPACE_WARNING_BYTES = 50 * 1024 * 1024;
+
 /**
  * Hook to manage offline sales sync
  * Automatically syncs queued sales when connection is restored
@@ -13,6 +17,16 @@ export function useOfflineSync() {
   const [pendingCount, setPendingCount] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lowDiskSpace, setLowDiskSpace] = useState(false);
+
+  const checkDiskSpace = useCallback(async () => {
+    try {
+      const available = await offlineQueue.getAvailableBytes();
+      setLowDiskSpace(available !== null && available < LOW_DISK_SPACE_WARNING_BYTES);
+    } catch (error) {
+      logger.error('Failed to check available disk space', error);
+    }
+  }, []);
 
   // Ref mirrors pendingCount so the sync interval can read the current value
   // without needing pendingCount in the effect dependency array.
@@ -181,6 +195,7 @@ export function useOfflineSync() {
     }
 
     updatePendingCount();
+    checkDiskSpace();
 
     // Only run the periodic sync when there are actually pending sales to avoid
     // unnecessary IndexedDB reads on every interval tick.
@@ -193,6 +208,12 @@ export function useOfflineSync() {
     const countInterval = setInterval(() => {
       updatePendingCount();
     }, 30000);
+
+    // Disk fills slowly; checking every 5 minutes is enough to warn staff
+    // well before it becomes a checkout-blocking failure.
+    const diskSpaceInterval = setInterval(() => {
+      checkDiskSpace();
+    }, 5 * 60000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -210,13 +231,15 @@ export function useOfflineSync() {
 
       clearInterval(syncInterval);
       clearInterval(countInterval);
+      clearInterval(diskSpaceInterval);
     };
-  }, [syncPendingSales, updatePendingCount]);
+  }, [syncPendingSales, updatePendingCount, checkDiskSpace]);
 
   return {
     pendingCount,
     isOnline,
     isSyncing,
+    lowDiskSpace,
     syncPendingSales,
     updatePendingCount,
   };
