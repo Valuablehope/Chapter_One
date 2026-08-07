@@ -1,6 +1,6 @@
-# Bootstraps whatever this toolkit needs to run, then starts the GUI.
+﻿# Bootstraps whatever this toolkit needs to run, then starts the GUI.
 #
-# The client's machine normally has no system-wide Node.js — the app bundles
+# The client's machine normally has no system-wide Node.js - the app bundles
 # its own Node runtime inside Electron, which isn't something a shell script
 # can invoke directly. Rather than requiring the operator to install Node.js
 # by hand, this script:
@@ -8,7 +8,7 @@
 #   2. Otherwise reuses a portable copy already downloaded by a previous run.
 #   3. Otherwise downloads the official Windows x64 build straight from
 #      nodejs.org, verifies its SHA-256 against nodejs.org's own published
-#      checksums, and extracts it locally under .node-portable/ — no
+#      checksums, and extracts it locally under .node-portable/ - no
 #      installer, no admin rights, no system PATH changes, and it can be
 #      deleted afterward with zero trace.
 #
@@ -44,7 +44,7 @@ function Get-PortableNodeExe {
 }
 
 function Install-PortableNode {
-    Write-Host 'No suitable Node.js found on this machine — downloading a portable copy from nodejs.org (one-time, ~30 MB)...'
+    Write-Host 'No suitable Node.js found on this machine - downloading a portable copy from nodejs.org (one-time, ~30 MB)...'
     New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
 
     # latest-v20.x always points at the newest 20.x LTS release, so this
@@ -67,7 +67,7 @@ function Install-PortableNode {
     $actualHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
     if ($actualHash -ne $expectedHash) {
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-        throw "Downloaded Node.js archive failed checksum verification (expected $expectedHash, got $actualHash). Aborting — try again, or install Node.js manually from nodejs.org."
+        throw "Downloaded Node.js archive failed checksum verification (expected $expectedHash, got $actualHash). Aborting - try again, or install Node.js manually from nodejs.org."
     }
     Write-Host 'Checksum verified. Extracting...'
 
@@ -103,7 +103,7 @@ if (-not (Test-Path (Join-Path $root 'node_modules'))) {
     Write-Host 'Installing dependencies (first run only)...'
     & $npmCmd install
     if ($LASTEXITCODE -ne 0) {
-        Write-Host 'npm install failed — see the errors above.' -ForegroundColor Red
+        Write-Host 'npm install failed - see the errors above.' -ForegroundColor Red
         exit 1
     }
 }
@@ -112,14 +112,14 @@ $Port = if ($env:PORT) { $env:PORT } else { 5757 }
 $existing = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if ($existing) {
     Write-Host ''
-    Write-Host "Port $Port is already in use — the toolkit is probably already running in another window." -ForegroundColor Yellow
+    Write-Host "Port $Port is already in use - the toolkit is probably already running in another window." -ForegroundColor Yellow
     Write-Host "Open http://localhost:$Port in your browser to use it, or close that other window first and run this again." -ForegroundColor Yellow
     exit 1
 }
 
 & $npmCmd run ui
 # Propagate the server's exit code so the .bat wrapper can tell success from
-# failure — without this, a crashed server (e.g. port already in use) would
+# failure - without this, a crashed server (e.g. port already in use) would
 # report a clean PowerShell exit and the console window would just close
 # before anyone could read why.
 exit $LASTEXITCODE
