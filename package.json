@@ -29,8 +29,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "npm run type-check -w frontend && npm run type-check -w backend && npm run type-check -w electron",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../electron && npm install",
-    "create-user": "cd backend && npm run create-user",
-    "create-license": "cd backend && npm run create-license"
+    "create-user": "cd backend && npm run create-user"
   },
   "devDependencies": {
     "@types/react": "^18.3.27",

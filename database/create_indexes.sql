@@ -180,34 +180,14 @@ END $$;
 -- =====================================================
 -- Licenses Table Indexes
 -- =====================================================
+-- Both already created by database/migrations/039_add_licenses.sql;
+-- listed here only as a no-op safety net.
 
 -- Index for store_id lookups (very common)
 CREATE INDEX IF NOT EXISTS idx_licenses_store_id ON licenses(store_id);
 
 -- Index for status filtering
 CREATE INDEX IF NOT EXISTS idx_licenses_status ON licenses(status);
-
--- Index for subscription_type filtering
-CREATE INDEX IF NOT EXISTS idx_licenses_subscription_type ON licenses(subscription_type);
-
--- Index for expiry_date queries (used in license validation)
-CREATE INDEX IF NOT EXISTS idx_licenses_expiry_date ON licenses(expiry_date);
-
--- Composite index for active license lookups
-CREATE INDEX IF NOT EXISTS idx_licenses_store_status ON licenses(store_id, status, valid);
-
--- =====================================================
--- Device Activations Table Indexes
--- =====================================================
-
--- Index for license_id lookups (very common)
-CREATE INDEX IF NOT EXISTS idx_device_activations_license_id ON device_activations(license_id);
-
--- Index for device_fingerprint lookups
-CREATE INDEX IF NOT EXISTS idx_device_activations_device_fingerprint ON device_activations(device_fingerprint);
-
--- Composite index for active device lookups (common validation pattern)
-CREATE INDEX IF NOT EXISTS idx_device_activations_license_fingerprint_active ON device_activations(license_id, device_fingerprint, is_active);
 
 -- =====================================================
 -- Stores Table Indexes

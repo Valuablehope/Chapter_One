@@ -93,7 +93,7 @@ if (isProduction) {
   const hasJwtSecret = !!process.env.JWT_SECRET;
 
   if (!hasJwtSecret) {
-    const requiredVars = ['JWT_SECRET', 'LICENSE_ENCRYPTION_KEY'];
+    const requiredVars = ['JWT_SECRET'];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
 
     if (missingVars.length > 0) {

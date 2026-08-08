@@ -1,5 +1,4 @@
 import api from './api';
-import { generateDeviceFingerprint, getDeviceInfo } from '../utils/deviceFingerprint';
 
 export interface LicenseStatus {
   isValid: boolean;
@@ -30,34 +29,6 @@ export interface LicenseInfoResponse {
   };
 }
 
-export interface ActivateLicenseRequest {
-  licenseKey: string;
-  deviceFingerprint: string;
-  deviceName?: string;
-  deviceInfo?: any;
-}
-
-export interface ActivateLicenseResponse {
-  success: boolean;
-  data: {
-    message: string;
-    license: any;
-  };
-}
-
-export interface ValidateDeviceRequest {
-  deviceFingerprint: string;
-}
-
-export interface ValidateDeviceResponse {
-  success: boolean;
-  data: {
-    valid: boolean;
-    message: string;
-    license?: any;
-  };
-}
-
 export interface ConvexActivateRequest {
   licenseKey: string;
 }
@@ -80,28 +51,6 @@ export const licenseService = {
 
   convexActivate: async (req: ConvexActivateRequest): Promise<ConvexActivateResponse> => {
     const response = await api.post<ConvexActivateResponse>('/license/convex-activate', req);
-    return response.data;
-  },
-
-  activateLicense: async (licenseKey: string): Promise<ActivateLicenseResponse> => {
-    const deviceFingerprint = generateDeviceFingerprint();
-    const deviceInfo = getDeviceInfo();
-    const deviceName = `${navigator.platform} - ${navigator.userAgent.split(' ')[0]}`;
-
-    const response = await api.post<ActivateLicenseResponse>('/license/activate', {
-      licenseKey,
-      deviceFingerprint,
-      deviceName,
-      deviceInfo,
-    } as ActivateLicenseRequest);
-    return response.data;
-  },
-
-  validateDevice: async (): Promise<ValidateDeviceResponse> => {
-    const deviceFingerprint = generateDeviceFingerprint();
-    const response = await api.post<ValidateDeviceResponse>('/license/validate', {
-      deviceFingerprint,
-    } as ValidateDeviceRequest);
     return response.data;
   },
 };

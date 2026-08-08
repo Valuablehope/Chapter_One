@@ -232,11 +232,6 @@ function persistMissingSecrets(envPath: string | null, envVars: NodeJS.ProcessEn
     upsertLine('JWT_SECRET', envVars.JWT_SECRET);
   }
 
-  if (!envVars.LICENSE_ENCRYPTION_KEY || envVars.LICENSE_ENCRYPTION_KEY.trim().length < 32) {
-    envVars.LICENSE_ENCRYPTION_KEY = generateSecret(32);
-    upsertLine('LICENSE_ENCRYPTION_KEY', envVars.LICENSE_ENCRYPTION_KEY);
-  }
-
   if (updatedContent !== existingContent) {
     fs.writeFileSync(userDataEnvPath, updatedContent, 'utf-8');
     log.warn(`Persisted missing secrets to: ${userDataEnvPath}`);
