@@ -26,7 +26,30 @@ export const ar = {
       license: "الرخصة",
       menus: "القوائم",
       settings: "الإعدادات",
-      scales: "الموازين"
+      scales: "الموازين",
+      tools: "مكتب الأدوات"
+    },
+    tools_desk: {
+      subtitle: "أدوات إدارية متفرقة. اختر أداة للبدء.",
+      back: "الرجوع إلى مكتب الأدوات",
+      tools: {
+        reactivate_product: {
+          title: "إعادة تفعيل منتج",
+          description: "أعد منتجًا معطّلاً سابقًا إلى نقاط البيع والمشتريات وقوائم المخزون."
+        }
+      },
+      reactivate: {
+        search_placeholder: "ابحث عن المنتجات المعطّلة بالاسم أو رمز SKU أو الباركود...",
+        searching: "جارٍ البحث...",
+        empty_title: "لا توجد منتجات معطّلة مطابقة",
+        empty_description: "جرّب اسمًا أو رمز SKU أو باركود مختلفًا.",
+        reactivate_button: "إعادة تفعيل",
+        reactivating: "جارٍ إعادة التفعيل...",
+        confirm: "إعادة تفعيل \"{{name}}\"؟ سيظهر مجددًا في نقاط البيع والمشتريات والمخزون الافتتاحي.",
+        success: "تمت إعادة تفعيل \"{{name}}\" بنجاح",
+        error: "فشلت إعادة تفعيل المنتج",
+        load_failed: "فشل البحث عن المنتجات المعطّلة"
+      }
     },
     settings: {
       title: "إعدادات المنصة",
@@ -538,11 +561,13 @@ export const ar = {
       type_placeholder: "تصفية حسب النوع...",
       scan_barcode_placeholder: "امسح الباركود...",
       products_count: "{{count}} منتج",
-      filtered_results: "نتائج بعد التصفية: {{count}}"
+      filtered_results: "نتائج بعد التصفية: {{count}}",
+      show_inactive: "إظهار المعطّلة"
     },
     badges: {
       tracked: "متتبع",
-      not_tracked: "غير متتبع"
+      not_tracked: "غير متتبع",
+      inactive: "معطّل"
     },
     actions: {
       manage_product_types: "إدارة أنواع المنتجات",
@@ -551,6 +576,7 @@ export const ar = {
       refresh: "تحديث",
       edit: "تعديل",
       delete_short: "حذف",
+      deactivate: "تعطيل",
       cancel: "إلغاء",
       update_product: "تحديث المنتج",
       create_product: "إنشاء منتج",
@@ -663,6 +689,7 @@ export const ar = {
       product_created: "تم إنشاء المنتج بنجاح",
       product_updated: "تم تحديث المنتج بنجاح",
       product_deleted: "تم حذف المنتج بنجاح",
+      product_deactivated: "تم تعطيل المنتج بنجاح",
       product_type_created: "تم إنشاء نوع المنتج بنجاح",
       product_type_updated: "تم تحديث نوع المنتج بنجاح",
       product_type_deleted: "تم حذف نوع المنتج",
@@ -674,6 +701,7 @@ export const ar = {
       timeout: "انتهت مهلة الطلب، يرجى المحاولة مرة أخرى.",
       save_product: "فشل حفظ المنتج",
       delete_product: "فشل حذف المنتج",
+      deactivate_product: "فشل تعطيل المنتج",
       lookup_barcode: "فشل العثور على المنتج عبر الباركود",
       finish_action: "فشل إتمام العملية",
       delete_product_type: "فشل حذف نوع المنتج",
@@ -682,6 +710,7 @@ export const ar = {
     },
     confirm: {
       delete_product: "هل أنت متأكد من حذف \"{{name}}\"؟",
+      deactivate_product: "تعطيل \"{{name}}\"؟ سيتم إخفاؤه من نقاط البيع والمشتريات والمخزون الافتتاحي، مع الاحتفاظ الكامل بسجل معاملاته. يمكنك إعادة تفعيله لاحقًا من لوحة المشرف > مكتب الأدوات.",
       delete_type: "هل أنت متأكد من حذف نوع المنتج هذا؟"
     }
   },

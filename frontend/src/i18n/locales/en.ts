@@ -26,7 +26,30 @@ export const en = {
       license: "License",
       menus: "Menus",
       settings: "Settings",
-      scales: "Scales"
+      scales: "Scales",
+      tools: "Tools Desk"
+    },
+    tools_desk: {
+      subtitle: "One-off admin utilities. Pick a tool to get started.",
+      back: "Back to Tools Desk",
+      tools: {
+        reactivate_product: {
+          title: "Reactivate Product",
+          description: "Bring a previously deactivated product back into POS, purchases, and stock lists."
+        }
+      },
+      reactivate: {
+        search_placeholder: "Search deactivated products by name, SKU, or barcode...",
+        searching: "Searching...",
+        empty_title: "No deactivated products found",
+        empty_description: "Try a different name, SKU, or barcode.",
+        reactivate_button: "Reactivate",
+        reactivating: "Reactivating...",
+        confirm: "Reactivate \"{{name}}\"? It will reappear in POS, Purchases, and Opening Stock.",
+        success: "\"{{name}}\" reactivated successfully",
+        error: "Failed to reactivate product",
+        load_failed: "Failed to search deactivated products"
+      }
     },
     settings: {
       title: "Platform Settings",
@@ -538,11 +561,13 @@ export const en = {
       type_placeholder: "Filter by type...",
       scan_barcode_placeholder: "Scan barcode...",
       products_count: "{{count}} Products",
-      filtered_results: "Filtered: {{count}} results"
+      filtered_results: "Filtered: {{count}} results",
+      show_inactive: "Show inactive"
     },
     badges: {
       tracked: "Tracked",
-      not_tracked: "Not Tracked"
+      not_tracked: "Not Tracked",
+      inactive: "Inactive"
     },
     actions: {
       manage_product_types: "Manage Product Types",
@@ -551,6 +576,7 @@ export const en = {
       refresh: "Refresh",
       edit: "Edit",
       delete_short: "Del",
+      deactivate: "Deactivate",
       cancel: "Cancel",
       update_product: "Update Product",
       create_product: "Create Product",
@@ -663,6 +689,7 @@ export const en = {
       product_created: "Product created successfully",
       product_updated: "Product updated successfully",
       product_deleted: "Product deleted successfully",
+      product_deactivated: "Product deactivated successfully",
       product_type_created: "Product type created successfully",
       product_type_updated: "Product type updated successfully",
       product_type_deleted: "Product type deleted",
@@ -674,6 +701,7 @@ export const en = {
       timeout: "Request timed out. Please try again.",
       save_product: "Failed to save product",
       delete_product: "Failed to delete product",
+      deactivate_product: "Failed to deactivate product",
       lookup_barcode: "Failed to lookup product by barcode",
       finish_action: "Failed to finish action",
       delete_product_type: "Failed to delete product type",
@@ -682,6 +710,7 @@ export const en = {
     },
     confirm: {
       delete_product: "Are you sure you want to delete \"{{name}}\"?",
+      deactivate_product: "Deactivate \"{{name}}\"? It will be hidden from POS, Purchases, and Opening Stock, but its transaction history stays intact. You can reactivate it later from Admin > Tools Desk.",
       delete_type: "Are you sure you want to delete this product type?"
     }
   },

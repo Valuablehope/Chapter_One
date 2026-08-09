@@ -12,6 +12,9 @@ export const getProducts = asyncHandler(async (req: Request, res: Response) => {
     track_inventory: req.query.track_inventory === 'true' ? true : 
                      req.query.track_inventory === 'false' ? false : undefined,
     pos_category_only: req.query.pos_category_only === 'true' ? true : undefined,
+    is_active: req.query.is_active === 'true' ? true :
+                req.query.is_active === 'false' ? false : undefined,
+    include_inactive: req.query.include_inactive === 'true' ? true : undefined,
     page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
     limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
   };
@@ -171,6 +174,38 @@ export const deleteProduct = asyncHandler(async (req: Request, res: Response) =>
     }
     throw error;
   }
+});
+
+export const deactivateProduct = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const existing = await ProductModel.findById(id);
+  if (!existing) {
+    throw new CustomError('Product not found', 404);
+  }
+
+  const product = await ProductModel.update(id, { is_active: false });
+  res.json({
+    success: true,
+    data: product,
+    message: 'Product deactivated successfully',
+  });
+});
+
+export const reactivateProduct = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const existing = await ProductModel.findById(id);
+  if (!existing) {
+    throw new CustomError('Product not found', 404);
+  }
+
+  const product = await ProductModel.update(id, { is_active: true });
+  res.json({
+    success: true,
+    data: product,
+    message: 'Product reactivated successfully',
+  });
 });
 
 export const validateBarcode = asyncHandler(async (req: Request, res: Response) => {

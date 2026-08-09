@@ -116,7 +116,7 @@ export default function Dispose() {
     setSearching(true);
     try {
       const res = await productService.getProducts(
-        { track_inventory: true, search: q, page: 1, limit: 8 },
+        { track_inventory: true, search: q, include_inactive: true, page: 1, limit: 8 },
         abortRef.current.signal
       );
       setSearchResults(res.data);

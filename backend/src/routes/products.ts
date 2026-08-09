@@ -6,11 +6,13 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  deactivateProduct,
+  reactivateProduct,
   validateBarcode,
   bulkImportProducts,
   uploadImage,
 } from '../controllers/productController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
 import { body, query, param } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
@@ -30,6 +32,8 @@ router.get(
     query('product_type').optional().isString(),
     query('track_inventory').optional().isBoolean(),
     query('pos_category_only').optional().isBoolean(),
+    query('is_active').optional().isBoolean(),
+    query('include_inactive').optional().isBoolean(),
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 2000 }),
   ],
@@ -128,12 +132,31 @@ router.put(
   updateProduct
 );
 
-// Delete product
+// Delete product (admin only)
 router.delete(
   '/:id',
   [param('id').isUUID()],
   validateRequest,
+  authorize('admin'),
   deleteProduct
+);
+
+// Deactivate product — soft-disable, keeps transaction history (admin only)
+router.patch(
+  '/:id/deactivate',
+  [param('id').isUUID()],
+  validateRequest,
+  authorize('admin'),
+  deactivateProduct
+);
+
+// Reactivate a previously deactivated product (admin only)
+router.patch(
+  '/:id/reactivate',
+  [param('id').isUUID()],
+  validateRequest,
+  authorize('admin'),
+  reactivateProduct
 );
 
 // Validate barcode uniqueness

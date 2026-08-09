@@ -42,6 +42,7 @@ import {
   ShoppingCartIcon,
   ClipboardDocumentListIcon,
   ScaleIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { StoreModal } from './Admin/components/StoreModal';
@@ -49,9 +50,10 @@ import TerminalModal from './Admin/components/TerminalModal';
 import UserModal from './Admin/components/UserModal';
 import MenusTab from './Admin/components/MenusTab';
 import ScalesTab from './Admin/components/ScalesTab';
+import ToolsDeskTab from './Admin/components/ToolsDeskTab';
 import { useTranslation } from '../i18n/I18nContext';
 
-type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus' | 'scales';
+type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus' | 'scales' | 'tools';
 
 export default function Admin() {
   const { user } = useAuthStore();
@@ -59,7 +61,7 @@ export default function Admin() {
   const { licenseStatus, recordCounts, limits, checkLicense, isLoading: licenseLoading } = useLicenseStore();
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const tab = searchParams.get('tab');
-    return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales') ? tab as AdminTab : 'users';
+    return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales' || tab === 'tools') ? tab as AdminTab : 'users';
   });
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -127,7 +129,7 @@ export default function Admin() {
       setActiveTab('stores');
       return;
     }
-    if (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales') {
+    if (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales' || tab === 'tools') {
       setActiveTab(tab as AdminTab);
     }
   }, [searchParams, showMenusTab]);
@@ -428,6 +430,7 @@ export default function Admin() {
               { key: 'license', label: t('admin.tabs.license'), icon: KeyIcon },
               ...(showMenusTab ? [{ key: 'menus', label: t('admin.tabs.menus'), icon: ClipboardDocumentListIcon }] : []),
               { key: 'scales', label: t('admin.tabs.scales'), icon: ScaleIcon },
+              { key: 'tools', label: t('admin.tabs.tools'), icon: WrenchScrewdriverIcon },
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -1062,6 +1065,9 @@ export default function Admin() {
 
         {/* Scales Tab */}
         {activeTab === 'scales' && <ScalesTab />}
+
+        {/* Tools Desk Tab */}
+        {activeTab === 'tools' && <ToolsDeskTab />}
 
         {/* License Tab */}
         {activeTab === 'license' && (

@@ -1,7 +1,7 @@
 import { memo, useState } from 'react';
 import { Product } from '../../../services/productService';
 import Badge from '../../../components/ui/Badge';
-import { PencilIcon, TrashIcon, CubeIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, TrashIcon, CubeIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
 import { TableRow } from '../../../components/shared/TableRow';
 import { useTranslation } from '../../../i18n/I18nContext';
 import { API_BASE_URL } from '../../../services/api';
@@ -11,6 +11,8 @@ export interface ProductRowProps {
   index: number;
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
+  onDeactivate: (product: Product) => void;
+  isAdmin: boolean;
   formatCurrency: (amount: number) => string;
   visibleColumns: string[];
   isCustomSized: boolean;
@@ -35,7 +37,7 @@ const getProductTypeVariant = (productType: string): 'primary' | 'secondary' | '
   return variants[index];
 };
 
-export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, formatCurrency, visibleColumns, isCustomSized }) => {
+export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDelete, onDeactivate, isAdmin, formatCurrency, visibleColumns, isCustomSized }) => {
   const { t, language } = useTranslation();
   const [imageError, setImageError] = useState(false);
   const locale = language === 'ar' ? 'ar-EG' : 'en-US';
@@ -62,6 +64,9 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
               )}
             </div>
             <div className="text-xs font-bold text-gray-900 truncate">{product.name}</div>
+            {product.is_active === false && (
+              <Badge variant="gray" size="sm">{t('products.badges.inactive')}</Badge>
+            )}
           </div>
         </td>
       )}
@@ -144,14 +149,26 @@ export const ProductRow = memo<ProductRowProps>(({ product, index, onEdit, onDel
             >
               <PencilIcon className="w-4 h-4" />
             </button>
-            <button
-              title={t('products.actions.delete_short')}
-              aria-label={t('products.actions.delete_short')}
-              onClick={() => onDelete(product)}
-              className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
+            {isAdmin && product.is_active !== false && (
+              <button
+                title={t('products.actions.deactivate')}
+                aria-label={t('products.actions.deactivate')}
+                onClick={() => onDeactivate(product)}
+                className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-colors"
+              >
+                <NoSymbolIcon className="w-4 h-4" />
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                title={t('products.actions.delete_short')}
+                aria-label={t('products.actions.delete_short')}
+                onClick={() => onDelete(product)}
+                className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </td>
       )}

@@ -104,6 +104,7 @@ export default function Products() {
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const canSeeListPrice = user?.role === 'admin' || storeSettings?.show_list_price_to_users !== false;
   // "Show LBP as primary price in POS Sales" (Admin > Regional) unlocks an LBP price
   // input in this form that back-calculates Sale Price / Margin via the exchange rate.
@@ -753,6 +754,26 @@ export default function Products() {
     }
   }, [loadProducts, t]);
 
+  const handleDeactivate = useCallback(async (product: Product) => {
+    if (!window.confirm(t('products.confirm.deactivate_product', { name: product.name }))) {
+      return;
+    }
+
+    try {
+      await productService.deactivateProduct(product.product_id);
+      toast.success(t('products.success.product_deactivated'));
+      loadProducts();
+    } catch (err: any) {
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error(t('products.errors.timeout'));
+      } else {
+        const errorMessage = err.response?.data?.error?.message || t('products.errors.deactivate_product');
+        toast.error(errorMessage);
+      }
+      console.error('Error deactivating product:', err);
+    }
+  }, [loadProducts, t]);
+
   const handleBarcodeScan = async (barcode: string) => {
     try {
       const product = await productService.getProductByBarcode(barcode);
@@ -989,6 +1010,17 @@ export default function Products() {
                   {t('products.filters.filtered_results', { count: products.length })}
                 </Badge>
               )}
+              {isAdmin && (
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-secondary-500 focus:ring-secondary-500 h-3.5 w-3.5"
+                    checked={!!filters.include_inactive}
+                    onChange={(e) => setFilters(prev => ({ ...prev, include_inactive: e.target.checked, page: 1 }))}
+                  />
+                  <span>{t('products.filters.show_inactive')}</span>
+                </label>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <div className="relative" ref={columnsMenuRef}>
@@ -1096,6 +1128,8 @@ export default function Products() {
                       index={index}
                       onEdit={openEditModal}
                       onDelete={handleDelete}
+                      onDeactivate={handleDeactivate}
+                      isAdmin={isAdmin}
                       formatCurrency={formatCurrency}
                       visibleColumns={visibleColumns}
                       isCustomSized={isCustomSized}

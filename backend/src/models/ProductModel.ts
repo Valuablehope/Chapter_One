@@ -22,6 +22,7 @@ export interface Product {
   menu_category?: string | null;
   menu_display_order?: number;
   menu_note?: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +45,8 @@ export interface ProductFilters {
   product_type?: string;
   track_inventory?: boolean;
   pos_category_only?: boolean;
+  is_active?: boolean;
+  include_inactive?: boolean;
   page?: number;
   limit?: number;
 }
@@ -141,6 +144,16 @@ export class ProductModel extends BaseModel {
 
     if (filters.pos_category_only) {
       query += ` AND p.product_type IN (SELECT name FROM product_types WHERE display_on_pos = true)`;
+    }
+
+    if (filters.is_active !== undefined) {
+      paramCount++;
+      query += ` AND p.is_active = $${paramCount}`;
+      params.push(filters.is_active);
+    } else if (!filters.include_inactive) {
+      paramCount++;
+      query += ` AND p.is_active = $${paramCount}`;
+      params.push(true);
     }
 
     // No GROUP BY needed — stock_balances is a single row per product+store
@@ -392,6 +405,11 @@ export class ProductModel extends BaseModel {
       paramCount++;
       fields.push(`lbp_list_price = $${paramCount}`);
       values.push(updates.lbp_list_price);
+    }
+    if (updates.is_active !== undefined) {
+      paramCount++;
+      fields.push(`is_active = $${paramCount}`);
+      values.push(updates.is_active);
     }
 
     if (fields.length === 0) {

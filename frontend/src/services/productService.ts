@@ -24,6 +24,7 @@ export interface Product {
   menu_category?: string | null;
   menu_display_order?: number;
   menu_note?: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
   qty_in?: number;      // Sum of purchases
@@ -36,6 +37,8 @@ export interface ProductFilters {
   product_type?: string;
   track_inventory?: boolean;
   pos_category_only?: boolean;
+  is_active?: boolean;
+  include_inactive?: boolean;
   page?: number;
   limit?: number;
 }
@@ -96,6 +99,12 @@ export const productService = {
     if (filters.pos_category_only) {
       params.append('pos_category_only', 'true');
     }
+    if (filters.is_active !== undefined) {
+      params.append('is_active', filters.is_active.toString());
+    }
+    if (filters.include_inactive) {
+      params.append('include_inactive', 'true');
+    }
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());
 
@@ -152,6 +161,22 @@ export const productService = {
   // Delete product
   async deleteProduct(id: string): Promise<void> {
     await api.delete(`/products/${id}`);
+  },
+
+  // Deactivate product (admin only) — soft-disable, keeps transaction history
+  async deactivateProduct(id: string): Promise<Product> {
+    const response = await api.patch<{ success: boolean; data: Product }>(
+      `/products/${id}/deactivate`
+    );
+    return response.data.data;
+  },
+
+  // Reactivate a previously deactivated product (admin only)
+  async reactivateProduct(id: string): Promise<Product> {
+    const response = await api.patch<{ success: boolean; data: Product }>(
+      `/products/${id}/reactivate`
+    );
+    return response.data.data;
   },
 
   // Validate barcode
