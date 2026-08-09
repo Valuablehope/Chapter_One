@@ -9,6 +9,17 @@ import * as dotenv from 'dotenv';
 import { closeCustomerDisplayPort, showCustomerDisplay } from './customerDisplay';
 import { setupIpcHandlers } from './setupHandler';
 
+// Two instances sharing the default session would race to open the same
+// on-disk IndexedDB storage (the offline sales queue) — the loser fails with
+// "Failed to open IndexedDB". This must run before anything else touches
+// `app` (window creation, backend spawn, IPC handlers) so a second launch
+// never gets far enough to race the first one for those on-disk files.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+  process.exit(0);
+}
+
 dotenv.config();
 
 // Configure logging
@@ -781,6 +792,18 @@ app.whenReady().then(async () => {
       createWindow(!isDev && !currentSetupComplete);
     }
   });
+});
+
+// A second launch attempt reaches here (instead of quitting immediately, see
+// the lock check above) only in the ORIGINAL instance — Electron routes it to
+// this event instead of letting the new process's window open. Just focus
+// the existing window rather than doing anything else.
+app.on('second-instance', () => {
+  log.info('second-instance launch attempted; focusing existing window instead.');
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
 });
 
 // Handle system sleep/wake events

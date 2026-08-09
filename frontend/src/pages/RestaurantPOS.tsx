@@ -3,7 +3,7 @@ import { storeService } from '../services/storeService';
 import type { StoreSettings } from '../services/storeService';
 import { menuService } from '../services/adminService';
 import type { Menu } from '../services/adminService';
-import { saleService } from '../services/saleService';
+import { saleService, OfflineError } from '../services/saleService';
 import { productService } from '../services/productService';
 import { customerService } from '../services/customerService';
 import type { Customer } from '../services/customerService';
@@ -925,6 +925,46 @@ export default function RestaurantPOS() {
       setShowCheckoutModal(false);
       setShowReceipt(true);
     } catch (error: any) {
+      if (error instanceof OfflineError) {
+        // Sale was safely queued for offline sync (not a failure) — close out
+        // this order the same way a normal completion does, just without
+        // server-assigned receipt fields, which don't exist until it syncs.
+        const completed: CompletedOrder = {
+          orderType: order.orderType,
+          tableNumber: order.tableNumber,
+          seq: order.seq,
+          guestCount: order.guestCount,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          deliveryAddress: order.deliveryAddress,
+          deliveryCharge,
+          startTime: order.startTime,
+          items: [...order.items],
+          paymentMethod,
+          amountGiven: given,
+          grandTotal: total,
+          subtotal,
+          taxAmount,
+          serviceFeeAmount,
+          serviceFeeRate: order.serviceFeeRate ?? DEFAULT_SERVICE_FEE_RATE,
+          serviceFeeEnabled: order.serviceFeeEnabled,
+          change: paymentMethod === 'cash' ? Math.max(0, given - total) : 0,
+          grandTotalLbp: totalLbp,
+          completedAt: new Date().toISOString(),
+          receiptNo: 'Pending sync',
+          notes: order.notes?.trim() || undefined,
+        };
+
+        setCompletedOrder(completed);
+        setBillPrintOrder(null);
+        setOrders(prev => { const n = { ...prev }; delete n[selectedKey]; return n; });
+        setSelectedKey(null);
+        setMenuSearchQuery('');
+        setShowCheckoutModal(false);
+        setShowReceipt(true);
+        return;
+      }
+
       const message =
         error?.response?.data?.error?.message ||
         error?.message ||

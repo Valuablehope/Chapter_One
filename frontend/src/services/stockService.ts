@@ -6,6 +6,7 @@
 
 import api from './api';
 import { logger } from '../utils/logger';
+import { openWithRecovery } from '../utils/indexedDbRecovery';
 
 export interface StockBalance {
   store_id: string;
@@ -35,24 +36,35 @@ class StockService {
       return this.initPromise;
     }
 
-    this.initPromise = new Promise((resolve, reject) => {
+    this.initPromise = openWithRecovery(DB_NAME, () => this.openDatabaseOnce()).then((db) => {
+      this.db = db;
+      // If another context upgrades the DB, close and reset so we re-open cleanly
+      this.db.onversionchange = () => {
+        this.db?.close();
+        this.db = null;
+        this.initPromise = null;
+      };
+    });
+
+    try {
+      return await this.initPromise;
+    } catch (err) {
+      // Reset so the next call can retry rather than re-using a permanently rejected promise
+      this.initPromise = null;
+      throw err;
+    }
+  }
+
+  private openDatabaseOnce(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
-        // Reset so the next call can retry rather than re-using a permanently rejected promise
-        this.initPromise = null;
-        reject(new Error('Failed to open stock cache database'));
+        reject(request.error || new Error('Failed to open stock cache database'));
       };
 
       request.onsuccess = () => {
-        this.db = request.result;
-        // If another context upgrades the DB, close and reset so we re-open cleanly
-        this.db.onversionchange = () => {
-          this.db?.close();
-          this.db = null;
-          this.initPromise = null;
-        };
-        resolve();
+        resolve(request.result);
       };
 
       request.onupgradeneeded = (event) => {
@@ -65,8 +77,6 @@ class StockService {
         }
       };
     });
-
-    return this.initPromise;
   }
 
   /**

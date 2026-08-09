@@ -231,8 +231,26 @@ export const saleService = {
       // If network error, queue for offline sync with client sale ID
       if (isNetworkError(error)) {
         logger.warn('Network error detected, queueing sale for offline sync', error);
-        const queueId = await offlineQueue.enqueueSale(data, saleId);
-        throw new OfflineError('Sale queued for offline sync. It will be synced when connection is restored.', queueId);
+        try {
+          const queueId = await offlineQueue.enqueueSale(data, saleId);
+          throw new OfflineError('Sale queued for offline sync. It will be synced when connection is restored.', queueId);
+        } catch (queueError: any) {
+          if (queueError instanceof OfflineError) {
+            throw queueError;
+          }
+          // The offline queue itself is unavailable (corrupted store, full
+          // disk, etc.) — this sale is neither sent nor safely queued. Never
+          // let the raw IndexedDB/browser exception reach the cashier; log
+          // the real cause for diagnosis and surface one clear, actionable
+          // message instead.
+          logger.error('Offline queue unavailable — sale could not be saved locally', {
+            error: queueError?.message || String(queueError),
+            saleId,
+          });
+          throw new Error(
+            'No connection, and this sale could not be saved locally either. Note the amount and items, then retry once your connection or device storage is restored.'
+          );
+        }
       }
       // Re-throw other errors
       throw error;

@@ -7,6 +7,7 @@
 import { stockService } from './stockService';
 import { logger } from '../utils/logger';
 import { PaymentMethod } from './saleService';
+import { getAvailableStorageBytes, openWithRecovery } from '../utils/indexedDbRecovery';
 
 export interface QueuedSale {
   id: string;
@@ -51,14 +52,14 @@ export class OfflineQueue {
       return this.initPromise;
     }
 
-    this.initPromise = this.openDatabase().catch(async (err) => {
-      // If the on-disk store is corrupt (e.g. an unclean shutdown left it in a
-      // bad state) it will fail to open on every future launch, permanently
-      // blocking the offline queue. Whatever was in it is already unreadable
-      // to us either way, so recreate it once rather than staying broken.
-      logger.error('IndexedDB failed to open; recreating store', { error: err?.message || String(err) });
-      await this.deleteDatabase();
-      return this.openDatabase();
+    this.initPromise = openWithRecovery(DB_NAME, () => this.openDatabaseOnce()).then((db) => {
+      this.db = db;
+      // If another context upgrades the DB, close and reset so we re-open cleanly
+      this.db.onversionchange = () => {
+        this.db?.close();
+        this.db = null;
+        this.initPromise = null;
+      };
     });
 
     try {
@@ -70,7 +71,7 @@ export class OfflineQueue {
     }
   }
 
-  private openDatabase(): Promise<void> {
+  private openDatabaseOnce(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -79,14 +80,7 @@ export class OfflineQueue {
       };
 
       request.onsuccess = () => {
-        this.db = request.result;
-        // If another context upgrades the DB, close and reset so we re-open cleanly
-        this.db.onversionchange = () => {
-          this.db?.close();
-          this.db = null;
-          this.initPromise = null;
-        };
-        resolve();
+        resolve(request.result);
       };
 
       request.onupgradeneeded = (event) => {
@@ -100,18 +94,6 @@ export class OfflineQueue {
           store.createIndex('clientSaleId', 'clientSaleId', { unique: true }); // Unique index for conflict detection
         }
       };
-    });
-  }
-
-  private deleteDatabase(): Promise<void> {
-    return new Promise((resolve) => {
-      const request = indexedDB.deleteDatabase(DB_NAME);
-      // Best-effort: proceed to retry regardless of outcome. If another
-      // connection still has it open, the retried openDatabase() call will
-      // surface whatever the real, current state is.
-      request.onsuccess = () => resolve();
-      request.onerror = () => resolve();
-      request.onblocked = () => resolve();
     });
   }
 
@@ -192,17 +174,7 @@ export class OfflineQueue {
    * Get available storage space in bytes, or null if the browser can't report it.
    */
   async getAvailableBytes(): Promise<number | null> {
-    if (!('storage' in navigator) || !('estimate' in navigator.storage)) {
-      return null;
-    }
-    try {
-      const estimate = await navigator.storage.estimate();
-      const used = estimate.usage || 0;
-      const quota = estimate.quota || 0;
-      return quota - used;
-    } catch (error) {
-      return null;
-    }
+    return getAvailableStorageBytes();
   }
 
   /**

@@ -1083,7 +1083,7 @@ export default function Sales() {
         setSelectedCustomer(null);
         setShowPaymentModal(false);
       } else {
-        toast.error(err.response?.data?.error?.message || 'Failed to process payment');
+        toast.error(err.response?.data?.error?.message || err.message || 'Failed to process payment');
         logger.error('Error processing payment:', err);
       }
     } finally {
