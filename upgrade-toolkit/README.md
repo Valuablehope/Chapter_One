@@ -66,14 +66,18 @@ jump many versions at once, on their only copy of production data:
    **without** a backup.
 2. The backup is never restore-tested. A corrupt dump would only be
    discovered when it's actually needed.
-3. Uploaded product images (`resources/backend/uploads/products`) are never
-   backed up at all, and live in the exact directory tree that gets
-   overwritten by every version's installer package.
+3. Uploaded files (`resources/backend/uploads/` — product images, the
+   receipt QR code, the receipt logo) are never backed up at all, and live in
+   the exact directory tree that gets wiped by the installer's own
+   uninstall-old-version phase during an update.
 
 This toolkit wraps the same underlying mechanisms (the same `pg_dump`, the
 same `migrate.js`, the same NSIS installer) with real gates: a backup is not
 trusted until it's actually been restored and reconciled, and the upgrade
-step refuses to run until that's proven.
+step refuses to run until that's proven. It also actively watches uploads
+across the install itself — if the installer wipes them, `upgrade` restores
+them from this run's own backup immediately, before migrations even run,
+rather than only reporting the loss afterward.
 
 ## Operator runbook
 
@@ -110,10 +114,11 @@ Auto-discovers the install, PostgreSQL binaries, and `.env`. Creates a new
 timestamped run folder under `upgrade-toolkit/backups/` and writes
 `preflight-report.txt` — **read this before doing anything else**. It tells
 you: how many migrations are pending, current row counts, DB size, how many
-uploaded product images exist, whether any other process still has an open
-connection to the database (if so, **close the Chapter One POS app now** —
-check Task Manager for any orphaned backend/node process too), and whether
-there's enough free disk space.
+uploaded files exist (product images, receipt QR, receipt logo — the whole
+`uploads` tree), whether any other process still has an open connection to
+the database (if so, **close the Chapter One POS app now** — check Task
+Manager for any orphaned backend/node process too), and whether there's
+enough free disk space.
 
 If auto-discovery fails (unusual install location, non-standard PostgreSQL
 path, `.env` in an unexpected place), pass `--install-dir`, `--pg-bin-dir`,
@@ -129,9 +134,9 @@ npx tsx src/cli.ts backup --run-dir "<run-dir>"
 ```
 
 Takes a restorable custom-format dump, a plain-SQL fallback dump, and a
-checksummed copy of the uploaded product images. Refuses to proceed if
-another connection to the database is still open — pass `--force` only if
-you're certain it's harmless.
+checksummed copy of every uploaded file (product images, receipt QR, receipt
+logo). Refuses to proceed if another connection to the database is still
+open — pass `--force` only if you're certain it's harmless.
 
 ### 3. Verify the backup — do not skip this
 
@@ -160,9 +165,10 @@ npx tsx src/cli.ts upgrade --run-dir "<run-dir>" --installer "<path to new versi
 ```
 
 Refuses to run unless step 3 passed. Confirm the app is closed, then this
-installs the new version silently and immediately runs `migrate.js` directly
-(before the app UI ever opens), logging its full output and capturing its
-exit code:
+installs the new version silently, checks the uploads directory against this
+run's backup manifest and automatically restores anything the installer
+wiped or altered, and only then runs `migrate.js` directly (before the app UI
+ever opens), logging its full output and capturing its exit code:
 
 - **0** — migrations succeeded, safe to start the app.
 - **1** — a migration failed. The database is still consistent (each
@@ -178,8 +184,11 @@ npx tsx src/cli.ts post-verify --run-dir "<run-dir>"
 ```
 
 Confirms every migration is now recorded, no table lost rows compared to the
-backup manifest (growth is fine, loss is not), and every uploaded image
-still resolves with a matching checksum. Prints a manual smoke-test
+backup manifest (growth is fine, loss is not), and every uploaded file still
+resolves with a matching checksum — this should already pass given step 5's
+own auto-restore, so a failure here means something restored the uploads but
+then lost them again afterward and is worth investigating. Prints a manual
+smoke-test
 checklist — actually do it: log in, open a recent sale, check stock for a
 known product, confirm a product image loads on screen.
 
@@ -217,7 +226,8 @@ handing off mid-procedure.
 
 Before running this against a real client machine, run the full sequence
 once against a disposable copy of an old-schema database and a scratch
-`uploads/products` folder — point `--install-dir` at a directory whose
+`uploads` folder (with test files under `products/`, `receipt-qr/`, and
+`receipt-logo/`) — point `--install-dir` at a directory whose
 `resources/backend` and `resources/database` mirror the real layout, and
 `--env-path` at a `.env` pointing to the throwaway database. Confirm
 `preflight` reports the right pending-migration count, `verify-backup`

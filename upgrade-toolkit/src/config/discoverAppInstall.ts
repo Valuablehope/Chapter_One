@@ -96,7 +96,12 @@ export function discoverAppInstall(explicitInstallDir?: string): AppInstall {
 
   const resourcesPath = path.join(installDir, 'resources');
   const backendDir = path.join(resourcesPath, 'backend');
-  const uploadsDir = path.join(backendDir, 'uploads', 'products');
+  // The whole uploads directory, not just "products" — it also holds
+  // receipt-qr and receipt-logo (see backend/src/middleware/upload.ts), and
+  // backupUploads()/checksumExistingUploads() already recurse through
+  // subdirectories, so pointing at the parent covers every upload type
+  // (including any added later) without needing to list them by name here.
+  const uploadsDir = path.join(backendDir, 'uploads');
   const migrateScriptPath = path.join(backendDir, 'dist', 'scripts', 'migrate.js');
   const migrationsDir = path.join(resourcesPath, 'database', 'migrations');
 

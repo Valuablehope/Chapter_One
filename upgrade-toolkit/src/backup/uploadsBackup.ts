@@ -67,3 +67,30 @@ export async function checksumExistingUploads(uploadsDir: string): Promise<Uploa
   }
   return entries;
 }
+
+function copyRecursive(sourceDir: string, destDir: string): number {
+  let copied = 0;
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      fs.mkdirSync(destPath, { recursive: true });
+      copied += copyRecursive(sourcePath, destPath);
+    } else {
+      fs.copyFileSync(sourcePath, destPath);
+      copied++;
+    }
+  }
+  return copied;
+}
+
+// Wholesale-replaces the live uploads directory with the contents of a prior
+// backup. Shared by full rollback (rollback.ts) and by actionUpgrade's
+// immediate post-install check, which auto-recovers uploads the installer
+// wiped instead of only reporting the loss later in a separate post-verify.
+// Returns the number of files copied.
+export function restoreUploads(backupDir: string, uploadsDir: string): number {
+  fs.rmSync(uploadsDir, { recursive: true, force: true });
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  return copyRecursive(backupDir, uploadsDir);
+}

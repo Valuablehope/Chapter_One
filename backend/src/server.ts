@@ -32,6 +32,7 @@ import { requestLogger } from './middleware/requestLogger';
 import { csrfProtection } from './middleware/csrf';
 import { logger } from './utils/logger';
 import { fixStockBalancesOnStartup } from './utils/autoFixStock';
+import { getUploadsRoot, migrateLegacyUploads } from './utils/uploadsPath';
 
 // Load environment variables from root directory
 import * as path from 'path';
@@ -179,8 +180,13 @@ app.get('/health', async (req: Request, res: Response) => {
   }
 });
 
+// One-time (per file), idempotent copy of any uploads still sitting in the old
+// in-install-dir location over to the persistent userData location. No-ops in
+// dev. See utils/uploadsPath.ts for why this location moved.
+migrateLegacyUploads();
+
 // Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(getUploadsRoot()));
 
 // API routes
 app.use('/api', apiRoutes);

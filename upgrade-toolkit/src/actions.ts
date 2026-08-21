@@ -8,7 +8,7 @@ import { getDatabaseInfo, getRowCounts } from './db/rowCounts';
 import { readSchemaState } from './db/schemaState';
 import { dumpCustomFormat } from './backup/pgDumpCustom';
 import { dumpPlainFormat } from './backup/pgDumpPlain';
-import { backupUploads } from './backup/uploadsBackup';
+import { backupUploads, checksumExistingUploads, restoreUploads } from './backup/uploadsBackup';
 import { writeManifest, readManifest } from './backup/manifest';
 import { verifyRestore } from './backup/verifyRestore';
 import { copyOffMachine } from './backup/offMachineCopy';
@@ -173,6 +173,28 @@ export async function actionUpgrade(
 
   // Re-discover after install — resourcesPath/migrateScriptPath now point at the new version's files.
   const ctxAfter = loadContext(globalOpts);
+
+  // The installer's own uninstall-old-version phase can wipe uploads (see
+  // README "Why this exists") — check immediately against this run's own
+  // backup manifest and restore right here if anything's missing or changed,
+  // instead of only detecting the loss later in a separate, manually-invoked
+  // post-verify step.
+  const manifest = readManifest(runDir);
+  if (manifest.uploads.fileCount > 0) {
+    const uploadsBackupDir = path.join(runDir, 'uploads_backup');
+    const currentUploads = await checksumExistingUploads(ctxAfter.appInstall.uploadsDir);
+    const currentByPath = new Map(currentUploads.map((f) => [f.relativePath, f.sha256]));
+    const lost = manifest.uploads.files.some((f) => currentByPath.get(f.relativePath) !== f.sha256);
+
+    if (lost) {
+      logger.warn('Uploads were altered or lost by the installer — restoring from this run\'s backup before migrating...');
+      const copied = restoreUploads(uploadsBackupDir, ctxAfter.appInstall.uploadsDir);
+      logger.info(`Restored ${copied} upload file(s) to ${ctxAfter.appInstall.uploadsDir}.`);
+    } else {
+      logger.info('Uploads verified intact after install.');
+    }
+  }
+
   const migrateResult = await runMigrate(ctxAfter.appInstall, ctxAfter.envPath, logger);
 
   state.steps.upgrade = {

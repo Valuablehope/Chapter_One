@@ -1,28 +1,14 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { DbConfig, PgBinaries, AppInstall } from '../types';
 import { connect } from '../db/client';
 import { runCommand } from '../util/runCommand';
+import { restoreUploads } from '../backup/uploadsBackup';
 import { Logger } from '../logging/logger';
 
 export interface RollbackOptions {
   dumpFilePath: string;
   uploadsBackupDir: string;
   previousInstallerPath?: string;
-}
-
-function copyRecursive(sourceDir: string, destDir: string): void {
-  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(sourceDir, entry.name);
-    const destPath = path.join(destDir, entry.name);
-    if (entry.isDirectory()) {
-      fs.mkdirSync(destPath, { recursive: true });
-      copyRecursive(sourcePath, destPath);
-    } else {
-      fs.copyFileSync(sourcePath, destPath);
-    }
-  }
 }
 
 // First-class, always-available recovery path. Deliberately reinstalls the
@@ -68,12 +54,10 @@ export async function runRollback(
     );
   }
 
-  logger.info('Database restored. Restoring uploads/products from backup...');
+  logger.info('Database restored. Restoring uploads from backup...');
   if (fs.existsSync(options.uploadsBackupDir)) {
-    fs.rmSync(appInstall.uploadsDir, { recursive: true, force: true });
-    fs.mkdirSync(appInstall.uploadsDir, { recursive: true });
-    copyRecursive(options.uploadsBackupDir, appInstall.uploadsDir);
-    logger.info(`Uploads restored to ${appInstall.uploadsDir}`);
+    const copied = restoreUploads(options.uploadsBackupDir, appInstall.uploadsDir);
+    logger.info(`Restored ${copied} upload file(s) to ${appInstall.uploadsDir}`);
   } else {
     logger.warn(`No uploads backup directory found at ${options.uploadsBackupDir} — skipping uploads restore.`);
   }

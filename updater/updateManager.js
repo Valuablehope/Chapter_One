@@ -5,6 +5,7 @@ let mainWindowRef = null;
 let lastStatus = { status: 'checking' };
 let appDbConfig = null;
 let appDesktopPath = null;
+let appUploadsDirs = [];
 
 function emitStatus(status, payload = {}) {
   lastStatus = { status, ...payload };
@@ -21,12 +22,15 @@ function getLastStatus() {
  * @param {Electron.BrowserWindow} mainWindow
  * @param {object} dbConfig  { host, port, user, password, database, connectionString? }
  * @param {string} desktopPath  Absolute path to the user's Desktop directory.
+ * @param {string[]} [uploadsDirs]  Upload directories to stash before install, in
+ *   preference order (persistent location first, legacy in-install-dir location last).
  */
-async function init(mainWindow, dbConfig, desktopPath) {
+async function init(mainWindow, dbConfig, desktopPath, uploadsDirs = []) {
   logger.info('Initializing GitHub Update Manager...');
   mainWindowRef = mainWindow;
   appDbConfig = dbConfig;
   appDesktopPath = desktopPath;
+  appUploadsDirs = uploadsDirs;
 
   autoUpdater.logger = logger;
   autoUpdater.autoDownload = true;
@@ -102,9 +106,11 @@ async function backupAndInstall() {
 
   if (appDbConfig && appDesktopPath) {
     emitStatus('backing-up');
+    const { createBackup, buildTimestamp } = require('./dbBackup');
+    const timestamp = buildTimestamp();
+
     try {
-      const { createBackup } = require('./dbBackup');
-      const result = await createBackup(appDbConfig, appDesktopPath);
+      const result = await createBackup(appDbConfig, appDesktopPath, timestamp);
 
       if (result.success) {
         logger.info(`Pre-update backup saved to: ${result.backupPath}`);
@@ -116,6 +122,18 @@ async function backupAndInstall() {
     } catch (err) {
       logger.error('Backup threw an unexpected error.', { error: err.message });
       emitStatus('backup-skipped', { error: err.message });
+    }
+
+    if (appUploadsDirs.length > 0) {
+      try {
+        const { backupUploads } = require('./uploadsBackup');
+        const uploadsResult = backupUploads(appUploadsDirs, appDesktopPath, timestamp);
+        if (!uploadsResult.success) {
+          logger.warn(`Uploads stash skipped: ${uploadsResult.error}`);
+        }
+      } catch (err) {
+        logger.error('Uploads stash threw an unexpected error.', { error: err.message });
+      }
     }
 
     // Brief pause so the UI can render the backup status before the process quits.

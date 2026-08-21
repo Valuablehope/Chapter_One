@@ -1,9 +1,10 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { getUploadsRoot } from '../utils/uploadsPath';
 
 // Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../../uploads/products');
+const uploadDir = path.join(getUploadsRoot(), 'products');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -36,7 +37,7 @@ export const uploadProductImage = multer({
 
 // Store's "Scan to Pay" QR code image (uploaded from the payment app, e.g. Whish Money) —
 // printed as-is on the Modern receipt template, never regenerated/re-encoded.
-const qrUploadDir = path.join(__dirname, '../../uploads/receipt-qr');
+const qrUploadDir = path.join(getUploadsRoot(), 'receipt-qr');
 if (!fs.existsSync(qrUploadDir)) {
   fs.mkdirSync(qrUploadDir, { recursive: true });
 }
@@ -60,7 +61,7 @@ export const uploadReceiptQrImage = multer({
 });
 
 // Store's logo image, printed at the top of both the Classic and Modern receipt templates.
-const logoUploadDir = path.join(__dirname, '../../uploads/receipt-logo');
+const logoUploadDir = path.join(getUploadsRoot(), 'receipt-logo');
 if (!fs.existsSync(logoUploadDir)) {
   fs.mkdirSync(logoUploadDir, { recursive: true });
 }

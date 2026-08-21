@@ -145,7 +145,32 @@ function loadUpdateManager() {
   return require(updaterPath);
 }
 
+// Same pattern as loadUpdateManager() — dbBackup.js lives alongside it outside
+// the compiled bundle.
+function loadDbBackup() {
+  const dbBackupPath = isDev
+    ? path.join(app.getAppPath(), '..', 'updater/dbBackup.js')
+    : path.join(app.getAppPath(), 'updater/dbBackup.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require(dbBackupPath);
+}
+
+// Upload directories to check before an update, most-authoritative first: the
+// persistent userData location (see backend/src/utils/uploadsPath.ts) and the
+// legacy in-install-dir location, for clients still on the older layout.
+function getUploadsCandidateDirs(): string[] {
+  return [
+    path.join(app.getPath('userData'), 'uploads'),
+    path.join(resourcesPath, 'backend', 'uploads'),
+  ];
+}
+
 // Function to get .env file path
+// NOTE: app.getPath('userData') resolves against root package.json's "name"
+// field ("chapter-one-pos"), not the "productName" shown to users. Every
+// client's .env AND uploads directory (see getUploadsCandidateDirs above)
+// live under that path — never change "name" without a migration plan, or
+// every existing install will silently lose both on its next launch.
 function getEnvPath(): string | null {
   // 1. If we are running from source (not packaged), always look in project root
   if (!app.isPackaged) {
@@ -303,6 +328,80 @@ function extractDbConfig(env: NodeJS.ProcessEnv): Record<string, string> {
     database: env.DB_NAME || '',
     connectionString: env.DATABASE_URL || '',
   };
+}
+
+// Tracks which app version last successfully completed its migrations, in the
+// same userData/.env file that already persists JWT_SECRET (persistMissingSecrets
+// above) — avoids introducing a second, separate state-file format for one flag.
+function getLastMigratedVersion(): string | null {
+  const userDataEnvPath = path.join(app.getPath('userData'), '.env');
+  if (!fs.existsSync(userDataEnvPath)) return null;
+  const content = fs.readFileSync(userDataEnvPath, 'utf-8');
+  const match = content.match(/^[\t ]*LAST_MIGRATED_VERSION[\t ]*=(.*)$/m);
+  return match ? match[1].trim() : null;
+}
+
+function setLastMigratedVersion(version: string): void {
+  const userDataEnvPath = path.join(app.getPath('userData'), '.env');
+  const existing = fs.existsSync(userDataEnvPath) ? fs.readFileSync(userDataEnvPath, 'utf-8') : '';
+  const lineRegex = /^[\t ]*LAST_MIGRATED_VERSION[\t ]*=.*$/m;
+  const line = `LAST_MIGRATED_VERSION=${version}`;
+  const updated = lineRegex.test(existing)
+    ? existing.replace(lineRegex, line)
+    : `${existing}${existing.endsWith('\n') || existing.length === 0 ? '' : '\n'}${line}\n`;
+
+  if (updated !== existing) {
+    fs.writeFileSync(userDataEnvPath, updated, 'utf-8');
+  }
+}
+
+// Guarantees a fresh database backup exists immediately before every migration
+// attempt that follows a version change — regardless of whether the update was
+// installed via the in-app "Install Update" button or by double-clicking a
+// downloaded installer manually, since both paths funnel through this same
+// startup sequence. Throws a sentinel error with `userQuit: true` if the user
+// chooses to exit rather than proceed without a backup; the caller should just
+// return in that case (app.quit() has already been called).
+async function ensureBackupBeforeMigration(env: NodeJS.ProcessEnv): Promise<{ backupPath: string | null }> {
+  const currentVersion = app.getVersion();
+  const lastVersion = getLastMigratedVersion();
+
+  if (lastVersion === currentVersion) {
+    // No update since the last successful migration — an ordinary launch, not
+    // an update event. Skip the backup so we don't dump the DB on every login.
+    return { backupPath: null };
+  }
+
+  log.info(`App version changed since last successful migration (${lastVersion ?? 'never recorded'} -> ${currentVersion}). Taking a pre-migration database backup...`);
+
+  const dbConfig = extractDbConfig(env);
+  const { createBackup } = loadDbBackup();
+  const result = await createBackup(dbConfig, app.getPath('desktop'));
+
+  if (result.success) {
+    log.info(`Pre-migration backup created at: ${result.backupPath}`);
+    return { backupPath: result.backupPath };
+  }
+
+  log.warn(`Pre-migration backup failed: ${result.error}`);
+  const choice = dialog.showMessageBoxSync({
+    type: 'warning',
+    title: 'Backup Could Not Be Created',
+    message: 'A safety backup of your database could not be created before applying this update.',
+    detail: `${result.error}\n\nContinuing without a backup means there is no way back if this update's database changes fail partway through. It's strongly recommended to exit and resolve this first — usually a missing or non-standard PostgreSQL installation.`,
+    buttons: ['Exit', 'Continue Without Backup'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+
+  if (choice === 0) {
+    log.warn('User chose to exit after a failed pre-migration backup attempt.');
+    app.quit();
+    throw Object.assign(new Error('User chose to exit after backup failure.'), { userQuit: true });
+  }
+
+  log.warn('User chose to continue without a pre-migration backup.');
+  return { backupPath: null };
 }
 
 // Spawns the backend's compiled migration script as a one-shot subprocess so
@@ -696,9 +795,25 @@ app.whenReady().then(async () => {
     const startupEnv = buildBackendEnv(startupEnvPath);
     appDbConfig = extractDbConfig(startupEnv);
 
+    let preMigrationBackupPath: string | null = null;
+    try {
+      const backupResult = await ensureBackupBeforeMigration(startupEnv);
+      preMigrationBackupPath = backupResult.backupPath;
+    } catch (err: any) {
+      if (err.userQuit) {
+        return;
+      }
+      showStartupErrorAndQuit(
+        'Startup Error',
+        `An unexpected error occurred while preparing for database migrations.\n\n${err.message}\n\nPlease contact support.`
+      );
+      return;
+    }
+
     log.info('🗄️ Running database migrations...');
     try {
       await runMigrationsOnStartup(startupEnv);
+      setLastMigratedVersion(app.getVersion());
     } catch (err: any) {
       if (err.dbUnreachable) {
         // PostgreSQL is not installed or not reachable — this is a setup
@@ -722,6 +837,29 @@ app.whenReady().then(async () => {
           return;
         }
         app.quit();
+        return;
+      }
+
+      // A genuine migration failure. If a backup was just taken for this exact
+      // update, try to automatically roll the database back to that point
+      // rather than leaving the client stuck with no way forward.
+      if (preMigrationBackupPath) {
+        log.warn('Migration failed. Attempting automatic restore from the pre-migration backup...');
+        const { restoreBackup } = loadDbBackup();
+        const restoreResult = await restoreBackup(extractDbConfig(startupEnv), preMigrationBackupPath);
+
+        if (restoreResult.success) {
+          showStartupErrorAndQuit(
+            'Update Rolled Back',
+            `This update's database migration failed and was automatically rolled back — your data is exactly as it was before the update.\n\n${err.message}\n\nPlease contact support before trying to update again.`
+          );
+        } else {
+          const dbConfig = extractDbConfig(startupEnv);
+          showStartupErrorAndQuit(
+            'Database Migration Failed — Automatic Restore Also Failed',
+            `A database migration could not be applied, and the automatic rollback also failed.\n\n${err.message}\n\nRestore failure: ${restoreResult.error}\n\nTo restore manually, run:\npsql -h ${dbConfig.host} -U ${dbConfig.user} -d ${dbConfig.database} -f "${preMigrationBackupPath}"\n\nBackup file: ${preMigrationBackupPath}\n\nPlease contact support.`
+          );
+        }
         return;
       }
 
@@ -775,14 +913,14 @@ app.whenReady().then(async () => {
     createWindow();
     setupApplicationMenu();
     loadUpdateManager()
-      .init(mainWindow, appDbConfig, app.getPath('desktop'))
+      .init(mainWindow, appDbConfig, app.getPath('desktop'), getUploadsCandidateDirs())
       .catch((err: any) => log.error('Update manager init failed:', err));
   } else {
     // In dev mode, backend is started separately
     createWindow(!setupComplete);
     setupApplicationMenu();
     loadUpdateManager()
-      .init(mainWindow, appDbConfig, app.getPath('desktop'))
+      .init(mainWindow, appDbConfig, app.getPath('desktop'), getUploadsCandidateDirs())
       .catch((err: any) => log.error('Update manager init failed:', err));
   }
 
