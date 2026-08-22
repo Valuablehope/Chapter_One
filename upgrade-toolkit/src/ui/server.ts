@@ -14,6 +14,7 @@ import {
   actionUpgrade,
   actionPostVerify,
   actionRollback,
+  actionRepairOrphanedEnv,
 } from '../actions';
 
 const PORT = parseInt(process.env.PORT || '5757', 10);
@@ -173,6 +174,23 @@ app.post('/api/rollback', (req, res) => {
     return;
   }
   const job = startJob('rollback', () => actionRollback(body.runDir, globalOptsFromBody(body), body.previousInstallerPath || undefined));
+  res.json({ jobId: job.id });
+});
+
+app.post('/api/repair-orphaned-env', (req, res) => {
+  if (!requireIdleJob(res)) return;
+  const body = req.body || {};
+  const job = startJob('repair-orphaned-env', () =>
+    actionRepairOrphanedEnv({
+      backupsRoot: body.backupsRoot || DEFAULT_BACKUPS_ROOT,
+      oldEnvPath: body.oldEnvPath || undefined,
+      newEnvPath: body.newEnvPath || undefined,
+      installDir: body.installDir || undefined,
+      pgBinDir: body.pgBinDir || undefined,
+      forceAbandonNewDb: !!body.forceAbandonNewDb,
+      yes: !!body.yes,
+    })
+  );
   res.json({ jobId: job.id });
 });
 

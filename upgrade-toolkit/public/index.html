@@ -114,6 +114,31 @@
       </div>
     </section>
 
+    <section class="card rollback-step">
+      <h2>Recovery: fix an orphaned .env after a botched upgrade</h2>
+      <p class="hint">
+        Use this if a version update left the app pointed at a brand-new, empty database instead of the real one
+        (this happens when the setup wizard runs on first launch because it couldn't find the old .env — it then
+        silently installs a fresh PostgreSQL instance on another port). This repoints the app's active .env at the
+        real, pre-upgrade database. It never moves data, dumps both databases first regardless of outcome, and
+        refuses to proceed if the currently-active database already has real transactional rows that would be
+        abandoned. Always run "Check" first — "Apply Fix" only enables after a clean check.
+      </p>
+      <label>Old .env path (the pre-upgrade one with the real data — auto-detected if left blank)
+        <input type="text" id="repair-old-env" placeholder="auto-detected, e.g. ...\resources\.env" />
+      </label>
+      <label>Active .env path (what the app runs on right now — auto-detected if left blank)
+        <input type="text" id="repair-new-env" placeholder="auto-detected" />
+      </label>
+      <label>
+        <input type="checkbox" id="repair-force-abandon" />
+        Force abandon the active database even if it has real transactional rows (still dumped first) — only if
+        you've confirmed that data is safe to abandon
+      </label>
+      <button id="repair-check-btn" class="action-btn">Check (dry run)</button>
+      <button id="repair-apply-btn" class="action-btn danger" disabled>Apply Fix</button>
+    </section>
+
     <section class="card">
       <h2>Log</h2>
       <div id="job-banner" class="hidden"></div>

@@ -17,7 +17,7 @@ import { AppInstall, DbConfig } from '../types';
 // scan %AppData% for a directory containing a .env with DB_HOST/DATABASE_URL.
 const USER_DATA_NAME_CANDIDATES = ['Chapter One POS', 'chapter-one-pos'];
 
-function looksLikeAppEnv(envPath: string): boolean {
+export function looksLikeAppEnv(envPath: string): boolean {
   try {
     const content = fs.readFileSync(envPath, 'utf-8');
     return content.includes('DB_HOST=') || content.includes('DATABASE_URL=');

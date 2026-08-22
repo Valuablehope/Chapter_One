@@ -17,6 +17,7 @@ import { runInstallerSilently } from './upgrade/runInstaller';
 import { runMigrate } from './upgrade/runMigrate';
 import { runPostVerify } from './upgrade/postVerify';
 import { runRollback } from './rollback/rollback';
+import { runRepairOrphanedEnv, RepairOrphanedEnvOptions, RepairOrphanedEnvResult } from './repair/repairOrphanedEnv';
 import { sha256File } from './util/checksum';
 
 // One function per step, used identically by the CLI (src/cli.ts) and the
@@ -245,4 +246,8 @@ export async function actionRollback(
 
   state.steps.rollback = { completedAt: new Date().toISOString() };
   writeState(state);
+}
+
+export async function actionRepairOrphanedEnv(opts: RepairOrphanedEnvOptions): Promise<RepairOrphanedEnvResult> {
+  return runRepairOrphanedEnv(opts);
 }

@@ -1,6 +1,7 @@
 let currentRunDir = null;
 let pollTimer = null;
 let sinceLine = 0;
+let repairCheckPassed = false;
 
 const $ = (sel) => document.querySelector(sel);
 const logPanel = $('#log-panel');
@@ -146,6 +147,34 @@ document.querySelectorAll('button[data-action]').forEach((btn) => {
   });
 });
 
+$('#repair-check-btn').addEventListener('click', () => {
+  const ov = overrides();
+  runAction('repair-check', '/api/repair-orphaned-env', {
+    oldEnvPath: $('#repair-old-env').value.trim() || undefined,
+    newEnvPath: $('#repair-new-env').value.trim() || undefined,
+    forceAbandonNewDb: $('#repair-force-abandon').checked,
+    installDir: ov.installDir,
+    pgBinDir: ov.pgBinDir,
+    yes: false,
+  });
+});
+
+$('#repair-apply-btn').addEventListener('click', () => {
+  if (!repairCheckPassed) return;
+  if (!confirm("This will back up, then overwrite the active .env's DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME to point at the old database. Continue?")) {
+    return;
+  }
+  const ov = overrides();
+  runAction('repair-apply', '/api/repair-orphaned-env', {
+    oldEnvPath: $('#repair-old-env').value.trim() || undefined,
+    newEnvPath: $('#repair-new-env').value.trim() || undefined,
+    forceAbandonNewDb: $('#repair-force-abandon').checked,
+    installDir: ov.installDir,
+    pgBinDir: ov.pgBinDir,
+    yes: true,
+  });
+});
+
 async function runAction(action, endpoint, body) {
   setButtonsEnabled(false);
   logPanel.textContent = '';
@@ -206,6 +235,18 @@ function poll(action) {
       refreshStatus();
     }
     setButtonsEnabled(true);
+
+    // setButtonsEnabled(true) above blanket-enables every .action-btn,
+    // including Apply Fix — override that here so it only ever becomes
+    // clickable right after a clean Check, never after a failed check, an
+    // unrelated action, or its own apply run (require a fresh check each time).
+    if (action === 'repair-check') {
+      repairCheckPassed = job.status === 'success';
+      $('#repair-apply-btn').disabled = !repairCheckPassed;
+    } else {
+      repairCheckPassed = false;
+      $('#repair-apply-btn').disabled = true;
+    }
   };
   tick();
 }

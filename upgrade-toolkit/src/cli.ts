@@ -10,6 +10,7 @@ import {
   actionUpgrade,
   actionPostVerify,
   actionRollback,
+  actionRepairOrphanedEnv,
 } from './actions';
 
 const program = new Command();
@@ -145,6 +146,39 @@ program
     }
 
     await actionRollback(runDir, globalOpts(), cmdOpts.previousInstaller);
+  });
+
+program
+  .command('repair-orphaned-env')
+  .description(
+    "Fix a botched upgrade where the setup wizard provisioned a brand-new empty database instead of finding the " +
+      "pre-upgrade one (its .env moved to %AppData%, so a manually-run installer looked like a fresh install). " +
+      "Repoints the currently-active .env at the old, real database after verifying it actually has data and " +
+      "the new one has no real activity that would be abandoned. Defaults to a dry run."
+  )
+  .option('--old-env-path <path>', 'explicit path to the pre-upgrade .env holding the real data (auto-detected if omitted)')
+  .option('--new-env-path <path>', 'explicit path to the currently-active .env (auto-detected if omitted)')
+  .option('--backups-root <path>', 'directory under which a new timestamped run folder is created', path.join(__dirname, '..', 'backups'))
+  .option('--force-abandon-new-db', 'proceed even if the currently-active database has real transactional rows (dumped first regardless)', false)
+  .option('--yes', 'actually patch the .env (omit to print a dry-run report only)', false)
+  .action(async (cmdOpts) => {
+    const globals = globalOpts();
+    const result = await actionRepairOrphanedEnv({
+      backupsRoot: cmdOpts.backupsRoot,
+      oldEnvPath: cmdOpts.oldEnvPath,
+      newEnvPath: cmdOpts.newEnvPath,
+      installDir: globals.installDir,
+      pgBinDir: globals.pgBinDir,
+      forceAbandonNewDb: cmdOpts.forceAbandonNewDb,
+      yes: cmdOpts.yes,
+    });
+
+    console.log(`\nRun directory: ${result.runDir}`);
+    if (result.patched) {
+      console.log('Active .env has been repointed at the real database. Fully close and restart Chapter One POS now.');
+    } else {
+      console.log('No changes were made (dry run). Review the log above, then re-run with --yes to apply.');
+    }
   });
 
 program
