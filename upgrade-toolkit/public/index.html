@@ -135,6 +135,12 @@
         Force abandon the active database even if it has real transactional rows (still dumped first) — only if
         you've confirmed that data is safe to abandon
       </label>
+      <label>
+        <input type="checkbox" id="repair-use-active-password" />
+        Use the active .env's password for the old database instead of the old .env's own password — try this if
+        Check reports the old .env's password now fails but the active one works against the same database (the
+        live PostgreSQL password was reset in place, e.g. during the update)
+      </label>
       <button id="repair-check-btn" class="action-btn">Check (dry run)</button>
       <button id="repair-apply-btn" class="action-btn danger" disabled>Apply Fix</button>
     </section>

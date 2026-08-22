@@ -160,6 +160,12 @@ program
   .option('--new-env-path <path>', 'explicit path to the currently-active .env (auto-detected if omitted)')
   .option('--backups-root <path>', 'directory under which a new timestamped run folder is created', path.join(__dirname, '..', 'backups'))
   .option('--force-abandon-new-db', 'proceed even if the currently-active database has real transactional rows (dumped first regardless)', false)
+  .option(
+    '--use-active-password-for-old',
+    "use the currently-active .env's password for the old .env's host/port/user/database — for when the live " +
+      'PostgreSQL password was reset in place (e.g. during the update) without the old .env being updated to match',
+    false
+  )
   .option('--yes', 'actually patch the .env (omit to print a dry-run report only)', false)
   .action(async (cmdOpts) => {
     const globals = globalOpts();
@@ -170,6 +176,7 @@ program
       installDir: globals.installDir,
       pgBinDir: globals.pgBinDir,
       forceAbandonNewDb: cmdOpts.forceAbandonNewDb,
+      useActivePasswordForOld: cmdOpts.useActivePasswordForOld,
       yes: cmdOpts.yes,
     });
 

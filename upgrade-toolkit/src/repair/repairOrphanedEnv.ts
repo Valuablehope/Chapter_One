@@ -17,6 +17,15 @@ export interface RepairOrphanedEnvOptions {
   installDir?: string;
   pgBinDir?: string;
   forceAbandonNewDb: boolean;
+  // Use the currently-active .env's password against the OLD .env's
+  // host/port/user/database instead of the password stored in the old .env
+  // itself. Covers the case where the live PostgreSQL password was reset in
+  // place during the update (e.g. by a PostgreSQL installer re-run as part
+  // of setup) without resources/.env being updated to match — the database
+  // and port never actually changed, just the password. Never applied
+  // automatically; see the auto-diagnostic on auth failure below, which
+  // tells the operator whether this flag would help before they pass it.
+  useActivePasswordForOld?: boolean;
   yes: boolean;
 }
 
@@ -60,8 +69,9 @@ interface Probe {
   rowCounts?: Record<string, number>;
 }
 
-async function probe(label: string, envPath: string): Promise<Probe> {
+async function probe(label: string, envPath: string, passwordOverride?: string): Promise<Probe> {
   const dbConfig = readDbConfig(envPath);
+  if (passwordOverride !== undefined) dbConfig.password = passwordOverride;
   let client: Client | undefined;
   try {
     client = await connect(dbConfig);
@@ -69,6 +79,26 @@ async function probe(label: string, envPath: string): Promise<Probe> {
     return { label, envPath, dbConfig, reachable: true, rowCounts };
   } catch (err: any) {
     return { label, envPath, dbConfig, reachable: false, error: err.message };
+  } finally {
+    if (client) await client.end();
+  }
+}
+
+function isAuthError(message: string | undefined): boolean {
+  return !!message && /password authentication failed/i.test(message);
+}
+
+// Read-only diagnostic connection — never used to write/dump/patch anything
+// by itself. Only reports whether it would have worked, so the operator (or
+// a follow-up run with --use-active-password-for-old) can decide.
+async function tryConnect(dbConfig: DbConfig): Promise<{ ok: boolean; error?: string; rowCounts?: Record<string, number> }> {
+  let client: Client | undefined;
+  try {
+    client = await connect(dbConfig);
+    const rowCounts = await getRowCounts(client);
+    return { ok: true, rowCounts };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
   } finally {
     if (client) await client.end();
   }
@@ -143,19 +173,33 @@ export async function runRepairOrphanedEnv(options: RepairOrphanedEnvOptions): P
     return { runDir, patched: false };
   }
 
-  const [oldProbe, newProbe] = await Promise.all([probe('old (pre-upgrade)', oldEnvPath), probe('new (currently active)', newEnvPath)]);
+  const newRawConfig = readDbConfig(newEnvPath);
+  const oldPasswordOverride = options.useActivePasswordForOld ? newRawConfig.password : undefined;
+  if (oldPasswordOverride !== undefined) {
+    logger.info("Using the currently-active .env's password for the old .env's host/port/user/database, per --use-active-password-for-old.");
+  }
+
+  const [oldProbe, newProbe] = await Promise.all([
+    probe('old (pre-upgrade)', oldEnvPath, oldPasswordOverride),
+    probe('new (currently active)', newEnvPath),
+  ]);
   fs.writeFileSync(path.join(runDir, 'probe-report.json'), JSON.stringify({ oldProbe, newProbe }, null, 2), 'utf8');
 
   // Re-running this command after a successful repair (e.g. clicking "Check"
   // again in the UI) would otherwise trip the transactional-data guard below,
   // because the active .env now legitimately points at the same real,
   // non-empty database as the "old" one. Detect that and short-circuit
-  // instead of reporting it as a conflict.
+  // instead of reporting it as a conflict. Password IS part of this
+  // comparison deliberately: same host/port/user/database with a DIFFERENT
+  // password is exactly the "live password was reset in place" case this
+  // command exists to fix, not a no-op — after a real patch, the password
+  // matches too, since the patch copies it verbatim from the old .env.
   const sameTarget =
     oldProbe.dbConfig.host === newProbe.dbConfig.host &&
     oldProbe.dbConfig.port === newProbe.dbConfig.port &&
     oldProbe.dbConfig.user === newProbe.dbConfig.user &&
-    oldProbe.dbConfig.database === newProbe.dbConfig.database;
+    oldProbe.dbConfig.database === newProbe.dbConfig.database &&
+    oldProbe.dbConfig.password === newProbe.dbConfig.password;
 
   if (sameTarget) {
     logger.info('The active .env already resolves to the same host/port/user/database as the old one — nothing to repair.');
@@ -163,9 +207,35 @@ export async function runRepairOrphanedEnv(options: RepairOrphanedEnvOptions): P
   }
 
   if (!oldProbe.reachable) {
+    let diagnosticNote = '';
+
+    if (isAuthError(oldProbe.error) && !options.useActivePasswordForOld) {
+      logger.warn(
+        "Old .env failed with a password error — trying the currently-active .env's password against the same " +
+          'host/port/user/database as a read-only diagnostic (this alone changes nothing)...'
+      );
+      const diag = await tryConnect({ ...oldProbe.dbConfig, password: newProbe.dbConfig.password });
+
+      if (diag.ok) {
+        const diagTotal = totalRows(diag.rowCounts!);
+        logger.warn(
+          `Diagnostic: the ACTIVE .env's password DOES work against the old database (${diagTotal} total rows found). ` +
+            `The live PostgreSQL password looks like it was reset in place (e.g. by the update/setup process) without ` +
+            `resources\\.env being updated to match — same database, same port, just a stale password on file. Re-run ` +
+            `with --use-active-password-for-old to proceed using it.`
+        );
+        diagnosticNote = " The currently-active .env's password DOES work against this same database — re-run with --use-active-password-for-old.";
+      } else {
+        logger.warn(`Diagnostic: the active .env's password also failed against the old database (${diag.error}).`);
+        diagnosticNote =
+          " The currently-active .env's password was also tried against this database and also failed — " +
+          'neither file has the real current password. Check the PostgreSQL service directly (or with whoever last touched it) before proceeding.';
+      }
+    }
+
     throw new Error(
       `Cannot connect using the old .env (${oldEnvPath}): ${oldProbe.error}. Refusing to touch the active .env — ` +
-        `fix connectivity to the real database first (is its PostgreSQL service running?).`
+        `fix connectivity to the real database first (is its PostgreSQL service running?).${diagnosticNote}`
     );
   }
 

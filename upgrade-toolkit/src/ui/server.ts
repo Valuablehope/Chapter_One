@@ -188,6 +188,7 @@ app.post('/api/repair-orphaned-env', (req, res) => {
       installDir: body.installDir || undefined,
       pgBinDir: body.pgBinDir || undefined,
       forceAbandonNewDb: !!body.forceAbandonNewDb,
+      useActivePasswordForOld: !!body.useActivePasswordForOld,
       yes: !!body.yes,
     })
   );
