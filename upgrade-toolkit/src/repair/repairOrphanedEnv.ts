@@ -207,6 +207,19 @@ export async function runRepairOrphanedEnv(options: RepairOrphanedEnvOptions): P
   }
 
   if (!oldProbe.reachable) {
+    // Surface what the active .env actually targets even though the old one
+    // is what failed — without this, a same-password-fails-too result (like
+    // the diagnostic below can produce) leaves the operator unable to tell
+    // whether the active config points at a different port/host entirely
+    // (a genuinely separate PostgreSQL instance) versus the same one.
+    logger.warn(
+      `For context, the currently-active .env targets ${newProbe.dbConfig.host}:${newProbe.dbConfig.port}/${newProbe.dbConfig.database} ` +
+        `(user ${newProbe.dbConfig.user}) — ` +
+        (newProbe.reachable
+          ? `reachable, ${totalRows(newProbe.rowCounts!)} total rows across ${Object.keys(newProbe.rowCounts!).length} tables.`
+          : `NOT reachable either: ${newProbe.error}`)
+    );
+
     let diagnosticNote = '';
 
     if (isAuthError(oldProbe.error) && !options.useActivePasswordForOld) {
