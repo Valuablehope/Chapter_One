@@ -50,6 +50,13 @@ export async function runPreflight(options: PreflightOptions): Promise<string> {
     }
 
     const schemaState = await readSchemaState(client, appInstall.migrationsDir);
+    if (!schemaState.migrationsDirExists) {
+      logger.warn(
+        `No resources/database/migrations folder found in this install (${appInstall.migrationsDir}) — expected for ` +
+          `versions older than 4.0.9, which predate that bundled folder. Migration status can't be reported from the ` +
+          `old install; this does not block backup, and the new version will run its own migrations after upgrade.`
+      );
+    }
     const rowCounts = await getRowCounts(client);
     const otherConnections = await getOtherActiveConnections(client, dbConfig.database);
     const uploadFiles = await checksumExistingUploads(appInstall.uploadsDir);
@@ -118,11 +125,15 @@ function renderReportText(report: any): string {
   lines.push(`PostgreSQL server: ${report.dbInfo.version}`);
   lines.push(`Database size: ${formatBytes(report.dbInfo.sizeBytes)}`);
   lines.push('');
-  lines.push(`Migrations applied: ${report.schemaState.appliedFiles.length}`);
-  lines.push(`Migrations pending: ${report.schemaState.pendingFiles.length}`);
-  if (report.schemaState.pendingFiles.length > 0) {
-    lines.push('Pending files:');
-    for (const f of report.schemaState.pendingFiles) lines.push(`  - ${f}`);
+  if (report.schemaState.migrationsDirExists) {
+    lines.push(`Migrations applied: ${report.schemaState.appliedFiles.length}`);
+    lines.push(`Migrations pending: ${report.schemaState.pendingFiles.length}`);
+    if (report.schemaState.pendingFiles.length > 0) {
+      lines.push('Pending files:');
+      for (const f of report.schemaState.pendingFiles) lines.push(`  - ${f}`);
+    }
+  } else {
+    lines.push('Migrations: unknown (this install predates the bundled migrations folder, added in v4.0.9)');
   }
   lines.push('');
   lines.push(`Uploaded product image files: ${report.uploads.fileCount} (${formatBytes(report.uploads.totalBytes)})`);

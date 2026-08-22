@@ -38,6 +38,7 @@ export interface SchemaState {
   appliedFiles: string[];
   pendingFiles: string[];
   allFiles: string[];
+  migrationsDirExists: boolean;
 }
 
 export async function readSchemaState(client: Client, migrationsDir: string): Promise<SchemaState> {
@@ -61,10 +62,19 @@ export async function readSchemaState(client: Client, migrationsDir: string): Pr
     for (const f of LEGACY_PRESEED_FILES) effectiveAppliedSet.add(f);
   }
 
-  const allFiles = fs
-    .readdirSync(migrationsDir)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
+  // Installs older than v4.0.9 predate the `database` extraResources entry
+  // and never shipped a resources/database/migrations folder at all — that's
+  // expected for the very old installs this toolkit exists to upgrade, not
+  // an error. Treat it as "nothing to report from this side" rather than
+  // crashing; the actual migrations run post-upgrade against the NEW
+  // version's bundled folder (see postVerify.ts, which re-discovers appInstall).
+  const migrationsDirExists = fs.existsSync(migrationsDir);
+  const allFiles = migrationsDirExists
+    ? fs
+        .readdirSync(migrationsDir)
+        .filter((f) => f.endsWith('.sql'))
+        .sort()
+    : [];
   const pendingFiles = allFiles.filter((f) => !effectiveAppliedSet.has(f));
 
   return {
@@ -74,5 +84,6 @@ export async function readSchemaState(client: Client, migrationsDir: string): Pr
     appliedFiles,
     pendingFiles,
     allFiles,
+    migrationsDirExists,
   };
 }
