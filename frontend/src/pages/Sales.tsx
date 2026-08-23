@@ -1207,6 +1207,97 @@ export default function Sales() {
     return () => window.removeEventListener('focus', refocus);
   }, [posSettingsStatus, completedSale, showPaymentModal, showCustomerModal, quickAddProduct]);
 
+  // Keep a live reference to handleBarcodeScan so the global listener below
+  // doesn't need to be torn down/rebuilt on every render.
+  const handleBarcodeScanRef = useRef(handleBarcodeScan);
+  useEffect(() => {
+    handleBarcodeScanRef.current = handleBarcodeScan;
+  });
+
+  // Redirect scanner keystrokes to the barcode field no matter where the
+  // cursor is focused (e.g. the user is typing in the name/SKU search box
+  // and scans an item). A scanner fires keystrokes far faster than any human
+  // typist, so a burst of characters ending in Enter within that window is
+  // treated as a scan: the field it landed in is reverted to its pre-scan
+  // value and the code is routed to the barcode input instead.
+  useEffect(() => {
+    const SCAN_KEY_INTERVAL_MS = 60;
+    const SCAN_MIN_LENGTH = 3;
+    const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock', 'OS']);
+
+    const scanBuffer = { current: '' };
+    const lastKeyTime = { current: 0 };
+    const scanOrigin: { current: { el: HTMLInputElement | HTMLTextAreaElement; value: string } | null } = { current: null };
+
+    const restoreOriginValue = () => {
+      const origin = scanOrigin.current;
+      scanOrigin.current = null;
+      if (!origin || !origin.el.isConnected) return;
+      const proto = origin.el instanceof HTMLTextAreaElement
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+      if (setter) {
+        setter.call(origin.el, origin.value);
+      } else {
+        origin.el.value = origin.value;
+      }
+      origin.el.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (posSettingsStatus !== 'ready' || completedSale || showPaymentModal || showCustomerModal || quickAddProduct) {
+        return;
+      }
+      const barcodeEl = barcodeInputRef.current;
+      const active = document.activeElement;
+      if (!barcodeEl || active === barcodeEl) return; // already typing directly into the barcode field
+
+      const now = performance.now();
+
+      if (e.key === 'Enter') {
+        const buffered = scanBuffer.current;
+        const fastEnough = now - lastKeyTime.current <= SCAN_KEY_INTERVAL_MS;
+        if (fastEnough && buffered.length >= SCAN_MIN_LENGTH) {
+          e.preventDefault();
+          e.stopPropagation();
+          restoreOriginValue();
+          scanBuffer.current = '';
+          barcodeEl.value = buffered;
+          barcodeEl.focus();
+          handleBarcodeScanRef.current(buffered);
+        } else {
+          scanBuffer.current = '';
+          scanOrigin.current = null;
+        }
+        return;
+      }
+
+      if (MODIFIER_KEYS.has(e.key)) return; // don't let modifiers break a fast burst
+
+      if (e.key.length !== 1) {
+        // Backspace, Tab, arrows, etc. — not part of a scanned code
+        scanBuffer.current = '';
+        scanOrigin.current = null;
+        return;
+      }
+
+      const gap = now - lastKeyTime.current;
+      if (scanBuffer.current.length === 0 || gap > SCAN_KEY_INTERVAL_MS) {
+        scanBuffer.current = e.key;
+        scanOrigin.current = (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
+          ? { el: active, value: active.value }
+          : null;
+      } else {
+        scanBuffer.current += e.key;
+      }
+      lastKeyTime.current = now;
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+  }, [posSettingsStatus, completedSale, showPaymentModal, showCustomerModal, quickAddProduct]);
+
   // Search is now debounced via useDebouncedCallback
 
   const getPaymentIcon = (method: PaymentMethod) => {
