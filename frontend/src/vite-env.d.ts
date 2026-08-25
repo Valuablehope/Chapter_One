@@ -24,6 +24,8 @@ declare global {
       setupInitializeStore: (args: { storeName: string, password: string, port: string }) => Promise<{success: boolean, error?: string}>;
       setupInstallService: () => Promise<{success: boolean, error?: string}>;
       setupComplete: () => Promise<void>;
+      pairTerminal: (code: string, dbConfig?: { host?: string; port?: string; user?: string; password?: string; database?: string; connectionString?: string }) =>
+        Promise<{ success: boolean; terminal_id?: string; name?: string; error?: string }>;
       getPrinters?: () => Promise<string[]>;
       printSilent?: (printerName?: string, html?: string, paperSize?: string) => Promise<{ success: boolean; error?: string }>;
       ipcRenderer?: {

@@ -21,6 +21,7 @@ import {
   createTerminal,
   updateTerminal,
   deleteTerminal,
+  createPairingCode,
 } from '../controllers/terminalController';
 import { authenticate, authorize } from '../middleware/auth';
 import { checkRecordLimit } from '../middleware/licenseCheck';
@@ -342,6 +343,13 @@ router.delete(
   [param('id').isUUID()],
   validateRequest,
   deleteTerminal
+);
+
+router.post(
+  '/terminals/:id/pairing-code',
+  [param('id').isUUID()],
+  validateRequest,
+  createPairingCode
 );
 
 export default router;

@@ -775,7 +775,7 @@ function createWindow(isSetupMode = false): void {
 // App event handlers
 app.whenReady().then(async () => {
   // Register setup IPC handlers
-  setupIpcHandlers(app, getEnvPath, startBackendServer);
+  setupIpcHandlers(app, getEnvPath, startBackendServer, stopBackendServer);
 
   const envPath = getEnvPath();
   const setupComplete = isSetupComplete(envPath);

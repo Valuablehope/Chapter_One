@@ -13,7 +13,8 @@ export default function SetupWizard() {
   const [dbUser, setDbUser] = useState('postgres');
   const [dbPassword, setDbPassword] = useState('');
   const [dbName, setDbName] = useState('Chapter_One');
-  
+  const [pairingCode, setPairingCode] = useState('');
+
   const [isInstalling, setIsInstalling] = useState(false);
   const [installLogs, setInstallLogs] = useState<string[]>([]);
   const [installError, setInstallError] = useState<string | null>(null);
@@ -62,6 +63,19 @@ export default function SetupWizard() {
         if (!saveRes.success) throw new Error(saveRes.error || 'Failed to save config');
         addLog('✅ Configuration saved.');
 
+        if (pairingCode.trim()) {
+          addLog('Pairing this machine as a terminal...');
+          const pairRes = await window.electronAPI.pairTerminal(pairingCode.trim(), {
+            host: 'localhost',
+            port,
+            user: 'postgres',
+            password: adminPassword,
+            database: 'Chapter_One',
+          });
+          if (pairRes.success) addLog(`✅ Paired as terminal "${pairRes.name}".`);
+          else addLog(`⚠️ Pairing skipped: ${pairRes.error || 'unknown error'}. You can pair later from Admin Tools.`);
+        }
+
       } else {
         addLog('Saving terminal configuration...');
         const encodedPassword = encodeURIComponent(dbPassword);
@@ -76,6 +90,19 @@ export default function SetupWizard() {
         });
         if (!saveRes.success) throw new Error(saveRes.error || 'Failed to save config');
         addLog('✅ Configuration saved.');
+
+        if (pairingCode.trim()) {
+          addLog('Pairing this machine as a terminal...');
+          const pairRes = await window.electronAPI.pairTerminal(pairingCode.trim(), {
+            host: serverIp,
+            port,
+            user: dbUser,
+            password: dbPassword,
+            database: dbName,
+          });
+          if (pairRes.success) addLog(`✅ Paired as terminal "${pairRes.name}".`);
+          else addLog(`⚠️ Pairing skipped: ${pairRes.error || 'unknown error'}. You can pair later from Admin Tools.`);
+        }
       }
 
       setStep(4); // Success screen
@@ -262,6 +289,23 @@ export default function SetupWizard() {
                     />
                   </div>
                 )}
+
+                <div className="border-t border-gray-100 pt-5">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                    <Monitor className="w-4 h-4 mr-2" /> Terminal Pairing Code (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border uppercase"
+                    placeholder="e.g. A1B2C3D4"
+                    value={pairingCode}
+                    onChange={(e) => setPairingCode(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Generated from Admin &rarr; Terminals on the server. Binds this physical machine to that terminal so sales and
+                    connection status attribute correctly. Leave blank to pair later from Admin Tools &rarr; This Terminal.
+                  </p>
+                </div>
               </div>
 
               <div className="mt-10 flex justify-between">

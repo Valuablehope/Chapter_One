@@ -1,15 +1,108 @@
 import { ipcMain, app, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import * as crypto from 'crypto';
 import { spawn } from 'child_process';
 import { Client } from 'pg';
 import log from 'electron-log';
 import { isSetupComplete } from './main';
 
+// Resolves the .env path to write to, matching setup:saveConfig's own logic:
+// always userData in packaged builds (avoids EPERM under Program Files).
+function resolveWritableEnvPath(appInstance: Electron.App, getEnvPath: () => string | null): string {
+  if (appInstance.isPackaged) {
+    return path.join(appInstance.getPath('userData'), '.env');
+  }
+  return getEnvPath() || path.join(appInstance.getPath('userData'), '.env');
+}
+
+// Merges `config` into the on-disk .env (creating it if missing) and marks
+// setup as completed. Shared by setup:saveConfig and terminal:pair so both
+// paths persist config identically.
+function writeEnvConfig(
+  appInstance: Electron.App,
+  getEnvPath: () => string | null,
+  config: Record<string, string>
+): string {
+  const envPath = resolveWritableEnvPath(appInstance, getEnvPath);
+
+  let content = '';
+  if (fs.existsSync(envPath)) {
+    content = fs.readFileSync(envPath, 'utf-8');
+  }
+
+  const lines = content.split('\n');
+  const envObj: Record<string, string> = {};
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        envObj[trimmed.substring(0, idx)] = trimmed.substring(idx + 1);
+      }
+    }
+  });
+
+  Object.assign(envObj, config);
+  envObj['SETUP_COMPLETED'] = 'true';
+
+  const newContent = Object.entries(envObj).map(([k, v]) => `${k}=${v}`).join('\n');
+
+  const dir = path.dirname(envPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  fs.writeFileSync(envPath, newContent, 'utf-8');
+  return envPath;
+}
+
+// Same hash as backend's TerminalModel.hashPairingCode — both sides just hash
+// the code independently, no shared secret needed for an expiring, single-use code.
+function hashPairingCode(code: string): string {
+  return crypto.createHash('sha256').update(code.trim().toUpperCase()).digest('hex');
+}
+
+interface PairDbConfig {
+  host?: string;
+  port?: string;
+  user?: string;
+  password?: string;
+  database?: string;
+  connectionString?: string;
+}
+
+// Reads DB connection info from the currently active .env, for the "pair
+// later" case where no explicit dbConfig is supplied by the caller.
+function readActiveDbConfig(getEnvPath: () => string | null): PairDbConfig | null {
+  const envPath = getEnvPath();
+  if (!envPath || !fs.existsSync(envPath)) return null;
+  const content = fs.readFileSync(envPath, 'utf-8');
+  const env: Record<string, string> = {};
+  content.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) env[trimmed.substring(0, idx)] = trimmed.substring(idx + 1);
+    }
+  });
+  return {
+    host: env.DB_HOST || 'localhost',
+    port: env.DB_PORT || '5432',
+    user: env.DB_USER || 'postgres',
+    password: env.DB_PASSWORD || '',
+    database: env.DB_NAME || 'Chapter_One',
+    connectionString: env.DATABASE_URL || '',
+  };
+}
+
 export function setupIpcHandlers(
   appInstance: Electron.App,
   getEnvPath: () => string | null,
-  startBackendServer: () => boolean
+  startBackendServer: () => boolean,
+  stopBackendServer: () => void
 ) {
   ipcMain.handle('setup:isComplete', () => {
     return isSetupComplete(getEnvPath());
@@ -17,54 +110,76 @@ export function setupIpcHandlers(
 
   ipcMain.handle('setup:saveConfig', async (_event, config: Record<string, string>) => {
     try {
-      let envPath = getEnvPath();
-      
-      // CRITICAL: In production (packaged), always write to userData to avoid EPERM errors 
-      // when the app is installed in Program Files.
-      if (app.isPackaged) {
-        envPath = path.join(appInstance.getPath('userData'), '.env');
-      } else if (!envPath) {
-        // Fallback for dev if getEnvPath() failed
-        envPath = path.join(appInstance.getPath('userData'), '.env');
-      }
-
-      let content = '';
-      if (fs.existsSync(envPath)) {
-        content = fs.readFileSync(envPath, 'utf-8');
-      }
-
-      // Merge new config
-      const lines = content.split('\n');
-      const envObj: Record<string, string> = {};
-      
-      lines.forEach(line => {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-          const idx = trimmed.indexOf('=');
-          if (idx > 0) {
-            envObj[trimmed.substring(0, idx)] = trimmed.substring(idx + 1);
-          }
-        }
-      });
-
-      // Override with new config
-      Object.assign(envObj, config);
-      envObj['SETUP_COMPLETED'] = 'true';
-
-      const newContent = Object.entries(envObj).map(([k, v]) => `${k}=${v}`).join('\n');
-      
-      // Ensure directory exists
-      const dir = path.dirname(envPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      fs.writeFileSync(envPath, newContent, 'utf-8');
+      const envPath = writeEnvConfig(appInstance, getEnvPath, config);
       log.info('Setup config saved to:', envPath);
       return { success: true };
     } catch (error) {
       log.error('Failed to save setup config:', error);
       return { success: false, error: (error as Error).message };
+    }
+  });
+
+  // Redeems an admin-issued pairing code, binding this physical machine to a
+  // specific `terminals` row (TERMINAL_ID in the local .env). Used both from
+  // the Setup Wizard (dbConfig supplied — backend isn't running yet) and from
+  // the in-app "This Terminal" panel (dbConfig omitted — reuses the running
+  // backend's own .env, then restarts it so the new TERMINAL_ID takes effect).
+  ipcMain.handle('terminal:pair', async (_event, { code, dbConfig }: { code: string; dbConfig?: PairDbConfig }) => {
+    const resolvedConfig = dbConfig || readActiveDbConfig(getEnvPath);
+    if (!resolvedConfig) {
+      return { success: false, error: 'No database configuration available to pair with.' };
+    }
+
+    const client = resolvedConfig.connectionString
+      ? new Client({ connectionString: resolvedConfig.connectionString })
+      : new Client({
+          host: resolvedConfig.host,
+          port: parseInt(resolvedConfig.port || '5432', 10),
+          user: resolvedConfig.user,
+          password: resolvedConfig.password,
+          database: resolvedConfig.database,
+        });
+
+    try {
+      await client.connect();
+
+      const lookup = await client.query(
+        `SELECT terminal_id, name FROM terminals WHERE pairing_code_hash = $1 AND pairing_code_expires_at > now()`,
+        [hashPairingCode(code)]
+      );
+
+      if (lookup.rows.length === 0) {
+        return { success: false, error: 'Invalid or expired pairing code.' };
+      }
+
+      const { terminal_id: terminalId, name } = lookup.rows[0];
+
+      await client.query(
+        `UPDATE terminals
+         SET pairing_code_hash = NULL, pairing_code_expires_at = NULL, hostname = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE terminal_id = $2`,
+        [os.hostname(), terminalId]
+      );
+
+      writeEnvConfig(appInstance, getEnvPath, { TERMINAL_ID: terminalId });
+      log.info(`Terminal paired: ${name} (${terminalId})`);
+
+      // Only restart the backend for the "pair later" case (no dbConfig means
+      // we reused the already-running backend's own .env). During initial
+      // setup (dbConfig supplied), the backend hasn't started yet — the
+      // wizard's own relaunch after setup:complete picks up TERMINAL_ID fine,
+      // and starting it here early could race the rest of the install flow.
+      if (!dbConfig) {
+        stopBackendServer();
+        setTimeout(() => startBackendServer(), 500);
+      }
+
+      return { success: true, terminal_id: terminalId, name };
+    } catch (error) {
+      log.error('Failed to pair terminal:', error);
+      return { success: false, error: (error as Error).message };
+    } finally {
+      await client.end().catch(() => {});
     }
   });
 

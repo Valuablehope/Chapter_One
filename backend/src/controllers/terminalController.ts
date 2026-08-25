@@ -70,6 +70,21 @@ export const deleteTerminal = asyncHandler(async (req: Request, res: Response) =
   });
 });
 
+export const createPairingCode = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const existing = await TerminalModel.findById(id);
+
+  if (!existing) {
+    throw new CustomError('Terminal not found', 404);
+  }
+
+  const { code, expiresAt } = await TerminalModel.generatePairingCode(id);
+  res.json({
+    success: true,
+    data: { code, expires_at: expiresAt },
+  });
+});
+
 
 
 

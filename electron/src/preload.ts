@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setupInitializeStore: (args: { storeName: string, password: string, port: string }) => ipcRenderer.invoke('setup:initializeStore', args),
   setupInstallService: () => ipcRenderer.invoke('setup:installService'),
   setupComplete: () => ipcRenderer.invoke('setup:complete'),
+  pairTerminal: (code: string, dbConfig?: { host?: string; port?: string; user?: string; password?: string; database?: string; connectionString?: string }) =>
+    ipcRenderer.invoke('terminal:pair', { code, dbConfig }),
   ipcRenderer: (() => {
     // Map original callbacks → their ipcRenderer wrappers so removeListener works correctly.
     // Without this, removeListener(channel, callback) would try to remove the user callback
@@ -75,6 +77,8 @@ declare global {
       setupInitializeStore: (args: { storeName: string, password: string, port: string }) => Promise<{success: boolean, error?: string}>;
       setupInstallService: () => Promise<{success: boolean, error?: string}>;
       setupComplete: () => Promise<void>;
+      pairTerminal: (code: string, dbConfig?: { host?: string; port?: string; user?: string; password?: string; database?: string; connectionString?: string }) =>
+        Promise<{ success: boolean; terminal_id?: string; name?: string; error?: string }>;
       ipcRenderer: {
         on: (channel: string, callback: (...args: any[]) => void) => void;
         removeListener: (channel: string, callback: (...args: any[]) => void) => void;

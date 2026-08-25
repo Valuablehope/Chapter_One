@@ -47,6 +47,7 @@ import {
 import toast from 'react-hot-toast';
 import { StoreModal } from './Admin/components/StoreModal';
 import TerminalModal from './Admin/components/TerminalModal';
+import PairingCodeModal from './Admin/components/PairingCodeModal';
 import UserModal from './Admin/components/UserModal';
 import MenusTab from './Admin/components/MenusTab';
 import ScalesTab from './Admin/components/ScalesTab';
@@ -94,6 +95,8 @@ export default function Admin() {
   const [terminalFormData, setTerminalFormData] = useState({ store_id: '', code: '', name: '', is_active: true });
   const [terminalFormErrors, setTerminalFormErrors] = useState<Record<string, string>>({});
   const [submittingTerminal, setSubmittingTerminal] = useState(false);
+  const [pairingCodeModal, setPairingCodeModal] = useState<{ terminal: Terminal; code: string; expiresAt: string } | null>(null);
+  const [generatingPairingCodeFor, setGeneratingPairingCodeFor] = useState<string | null>(null);
 
   // Debounced search handlers
   const debouncedUserSearch = useDebouncedCallback((search: string) => {
@@ -121,6 +124,15 @@ export default function Admin() {
     else if (activeTab === 'license') checkLicense();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, userFilters.search, userFilters.role, userFilters.page, storeFilters.search, storeFilters.page, terminalFilters.search, terminalFilters.store_id, terminalFilters.page]);
+
+  // Quietly re-poll the terminals list while this tab is open so online/offline
+  // status (derived from last_seen_at) stays current without a manual refresh.
+  useEffect(() => {
+    if (activeTab !== 'terminals') return;
+    const interval = setInterval(() => loadTerminals(), 20_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, terminalFilters]);
 
   // Handle tab change from URL
   useEffect(() => {
@@ -397,6 +409,28 @@ export default function Admin() {
       }
     }
   };
+
+  const handleGeneratePairingCode = async (terminal: Terminal) => {
+    setGeneratingPairingCodeFor(terminal.terminal_id);
+    try {
+      const { code, expires_at } = await adminService.generateTerminalPairingCode(terminal.terminal_id);
+      setPairingCodeModal({ terminal, code, expiresAt: expires_at });
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: { message?: string } } } };
+      toast.error(error.response?.data?.error?.message || 'Failed to generate pairing code');
+    } finally {
+      setGeneratingPairingCodeFor(null);
+    }
+  };
+
+  function formatLastSeen(lastSeenAt: string | null): string {
+    if (!lastSeenAt) return 'Never connected';
+    const seconds = Math.max(0, Math.floor((Date.now() - new Date(lastSeenAt).getTime()) / 1000));
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  }
 
   // Check if user is admin
   if (user?.role !== 'admin') {
@@ -953,6 +987,7 @@ export default function Admin() {
                             <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Name</th>
                             <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Store</th>
                           <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Status</th>
+                          <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Connection</th>
                           <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">Actions</th>
                         </tr>
                       </thead>
@@ -991,8 +1026,28 @@ export default function Admin() {
                                 )}
                               </Badge>
                             </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${t.is_online ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                                <div className="leading-tight">
+                                  <div className={`text-xs font-bold ${t.is_online ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                    {t.is_online ? 'Online' : 'Offline'}
+                                  </div>
+                                  <div className="text-[10px] text-gray-400">{formatLastSeen(t.last_seen_at)}</div>
+                                </div>
+                              </div>
+                            </td>
                             <td className="px-3 py-2 whitespace-nowrap text-right">
                               <div className="flex items-center justify-end gap-1">
+                                <button
+                                  title="Generate pairing code"
+                                  aria-label="Generate pairing code"
+                                  disabled={generatingPairingCodeFor === t.terminal_id}
+                                  onClick={() => handleGeneratePairingCode(t)}
+                                  className="p-1.5 rounded-lg text-secondary-500 hover:text-secondary-700 hover:bg-secondary-50 transition-colors disabled:opacity-50"
+                                >
+                                  <KeyIcon className="w-4 h-4" />
+                                </button>
                                 <button
                                   title="Edit"
                                   aria-label="Edit"
@@ -1347,6 +1402,14 @@ export default function Admin() {
         storesForDropdown={storesForDropdown}
         setFormData={setTerminalFormData}
         onSubmit={handleTerminalSubmit}
+      />
+
+      <PairingCodeModal
+        isOpen={!!pairingCodeModal}
+        onClose={() => setPairingCodeModal(null)}
+        terminal={pairingCodeModal?.terminal ?? null}
+        code={pairingCodeModal?.code ?? null}
+        expiresAt={pairingCodeModal?.expiresAt ?? null}
       />
     </>
   );

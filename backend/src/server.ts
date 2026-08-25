@@ -25,6 +25,8 @@ import openingStockRoutes from './routes/openingStock';
 import expensesRoutes from './routes/expenses';
 import disposeRoutes from './routes/dispose';
 import scalesRoutes from './routes/scales';
+import terminalSelfRoutes from './routes/terminalSelf';
+import { startTerminalHeartbeat } from './services/terminalHeartbeat';
 import { StoreSettingsModel } from './models/StoreSettingsModel';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
@@ -209,6 +211,7 @@ app.use('/api/opening-stock', openingStockRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/dispose', disposeRoutes);
 app.use('/api/scales', scalesRoutes);
+app.use('/api/terminal-self', terminalSelfRoutes);
 
 // 404 handler (must be before error handler)
 app.use((req: Request, res: Response) => {
@@ -259,7 +262,10 @@ async function startServer(): Promise<void> {
 
     // Auto-fix missing stock balances for legacy/bugged received POs
     await fixStockBalancesOnStartup();
-    
+
+    // Report liveness for this machine's paired terminal, if any (no-op if unpaired)
+    startTerminalHeartbeat();
+
   } catch (error) {
     logger.warn('⚠️  Database connection failed during startup:', {
       error: error instanceof Error ? error.message : 'Unknown error',

@@ -124,6 +124,11 @@ export interface Terminal {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  last_seen_at: string | null;
+  hostname: string | null;
+  ip_address: string | null;
+  app_version: string | null;
+  is_online: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -274,6 +279,13 @@ export const adminService = {
 
   async deleteTerminal(id: string): Promise<void> {
     await api.delete(`/admin/terminals/${id}`);
+  },
+
+  async generateTerminalPairingCode(id: string): Promise<{ code: string; expires_at: string }> {
+    const response = await api.post<{ success: boolean; data: { code: string; expires_at: string } }>(
+      `/admin/terminals/${id}/pairing-code`
+    );
+    return response.data.data;
   },
 };
 

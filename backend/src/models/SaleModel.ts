@@ -341,14 +341,19 @@ export class SaleModel extends BaseModel {
       return cached;
     }
 
+    // If this machine has been paired to a specific terminal (TERMINAL_ID in
+    // its local .env), attribute its sales to that terminal instead of an
+    // arbitrary "first active terminal" — critical once a store has more than
+    // one physical POS machine. Falls back to the old behavior when unpaired
+    // or when TERMINAL_ID doesn't belong to this store / isn't active.
     const query = `
       SELECT terminal_id, code, name
       FROM terminals
       WHERE store_id = $1 AND is_active = true
-      ORDER BY created_at ASC
+      ORDER BY (terminal_id = $2) DESC, created_at ASC
       LIMIT 1
     `;
-    const result = await this.query(query, [storeId]);
+    const result = await this.query(query, [storeId, process.env.TERMINAL_ID || null]);
     const terminal = result.rows[0] || null;
 
     // Cache result for 10 minutes
@@ -468,15 +473,16 @@ export class SaleModel extends BaseModel {
           const defaultTaxRate = roundMoney(Number(storeSettings?.tax_rate ?? 0));
           const taxMode: SaleTaxMode = taxInclusive ? 'inclusive' : 'exclusive';
 
-          // Get terminal INSIDE transaction with lock
+          // Get terminal INSIDE transaction with lock — prefer this machine's
+          // paired terminal (see getDefaultTerminal) over the oldest active one.
           const terminalQuery = await client.query(`
         SELECT terminal_id, code, name
         FROM terminals
         WHERE store_id = $1 AND is_active = true
-        ORDER BY created_at ASC
+        ORDER BY (terminal_id = $2) DESC, created_at ASC
         LIMIT 1
         FOR UPDATE
-      `, [store.store_id]);
+      `, [store.store_id, process.env.TERMINAL_ID || null]);
           const terminal = terminalQuery.rows[0];
           if (!terminal) {
             throw new Error('No active terminal found for store');

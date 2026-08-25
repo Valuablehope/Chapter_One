@@ -36,6 +36,10 @@ export const en = {
         reactivate_product: {
           title: "Reactivate Product",
           description: "Bring a previously deactivated product back into POS, purchases, and stock lists."
+        },
+        this_terminal: {
+          title: "This Terminal",
+          description: "Pair this physical machine to a terminal record, and pick the receipt printer this machine uses."
         }
       },
       reactivate: {
@@ -49,6 +53,21 @@ export const en = {
         success: "\"{{name}}\" reactivated successfully",
         error: "Failed to reactivate product",
         load_failed: "Failed to search deactivated products"
+      },
+      this_terminal: {
+        paired_as: "Paired as",
+        not_paired: "This machine isn't paired to a terminal yet",
+        not_paired_hint: "Generate a pairing code from Admin → Terminals on the server, then enter it below.",
+        pairing_code_placeholder: "Enter pairing code",
+        pair_button: "Pair",
+        pairing: "Pairing...",
+        pair_success: "Paired as terminal \"{{name}}\"",
+        pair_error: "Failed to pair terminal",
+        last_seen: "Last heartbeat",
+        printer_label: "Receipt Printer (this machine only)",
+        printer_helper: "Each terminal picks its own printer — this choice stays on this machine and is never shared with other terminals.",
+        printer_default: "Default System Printer",
+        desktop_only: "Pairing is only available in the desktop app."
       }
     },
     settings: {
