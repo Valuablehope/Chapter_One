@@ -2,17 +2,38 @@ import { logger } from '../utils/logger';
 
 const ACTIVATE_ENDPOINT = 'https://wonderful-spider-492.eu-west-1.convex.site/activatelicense';
 
+export interface LicenseActivationResult {
+  isValid: boolean;
+  plan?: string;
+  validityDays?: number;
+}
+
+export interface LicenseActivationMeta {
+  storeId?: string;
+  deviceId?: string;
+  installationId?: string;
+}
+
 /**
- * Validates a license key against the Convex activation endpoint.
- * Returns true if the key is valid and unused, false otherwise.
+ * Validates + atomically consumes a license key against the Convex activation
+ * endpoint. Returns isValid: false if the key is invalid, unknown, or was
+ * already consumed.
  */
-export async function activateLicenseKey(licenseKey: string): Promise<boolean> {
+export async function activateLicenseKey(
+  licenseKey: string,
+  meta: LicenseActivationMeta = {}
+): Promise<LicenseActivationResult> {
   let response: Response;
   try {
     response = await fetch(ACTIVATE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ license: licenseKey }),
+      body: JSON.stringify({
+        license: licenseKey,
+        storeId: meta.storeId,
+        deviceId: meta.deviceId,
+        installationId: meta.installationId,
+      }),
       signal: AbortSignal.timeout(15000),
     });
   } catch (err: any) {
@@ -27,5 +48,13 @@ export async function activateLicenseKey(licenseKey: string): Promise<boolean> {
     throw new Error(`Activation server error (HTTP ${response.status}). Please try again.`);
   }
 
-  return await response.json() as boolean;
+  const data = await response.json() as any;
+
+  return {
+    isValid: data?.isValid === true,
+    plan: typeof data?.plan === 'string' ? data.plan : undefined,
+    validityDays: typeof data?.validityDays === 'number' && data.validityDays > 0
+      ? data.validityDays
+      : undefined,
+  };
 }
