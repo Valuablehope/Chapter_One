@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { DayClosureModel } from '../models/DayClosureModel';
 import { CustomError, asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { scheduleSnapshotPush } from '../services/dashboardSnapshotService';
 
 export const getDayClosurePreview = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
@@ -74,6 +75,7 @@ export const postDayClosure = asyncHandler(async (req: Request, res: Response, _
       opening_float_breakdown
     );
     logger.info(`Day closure Z-${closure.z_number} for store ${storeId} by ${userId}`);
+    scheduleSnapshotPush();
     res.status(201).json({ success: true, data: closure });
   } catch (err: any) {
     if (

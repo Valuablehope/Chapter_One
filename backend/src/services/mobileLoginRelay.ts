@@ -7,6 +7,7 @@ import { CONVEX_SITE_URL } from './convexClient';
 const POLL_INTERVAL_MS = 5_000;
 const PENDING_ENDPOINT = `${CONVEX_SITE_URL}/mobile/login/pending`;
 const RESOLVE_ENDPOINT = `${CONVEX_SITE_URL}/mobile/login/resolve`;
+const SESSION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // matches JWT_EXPIRES_IN default ('24h')
 
 interface PendingMobileLoginRequest {
   requestId: string;
@@ -62,6 +63,7 @@ async function handleRequest(request: PendingMobileLoginRequest): Promise<void> 
     fullName: user.fullName,
     role: user.role,
     sessionToken,
+    sessionTokenExpiresAt: Date.now() + SESSION_TOKEN_TTL_MS,
   });
 }
 

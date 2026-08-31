@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { SaleModel, CreateSaleData, SaleFilters, UpdateSaleData } from '../models/SaleModel';
 import { CustomError, asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { scheduleSnapshotPush } from '../services/dashboardSnapshotService';
 
 // Create sale
 export const createSale = asyncHandler(
@@ -66,6 +67,7 @@ export const createSale = asyncHandler(
     const sale = await SaleModel.create(userId, saleData);
 
     logger.info(`Sale created: ${sale.receipt_no} by user ${userId}`);
+    scheduleSnapshotPush();
 
     res.status(201).json({
       success: true,
