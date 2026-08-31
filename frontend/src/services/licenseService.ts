@@ -44,6 +44,16 @@ export interface ConvexActivateResponse {
   };
 }
 
+export interface MobileSession {
+  sessionId: string;
+  username: string;
+  fullName?: string;
+  role: string;
+  deviceName?: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
 export const licenseService = {
   getLicenseInfo: async (): Promise<LicenseInfoResponse> => {
     const response = await api.get<LicenseInfoResponse>('/license/info');
@@ -53,6 +63,15 @@ export const licenseService = {
   convexActivate: async (req: ConvexActivateRequest): Promise<ConvexActivateResponse> => {
     const response = await api.post<ConvexActivateResponse>('/license/convex-activate', req);
     return response.data;
+  },
+
+  listMobileSessions: async (): Promise<MobileSession[]> => {
+    const response = await api.get<{ success: boolean; data: { sessions: MobileSession[] } }>('/license/mobile-sessions');
+    return response.data.data.sessions;
+  },
+
+  revokeMobileSession: async (sessionId: string): Promise<void> => {
+    await api.post(`/license/mobile-sessions/${sessionId}/revoke`);
   },
 };
 

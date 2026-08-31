@@ -6,6 +6,7 @@ import PageBanner from '../components/ui/PageBanner';
 import { useAuthStore } from '../store/authStore';
 import { useLicenseStore } from '../store/licenseStore';
 import { logger } from '../utils/logger';
+import { licenseService, MobileSession } from '../services/licenseService';
 import {
   adminService,
   AppUser,
@@ -64,6 +65,33 @@ export default function Admin() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { licenseStatus, recordCounts, limits, storeId, checkLicense, isLoading: licenseLoading } = useLicenseStore();
   const [storeIdCopied, setStoreIdCopied] = useState(false);
+  const [mobileSessions, setMobileSessions] = useState<MobileSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+
+  const loadMobileSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      setMobileSessions(await licenseService.listMobileSessions());
+    } catch (error) {
+      logger.error('Failed to load mobile sessions:', error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    setRevokingSessionId(sessionId);
+    try {
+      await licenseService.revokeMobileSession(sessionId);
+      toast.success('Device signed out');
+      setMobileSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+    } catch (error) {
+      toast.error('Failed to sign out that device');
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const tab = searchParams.get('tab');
     return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales' || tab === 'tools') ? tab as AdminTab : 'users';
@@ -125,7 +153,7 @@ export default function Admin() {
     if (activeTab === 'users') loadUsers();
     else if (activeTab === 'stores') loadStores();
     else if (activeTab === 'terminals') loadTerminals();
-    else if (activeTab === 'license') checkLicense();
+    else if (activeTab === 'license') { checkLicense(); loadMobileSessions(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, userFilters.search, userFilters.role, userFilters.page, storeFilters.search, storeFilters.page, terminalFilters.search, terminalFilters.store_id, terminalFilters.page]);
 
@@ -1359,6 +1387,45 @@ export default function Admin() {
                       <p className="mt-2 text-xs text-gray-500">
                         Mobile access is part of the Mobile Companion add-on. Contact support to enable it for this store.
                       </p>
+
+                      <div className="mt-4 pt-4 border-t-2 border-gray-100">
+                        <h3 className="text-sm font-bold text-gray-900 mb-2">Signed-in Devices</h3>
+                        {loadingSessions ? (
+                          <p className="text-xs text-gray-500">Loading…</p>
+                        ) : mobileSessions.length === 0 ? (
+                          <p className="text-xs text-gray-500">No devices are currently signed in.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {mobileSessions.map((session) => (
+                              <div
+                                key={session.sessionId}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border-2 border-gray-200"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {session.fullName || session.username}
+                                    <span className="ml-1.5 text-xs font-normal text-gray-500">@{session.username}</span>
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {session.deviceName || 'Unknown device'} · signed in {new Date(session.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={revokingSessionId === session.sessionId}
+                                  onClick={() => handleRevokeSession(session.sessionId)}
+                                  leftIcon={<XCircleIcon className="w-4 h-4" />}
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                >
+                                  {revokingSessionId === session.sessionId ? 'Signing out…' : 'Sign out'}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </Card>
                 )}

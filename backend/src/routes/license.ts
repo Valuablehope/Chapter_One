@@ -2,12 +2,16 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { authenticate } from '../middleware/auth';
 import { validateRequest } from '../middleware/validateRequest';
-import { getLicenseInfo, convexActivateLicense } from '../controllers/licenseController';
+import { getLicenseInfo, convexActivateLicense, listMobileSessions, revokeMobileSession } from '../controllers/licenseController';
 
 const router = Router();
 
 // Get license info
 router.get('/info', authenticate, getLicenseInfo);
+
+// Mobile companion device management
+router.get('/mobile-sessions', authenticate, listMobileSessions);
+router.post('/mobile-sessions/:sessionId/revoke', authenticate, revokeMobileSession);
 
 // Activate via Convex (consumes key remotely, saves locally)
 router.post(

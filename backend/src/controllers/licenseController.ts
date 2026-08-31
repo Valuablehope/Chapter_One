@@ -4,7 +4,7 @@ import { LicenseModel } from '../models/LicenseModel';
 import { SaleModel } from '../models/SaleModel';
 import { asyncHandler, CustomError } from '../middleware/errorHandler';
 import { pool } from '../config/database';
-import { activateLicenseKey, LicenseActivationResult } from '../services/convexClient';
+import { activateLicenseKey, LicenseActivationResult, CONVEX_SITE_URL } from '../services/convexClient';
 
 // Get license status and record counts
 export const getLicenseInfo = asyncHandler(async (req: Request, res: Response) => {
@@ -109,6 +109,53 @@ export const convexActivateLicense = asyncHandler(async (req: Request, res: Resp
       validFrom:  validFrom.toISOString(),
     },
   });
+});
+
+// List this store's active mobile companion sessions (signed-in devices)
+export const listMobileSessions = asyncHandler(async (req: Request, res: Response) => {
+  const store = await SaleModel.getDefaultStore();
+  if (!store) {
+    return res.json({ success: true, data: { sessions: [] } });
+  }
+
+  const response = await fetch(
+    `${CONVEX_SITE_URL}/mobile/sessions?storeId=${encodeURIComponent(store.store_id)}`,
+    { signal: AbortSignal.timeout(15000) }
+  );
+
+  if (!response.ok) {
+    throw new CustomError('Could not reach the activation server.', 503);
+  }
+
+  const data = await response.json() as { sessions: unknown[] };
+  res.json({ success: true, data: { sessions: data.sessions ?? [] } });
+});
+
+// Revoke one mobile session (e.g. a lost phone) without disabling the whole add-on
+export const revokeMobileSession = asyncHandler(async (req: Request, res: Response) => {
+  const { sessionId } = req.params;
+  if (!sessionId) {
+    throw new CustomError('sessionId is required', 400);
+  }
+
+  const store = await SaleModel.getDefaultStore();
+  if (!store) {
+    throw new CustomError('No store configured on this device', 400);
+  }
+
+  const response = await fetch(`${CONVEX_SITE_URL}/mobile/sessions/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ storeId: store.store_id, sessionId }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  const data = await response.json() as { ok: boolean };
+  if (!data.ok) {
+    throw new CustomError('Session not found or already expired.', 404);
+  }
+
+  res.json({ success: true });
 });
 
 

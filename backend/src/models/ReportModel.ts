@@ -59,6 +59,17 @@ export interface LowStockReport {
   min_threshold?: number;
 }
 
+export interface RecentSale {
+  sale_id: string;
+  receipt_no: string;
+  customer_name: string;
+  grand_total: number;
+  status: 'open' | 'paid' | 'void' | 'refunded';
+  created_at: string;
+  item_count: number;
+  payment_method: string;
+}
+
 /** Aggregated profit for a period: sales revenue minus COGS (qty × current product list_price). */
 export interface ProfitReport {
   total_sales: number;
@@ -601,6 +612,36 @@ export class ReportModel extends BaseModel {
     // Apply 60-second timeout for report queries
     const result = await this.query<LowStockReport>(query, params, 60000);
     return this.buildPaginatedResult(result.rows, total, pageNum, actualLimit);
+  }
+
+  // Lightweight recent-sales list for the mobile companion dashboard --
+  // deliberately not the heavier SaleModel.findAll (no item/payment line
+  // detail, just enough for a summary row per sale).
+  static async getRecentSales(storeId: string, limit: number = 20): Promise<RecentSale[]> {
+    const query = `
+      SELECT
+        s.sale_id,
+        s.receipt_no,
+        COALESCE(c.full_name, 'Walk-in Customer') as customer_name,
+        s.grand_total,
+        s.status,
+        s.created_at,
+        COALESCE(item_counts.item_count, 0) as item_count,
+        COALESCE(payment_methods.methods, '—') as payment_method
+      FROM sales s
+      LEFT JOIN customers c ON c.customer_id = s.customer_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) as item_count FROM sale_items si WHERE si.sale_id = s.sale_id
+      ) item_counts ON true
+      LEFT JOIN LATERAL (
+        SELECT STRING_AGG(DISTINCT INITCAP(method), ', ') as methods FROM sale_payments sp WHERE sp.sale_id = s.sale_id
+      ) payment_methods ON true
+      WHERE s.store_id = $1
+      ORDER BY s.created_at DESC
+      LIMIT $2
+    `;
+    const result = await this.query<RecentSale>(query, [storeId, limit], 60000);
+    return result.rows;
   }
 }
 

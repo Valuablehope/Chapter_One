@@ -7,26 +7,65 @@ const INGEST_ENDPOINT = `${CONVEX_SITE_URL}/mobile/dashboard/ingest`;
 const SAFETY_NET_INTERVAL_MS = 5 * 60 * 1000; // covers any event we didn't explicitly hook
 const DEBOUNCE_MS = 3_000; // collapse bursts of events (several sales in a row) into one push
 const LOW_STOCK_THRESHOLD = 10;
+const RECENT_SALES_LIMIT = 20;
+const TREND_DAYS = 7;
+
+function dateString(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
 function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dateString(new Date());
+}
+
+function daysAgoDateString(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return dateString(d);
 }
 
 async function buildSnapshot(storeId: string) {
   const today = todayDateString();
+  const weekStart = daysAgoDateString(TREND_DAYS - 1);
 
-  const [salesSummary, topProducts, lowStock] = await Promise.all([
+  const [
+    todaySummary,
+    topProducts,
+    lowStock,
+    recentSales,
+    weekSummary,
+    topProductsWeek,
+    paymentBreakdown,
+  ] = await Promise.all([
     ReportModel.getSalesSummary({ start_date: today, end_date: today, store_id: storeId, limit: 1 }),
     ReportModel.getProductSales({ start_date: today, end_date: today, store_id: storeId, limit: 5 }),
     ReportModel.getLowStockReport(storeId, LOW_STOCK_THRESHOLD, undefined, 1, 10),
+    ReportModel.getRecentSales(storeId, RECENT_SALES_LIMIT),
+    ReportModel.getSalesSummary({ start_date: weekStart, end_date: today, store_id: storeId, limit: TREND_DAYS }),
+    ReportModel.getProductSales({ start_date: weekStart, end_date: today, store_id: storeId, limit: 5 }),
+    ReportModel.getPaymentMethodReport({ start_date: weekStart, end_date: today, store_id: storeId, limit: 10 }),
   ]);
 
-  const todaySummary = salesSummary[0];
+  // getSalesSummary only returns rows for days that had sales -- fill in the
+  // rest of the trailing-7-day window with zeros so the mobile chart always
+  // shows exactly 7 bars, oldest to newest, instead of gaps on quiet days.
+  const revenueByDate = new Map(weekSummary.map((r) => [dateString(new Date(r.date)), r]));
+  const weeklySummary = Array.from({ length: TREND_DAYS }, (_, i) => {
+    const date = daysAgoDateString(TREND_DAYS - 1 - i);
+    const row = revenueByDate.get(date);
+    return {
+      date,
+      totalRevenue: Number(row?.total_revenue ?? 0),
+      transactionCount: Number(row?.transaction_count ?? 0),
+    };
+  });
+
+  const todaySalesRow = todaySummary[0];
 
   return {
     storeId,
-    todaySalesTotal: Number(todaySummary?.total_revenue ?? 0),
-    todayTransactionCount: Number(todaySummary?.transaction_count ?? 0),
+    todaySalesTotal: Number(todaySalesRow?.total_revenue ?? 0),
+    todayTransactionCount: Number(todaySalesRow?.transaction_count ?? 0),
     topProducts: topProducts.map((p) => ({
       name: p.product_name,
       quantitySold: Number(p.total_quantity),
@@ -36,6 +75,26 @@ async function buildSnapshot(storeId: string) {
       name: i.product_name,
       quantity: Number(i.qty_on_hand),
       reorderLevel: i.min_threshold,
+    })),
+    recentSales: recentSales.map((s) => ({
+      id: s.sale_id,
+      receiptNumber: s.receipt_no,
+      customerName: s.customer_name,
+      total: Number(s.grand_total),
+      status: s.status,
+      paymentMethod: s.payment_method,
+      createdAt: new Date(s.created_at).getTime(),
+      itemCount: Number(s.item_count),
+    })),
+    weeklySummary,
+    topProductsWeek: topProductsWeek.map((p) => ({
+      name: p.product_name,
+      quantitySold: Number(p.total_quantity),
+      revenue: Number(p.total_revenue),
+    })),
+    paymentBreakdown: paymentBreakdown.map((p) => ({
+      method: p.method,
+      totalAmount: Number(p.total_amount),
     })),
     generatedAt: Date.now(),
   };
