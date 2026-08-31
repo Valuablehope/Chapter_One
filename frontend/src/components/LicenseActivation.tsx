@@ -30,9 +30,9 @@ export default function LicenseActivation({ onSuccess, onCancel }: LicenseActiva
   const { checkLicense }              = useLicenseStore();
 
   const handleInput = (raw: string) => {
-    // Format: CH1-XXXX-XXXX-XXXX-XXXX (3 + 4×4 = 19 alphanumeric chars)
-    const clean = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 19);
-    const sizes = [3, 4, 4, 4, 4];
+    // Format: CH1-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX (3 + 8×4 = 35 alphanumeric chars)
+    const clean = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 35);
+    const sizes = [3, 4, 4, 4, 4, 4, 4, 4, 4];
     const parts: string[] = [];
     let idx = 0;
     for (const size of sizes) {
@@ -123,7 +123,7 @@ export default function LicenseActivation({ onSuccess, onCancel }: LicenseActiva
             type="text"
             value={licenseKey}
             onChange={(e) => handleInput(e.target.value)}
-            placeholder="CH1-XXXX-XXXX-XXXX-XXXX"
+            placeholder="CH1-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
             autoComplete="off"
             spellCheck={false}
             disabled={isLoading}
@@ -132,7 +132,7 @@ export default function LicenseActivation({ onSuccess, onCancel }: LicenseActiva
                        focus:outline-none focus:border-secondary-400 focus:ring-0
                        disabled:opacity-50 disabled:bg-gray-50 transition-colors"
           />
-          <p className="mt-1 text-xs text-gray-400">Format: CH1-XXXX-XXXX-XXXX-XXXX</p>
+          <p className="mt-1 text-xs text-gray-400">Format: CH1-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX</p>
         </div>
 
         {error && (
