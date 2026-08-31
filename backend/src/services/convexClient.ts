@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 
-const ACTIVATE_ENDPOINT = 'https://wonderful-spider-492.eu-west-1.convex.site/activatelicense';
+export const CONVEX_SITE_URL = 'https://wonderful-spider-492.eu-west-1.convex.site';
+const ACTIVATE_ENDPOINT = `${CONVEX_SITE_URL}/activatelicense`;
 
 export interface LicenseActivationResult {
   isValid: boolean;

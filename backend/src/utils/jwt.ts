@@ -58,6 +58,7 @@ export interface TokenPayload {
   userId: string;
   username: string;
   role: string;
+  scope?: string; // e.g. 'mobile' for companion-app read-only sessions
 }
 
 export const generateToken = (payload: TokenPayload): string => {

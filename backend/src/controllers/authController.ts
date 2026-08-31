@@ -10,6 +10,55 @@ interface LoginRequest {
   password: string;
 }
 
+export interface VerifiedUser {
+  userId: string;
+  username: string;
+  fullName: string;
+  role: string;
+}
+
+export type CredentialCheckResult =
+  | { ok: true; user: VerifiedUser }
+  | { ok: false; reason: 'NOT_FOUND' | 'INACTIVE' | 'BAD_PASSWORD' };
+
+/**
+ * Verifies a username/password against app_users. Shared by the local HTTP
+ * login route and the mobile companion login relay (mobileLoginRelay.ts) so
+ * both paths enforce identical rules against the same local credential store.
+ */
+export async function verifyCredentials(username: string, password: string): Promise<CredentialCheckResult> {
+  const searchUsername = username.toLowerCase().trim();
+  const userResult = await pool.query(
+    'SELECT user_id, username, full_name, role, password_hash, is_active FROM app_users WHERE LOWER(username) = $1',
+    [searchUsername]
+  );
+
+  if (userResult.rows.length === 0) {
+    return { ok: false, reason: 'NOT_FOUND' };
+  }
+
+  const user = userResult.rows[0];
+
+  if (!user.is_active) {
+    return { ok: false, reason: 'INACTIVE' };
+  }
+
+  const isPasswordValid = await comparePassword(password, user.password_hash);
+  if (!isPasswordValid) {
+    return { ok: false, reason: 'BAD_PASSWORD' };
+  }
+
+  return {
+    ok: true,
+    user: {
+      userId: user.user_id,
+      username: user.username,
+      fullName: user.full_name,
+      role: user.role,
+    },
+  };
+}
+
 export const login = asyncHandler(
   async (req: Request<Record<string, string>, unknown, LoginRequest>, res: Response, next: NextFunction) => {
     const { username, password } = req.body;
@@ -19,36 +68,21 @@ export const login = asyncHandler(
       throw new CustomError('Username and password are required', 400);
     }
 
-    // Find user by username (case-insensitive)
-    const searchUsername = username.toLowerCase().trim();
-    const userResult = await pool.query(
-      'SELECT user_id, username, full_name, role, password_hash, is_active FROM app_users WHERE LOWER(username) = $1',
-      [searchUsername]
-    );
+    const result = await verifyCredentials(username, password);
 
-    if (userResult.rows.length === 0) {
-      logger.warn(`Failed login attempt for username: ${username} (searched as: ${searchUsername})`);
+    if (!result.ok) {
+      logger.warn(`Failed login attempt for username: ${username} (${result.reason})`);
+      if (result.reason === 'INACTIVE') {
+        throw new CustomError('Account is deactivated', 403);
+      }
       throw new CustomError('Invalid username or password', 401);
     }
 
-    const user = userResult.rows[0];
-
-    // Check if user is active
-    if (!user.is_active) {
-      throw new CustomError('Account is deactivated', 403);
-    }
-
-    // Verify password
-    const isPasswordValid = await comparePassword(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      logger.warn(`Failed login attempt for username: ${username} - password mismatch`);
-      throw new CustomError('Invalid username or password', 401);
-    }
+    const user = result.user;
 
     // Generate JWT token
     const token = generateToken({
-      userId: user.user_id,
+      userId: user.userId,
       username: user.username,
       role: user.role,
     });
@@ -70,9 +104,9 @@ export const login = asyncHandler(
       success: true,
       data: {
         user: {
-          userId: user.user_id,
+          userId: user.userId,
           username: user.username,
-          fullName: user.full_name,
+          fullName: user.fullName,
           role: user.role,
         },
         token,

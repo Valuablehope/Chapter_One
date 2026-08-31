@@ -27,6 +27,7 @@ import disposeRoutes from './routes/dispose';
 import scalesRoutes from './routes/scales';
 import terminalSelfRoutes from './routes/terminalSelf';
 import { startTerminalHeartbeat } from './services/terminalHeartbeat';
+import { startMobileLoginRelay } from './services/mobileLoginRelay';
 import { StoreSettingsModel } from './models/StoreSettingsModel';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitizeMiddleware } from './utils/sanitize';
@@ -265,6 +266,9 @@ async function startServer(): Promise<void> {
 
     // Report liveness for this machine's paired terminal, if any (no-op if unpaired)
     startTerminalHeartbeat();
+
+    // Broker mobile companion app logins (no-op poll if the add-on isn't purchased)
+    startMobileLoginRelay();
 
   } catch (error) {
     logger.warn('⚠️  Database connection failed during startup:', {
