@@ -26,6 +26,7 @@ export interface LicenseInfoResponse {
     licenseStatus: LicenseStatus | null;
     recordCounts: RecordCounts | null;
     limits: RecordCounts | null;
+    storeId: string | null;
   };
 }
 

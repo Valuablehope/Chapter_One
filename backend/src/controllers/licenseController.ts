@@ -18,6 +18,7 @@ export const getLicenseInfo = asyncHandler(async (req: Request, res: Response) =
         recordCounts: null,
         licenseStatus: null,
         limits: null,
+        storeId: null,
       },
     });
   }
@@ -34,6 +35,7 @@ export const getLicenseInfo = asyncHandler(async (req: Request, res: Response) =
       licenseStatus,
       recordCounts,
       limits,
+      storeId,
     },
   });
 });

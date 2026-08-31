@@ -7,6 +7,7 @@ interface LicenseState {
   licenseStatus: LicenseStatus | null;
   recordCounts: RecordCounts | null;
   limits: RecordCounts | null;
+  storeId: string | null;
   lastChecked: string | null;
   isLoading: boolean;
   error: string | null;
@@ -23,6 +24,7 @@ export const useLicenseStore = create<LicenseState>()(
       licenseStatus: null,
       recordCounts: null,
       limits: null,
+      storeId: null,
       lastChecked: null,
       isLoading: false,
       error: null,
@@ -35,6 +37,7 @@ export const useLicenseStore = create<LicenseState>()(
               licenseStatus: response.data.licenseStatus,
               recordCounts: response.data.recordCounts,
               limits: response.data.limits,
+              storeId: response.data.storeId,
               lastChecked: new Date().toISOString(),
               isLoading: false,
             });
@@ -56,6 +59,7 @@ export const useLicenseStore = create<LicenseState>()(
         licenseStatus: null,
         recordCounts: null,
         limits: null,
+        storeId: null,
         lastChecked: null,
         error: null,
       }),

@@ -41,6 +41,9 @@ import {
   CubeIcon,
   ShoppingCartIcon,
   ClipboardDocumentListIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
+  DevicePhoneMobileIcon,
   ScaleIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
@@ -59,7 +62,8 @@ type AdminTab = 'users' | 'stores' | 'terminals' | 'license' | 'menus' | 'scales
 export default function Admin() {
   const { user } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { licenseStatus, recordCounts, limits, checkLicense, isLoading: licenseLoading } = useLicenseStore();
+  const { licenseStatus, recordCounts, limits, storeId, checkLicense, isLoading: licenseLoading } = useLicenseStore();
+  const [storeIdCopied, setStoreIdCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const tab = searchParams.get('tab');
     return (tab === 'license' || tab === 'users' || tab === 'stores' || tab === 'terminals' || tab === 'menus' || tab === 'scales' || tab === 'tools') ? tab as AdminTab : 'users';
@@ -1318,6 +1322,46 @@ export default function Admin() {
                     )}
                   </div>
                 </Card>
+
+                {/* Mobile Companion pairing info -- shown once a license is bound to this store */}
+                {licenseStatus && storeId && (
+                  <Card className="border-2 border-gray-100 shadow-md mt-4">
+                    <div className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-lg">
+                          <DevicePhoneMobileIcon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-bold text-gray-900">Mobile Companion</h2>
+                          <p className="text-xs text-gray-600">Enter this Store ID in the Chapter One mobile app to sign in</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border-2 border-gray-200">
+                        <code className="flex-1 text-sm font-mono text-gray-900 break-all">{storeId}</code>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(storeId);
+                              setStoreIdCopied(true);
+                              setTimeout(() => setStoreIdCopied(false), 1500);
+                            } catch {
+                              // Clipboard access can fail (permissions, non-secure context) -- ID is shown on screen regardless.
+                            }
+                          }}
+                          leftIcon={storeIdCopied ? <CheckIcon className="w-4 h-4" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
+                        >
+                          {storeIdCopied ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Mobile access is part of the Mobile Companion add-on. Contact support to enable it for this store.
+                      </p>
+                    </div>
+                  </Card>
+                )}
 
                 {/* Support Contact */}
                 <Card className="border-2 border-green-100 shadow-md bg-green-50 mt-4">
