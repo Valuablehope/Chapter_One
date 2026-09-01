@@ -634,7 +634,7 @@ export class ReportModel extends BaseModel {
         SELECT COUNT(*) as item_count FROM sale_items si WHERE si.sale_id = s.sale_id
       ) item_counts ON true
       LEFT JOIN LATERAL (
-        SELECT STRING_AGG(DISTINCT INITCAP(method), ', ') as methods FROM sale_payments sp WHERE sp.sale_id = s.sale_id
+        SELECT STRING_AGG(DISTINCT INITCAP(method::text), ', ') as methods FROM sale_payments sp WHERE sp.sale_id = s.sale_id
       ) payment_methods ON true
       WHERE s.store_id = $1
       ORDER BY s.created_at DESC
