@@ -36,13 +36,40 @@ export const errorHandler = (
   let statusCode = (err as AppError).statusCode || 500;
   const isDevelopment = process.env.NODE_ENV === 'development';
   
-  // Log full error details (always log to server)
-  logger.error(`Error ${statusCode}: ${err.message}`, {
+  // Short reference the user can quote so support can find the exact log line.
+  const errorId = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+  // Log full error details (always log to server). Postgres errors carry the real cause
+  // (code/detail/table/column/where) in extra fields — without them a 500 is undiagnosable.
+  const pg = err as any;
+  logger.error(`Error ${statusCode} [${errorId}]: ${err.message}`, {
     path: req.path,
     method: req.method,
-    stack: isDevelopment ? err.stack : undefined,
+    stack: statusCode >= 500 ? err.stack : undefined,
     error: err instanceof Error ? err.name : 'Unknown',
+    pgCode: pg.code,
+    pgDetail: pg.detail,
+    pgTable: pg.table,
+    pgColumn: pg.column,
+    pgConstraint: pg.constraint,
+    pgWhere: pg.where,
   });
+
+  // Translate well-known Postgres failures into actionable client errors instead of a blind 500
+  if (statusCode === 500 && typeof pg.code === 'string') {
+    const pgMap: Record<string, [number, string]> = {
+      '22P02': [400, 'One of the values has an invalid format (e.g. a number or ID).'],
+      '22003': [400, 'A number is too large or has too many decimals for this field.'],
+      '23503': [409, 'This record refers to an item that no longer exists (it may have been deleted).'],
+      '23505': [409, 'This record already exists.'],
+      '23514': [400, 'A value is outside the allowed range.'],
+    };
+    const mapped = pgMap[pg.code];
+    if (mapped) {
+      statusCode = mapped[0];
+      err = Object.assign(new Error(mapped[1]), { statusCode });
+    }
+  }
 
   // Sanitize error message for client
   let clientMessage = err.message || 'Internal server error';
@@ -69,7 +96,7 @@ export const errorHandler = (
   if (!isDevelopment) {
     // Don't expose database errors, stack traces, or internal details
     if (statusCode === 500) {
-      clientMessage = 'An internal server error occurred. Please try again later.';
+      clientMessage = `An internal server error occurred. Please try again later. (Ref: ${errorId})`;
     } else if (err.message.includes('database') || err.message.includes('SQL') || err.message.includes('connection')) {
       clientMessage = 'A database error occurred. Please contact support if this persists.';
     } else if (err.message.includes('ECONNREFUSED') || err.message.includes('timeout')) {
@@ -82,6 +109,7 @@ export const errorHandler = (
     error: {
       message: clientMessage,
       statusCode,
+      errorId,
       ...(err instanceof CustomError && err.data ? { data: err.data } : {}),
       ...(isDevelopment && { 
         stack: err.stack,

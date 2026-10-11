@@ -302,8 +302,9 @@ export default function Purchases() {
             name: item.product_name || t('purchases.common.deleted_product', { id: item.product_id.substring(0, 8) }),
             barcode: item.barcode || t('purchases.common.not_available'),
         } as Product,
-        qty_ordered: item.qty_ordered,
-        unit_cost: item.unit_cost,
+        // The API returns NUMERIC columns as strings ("5.000"); coerce so +/- and totals stay numeric
+        qty_ordered: Number(item.qty_ordered),
+        unit_cost: Number(item.unit_cost),
           unit_of_measure: item.unit_of_measure || t('purchases.common.each'),
       }));
       setItems(formItems);

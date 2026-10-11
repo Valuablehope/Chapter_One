@@ -2,6 +2,7 @@ import { BaseModel, PaginatedResult } from './BaseModel';
 import { pool } from '../config/database';
 import { withRetry } from '../utils/retry';
 import { logger } from '../utils/logger';
+import { CustomError } from '../middleware/errorHandler';
 
 export type PurchaseOrderStatus = 'OPEN' | 'PENDING' | 'RECEIVED' | 'CANCELLED';
 
@@ -398,83 +399,98 @@ export class PurchaseOrderModel extends BaseModel {
     };
   }
 
-  // Update purchase order
+  // Update purchase order.
+  // Runs on a single connection with a row lock on the PO header, so the status check,
+  // header update and item replacement are atomic, and concurrent edit/receive of the same
+  // PO are serialised instead of failing with serialization errors.
   static async update(poId: string, data: UpdatePurchaseOrderData): Promise<PurchaseOrderWithDetails> {
-    const client = await pool.connect();
-    
-    try {
-      await client.query('BEGIN');
-      await client.query('SET LOCAL statement_timeout = 30000');
-      await client.query('SET LOCAL lock_timeout = 5000');
-      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    await withRetry(
+      async () => {
+        const client = await pool.connect();
 
-      // Check if PO exists and can be edited (only OPEN status can be edited)
-      const existingPO = await this.findById(poId);
-      if (!existingPO) {
-        throw new Error('Purchase order not found');
-      }
-      
-      if (existingPO.status !== 'OPEN') {
-        throw new Error('Only OPEN purchase orders can be edited');
-      }
+        try {
+          await client.query('BEGIN');
+          await client.query('SET LOCAL statement_timeout = 30000');
+          await client.query('SET LOCAL lock_timeout = 5000');
 
-      // Update supplier if provided
-      if (data.supplier_id) {
-        await client.query(
-          'UPDATE purchase_orders SET supplier_id = $1 WHERE po_id = $2',
-          [data.supplier_id, poId]
-        );
-      }
-
-      // Update expected_at if provided
-      if (data.expected_at !== undefined) {
-        await client.query(
-          'UPDATE purchase_orders SET expected_at = $1 WHERE po_id = $2',
-          [data.expected_at || null, poId]
-        );
-      }
-      
-      // Update invoice_no if provided
-      if (data.invoice_no !== undefined) {
-        await client.query(
-          'UPDATE purchase_orders SET invoice_no = $1 WHERE po_id = $2',
-          [data.invoice_no || null, poId]
-        );
-      }
-
-      // Update items if provided
-      if (data.items && data.items.length > 0) {
-        // Delete existing items
-        await client.query('DELETE FROM purchase_order_items WHERE po_id = $1', [poId]);
-        
-        // Insert new items
-        for (const item of data.items) {
-          await client.query(
-            `INSERT INTO purchase_order_items (po_id, product_id, qty_ordered, qty_received, unit_cost)
-             VALUES ($1, $2, $3, 0, $4)`,
-            [poId, item.product_id, item.qty_ordered, item.unit_cost]
+          const existing = await client.query(
+            'SELECT status FROM purchase_orders WHERE po_id = $1 FOR UPDATE',
+            [poId]
           );
+          if (existing.rows.length === 0) {
+            throw new CustomError('Purchase order not found', 404);
+          }
+          if (existing.rows[0].status !== 'OPEN') {
+            throw new CustomError('Only OPEN purchase orders can be edited', 409);
+          }
 
-          // Sync product prices based on unit cost
-          await this.syncProductPrice(client, item.product_id, item.unit_cost);
+          // Single header UPDATE covering every provided field
+          const sets: string[] = [];
+          const values: any[] = [];
+          if (data.supplier_id) {
+            values.push(data.supplier_id);
+            sets.push(`supplier_id = $${values.length}`);
+          }
+          if (data.expected_at !== undefined) {
+            values.push(data.expected_at || null);
+            sets.push(`expected_at = $${values.length}`);
+          }
+          if (data.invoice_no !== undefined) {
+            values.push(data.invoice_no || null);
+            sets.push(`invoice_no = $${values.length}`);
+          }
+          if (sets.length > 0) {
+            values.push(poId);
+            await client.query(
+              `UPDATE purchase_orders SET ${sets.join(', ')} WHERE po_id = $${values.length}`,
+              values
+            );
+          }
+
+          // Replace items if provided
+          if (data.items && data.items.length > 0) {
+            await client.query('DELETE FROM purchase_order_items WHERE po_id = $1', [poId]);
+
+            for (const item of data.items) {
+              await client.query(
+                `INSERT INTO purchase_order_items (po_id, product_id, qty_ordered, qty_received, unit_cost)
+                 VALUES ($1, $2, $3, 0, $4)`,
+                [poId, item.product_id, item.qty_ordered, item.unit_cost]
+              );
+              await this.syncProductPrice(client, item.product_id, item.unit_cost);
+            }
+          }
+
+          await client.query('COMMIT');
+        } catch (error) {
+          try {
+            await client.query('ROLLBACK');
+          } catch (rollbackError) {
+            logger.error('Failed to rollback purchase order update', { error: (rollbackError as Error).message });
+          }
+          throw error;
+        } finally {
+          client.release();
         }
+      },
+      {
+        maxAttempts: 3,
+        backoffMs: 150,
+        onRetry: (attempt, error) => {
+          logger.warn(`Retrying purchase order update (attempt ${attempt})`, {
+            error: error.message,
+            code: (error as any).code,
+            poId,
+          });
+        },
       }
+    );
 
-      await client.query('COMMIT');
-      
-      // Return updated purchase order
-      const updatedPO = await this.findById(poId);
-      if (!updatedPO) {
-        throw new Error('Failed to retrieve updated purchase order');
-      }
-      
-      return updatedPO;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    const updatedPO = await this.findById(poId);
+    if (!updatedPO) {
+      throw new CustomError('Failed to retrieve updated purchase order', 500);
     }
+    return updatedPO;
   }
 
   // Update purchase order status
@@ -493,9 +509,7 @@ export class PurchaseOrderModel extends BaseModel {
     return result.rows[0];
   }
 
-  // Receive purchase order (update stock) with REPEATABLE READ isolation and row-level locking
-  // REPEATABLE READ is more performant than SERIALIZABLE while still preventing race conditions
-  // with proper row-level locking (FOR UPDATE)
+  // Receive purchase order (update stock) under a row-level lock on the PO (FOR UPDATE)
   static async receivePurchaseOrder(poId: string): Promise<PurchaseOrderWithDetails> {
     return await withRetry(
       async () => {
@@ -507,9 +521,8 @@ export class PurchaseOrderModel extends BaseModel {
           await client.query('SET LOCAL statement_timeout = 30000');
           // Set lock timeout (5 seconds) to prevent indefinite blocking
           await client.query('SET LOCAL lock_timeout = 5000');
-          // Set REPEATABLE READ isolation level (more performant than SERIALIZABLE)
-          // Row-level locking (FOR UPDATE) provides sufficient protection against race conditions
-          await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+          // Default READ COMMITTED + the FOR UPDATE row lock below serialises concurrent
+          // receives; REPEATABLE READ only added spurious serialization failures.
 
           // Get purchase order INSIDE the transaction using the locked client
           const poResult = await client.query(`
@@ -525,13 +538,16 @@ export class PurchaseOrderModel extends BaseModel {
           `, [poId]);
 
           if (poResult.rows.length === 0) {
-            throw new Error('Purchase order not found');
+            throw new CustomError('Purchase order not found', 404);
           }
 
           const poRow = poResult.rows[0];
 
           if (poRow.status === 'RECEIVED') {
-            throw new Error('Purchase order already received');
+            throw new CustomError('Purchase order already received', 409);
+          }
+          if (poRow.status === 'CANCELLED') {
+            throw new CustomError('Cancelled purchase orders cannot be received', 409);
           }
 
           // Get items for this PO inside the transaction
@@ -651,7 +667,7 @@ export class PurchaseOrderModel extends BaseModel {
       );
       if (poResult.rows.length === 0) {
         await client.query('ROLLBACK');
-        throw new Error('Purchase order not found');
+        throw new CustomError('Purchase order not found', 404);
       }
       const { store_id, po_number, status } = poResult.rows[0];
 
