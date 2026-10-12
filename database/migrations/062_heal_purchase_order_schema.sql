@@ -36,6 +36,16 @@ ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP W
 ALTER TABLE stock_balances ADD COLUMN IF NOT EXISTS qty_in  NUMERIC(10,3) NOT NULL DEFAULT 0;
 ALTER TABLE stock_balances ADD COLUMN IF NOT EXISTS qty_out NUMERIC(10,3) NOT NULL DEFAULT 0;
 
+-- Receive upserts with ON CONFLICT (store_id, product_id); that needs a unique key on exactly
+-- those columns. Isolated so duplicate legacy rows only produce a warning.
+DO $$
+BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_balances_store_product
+        ON stock_balances (store_id, product_id);
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Could not ensure unique (store_id, product_id) on stock_balances: %', SQLERRM;
+END $$;
+
 -- Quantity columns must be NUMERIC (decimal weights); older DBs may still have INTEGER.
 -- Each ALTER is isolated: if a dependent view blocks it we warn instead of aborting.
 DO $$

@@ -55,6 +55,16 @@ export const errorHandler = (
     pgWhere: pg.where,
   });
 
+  // Schema drift (missing column/table/constraint, wrong column type) means the database is behind
+  // the app version. Flag it loudly in the log so it is obvious in application.log.
+  const schemaDriftCodes = ['42703', '42P01', '42P10', '42804', '42883'];
+  if (typeof pg.code === 'string' && schemaDriftCodes.includes(pg.code)) {
+    logger.error(`[${errorId}] DATABASE SCHEMA MISMATCH (pg ${pg.code}): the database is out of date for this app version. Re-run migrations.`, {
+      table: pg.table,
+      column: pg.column,
+    });
+  }
+
   // Translate well-known Postgres failures into actionable client errors instead of a blind 500
   if (statusCode === 500 && typeof pg.code === 'string') {
     const pgMap: Record<string, [number, string]> = {
@@ -96,7 +106,9 @@ export const errorHandler = (
   if (!isDevelopment) {
     // Don't expose database errors, stack traces, or internal details
     if (statusCode === 500) {
-      clientMessage = `An internal server error occurred. Please try again later. (Ref: ${errorId})`;
+      // The Postgres code (a 5-char SQLSTATE, no data) lets support triage from a screenshot alone
+      const dbTag = typeof pg.code === 'string' && /^[0-9A-Z]{5}$/.test(pg.code) ? `, DB ${pg.code}` : '';
+      clientMessage = `An internal server error occurred. Please try again later. (Ref: ${errorId}${dbTag})`;
     } else if (err.message.includes('database') || err.message.includes('SQL') || err.message.includes('connection')) {
       clientMessage = 'A database error occurred. Please contact support if this persists.';
     } else if (err.message.includes('ECONNREFUSED') || err.message.includes('timeout')) {
