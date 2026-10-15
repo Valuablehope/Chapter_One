@@ -19,7 +19,15 @@ export default defineConfig({
     outDir: 'dist-mobile',
     emptyOutDir: true,
     target: 'es2022',
-    rollupOptions: { input: path.resolve(__dirname, 'mobile.html') },
+    rollupOptions: {
+      input: path.resolve(__dirname, 'mobile.html'),
+      output: {
+        // Android's asset packager unzips *.gz files and drops the extension, which breaks PGlite's
+        // extension archives (pg_trgm, pgcrypto). Ship them under a neutral extension.
+        assetFileNames: (info) =>
+          (info.names?.[0] || '').endsWith('.gz') ? 'assets/[name]-[hash].gzbin' : 'assets/[name]-[hash][extname]',
+      },
+    },
   },
   worker: { format: 'es' },
 });
