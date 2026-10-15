@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(find /c/Users/IM-SPEC/Documents/Chapter_One -name \"*.sql\" -type f -exec grep -l \"CREATE TABLE.*stock_movements\" {} \\\\;)",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/IM-SPEC/Documents/Chapter_One -type f \\\\\\( -name \"*.ts\" -o -name \"*.js\" \\\\\\) -exec grep -l \"CREATE TABLE.*stock_movements\\\\|stock_movements.*CREATE\" {} \\\\;)",
+      "Bash(find /c/Users/IM-SPEC/Documents/Chapter_One -name \"*.sql\" -type f -exec grep -l \"products\\\\|sales\\\\|purchase\" {} \\\\;)",
+      "Bash(grep -E \"\\\\.\\(ts|js|sql\\)$\")",
+      "Bash(npm install *)",
+      "Bash(npx convex *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\IM-SPEC\\\\Documents\\\\Chapter_One\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(npm run *)",
+      "Read(//c/Users/IM-SPEC/AppData/Roaming/**)",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\IM-SPEC\\\\Documents\\\\Chapter_One\\\\electron\"; $env:ELECTRON_RUN_AS_NODE=$null; npx electron verify-measure.js)"
+    ]
+  }
+}

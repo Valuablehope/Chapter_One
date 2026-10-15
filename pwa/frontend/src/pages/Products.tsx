@@ -1,0 +1,1736 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import { productService, Product, ProductFilters } from '../services/productService';
+import { productTypeService, ProductType } from '../services/productTypeService';
+import { storeService, StoreSettings } from '../services/storeService';
+import { adminService, menuService, Store, Menu } from '../services/adminService';
+import { useAuthStore } from '../store/authStore';
+import { API_BASE_URL } from '../services/api';
+import { logger } from '../utils/logger';
+import { INPUT_LIMITS } from '../config/constants';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import Card from '../components/ui/Card';
+import Modal from '../components/ui/Modal';
+import Input from '../components/ui/Input';
+import EmptyState from '../components/ui/EmptyState';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import PageBanner from '../components/ui/PageBanner';
+import { ProductRow } from './Products/components/ProductRow';
+import ProductImportModal from './Products/components/ProductImportModal';
+import {
+  PlusIcon,
+  MagnifyingGlassIcon,
+  QrCodeIcon,
+  CubeIcon,
+  BookOpenIcon,
+  FunnelIcon,
+  ArrowPathIcon,
+  TagIcon,
+  TrashIcon,
+  PencilIcon,
+  AdjustmentsVerticalIcon,
+  ArrowUpTrayIcon,
+  PhotoIcon,
+  XMarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+import { useTranslation } from '../i18n/I18nContext';
+
+export const STANDARD_UNITS = ['each', 'pair', 'dozen', 'pack', 'box', 'carton', 'kg', 'g', 'lb', 'oz', 'L', 'mL', 'm', 'cm'];
+
+export interface ColumnConfig {
+  id: string;
+  label: string;
+  width: number;
+  visible: boolean;
+  minWidth: number;
+}
+
+const DEFAULT_COLUMNS: ColumnConfig[] = [
+  { id: 'name', label: 'Name', width: 250, visible: true, minWidth: 100 },
+  { id: 'sku', label: 'SKU', width: 120, visible: true, minWidth: 80 },
+  { id: 'barcode', label: 'Barcode', width: 140, visible: true, minWidth: 80 },
+  { id: 'type', label: 'Type', width: 120, visible: true, minWidth: 80 },
+  { id: 'unit', label: 'Unit', width: 80, visible: true, minWidth: 60 },
+  { id: 'list_price', label: 'List Price', width: 100, visible: true, minWidth: 80 },
+  { id: 'sale_price', label: 'Sale Price', width: 100, visible: true, minWidth: 80 },
+  { id: 'inventory', label: 'Inventory', width: 100, visible: true, minWidth: 80 },
+  { id: 'qty_in', label: 'Qty In', width: 80, visible: true, minWidth: 60 },
+  { id: 'qty_out', label: 'Qty Out', width: 80, visible: true, minWidth: 60 },
+  { id: 'balance', label: 'Balance', width: 80, visible: true, minWidth: 60 },
+  { id: 'actions', label: 'Actions', width: 120, visible: true, minWidth: 100 },
+];
+
+export default function Products() {
+  const { t, language } = useTranslation();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<ProductFilters>({
+    page: 1,
+    limit: 20,
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
+  const [showModal, setShowModal] = useState(false);
+  const [showCustomUnit, setShowCustomUnit] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    sku: '',
+    barcode: '',
+    plu_code: '',
+    product_type: '',
+    unit_of_measure: 'each',
+    list_price: '',
+    sale_price: '',
+    margin_pct: '',
+    lbp_price: '',
+    lbp_list_price: '',
+    tax_rate: '',
+    track_inventory: true,
+    image_url: '',
+    menu_id: '',
+    menu_category: '',
+    menu_note: '',
+  });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+  const canSeeListPrice = user?.role === 'admin' || storeSettings?.show_list_price_to_users !== false;
+  // "Show LBP as primary price in POS Sales" (Admin > Regional) unlocks an LBP price
+  // input in this form that back-calculates Sale Price / Margin via the exchange rate.
+  const lbpRate = useMemo(() => {
+    if (!storeSettings?.show_lbp_price || !storeSettings?.lbp_primary_price) return null;
+    const rate = Number(storeSettings.lbp_exchange_rate ?? 0);
+    return rate > 0 ? rate : null;
+  }, [storeSettings?.show_lbp_price, storeSettings?.lbp_primary_price, storeSettings?.lbp_exchange_rate]);
+  const [restaurantStores, setRestaurantStores] = useState<Store[]>([]);
+  const [restaurantMenus, setRestaurantMenus] = useState<Menu[]>([]);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [typeFormData, setTypeFormData] = useState({ name: '', display_on_pos: false, press_to_add: false });
+  const [editingProductType, setEditingProductType] = useState<ProductType | null>(null);
+  const [typeSubmitting, setTypeSubmitting] = useState(false);
+  const [syncingTypes, setSyncingTypes] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [productTypeInput, setProductTypeInput] = useState('');
+  const searchAbortController = useRef<AbortController | null>(null);
+  const loadRequestIdRef = useRef(0);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const isCustomSizedRef = useRef(!!localStorage.getItem('products_table_resized_v1'));
+  const [isCustomSized, setIsCustomSized] = useState(isCustomSizedRef.current);
+
+  const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
+    const saved = localStorage.getItem('products_table_columns_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return DEFAULT_COLUMNS.map(def => {
+            const found = parsed.find((p: any) => p.id === def.id);
+            return found ? { ...def, ...found } : def;
+          });
+        }
+      } catch (e) {
+        logger.warn('Failed to parse saved columns config');
+      }
+    }
+    return DEFAULT_COLUMNS;
+  });
+
+  const [showManageColumns, setShowManageColumns] = useState(false);
+  const columnsMenuRef = useRef<HTMLDivElement>(null);
+  const colResizeDataRef = useRef<{ id: string; startX: number; startWidth: number } | null>(null);
+  const columnsConfigRef = useRef(columnsConfig);
+  const pendingResizeRef = useRef<{ id: string; width: number } | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
+  const isResizingColumnsRef = useRef(false);
+  const moveListenerRef = useRef<((event: MouseEvent) => void) | null>(null);
+  const upListenerRef = useRef<(() => void) | null>(null);
+  const blurListenerRef = useRef<(() => void) | null>(null);
+  const visibilityListenerRef = useRef<(() => void) | null>(null);
+
+  const persistColumnsConfig = useCallback((config: ColumnConfig[]) => {
+    localStorage.setItem('products_table_columns_v1', JSON.stringify(config));
+    if (isCustomSizedRef.current) {
+      localStorage.setItem('products_table_resized_v1', 'true');
+    }
+  }, []);
+
+  useEffect(() => {
+    columnsConfigRef.current = columnsConfig;
+    if (isResizingColumnsRef.current) return;
+    persistColumnsConfig(columnsConfig);
+  }, [columnsConfig, persistColumnsConfig]);
+
+  const cleanupColumnResizeListeners = useCallback(() => {
+    if (moveListenerRef.current) {
+      document.removeEventListener('mousemove', moveListenerRef.current);
+      moveListenerRef.current = null;
+    }
+    if (upListenerRef.current) {
+      document.removeEventListener('mouseup', upListenerRef.current);
+      upListenerRef.current = null;
+    }
+    if (blurListenerRef.current) {
+      window.removeEventListener('blur', blurListenerRef.current);
+      blurListenerRef.current = null;
+    }
+    if (visibilityListenerRef.current) {
+      document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+      visibilityListenerRef.current = null;
+    }
+    if (resizeRafRef.current !== null) {
+      window.cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = null;
+    }
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  }, []);
+
+  const stopColumnResize = useCallback((persist = true) => {
+    let finalConfig = columnsConfigRef.current;
+    const pendingResize = pendingResizeRef.current;
+
+    if (pendingResize) {
+      finalConfig = columnsConfigRef.current.map(column =>
+        column.id === pendingResize.id ? { ...column, width: pendingResize.width } : column
+      );
+      columnsConfigRef.current = finalConfig;
+      setColumnsConfig(finalConfig);
+    }
+
+    pendingResizeRef.current = null;
+    colResizeDataRef.current = null;
+    const wasResizing = isResizingColumnsRef.current;
+    isResizingColumnsRef.current = false;
+
+    cleanupColumnResizeListeners();
+
+    if (persist && wasResizing) {
+      persistColumnsConfig(finalConfig);
+    }
+  }, [cleanupColumnResizeListeners, persistColumnsConfig]);
+
+  useEffect(() => {
+    return () => {
+      pendingResizeRef.current = null;
+      colResizeDataRef.current = null;
+      isResizingColumnsRef.current = false;
+      cleanupColumnResizeListeners();
+    };
+  }, [cleanupColumnResizeListeners]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (columnsMenuRef.current && !columnsMenuRef.current.contains(event.target as Node)) {
+        setShowManageColumns(false);
+      }
+    };
+    if (showManageColumns) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showManageColumns]);
+
+  const startColumnResize = useCallback((e: React.MouseEvent, id: string, width: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Defensive cleanup in case mouseup was missed previously.
+    stopColumnResize(false);
+
+    if (!isCustomSizedRef.current && tableRef.current) {
+      // First time resize: capture actual rendered widths of all visible headers
+      const ths = tableRef.current.querySelectorAll('th');
+      const visibleCols = columnsConfigRef.current.filter(column => column.visible);
+      const measuredWidthById = new Map<string, number>();
+
+      visibleCols.forEach((column, index) => {
+        if (!ths[index]) return;
+        measuredWidthById.set(column.id, ths[index].getBoundingClientRect().width);
+      });
+
+      const nextConfig = columnsConfigRef.current.map(column => {
+        const measuredWidth = measuredWidthById.get(column.id);
+        return measuredWidth !== undefined ? { ...column, width: measuredWidth } : column;
+      });
+
+      columnsConfigRef.current = nextConfig;
+      setColumnsConfig(nextConfig);
+
+      // Setup initial start width specifically from the new snapshot
+      const newCol = nextConfig.find(column => column.id === id);
+      colResizeDataRef.current = { id, startX: e.clientX, startWidth: newCol?.width || width };
+
+      isCustomSizedRef.current = true;
+      setIsCustomSized(true);
+    } else {
+      colResizeDataRef.current = { id, startX: e.clientX, startWidth: width };
+    }
+
+    isResizingColumnsRef.current = true;
+
+    const handleMouseMove = (mvEvent: MouseEvent) => {
+      if (!colResizeDataRef.current) return;
+      if ((mvEvent.buttons & 1) !== 1) {
+        stopColumnResize();
+        return;
+      }
+
+      const { id: resizeId, startX, startWidth } = colResizeDataRef.current;
+      const minWidth = columnsConfigRef.current.find(column => column.id === resizeId)?.minWidth ?? 20;
+      const delta = mvEvent.clientX - startX;
+      pendingResizeRef.current = { id: resizeId, width: Math.max(minWidth, startWidth + delta) };
+
+      if (resizeRafRef.current !== null) return;
+
+      resizeRafRef.current = window.requestAnimationFrame(() => {
+        resizeRafRef.current = null;
+        const pending = pendingResizeRef.current;
+        if (!pending) return;
+
+        pendingResizeRef.current = null;
+
+        // Update the <col> element directly — avoids React reconciliation and prevents
+        // all ProductRows from re-rendering at 60fps during drag.
+        // setColumnsConfig is called once on mouseup via stopColumnResize.
+        if (tableRef.current) {
+          const colgroup = tableRef.current.querySelector('colgroup');
+          if (colgroup) {
+            const visibleCols = columnsConfigRef.current.filter(column => column.visible);
+            const colIndex = visibleCols.findIndex(column => column.id === pending.id);
+            const colEl = colgroup.children[colIndex] as HTMLTableColElement | undefined;
+            if (colEl) colEl.style.width = `${pending.width}px`;
+          }
+        }
+
+        // Keep ref in sync so stopColumnResize commits the correct final width
+        columnsConfigRef.current = columnsConfigRef.current.map(column =>
+          column.id === pending.id ? { ...column, width: pending.width } : column
+        );
+      });
+    };
+
+    const handleMouseUp = () => {
+      stopColumnResize();
+    };
+
+    moveListenerRef.current = handleMouseMove;
+    upListenerRef.current = handleMouseUp;
+    blurListenerRef.current = () => stopColumnResize();
+    visibilityListenerRef.current = () => {
+      if (document.visibilityState !== 'visible') {
+        stopColumnResize();
+      }
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('blur', blurListenerRef.current);
+    document.addEventListener('visibilitychange', visibilityListenerRef.current);
+  }, [stopColumnResize]);
+
+  // Abort list requests and invalidate in-flight handlers on unmount (avoids stale setState / stuck loading)
+  useEffect(() => {
+    return () => {
+      loadRequestIdRef.current += 1;
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+      }
+    };
+  }, []);
+
+  const loadProducts = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+    // Cancel previous request
+    if (searchAbortController.current) {
+      searchAbortController.current.abort();
+    }
+
+    // Create new controller
+    searchAbortController.current = new AbortController();
+    const signal = searchAbortController.current.signal;
+
+    try {
+      setLoading(true);
+      const response = await productService.getProducts(filters, signal);
+
+      if (signal.aborted || requestId !== loadRequestIdRef.current) return;
+
+      setProducts(response.data);
+      setPagination(response.pagination);
+    } catch (err: any) {
+      // Don't show error if request was cancelled
+      if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
+        return;
+      }
+      if (requestId !== loadRequestIdRef.current) return;
+      toast.error(err.response?.data?.error?.message || t('products.errors.load_products'));
+      logger.error('Error loading products:', err);
+    } finally {
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [filters, t]);
+
+  const loadConfigData = useCallback(async () => {
+    try {
+      const [{ data: typesData }, settingsData] = await Promise.all([
+        productTypeService.getProductTypes(),
+        storeService.getDefaultStore().catch(() => null),
+      ]);
+      setProductTypes(typesData || []);
+      setStoreSettings(settingsData);
+    } catch (err) {
+      logger.error('Failed to load types or settings', err);
+    }
+  }, []);
+
+  // Load restaurant-module stores + all of their menus so products can be
+  // assigned to a menu/category directly from this page.
+  const loadRestaurantMenus = useCallback(async () => {
+    try {
+      const { data: stores } = await adminService.getStores({ limit: 100 });
+      const restaurant = stores.filter(s => s.pos_module_type === 'restaurant');
+      setRestaurantStores(restaurant);
+      if (restaurant.length === 0) {
+        setRestaurantMenus([]);
+        return;
+      }
+      const menuLists = await Promise.all(
+        restaurant.map(s => menuService.getMenus({ store_id: s.store_id, limit: 200 }).catch(() => null))
+      );
+      setRestaurantMenus(menuLists.filter(Boolean).flatMap(r => r!.data));
+    } catch (err) {
+      logger.error('Failed to load restaurant menus', err);
+    }
+  }, []);
+
+  // Load products when filters change
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  useEffect(() => {
+    loadConfigData();
+    loadRestaurantMenus();
+  }, [loadConfigData, loadRestaurantMenus]);
+
+  // Debounced search to reduce API calls
+  const debouncedSearch = useDebouncedCallback((search: string) => {
+    setFilters(prev => ({ ...prev, search, page: 1 }));
+  }, 300);
+
+  const debouncedProductTypeFilter = useDebouncedCallback((value: string) => {
+    const normalized = value.trim().toUpperCase();
+    setFilters(prev => ({ ...prev, product_type: normalized || undefined, page: 1 }));
+  }, 300);
+
+  const handleSearch = useCallback((search: string) => {
+    // Update local state immediately for responsive UI
+    setSearchQuery(search);
+    // Debounced update will trigger the actual API call
+    debouncedSearch(search);
+  }, [debouncedSearch]);
+
+  const handleProductTypeChange = useCallback(
+    (raw: string) => {
+      const upper = raw.toUpperCase();
+      setProductTypeInput(upper);
+      debouncedProductTypeFilter(upper);
+    },
+    [debouncedProductTypeFilter]
+  );
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const openAddModal = useCallback(() => {
+    setEditingProduct(null);
+    setShowCustomUnit(false);
+    setFormData({
+      name: '',
+      sku: '',
+      barcode: '',
+      plu_code: '',
+      product_type: '',
+      unit_of_measure: 'each',
+      list_price: '',
+      sale_price: '',
+      margin_pct: '',
+      lbp_price: '',
+      lbp_list_price: '',
+      tax_rate: '',
+      track_inventory: true,
+      image_url: '',
+      menu_id: '',
+      menu_category: '',
+      menu_note: '',
+    });
+    setFormErrors({});
+    setShowModal(true);
+  }, []);
+
+  const openEditModal = useCallback((product: Product) => {
+    setEditingProduct(product);
+    const _uom = product.unit_of_measure || 'each';
+    setShowCustomUnit(!STANDARD_UNITS.includes(_uom));
+    const _list = product.list_price?.toString() || '';
+    const _sale = product.sale_price?.toString() || '';
+    let _margin = '';
+    if (_list && _sale && parseFloat(_list) > 0) {
+      _margin = (((parseFloat(_sale) - parseFloat(_list)) / parseFloat(_list)) * 100).toFixed(2);
+    }
+    // Prefer the exact LBP value the user previously entered/saved — only fall
+    // back to a rate-derived estimate when this product has never had one set,
+    // so a saved value never drifts on reload (round-tripping through USD cents
+    // and back would turn e.g. 300000 into ~299825).
+    const _effectiveUsd = _sale || _list;
+    const _lbp = product.lbp_price != null
+      ? String(product.lbp_price)
+      : (lbpRate && _effectiveUsd ? Math.round(parseFloat(_effectiveUsd) * lbpRate).toString() : '');
+    const _lbpList = product.lbp_list_price != null
+      ? String(product.lbp_list_price)
+      : (lbpRate && _list ? Math.round(parseFloat(_list) * lbpRate).toString() : '');
+    setFormData({
+      name: product.name,
+      sku: product.sku || '',
+      barcode: product.barcode || '',
+      plu_code: product.plu_code != null ? String(product.plu_code) : '',
+      product_type: product.product_type,
+      unit_of_measure: _uom,
+      list_price: _list,
+      sale_price: _sale,
+      margin_pct: _margin,
+      lbp_price: _lbp,
+      lbp_list_price: _lbpList,
+      tax_rate: product.tax_rate?.toString() || '',
+      track_inventory: product.track_inventory,
+      image_url: product.image_url || '',
+      menu_id: product.menu_id || '',
+      menu_category: product.menu_category || '',
+      menu_note: product.menu_note || '',
+    });
+    setFormErrors({});
+    setShowModal(true);
+  }, [lbpRate]);
+
+  const closeModal = useCallback(() => {
+    setShowModal(false);
+    setShowCustomUnit(false);
+    setEditingProduct(null);
+    setFormData({
+      name: '',
+      sku: '',
+      barcode: '',
+      plu_code: '',
+      product_type: '',
+      unit_of_measure: 'each',
+      list_price: '',
+      sale_price: '',
+      margin_pct: '',
+      lbp_price: '',
+      lbp_list_price: '',
+      tax_rate: '',
+      track_inventory: true,
+      image_url: '',
+      menu_id: '',
+      menu_category: '',
+      menu_note: '',
+    });
+    setFormErrors({});
+  }, []);
+
+  const closeTypeModal = useCallback(() => {
+    setShowTypeModal(false);
+  }, []);
+
+  const validateForm = useCallback((): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      errors.name = t('products.validation.name_required');
+    }
+
+    if (formData.list_price && parseFloat(formData.list_price) < 0) {
+      errors.list_price = t('products.validation.list_price_positive');
+    }
+
+    if (formData.sale_price && parseFloat(formData.sale_price) < 0) {
+      errors.sale_price = t('products.validation.sale_price_positive');
+    }
+
+    if (formData.tax_rate) {
+      const taxRate = parseFloat(formData.tax_rate);
+      if (taxRate < 0 || taxRate > 100) {
+        errors.tax_rate = t('products.validation.tax_rate_range');
+      }
+    }
+
+    if (formData.menu_id && !formData.menu_category.trim()) {
+      errors.menu_category = t('products.validation.menu_category_required');
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [formData, t]);
+
+  const handlePriceChange = useCallback((field: 'list_price' | 'sale_price' | 'margin_pct' | 'lbp_price' | 'lbp_list_price', value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+
+      // LBP Price is a convenience input (only shown when LBP is the primary POS price):
+      // typing it back-calculates Sale Price / Margin via the store's exchange rate.
+      if (field === 'lbp_price') {
+        if (!lbpRate) return next;
+        if (value === '') { next.sale_price = ''; next.margin_pct = ''; return next; }
+        const lbpVal = parseFloat(value);
+        if (isNaN(lbpVal)) return next;
+        const usd = lbpVal / lbpRate;
+        next.sale_price = usd.toFixed(2);
+        const listPrice = parseFloat(next.list_price);
+        next.margin_pct = (!isNaN(listPrice) && listPrice > 0)
+          ? (((usd - listPrice) / listPrice) * 100).toFixed(2)
+          : '';
+        return next;
+      }
+
+      // Same idea, mirrored for List Price.
+      if (field === 'lbp_list_price') {
+        if (!lbpRate) return next;
+        if (value === '') { next.list_price = ''; next.margin_pct = ''; return next; }
+        const lbpVal = parseFloat(value);
+        if (isNaN(lbpVal)) return next;
+        const usdList = lbpVal / lbpRate;
+        next.list_price = usdList.toFixed(2);
+        const salePrice = parseFloat(next.sale_price);
+        next.margin_pct = (!isNaN(salePrice) && usdList > 0)
+          ? (((salePrice - usdList) / usdList) * 100).toFixed(2)
+          : '';
+        return next;
+      }
+
+      const listPrice = parseFloat(next.list_price);
+      if (!isNaN(listPrice) && listPrice > 0) {
+        if (field === 'margin_pct') {
+          const margin = parseFloat(value);
+          if (!isNaN(margin)) {
+            // Sale Price = List Price + (List Price * Margin %)
+            next.sale_price = (listPrice * (1 + margin / 100)).toFixed(2);
+          } else if (value === '') {
+            next.sale_price = '';
+          }
+        } else if (field === 'sale_price') {
+          const salePrice = parseFloat(value);
+          if (!isNaN(salePrice)) {
+            next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+          } else if (value === '') {
+            next.margin_pct = '';
+          }
+        } else if (field === 'list_price') {
+          // If List Price changes, keep Sale Price static if it exists and adjust Margin
+          const salePrice = parseFloat(next.sale_price);
+          if (!isNaN(salePrice)) {
+            next.margin_pct = (((salePrice - listPrice) / listPrice) * 100).toFixed(2);
+          }
+        }
+      }
+
+      // Keep the LBP field in sync with whatever USD price is now in effect
+      // (Sale Price if set, otherwise List Price — same fallback used everywhere
+      // else in the app, e.g. Sales.tsx). Runs on every USD field edit, even if
+      // List Price isn't set yet, so typing a price in USD always reflects in LBP.
+      if (lbpRate) {
+        const effectiveUsd = next.sale_price !== '' ? parseFloat(next.sale_price) : parseFloat(next.list_price);
+        next.lbp_price = (!isNaN(effectiveUsd) && effectiveUsd >= 0)
+          ? Math.round(effectiveUsd * lbpRate).toString()
+          : '';
+      }
+
+      // Keep the List Price LBP field in sync whenever List Price itself changed.
+      if (lbpRate && field === 'list_price') {
+        const listPriceNum = parseFloat(next.list_price);
+        next.lbp_list_price = (!isNaN(listPriceNum) && listPriceNum >= 0)
+          ? Math.round(listPriceNum * lbpRate).toString()
+          : '';
+      }
+
+      return next;
+    });
+  }, [lbpRate]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const productData = {
+        name: formData.name.trim(),
+        sku: formData.sku.trim() || undefined,
+        barcode: formData.barcode.trim() || undefined,
+        plu_code: formData.plu_code.trim() ? parseInt(formData.plu_code.trim(), 10) : null,
+        product_type: formData.product_type,
+        unit_of_measure: formData.unit_of_measure || 'each',
+        list_price: formData.list_price ? parseFloat(formData.list_price) : undefined,
+        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+        margin_pct: formData.margin_pct ? parseFloat(formData.margin_pct) : undefined,
+        tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
+        track_inventory: formData.track_inventory,
+        image_url: formData.image_url || undefined,
+        menu_id: formData.menu_id || null,
+        menu_category: formData.menu_id ? formData.menu_category.trim() : null,
+        menu_note: formData.menu_id ? (formData.menu_note.trim() || null) : null,
+        // Save the LBP prices exactly as entered — only touch them while the section
+        // is visible (feature enabled), otherwise leave whatever's already stored alone.
+        lbp_price: (storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price)
+          ? (formData.lbp_price.trim() ? parseFloat(formData.lbp_price) : null)
+          : undefined,
+        lbp_list_price: (storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price)
+          ? (formData.lbp_list_price.trim() ? parseFloat(formData.lbp_list_price) : null)
+          : undefined,
+      };
+
+      if (editingProduct) {
+        await productService.updateProduct(editingProduct.product_id, productData);
+      } else {
+        await productService.createProduct(productData);
+      }
+
+      closeModal();
+      toast.success(editingProduct ? t('products.success.product_updated') : t('products.success.product_created'));
+      loadProducts();
+    } catch (err: any) {
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error(t('products.errors.timeout'));
+      } else {
+        const errorMessage = err.response?.data?.error?.message || t('products.errors.save_product');
+        toast.error(errorMessage);
+      }
+      console.error('Error saving product:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [formData, editingProduct, closeModal, loadProducts, validateForm, t, storeSettings]);
+
+  const handleDelete = useCallback(async (product: Product) => {
+    if (!window.confirm(t('products.confirm.delete_product', { name: product.name }))) {
+      return;
+    }
+
+    try {
+      await productService.deleteProduct(product.product_id);
+      toast.success(t('products.success.product_deleted'));
+      loadProducts();
+    } catch (err: any) {
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error(t('products.errors.timeout'));
+      } else {
+        const errorMessage = err.response?.data?.error?.message || t('products.errors.delete_product');
+        toast.error(errorMessage);
+      }
+      console.error('Error deleting product:', err);
+    }
+  }, [loadProducts, t]);
+
+  const handleDeactivate = useCallback(async (product: Product) => {
+    if (!window.confirm(t('products.confirm.deactivate_product', { name: product.name }))) {
+      return;
+    }
+
+    try {
+      await productService.deactivateProduct(product.product_id);
+      toast.success(t('products.success.product_deactivated'));
+      loadProducts();
+    } catch (err: any) {
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error(t('products.errors.timeout'));
+      } else {
+        const errorMessage = err.response?.data?.error?.message || t('products.errors.deactivate_product');
+        toast.error(errorMessage);
+      }
+      console.error('Error deactivating product:', err);
+    }
+  }, [loadProducts, t]);
+
+  const handleBarcodeScan = async (barcode: string) => {
+    try {
+      const product = await productService.getProductByBarcode(barcode);
+      openEditModal(product);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        // Product not found, open add modal with barcode pre-filled
+        setFormData({
+          ...formData,
+          barcode: barcode,
+        });
+        openAddModal();
+      } else {
+        toast.error(t('products.errors.lookup_barcode'));
+      }
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('products.errors.image_too_large'));
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const imageUrl = await productService.uploadImage(file);
+      setFormData(prev => ({ ...prev, image_url: imageUrl }));
+      toast.success(t('products.success.image_uploaded'));
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || t('products.errors.upload_failed'));
+      logger.error('Image upload failed:', err);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, image_url: '' }));
+  };
+
+  const currencyFormatter = useMemo(() => {
+    return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+  }, [language]);
+
+  const formatCurrency = useCallback((amount: number) => {
+    return currencyFormatter.format(amount);
+  }, [currencyFormatter]);
+
+  const getColumnLabel = useCallback((columnId: string) => {
+    return t(`products.columns.${columnId}`);
+  }, [t]);
+
+  const visibleColumnConfigs = useMemo(
+    () => columnsConfig.filter(column => column.visible && (column.id !== 'list_price' || canSeeListPrice)),
+    [columnsConfig, canSeeListPrice]
+  );
+
+  const visibleColumns = useMemo(
+    () => visibleColumnConfigs.map(column => column.id),
+    [visibleColumnConfigs]
+  );
+
+  const customTableWidth = useMemo(
+    () => visibleColumnConfigs.reduce((sum, column) => sum + column.width, 0),
+    [visibleColumnConfigs]
+  );
+
+  const handleTypeSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!typeFormData.name.trim()) return;
+    try {
+      setTypeSubmitting(true);
+      if (editingProductType) {
+        await productTypeService.updateProductType(editingProductType.id, {
+          name: typeFormData.name.trim(),
+          display_on_pos: typeFormData.display_on_pos,
+          press_to_add: typeFormData.press_to_add,
+        });
+        toast.success(t('products.success.product_type_updated'));
+      } else {
+        await productTypeService.createProductType({
+          name: typeFormData.name.trim(),
+          display_on_pos: typeFormData.display_on_pos,
+          press_to_add: typeFormData.press_to_add,
+        });
+        toast.success(t('products.success.product_type_created'));
+      }
+      setTypeFormData({ name: '', display_on_pos: false, press_to_add: false });
+      setEditingProductType(null);
+      loadConfigData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || t('products.errors.finish_action'));
+    } finally {
+      setTypeSubmitting(false);
+    }
+  }, [typeFormData, editingProductType, loadConfigData, t]);
+
+  const handleDeleteProductType = async (id: string) => {
+    if (!window.confirm(t('products.confirm.delete_type'))) return;
+    try {
+      await productTypeService.deleteProductType(id);
+      toast.success(t('products.success.product_type_deleted'));
+      loadConfigData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || t('products.errors.delete_product_type'));
+    }
+  };
+
+  const handleEditProductType = (type: ProductType) => {
+    setEditingProductType(type);
+    setTypeFormData({ name: type.name, display_on_pos: type.display_on_pos, press_to_add: type.press_to_add ?? false });
+  };
+
+  const handleSyncProductTypes = useCallback(async () => {
+    try {
+      setSyncingTypes(true);
+      const res = await productTypeService.syncProductTypes();
+      toast.success(t('products.success.types_synced', { count: res.added }) || `Synced ${res.added} missing types`);
+      setProductTypes(res.data);
+    } catch (err) {
+      console.error('Failed to sync product types', err);
+      toast.error(t('products.errors.sync_product_types') || 'Failed to sync product types');
+    } finally {
+      setSyncingTypes(false);
+    }
+  }, [t]);
+
+  return (
+    <>
+      <PageBanner
+        title={t('products.title')}
+        subtitle={t('products.subtitle')}
+        icon={<BookOpenIcon className="w-5 h-5 text-white" />}
+        action={
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={() => setShowImportModal(true)}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+              leftIcon={<ArrowUpTrayIcon className="w-4 h-4" />}
+              title={storeSettings?.ui_resolution === '1024x768' ? 'Import' : undefined}
+            >
+              {storeSettings?.ui_resolution === '1024x768' ? '' : 'Import'}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowTypeModal(true);
+                setEditingProductType(null);
+                setTypeFormData({ name: '', display_on_pos: false, press_to_add: false });
+              }}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+              leftIcon={<TagIcon className="w-4 h-4" />}
+            >
+              {storeSettings?.ui_resolution === '1024x768' ? 'Manage Types' : t('products.actions.manage_product_types')}
+            </Button>
+            <Button
+              onClick={openAddModal}
+              className="bg-white/15 hover:bg-white/25 text-white border border-white/20 font-semibold backdrop-blur-sm transition-all"
+              leftIcon={<PlusIcon className="w-4 h-4" />}
+            >
+              {storeSettings?.ui_resolution === '1024x768' ? 'Add' : t('products.actions.add_product')}
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Enhanced Filters */}
+      <Card className="mb-3 border-2 border-gray-100 shadow-md">
+        <div className="p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="lg:col-span-2">
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <MagnifyingGlassIcon className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  placeholder={t('products.filters.search_placeholder')}
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <FunnelIcon className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder={t('products.filters.type_placeholder')}
+                value={productTypeInput}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleProductTypeChange(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-white font-medium uppercase"
+              />
+            </div>
+
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <QrCodeIcon className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder={t('products.filters.scan_barcode_placeholder')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent form submission
+                    e.stopPropagation(); // Stop event from bubbling
+                    const barcode = (e.target as HTMLInputElement).value.trim();
+                    if (barcode) {
+                      handleBarcodeScan(barcode);
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+                className="w-full pl-10 pr-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <Badge variant="success" size="sm">{t('products.filters.products_count', { count: pagination.total })}</Badge>
+              {filters.search && (
+                <Badge variant="primary" size="sm">
+                  {t('products.filters.filtered_results', { count: products.length })}
+                </Badge>
+              )}
+              {isAdmin && (
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-secondary-500 focus:ring-secondary-500 h-3.5 w-3.5"
+                    checked={!!filters.include_inactive}
+                    onChange={(e) => setFilters(prev => ({ ...prev, include_inactive: e.target.checked, page: 1 }))}
+                  />
+                  <span>{t('products.filters.show_inactive')}</span>
+                </label>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative" ref={columnsMenuRef}>
+                <button
+                  onClick={() => setShowManageColumns(!showManageColumns)}
+                  className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200"
+                >
+                  <AdjustmentsVerticalIcon className="w-3.5 h-3.5" />
+                  <span>{t('products.actions.columns')}</span>
+                </button>
+                {showManageColumns && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1.5 max-h-80 overflow-y-auto">
+                    <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{t('products.columns.show_hide')}</span>
+                    </div>
+                    {columnsConfig.filter(col => col.id !== 'list_price' || canSeeListPrice).map(col => (
+                      <label key={col.id} className="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="mr-3 rounded border-gray-300 text-secondary-500 focus:ring-secondary-500 h-4 w-4"
+                          checked={col.visible}
+                          onChange={() => {
+                            setColumnsConfig(prev => prev.map(c => 
+                              c.id === col.id ? { ...c, visible: !c.visible } : c
+                            ));
+                          }}
+                        />
+                        <span className="text-sm font-medium text-gray-700">{getColumnLabel(col.id)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={loadProducts}
+                className="flex items-center space-x-1.5 text-xs font-medium text-gray-600 hover:text-secondary-500 transition-colors bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg border border-gray-200"
+              >
+                <ArrowPathIcon className="w-3.5 h-3.5" />
+                <span>{t('products.actions.refresh')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Products Table */}
+      <div className="overflow-x-auto -mx-3 sm:mx-0">
+        <Card padding="none" className="overflow-hidden border-2 border-gray-100 shadow-md min-w-full">
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="px-4 py-6">
+                <TableSkeleton rows={10} columns={7} />
+              </div>
+            ) : products.length === 0 ? (
+              <div className="px-4 py-12">
+                <EmptyState
+                  icon={<CubeIcon className="w-12 h-12" />}
+                  title={t('products.empty.title')}
+                  description={filters.search ? t('products.empty.filtered_description') : t('products.empty.default_description')}
+                  action={
+                    !filters.search && (
+                      <Button onClick={openAddModal} leftIcon={<PlusIcon className="w-4 h-4" />} variant="primary" size="sm">
+                        {t('products.actions.add_product')}
+                      </Button>
+                    )
+                  }
+                />
+              </div>
+            ) : (
+              <table
+                ref={tableRef}
+                className="divide-y divide-gray-200"
+                style={isCustomSized ? { tableLayout: 'fixed', width: customTableWidth } : { tableLayout: 'auto', minWidth: '100%' }}
+              >
+                {isCustomSized && (
+                  <colgroup>
+                    {visibleColumnConfigs.map(c => (
+                      <col key={c.id} style={{ width: c.width }} />
+                    ))}
+                  </colgroup>
+                )}
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                  <tr>
+                    {visibleColumnConfigs.map((c, idx, arr) => (
+                      <th
+                        key={c.id}
+                        className={`relative px-3 py-2 text-[10px] font-bold text-gray-700 uppercase tracking-wider ${isCustomSized ? 'max-w-0' : 'w-min'} ${c.id === 'actions' ? 'text-right' : 'text-left'}`}
+                      >
+                        <div className="truncate">{getColumnLabel(c.id)}</div>
+                        {idx < arr.length - 1 && (
+                          <div
+                            onMouseDown={(e) => startColumnResize(e, c.id, c.width)}
+                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-secondary-400 active:bg-secondary-600 transition-colors z-10"
+                          />
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {products.map((product, index) => (
+                    <ProductRow
+                      key={product.product_id}
+                      product={product}
+                      index={index}
+                      onEdit={openEditModal}
+                      onDelete={handleDelete}
+                      onDeactivate={handleDeactivate}
+                      isAdmin={isAdmin}
+                      formatCurrency={formatCurrency}
+                      visibleColumns={visibleColumns}
+                      isCustomSized={isCustomSized}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Enhanced Pagination */}
+      {pagination.totalPages > 1 && (
+        <Card className="mt-3 border-2 border-gray-100">
+          <div className="px-3 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div className="text-xs text-gray-600 font-medium">
+              {t('products.pagination.showing')} <span className="font-bold text-gray-900">{((pagination.page - 1) * pagination.limit) + 1}</span> {t('products.pagination.to')}{' '}
+              <span className="font-bold text-gray-900">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> {t('products.pagination.of')}{' '}
+              <span className="font-bold text-gray-900">{pagination.total}</span> {t('products.pagination.products')}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                variant="outline"
+                size="sm"
+                className="px-2"
+                aria-label={t('products.pagination.previous')}
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </Button>
+              <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
+                {t('products.pagination.page')} {pagination.page} {t('products.pagination.of')} {pagination.totalPages}
+              </span>
+              <Button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages}
+                variant="outline"
+                size="sm"
+                className="px-2"
+                aria-label={t('products.pagination.next')}
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Enhanced Add/Edit Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={closeModal}
+        title={
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <CubeIcon className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base">{editingProduct ? t('products.modal.edit_title') : t('products.modal.add_title')}</span>
+          </div>
+        }
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              onClick={closeModal}
+              variant="outline"
+              disabled={submitting}
+            >
+              {t('products.actions.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              form="product-form"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              isLoading={submitting}
+            >
+              {editingProduct ? t('products.actions.update_product') : t('products.actions.create_product')}
+            </Button>
+          </div>
+        }
+      >
+        <form id="product-form" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                {t('products.form.product_image')}
+              </label>
+              <div className="flex items-start gap-4">
+                <div className="relative group w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center overflow-hidden transition-all hover:border-secondary-500 hover:bg-secondary-50">
+                  {formData.image_url ? (
+                    <>
+                      <img 
+                        src={`${API_BASE_URL}${formData.image_url}`} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute top-1 right-1 p-1 bg-white/80 hover:bg-white text-red-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                      />
+                      {uploadingImage ? (
+                        <div className="flex flex-col items-center">
+                          <ArrowPathIcon className="w-5 h-5 text-secondary-500 animate-spin" />
+                          <span className="text-[10px] text-gray-500 mt-1 font-medium">{t('products.actions.uploading')}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <PhotoIcon className="w-6 h-6 text-gray-400 group-hover:text-secondary-500 transition-colors" />
+                          <span className="text-[10px] text-gray-400 mt-1 font-medium group-hover:text-secondary-500 transition-colors">{t('products.actions.add_image')}</span>
+                        </>
+                      )}
+                    </label>
+                  )}
+                </div>
+                <div className="flex-1 space-y-1 py-1">
+                  <p className="text-[10px] text-gray-500 font-medium">{t('products.form.image_helper')}</p>
+                  <p className="text-[9px] text-gray-400">{t('products.form.image_specs')}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <Input
+                label={t('products.form.product_name')}
+                type="text"
+                value={formData.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  if (value.length <= INPUT_LIMITS.PRODUCT_NAME_MAX_LENGTH) {
+                    setFormData({ ...formData, name: value });
+                  }
+                }}
+                error={formErrors.name}
+                required
+                maxLength={INPUT_LIMITS.PRODUCT_NAME_MAX_LENGTH}
+                className="text-sm"
+              />
+            </div>
+
+            <div>
+              <Input
+                label={t('products.form.sku')}
+                type="text"
+                value={formData.sku}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  if (value.length <= INPUT_LIMITS.SKU_MAX_LENGTH) {
+                    setFormData({ ...formData, sku: value });
+                  }
+                }}
+                maxLength={INPUT_LIMITS.SKU_MAX_LENGTH}
+                helperText={t('products.form.sku_helper')}
+              />
+            </div>
+
+            <div>
+              <Input
+                label={t('products.form.barcode')}
+                type="text"
+                value={formData.barcode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setFormData({ ...formData, barcode: e.target.value });
+                }}
+                error={formErrors.barcode}
+                helperText={t('products.form.barcode_helper')}
+                leftIcon={<QrCodeIcon className="w-5 h-5" />}
+              />
+            </div>
+
+            <div>
+              <Input
+                label={t('products.form.plu_code')}
+                type="text"
+                value={formData.plu_code}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  if (/^\d*$/.test(value) && value.length <= 10) {
+                    setFormData({ ...formData, plu_code: value });
+                  }
+                }}
+                error={formErrors.plu_code}
+                maxLength={10}
+                helperText={t('products.form.plu_helper')}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                {t('products.form.product_type')}
+              </label>
+              <select
+                value={formData.product_type}
+                onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
+                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
+                required
+              >
+                <option value="" disabled>{t('products.form.select_type')}</option>
+                {formData.product_type && !productTypes.some(t => t.name === formData.product_type) && (
+                  <option value={formData.product_type}>{formData.product_type}</option>
+                )}
+                {productTypes.map(type => (
+                  <option key={type.id} value={type.name}>{type.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                {t('products.form.unit_of_measure')}
+              </label>
+              <select
+                value={showCustomUnit ? 'custom_number' : formData.unit_of_measure}
+                onChange={(e) => {
+                  if (e.target.value === 'custom_number') {
+                    setShowCustomUnit(true);
+                    setFormData({ ...formData, unit_of_measure: '' });
+                  } else {
+                    setShowCustomUnit(false);
+                    setFormData({ ...formData, unit_of_measure: e.target.value });
+                  }
+                }}
+                className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
+              >
+                <optgroup label={t('products.units.groups.count')}>
+                  <option value="each">{t('products.units.each')}</option>
+                  <option value="pair">{t('products.units.pair')}</option>
+                  <option value="dozen">{t('products.units.dozen')}</option>
+                  <option value="pack">{t('products.units.pack')}</option>
+                  <option value="box">{t('products.units.box')}</option>
+                  <option value="carton">{t('products.units.carton')}</option>
+                </optgroup>
+                <optgroup label={t('products.units.groups.weight')}>
+                  <option value="kg">{t('products.units.kg')}</option>
+                  <option value="g">{t('products.units.g')}</option>
+                  <option value="lb">{t('products.units.lb')}</option>
+                  <option value="oz">{t('products.units.oz')}</option>
+                </optgroup>
+                <optgroup label={t('products.units.groups.volume')}>
+                  <option value="L">{t('products.units.L')}</option>
+                  <option value="mL">{t('products.units.mL')}</option>
+                </optgroup>
+                <optgroup label={t('products.units.groups.length')}>
+                  <option value="m">{t('products.units.m')}</option>
+                  <option value="cm">{t('products.units.cm')}</option>
+                </optgroup>
+                <optgroup label={t('products.units.groups.other')}>
+                  <option value="custom_number">{t('products.units.custom_number')}</option>
+                </optgroup>
+              </select>
+              {showCustomUnit && (
+                <input
+                  type="text"
+                  placeholder={t('products.form.custom_unit_placeholder')}
+                  value={formData.unit_of_measure}
+                  onChange={(e) => setFormData({ ...formData, unit_of_measure: e.target.value })}
+                  className="mt-2 w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 bg-gray-50"
+                  autoFocus
+                />
+              )}
+              <p className="text-[10px] text-gray-500 mt-1">{t('products.form.unit_helper')}</p>
+            </div>
+
+            {canSeeListPrice && (
+              <div>
+                <Input
+                  label={t('products.form.list_price')}
+                  type="number"
+                  step="0.01"
+                  min={INPUT_LIMITS.PRICE_MIN}
+                  max={INPUT_LIMITS.PRICE_MAX}
+                  value={formData.list_price}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('list_price', e.target.value)}
+                  error={formErrors.list_price}
+                  leftIcon={<span className="text-gray-500 font-semibold">$</span>}
+                />
+              </div>
+            )}
+
+            {canSeeListPrice && storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price && (
+              <div>
+                <Input
+                  label={t('products.form.lbp_list_price')}
+                  type="number"
+                  step="1"
+                  min={0}
+                  value={formData.lbp_list_price}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('lbp_list_price', e.target.value)}
+                  disabled={!lbpRate}
+                  rightIcon={<span className="text-gray-500 font-semibold">LBP</span>}
+                  helperText={lbpRate ? t('products.form.lbp_list_price_helper') : t('products.form.lbp_price_no_rate')}
+                />
+              </div>
+            )}
+
+            {canSeeListPrice && (
+              <div>
+                <Input
+                  label={t('products.form.margin')}
+                  type="number"
+                  step="0.01"
+                  value={formData.margin_pct}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('margin_pct', e.target.value)}
+                  rightIcon={<span className="text-gray-500 font-semibold">%</span>}
+                  helperText={t('products.form.margin_helper')}
+                />
+              </div>
+            )}
+
+            <div>
+              <Input
+                label={t('products.form.sale_price')}
+                type="number"
+                step="0.01"
+                min={INPUT_LIMITS.PRICE_MIN}
+                max={INPUT_LIMITS.PRICE_MAX}
+                value={formData.sale_price}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('sale_price', e.target.value)}
+                error={formErrors.sale_price}
+                leftIcon={<span className="text-gray-500 font-semibold">$</span>}
+              />
+            </div>
+
+            {storeSettings?.show_lbp_price && storeSettings?.lbp_primary_price && (
+              <div>
+                <Input
+                  label={t('products.form.lbp_price')}
+                  type="number"
+                  step="1"
+                  min={0}
+                  value={formData.lbp_price}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange('lbp_price', e.target.value)}
+                  disabled={!lbpRate}
+                  rightIcon={<span className="text-gray-500 font-semibold">LBP</span>}
+                  helperText={lbpRate ? t('products.form.lbp_price_helper') : t('products.form.lbp_price_no_rate')}
+                />
+              </div>
+            )}
+
+            <div>
+              <Input
+                label={t('products.form.tax_rate')}
+                type="number"
+                step="0.01"
+                min={INPUT_LIMITS.TAX_RATE_MIN}
+                max={INPUT_LIMITS.TAX_RATE_MAX}
+                value={formData.tax_rate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, tax_rate: e.target.value })}
+                error={formErrors.tax_rate}
+                helperText={t('products.form.tax_rate_helper')}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg hover:border-secondary-500 hover:bg-secondary-50/50 cursor-pointer transition-all group">
+                <input
+                  type="checkbox"
+                  checked={formData.track_inventory}
+                  onChange={(e) => setFormData({ ...formData, track_inventory: e.target.checked })}
+                  className="mr-2.5 h-4 w-4 text-secondary-500 focus:ring-secondary-500 border-gray-300 rounded cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
+                    {t('products.form.track_inventory')}
+                  </span>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{t('products.form.track_inventory_helper')}</p>
+                </div>
+              </label>
+            </div>
+
+            {restaurantMenus.length > 0 && (
+              <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-1">
+                <p className="text-xs font-semibold text-gray-700 mb-2">{t('products.form.menu_section_title')}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      {t('products.form.menu')}
+                    </label>
+                    <select
+                      value={formData.menu_id}
+                      onChange={(e) => setFormData({ ...formData, menu_id: e.target.value, menu_category: '' })}
+                      className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500 transition-all bg-white"
+                    >
+                      <option value="">{t('products.form.menu_none')}</option>
+                      {restaurantStores.map(store => {
+                        const storeMenus = restaurantMenus.filter(m => m.store_id === store.store_id);
+                        if (storeMenus.length === 0) return null;
+                        return (
+                          <optgroup key={store.store_id} label={store.name}>
+                            {storeMenus.map(m => (
+                              <option key={m.menu_id} value={m.menu_id}>{m.name}</option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Input
+                      label={t('products.form.menu_category')}
+                      list="product-menu-category-options"
+                      value={formData.menu_category}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, menu_category: e.target.value })}
+                      error={formErrors.menu_category}
+                      disabled={!formData.menu_id}
+                      placeholder={t('products.form.menu_category_placeholder')}
+                    />
+                    <datalist id="product-menu-category-options">
+                      {(restaurantMenus.find(m => m.menu_id === formData.menu_id)?.categories ?? []).map(c => (
+                        <option key={c.name} value={c.name} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <Input
+                      label={t('products.form.menu_note')}
+                      value={formData.menu_note}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, menu_note: e.target.value })}
+                      disabled={!formData.menu_id}
+                      placeholder={t('products.form.menu_note_placeholder')}
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1.5">{t('products.form.menu_helper')}</p>
+              </div>
+            )}
+          </div>
+        </form>
+      </Modal>
+
+      {/* Manage Product Type Modal */}
+      <Modal
+        isOpen={showTypeModal}
+        onClose={closeTypeModal}
+        title={
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-secondary-500 rounded-lg">
+              <TagIcon className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base">{t('products.types.modal_title')}</span>
+          </div>
+        }
+        size="md"
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            {editingProductType && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingProductType(null);
+                  setTypeFormData({ name: '', display_on_pos: false, press_to_add: false });
+                }}
+                disabled={typeSubmitting}
+              >
+                {t('products.types.cancel_edit')}
+              </Button>
+            )}
+            <Button
+              type="submit"
+              form="product-type-form"
+              className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold transition-all"
+              isLoading={typeSubmitting}
+            >
+              {editingProductType ? t('products.types.save_changes') : t('products.types.create_category')}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex justify-end -mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncProductTypes}
+              isLoading={syncingTypes}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 font-medium text-xs"
+              leftIcon={<ArrowPathIcon className={`w-3.5 h-3.5 ${syncingTypes ? 'animate-spin' : ''}`} />}
+            >
+              {t('products.types.sync_missing') || 'Sync Missing'}
+            </Button>
+          </div>
+          {productTypes.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl max-h-48 overflow-y-auto w-full">
+              <ul className="divide-y divide-gray-200">
+                {productTypes.map(type => (
+                  <li key={type.id} className="p-3 flex items-center justify-between hover:bg-white transition-colors">
+                    <div>
+                      <span className="font-semibold text-gray-900 text-sm">{type.name}</span>
+                      {type.display_on_pos && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                          {t('products.types.pos_visible')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleEditProductType(type)}
+                        className="p-1.5 text-gray-400 hover:text-secondary-500 hover:bg-secondary-50 rounded-lg transition-colors"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProductType(type.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="border-t border-gray-200 pt-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">{editingProductType ? t('products.types.edit_type') : t('products.types.add_new_category')}</h3>
+            <form id="product-type-form" onSubmit={handleTypeSubmit} className="space-y-4">
+              <Input
+                label={t('products.types.name_label')}
+                type="text"
+                value={typeFormData.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setTypeFormData({ ...typeFormData, name: e.target.value.toUpperCase() });
+                }}
+                required
+                placeholder={t('products.types.name_placeholder')}
+                className="uppercase"
+              />
+
+              {storeSettings?.pos_module_type === 'store' && (
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg hover:border-secondary-500 hover:bg-secondary-50/50 cursor-pointer transition-all group">
+                    <input
+                      type="checkbox"
+                      checked={typeFormData.display_on_pos}
+                      onChange={(e) => setTypeFormData({ ...typeFormData, display_on_pos: e.target.checked, press_to_add: e.target.checked ? typeFormData.press_to_add : false })}
+                      className="mr-2.5 h-4 w-4 text-secondary-500 focus:ring-secondary-500 border-gray-300 rounded cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
+                        {t('products.types.display_on_pos')}
+                      </span>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{t('products.types.display_on_pos_helper')}</p>
+                    </div>
+                  </label>
+
+                  {typeFormData.display_on_pos && (
+                    <label className="flex items-center justify-between gap-4 p-3 border-2 border-gray-100 rounded-lg cursor-pointer transition-all group hover:border-secondary-400 hover:bg-secondary-50/30">
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-xs font-semibold text-gray-700 group-hover:text-secondary-700">
+                          Press to Add to Cart
+                        </span>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Tapping a product adds it directly to the cart with qty 1, skipping the quantity modal.</p>
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={typeFormData.press_to_add}
+                          onChange={(e) => setTypeFormData({ ...typeFormData, press_to_add: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-secondary-500 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:after:translate-x-5 transition-colors duration-200" />
+                      </div>
+                    </label>
+                  )}
+                </div>
+              )}
+
+            </form>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Import Modal ── */}
+      <ProductImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImported={() => {
+          loadProducts();
+          loadConfigData();
+        }}
+      />
+    </>
+  );
+}

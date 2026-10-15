@@ -1,0 +1,154 @@
+{
+  "name": "chapter-one-pwa",
+  "version": "4.1.0",
+  "description": "Chapter One POS PWA workspace (copy of the desktop app)",
+  "main": "electron/dist/main.js",
+  "author": "Chapter One",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others -n \"backend,frontend,electron\" -c \"blue,green,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:electron": "cross-env ELECTRON_IS_DEV=true wait-on http://127.0.0.1:5273 http://127.0.0.1:3101 && cd electron && cross-env ELECTRON_IS_DEV=true npm run dev",
+    "clean": "node scripts/clean-build.js && npm run clean:dist",
+    "clean:frontend": "node scripts/clean-build.js",
+    "clean:backend": "node scripts/clean-build.js",
+    "clean:electron": "node scripts/clean-build.js",
+    "clean:dist": "node scripts/clean-dist.js",
+    "build": "npm run clean && npm run build:frontend && npm run build:backend && npm run build:electron",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:electron": "cd electron && npm run build",
+    "build:win": "npm install && npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish never",
+    "release:win": "npm install && npm run build && npm run install:backend:prod && npm run prune:backend && npx electron-builder --win --publish always",
+    "dist": "npm run build:win",
+    "install:backend:prod": "cd backend && npm install --omit=dev --no-workspaces",
+    "prune:backend": "cd backend && npm prune --production --no-workspaces",
+    "start": "cross-env NODE_ENV=production electron .",
+    "lint": "eslint . --ext .ts,.tsx",
+    "type-check": "npm run type-check -w frontend && npm run type-check -w backend && npm run type-check -w electron",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../electron && npm install",
+    "create-user": "cd backend && npm run create-user"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "concurrently": "^8.2.2",
+    "convex": "^1.38.0",
+    "cross-env": "^7.0.3",
+    "electron-builder": "^26.8.1",
+    "rimraf": "^6.1.2",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.chapterone.pwa",
+    "productName": "Chapter One PWA",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "build"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/serialport/**/*",
+      "**/node_modules/@serialport/**/*",
+      "**/node_modules/node-windows/**/*"
+    ],
+    "files": [
+      "electron/dist/**/*",
+      "electron/node_modules/**/*",
+      "frontend/dist/**/*",
+      "updater/**/*",
+      "config/**/*",
+      "!**/.env",
+      "!**/.env.local",
+      "!**/.env.*.local",
+      "!backend/**/*",
+      "!frontend/src/**/*",
+      "!electron/src/**/*",
+      "!**/tsconfig.json",
+      "!**/*.ts",
+      "!**/*.tsx"
+    ],
+    "extraResources": [
+      {
+        "from": "env.example",
+        "to": ".env.example"
+      },
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!src/**",
+          "!test/**",
+          "!tsconfig.json",
+          "!**/*.map",
+          "!**/*.ts",
+          "!backend/**",
+          "!frontend/**",
+          "!node_modules/**",
+          "!uploads/**"
+        ]
+      },
+      {
+        "from": "backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!backend/**",
+          "!frontend/**"
+        ]
+      },
+      {
+        "from": "installers",
+        "to": "installers"
+      },
+      {
+        "from": "database",
+        "to": "database"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "frontend/public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "frontend/public/icon.ico",
+      "uninstallerIcon": "frontend/public/icon.ico",
+      "installerHeaderIcon": "frontend/public/icon.ico",
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "shortcutName": "${productName}",
+      "deleteAppDataOnUninstall": true
+    },
+    "compression": "maximum",
+    "removePackageScripts": true
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "electron"
+  ],
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.1.7",
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "semver": "^7.5.4",
+    "serialport": "^12.0.0",
+    "winston": "^3.11.0"
+  }
+}

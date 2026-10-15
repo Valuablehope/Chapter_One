@@ -1,0 +1,182 @@
+import api from './api';
+import type { PosModuleType } from './adminService';
+
+export interface StoreSettings {
+  store_id: string;
+  code: string;
+  name: string;
+  address?: string;
+  phone?: string | null;
+  currency_code?: string;
+  tax_inclusive?: boolean;
+  theme?: string;
+  timezone?: string;
+  tax_rate?: number | null;
+  receipt_footer?: string | null;
+  receipt_header?: string | null;
+  auto_backup?: boolean;
+  backup_frequency?: string;
+  low_stock_threshold?: number;
+  show_stock?: boolean;
+  auto_add_qty?: boolean;
+  allow_negative?: boolean;
+  paper_size?: string;
+  auto_print?: boolean;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  show_lbp_price?: boolean;
+  round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_show_barcode?: boolean;
+  label_barcode_height?: number | null;
+  label_barcode_text_size?: number | null;
+  label_header_pad_v?: number | null;
+  label_title_pad_v?: number | null;
+  label_lbp_pad_v?: number | null;
+  label_price_pad_v?: number | null;
+  label_barcode_pad_v?: number | null;
+  /** Permutation of shelf label blocks: header, title, lbp, price, barcode */
+  label_section_order?: unknown;
+  ui_resolution?: string;
+  receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
+  show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
+  /** Which printed receipt layout to use: 'classic' (dense tabular) or 'modern' (spaced-out, larger type) */
+  receipt_template?: 'classic' | 'modern' | null;
+  /** Uploaded "Scan to Pay" QR code image path (e.g. exported from Whish Money), printed as-is on the 'modern' receipt template */
+  receipt_qr_payment_link?: string | null;
+  /** Uploaded logo image path, printed at the top of every receipt (both 'classic' and 'modern' templates) */
+  receipt_logo_url?: string | null;
+}
+
+/** Payload for PATCH /stores/:id/label-layout */
+export type LabelLayoutPatch = Pick<
+  StoreSettings,
+  | 'label_show_lbp'
+  | 'label_store_name_size'
+  | 'label_product_name_size'
+  | 'label_lbp_size'
+  | 'label_price_size'
+  | 'label_header_align'
+  | 'label_header_font_weight'
+  | 'label_title_align'
+  | 'label_title_font_weight'
+  | 'label_lbp_row_align'
+  | 'label_lbp_prefix_size'
+  | 'label_lbp_prefix_weight'
+  | 'label_lbp_amount_weight'
+  | 'label_price_row_align'
+  | 'label_currency_size'
+  | 'label_currency_weight'
+  | 'label_price_amount_weight'
+  | 'label_show_barcode'
+  | 'label_barcode_height'
+  | 'label_barcode_text_size'
+  | 'label_header_pad_v'
+  | 'label_title_pad_v'
+  | 'label_lbp_pad_v'
+  | 'label_price_pad_v'
+  | 'label_barcode_pad_v'
+  | 'label_section_order'
+  | 'label_height_mm'
+  | 'label_canvas_elements'
+>;
+
+type StoreModuleChangeListener = () => void;
+const storeModuleChangeListeners = new Set<StoreModuleChangeListener>();
+
+export const storeService = {
+  async getStoreSettings(storeId: string): Promise<StoreSettings> {
+    // Use public endpoint (accessible to all authenticated users)
+    const response = await api.get<{ success: boolean; data: StoreSettings }>(
+      `/stores/${storeId}/settings`
+    );
+    return response.data.data;
+  },
+  
+  async getDefaultStore(): Promise<StoreSettings> {
+    // Get default active store (accessible to all authenticated users)
+    const response = await api.get<{ success: boolean; data: StoreSettings }>(
+      `/stores/default`
+    );
+    return response.data.data;
+  },
+
+  async patchLabelLayout(storeId: string, payload: Partial<LabelLayoutPatch>): Promise<StoreSettings> {
+    const response = await api.patch<{ success: boolean; data: StoreSettings }>(
+      `/stores/${storeId}/label-layout`,
+      payload
+    );
+    return response.data.data;
+  },
+
+  async uploadQrImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post<{ success: boolean; data: { url: string } }>(
+      '/admin/stores/upload-qr-image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data.url;
+  },
+
+  async uploadLogoImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post<{ success: boolean; data: { url: string } }>(
+      '/admin/stores/upload-logo-image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data.url;
+  },
+
+  notifyStoreModuleChanged(): void {
+    storeModuleChangeListeners.forEach((listener) => listener());
+  },
+
+  subscribeStoreModuleChanged(listener: StoreModuleChangeListener): () => void {
+    storeModuleChangeListeners.add(listener);
+    return () => {
+      storeModuleChangeListeners.delete(listener);
+    };
+  },
+};
+

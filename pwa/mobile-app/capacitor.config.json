@@ -1,0 +1,11 @@
+{
+  "appId": "com.chapterone.mobile",
+  "appName": "Chapter One",
+  "webDir": "../frontend/dist-mobile",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

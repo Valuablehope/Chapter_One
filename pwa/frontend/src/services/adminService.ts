@@ -1,0 +1,326 @@
+import api from './api';
+
+export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
+export type MenuType = 'regular' | 'holiday' | 'seasonal' | 'event' | 'special';
+
+// ── Dedicated Menu entity ────────────────────────────────────────────────
+export interface MenuItemDef {
+  name: string;
+  price: number;
+  /** Exact LBP price saved on the product; null when it should be rate-derived. */
+  lbp_price?: number | null;
+  description?: string;
+  product_id?: string;
+}
+
+export interface MenuCategoryDef {
+  name: string;
+  items: MenuItemDef[];
+}
+
+export interface Menu {
+  menu_id: string;
+  store_id: string;
+  name: string;
+  description: string | null;
+  menu_type: MenuType;
+  is_active: boolean;
+  display_order: number;
+  categories: MenuCategoryDef[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MenuInput {
+  store_id: string;
+  name: string;
+  description?: string | null;
+  menu_type?: MenuType;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+// ── Existing entity types ────────────────────────────────────────────────
+export interface AppUser {
+  user_id: string;
+  username: string;
+  full_name: string;
+  role: 'cashier' | 'manager' | 'admin';
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Store {
+  store_id: string;
+  code: string;
+  name: string;
+  address?: string;
+  phone?: string | null;
+  is_active: boolean;
+  created_at: string;
+  timezone?: string;
+  currency_code?: string;
+  tax_inclusive?: boolean;
+  theme?: string;
+  tax_rate?: number | null;
+  receipt_footer?: string | null;
+  auto_backup?: boolean;
+  backup_frequency?: string;
+  low_stock_threshold?: number;
+  show_stock?: boolean;
+  auto_add_qty?: boolean;
+  allow_negative?: boolean;
+  paper_size?: string;
+  auto_print?: boolean;
+  receipt_header?: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  show_lbp_price?: boolean;
+  round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_section_order?: unknown;
+  ui_resolution?: string;
+  receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
+  show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
+  receipt_template?: string | null;
+  receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
+}
+
+export interface Terminal {
+  terminal_id: string;
+  store_id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_seen_at: string | null;
+  hostname: string | null;
+  ip_address: string | null;
+  app_version: string | null;
+  is_online: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+// ── Admin Service ────────────────────────────────────────────────────────
+export const adminService = {
+  // User Management
+  async getUsers(filters: {
+    search?: string;
+    role?: 'cashier' | 'manager' | 'admin';
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<PaginatedResponse<AppUser>> {
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.role) params.append('role', filters.role);
+    if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get<PaginatedResponse<AppUser>>(
+      `/admin/users?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  async getUserById(id: string): Promise<AppUser> {
+    const response = await api.get<{ success: boolean; data: AppUser }>(`/admin/users/${id}`);
+    return response.data.data;
+  },
+
+  async createUser(user: {
+    username: string;
+    full_name: string;
+    password: string;
+    role?: 'cashier' | 'manager' | 'admin';
+    is_active?: boolean;
+  }): Promise<AppUser> {
+    const response = await api.post<{ success: boolean; data: AppUser }>('/admin/users', user);
+    return response.data.data;
+  },
+
+  async updateUser(id: string, updates: {
+    full_name?: string;
+    role?: 'cashier' | 'manager' | 'admin';
+    password?: string;
+    is_active?: boolean;
+  }): Promise<AppUser> {
+    const response = await api.put<{ success: boolean; data: AppUser }>(`/admin/users/${id}`, updates);
+    return response.data.data;
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    await api.delete(`/admin/users/${id}`);
+  },
+
+  // Store Management
+  async getStores(filters: {
+    search?: string;
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<PaginatedResponse<Store>> {
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get<PaginatedResponse<Store>>(
+      `/admin/stores?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  async getStoreById(id: string): Promise<Store> {
+    const response = await api.get<{ success: boolean; data: Store }>(`/admin/stores/${id}`);
+    return response.data.data;
+  },
+
+  async createStore(store: Partial<Store> & {
+    code: string;
+    name: string;
+  }): Promise<Store> {
+    const response = await api.post<{ success: boolean; data: Store }>('/admin/stores', store);
+    return response.data.data;
+  },
+
+  async updateStore(id: string, updates: Partial<Store>): Promise<Store> {
+    const response = await api.put<{ success: boolean; data: Store }>(`/admin/stores/${id}`, updates);
+    return response.data.data;
+  },
+
+  async deleteStore(id: string): Promise<void> {
+    await api.delete(`/admin/stores/${id}`);
+  },
+
+  // Terminal Management
+  async getTerminals(filters: {
+    store_id?: string;
+    search?: string;
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<PaginatedResponse<Terminal>> {
+    const params = new URLSearchParams();
+    if (filters.store_id) params.append('store_id', filters.store_id);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get<PaginatedResponse<Terminal>>(
+      `/admin/terminals?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  async getTerminalById(id: string): Promise<Terminal> {
+    const response = await api.get<{ success: boolean; data: Terminal }>(`/admin/terminals/${id}`);
+    return response.data.data;
+  },
+
+  async createTerminal(terminal: {
+    store_id: string;
+    code: string;
+    name: string;
+    is_active?: boolean;
+  }): Promise<Terminal> {
+    const response = await api.post<{ success: boolean; data: Terminal }>('/admin/terminals', terminal);
+    return response.data.data;
+  },
+
+  async updateTerminal(id: string, updates: Partial<Terminal>): Promise<Terminal> {
+    const response = await api.put<{ success: boolean; data: Terminal }>(`/admin/terminals/${id}`, updates);
+    return response.data.data;
+  },
+
+  async deleteTerminal(id: string): Promise<void> {
+    await api.delete(`/admin/terminals/${id}`);
+  },
+
+  async generateTerminalPairingCode(id: string): Promise<{ code: string; expires_at: string }> {
+    const response = await api.post<{ success: boolean; data: { code: string; expires_at: string } }>(
+      `/admin/terminals/${id}/pairing-code`
+    );
+    return response.data.data;
+  },
+};
+
+// ── Menu Service ──────────────────────────────────────────────────────────
+export const menuService = {
+  async getMenus(filters: {
+    store_id: string;
+    search?: string;
+    is_active?: boolean;
+    menu_type?: MenuType;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Menu>> {
+    const params = new URLSearchParams();
+    params.append('store_id', filters.store_id);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    if (filters.menu_type) params.append('menu_type', filters.menu_type);
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.limit) params.append('limit', String(filters.limit));
+    const response = await api.get<PaginatedResponse<Menu>>(`/menus?${params.toString()}`);
+    return response.data;
+  },
+
+  async createMenu(input: MenuInput): Promise<Menu> {
+    const response = await api.post<{ success: boolean; data: Menu }>('/menus', input);
+    return response.data.data;
+  },
+
+  async updateMenu(id: string, updates: Partial<MenuInput>): Promise<Menu> {
+    const response = await api.put<{ success: boolean; data: Menu }>(`/menus/${id}`, updates);
+    return response.data.data;
+  },
+
+  async deleteMenu(id: string): Promise<void> {
+    await api.delete(`/menus/${id}`);
+  },
+};

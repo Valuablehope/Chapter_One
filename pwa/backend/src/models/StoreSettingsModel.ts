@@ -1,0 +1,913 @@
+import { BaseModel } from './BaseModel';
+// Triggering restart to refresh database column cache — updated for pm_cash/card/voucher/other (2026-05-23)
+
+export type PosModuleType = 'store' | 'retail_store' | 'restaurant';
+
+export interface StoreSettings {
+  store_id: string;
+  currency_code: string;
+  tax_inclusive: boolean;
+  low_stock_threshold: number;
+  created_at: string;
+  updated_at: string;
+  theme: string;
+  // timezone belongs in stores table, not store_settings
+  tax_rate: number | null;
+  receipt_footer: string | null;
+  auto_backup: boolean;
+  backup_frequency: string;
+  show_stock: boolean;
+  auto_add_qty: boolean;
+  allow_negative: boolean;
+  paper_size: string;
+  auto_print: boolean;
+  receipt_header: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_section_order?: unknown;
+  show_lbp_price: boolean;
+  round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
+  ui_resolution: string;
+  receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
+  show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
+  receipt_template?: string | null;
+  receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
+}
+
+export interface StoreSettingsInput {
+  currency_code?: string;
+  tax_inclusive?: boolean;
+  low_stock_threshold?: number;
+  theme?: string;
+  // timezone belongs in stores table, not store_settings
+  tax_rate?: number | null;
+  receipt_footer?: string | null;
+  auto_backup?: boolean;
+  backup_frequency?: string;
+  show_stock?: boolean;
+  auto_add_qty?: boolean;
+  allow_negative?: boolean;
+  paper_size?: string;
+  auto_print?: boolean;
+  receipt_header?: string;
+  pos_module_type?: PosModuleType;
+  restaurant_table_count?: number | null;
+  restaurant_track_guests_per_table?: boolean;
+  lbp_exchange_rate?: number | null;
+  label_show_lbp?: boolean;
+  label_store_name_size?: number | null;
+  label_product_name_size?: number | null;
+  label_lbp_size?: number | null;
+  label_price_size?: number | null;
+  label_header_align?: string | null;
+  label_header_font_weight?: number | null;
+  label_title_align?: string | null;
+  label_title_font_weight?: number | null;
+  label_lbp_row_align?: string | null;
+  label_lbp_prefix_size?: number | null;
+  label_lbp_prefix_weight?: number | null;
+  label_lbp_amount_weight?: number | null;
+  label_price_row_align?: string | null;
+  label_currency_size?: number | null;
+  label_currency_weight?: number | null;
+  label_price_amount_weight?: number | null;
+  label_section_order?: unknown;
+  show_lbp_price?: boolean;
+  round_lbp_to_1000?: boolean;
+  lbp_primary_price?: boolean;
+  ui_resolution?: string;
+  receipt_printer?: string | null;
+  heading_size?: string;
+  body_size?: string;
+  label_height_mm?: number | null;
+  label_canvas_elements?: unknown;
+  include_delivery_in_drawer?: boolean;
+  pm_cash?: boolean;
+  pm_card?: boolean;
+  pm_voucher?: boolean;
+  pm_other?: boolean;
+  show_analytics_tab?: boolean;
+  show_list_price_to_users?: boolean;
+  receipt_template?: string | null;
+  receipt_qr_payment_link?: string | null;
+  receipt_logo_url?: string | null;
+}
+
+interface StoreSettingsSchemaAudit {
+  ok: boolean;
+  schema: string;
+  missingColumns: string[];
+  invalidTypes: Array<{
+    column: string;
+    expected: string[];
+    actual: string;
+  }>;
+}
+
+/** node-pg encodes JS arrays as Postgres array literals; JSONB needs JSON text. */
+function toJsonbParam(value: unknown): string {
+  return JSON.stringify(value);
+}
+
+export class StoreSettingsModel extends BaseModel {
+  // Cache for available columns
+  private static availableColumns: Set<string> | null = null;
+  private static availableColumnTypes: Map<string, string> | null = null;
+  private static columnsCheckPromise: Promise<Set<string>> | null = null;
+  private static readonly requiredRestaurantColumns: Record<string, string[]> = {
+    pos_module_type: ['text', 'character varying'],
+    restaurant_table_count: ['integer', 'bigint', 'smallint'],
+    restaurant_track_guests_per_table: ['boolean'],
+  };
+
+  private static hasRestaurantPayload(settings: StoreSettingsInput): boolean {
+    return (
+      settings.pos_module_type !== undefined ||
+      settings.restaurant_table_count !== undefined ||
+      settings.restaurant_track_guests_per_table !== undefined
+    );
+  }
+
+  // Get available columns from store_settings table
+  private static async getAvailableColumns(): Promise<Set<string>> {
+    // Return cached result immediately if available
+    if (this.availableColumns !== null) {
+      return this.availableColumns;
+    }
+
+    // If a check is already in progress, wait for it instead of starting a new one
+    if (this.columnsCheckPromise) {
+      return this.columnsCheckPromise;
+    }
+
+    // Start new check
+    this.columnsCheckPromise = (async () => {
+      try {
+        const query = `
+          SELECT column_name, data_type
+          FROM information_schema.columns 
+          WHERE table_name = 'store_settings'
+            AND table_schema = current_schema()
+        `;
+        const result = await this.query<{ column_name: string; data_type: string }>(query);
+        this.availableColumns = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
+        this.availableColumnTypes = new Map(
+          result.rows.map((row: { column_name: string; data_type: string }) => [row.column_name, row.data_type])
+        );
+        this.columnsCheckPromise = null; // Clear promise after completion
+        return this.availableColumns;
+      } catch (error) {
+        this.columnsCheckPromise = null; // Clear promise on error
+        console.warn('Could not fetch store_settings columns, using defaults', error);
+        this.availableColumns = new Set();
+        this.availableColumnTypes = new Map();
+        return this.availableColumns;
+      }
+    })();
+
+    return this.columnsCheckPromise;
+  }
+
+  static async auditRestaurantSchema(): Promise<StoreSettingsSchemaAudit> {
+    const availableColumns = await this.getAvailableColumns();
+    const schemaResult = await this.query<{ schema_name: string }>('SELECT current_schema() AS schema_name');
+    const schema = schemaResult.rows[0]?.schema_name || 'public';
+
+    const missingColumns: string[] = [];
+    const invalidTypes: Array<{
+      column: string;
+      expected: string[];
+      actual: string;
+    }> = [];
+
+    for (const [column, expectedTypes] of Object.entries(this.requiredRestaurantColumns)) {
+      if (!availableColumns.has(column)) {
+        missingColumns.push(column);
+        continue;
+      }
+
+      const actualType = this.availableColumnTypes?.get(column);
+      if (actualType && !expectedTypes.includes(actualType)) {
+        invalidTypes.push({
+          column,
+          expected: expectedTypes,
+          actual: actualType,
+        });
+      }
+    }
+
+    return {
+      ok: missingColumns.length === 0 && invalidTypes.length === 0,
+      schema,
+      missingColumns,
+      invalidTypes,
+    };
+  }
+
+  private static async ensureRestaurantSchemaCompatible(settings: StoreSettingsInput): Promise<void> {
+    if (!this.hasRestaurantPayload(settings)) {
+      return;
+    }
+
+    const audit = await this.auditRestaurantSchema();
+    if (audit.ok) {
+      return;
+    }
+
+    const typeIssues =
+      audit.invalidTypes.length > 0
+        ? ` Invalid types: ${audit.invalidTypes
+            .map(issue => `${issue.column}=${issue.actual} (expected ${issue.expected.join('/')})`)
+            .join(', ')}.`
+        : '';
+
+    throw new Error(
+      `store_settings schema mismatch for restaurant fields in schema "${audit.schema}".` +
+        (audit.missingColumns.length > 0 ? ` Missing columns: ${audit.missingColumns.join(', ')}.` : '') +
+        typeIssues +
+        ' Apply database/migrations/008_ensure_public_store_settings_restaurant_columns.sql (or equivalent) and retry.'
+    );
+  }
+
+  static async findByStoreId(storeId: string): Promise<StoreSettings | null> {
+    const query = 'SELECT * FROM store_settings WHERE store_id = $1';
+    const result = await this.query<StoreSettings>(query, [storeId]);
+    return result.rows[0] || null;
+  }
+
+  static async create(storeId: string, settings: StoreSettingsInput): Promise<StoreSettings> {
+    const fields: string[] = ['store_id'];
+    const values: any[] = [storeId];
+    let paramCount = 1;
+
+    const availableColumns = await this.getAvailableColumns();
+    await this.ensureRestaurantSchemaCompatible(settings);
+
+    // Only add fields that exist in the database
+    if (settings.currency_code !== undefined && availableColumns.has('currency_code')) {
+      paramCount++;
+      fields.push('currency_code');
+      values.push(settings.currency_code);
+    }
+    if (settings.tax_inclusive !== undefined && availableColumns.has('tax_inclusive')) {
+      paramCount++;
+      fields.push('tax_inclusive');
+      values.push(settings.tax_inclusive);
+    }
+    if (settings.low_stock_threshold !== undefined && availableColumns.has('low_stock_threshold')) {
+      paramCount++;
+      fields.push('low_stock_threshold');
+      values.push(settings.low_stock_threshold);
+    }
+    if (settings.theme !== undefined && availableColumns.has('theme')) {
+      paramCount++;
+      fields.push('theme');
+      values.push(settings.theme);
+    }
+    // timezone belongs in stores table, not store_settings - removed
+    if (settings.tax_rate !== undefined && availableColumns.has('tax_rate')) {
+      paramCount++;
+      fields.push('tax_rate');
+      values.push(settings.tax_rate);
+    }
+    if (settings.receipt_footer !== undefined && availableColumns.has('receipt_footer')) {
+      paramCount++;
+      fields.push('receipt_footer');
+      values.push(settings.receipt_footer);
+    }
+    if (settings.auto_backup !== undefined && availableColumns.has('auto_backup')) {
+      paramCount++;
+      fields.push('auto_backup');
+      values.push(settings.auto_backup);
+    }
+    if (settings.backup_frequency !== undefined && availableColumns.has('backup_frequency')) {
+      paramCount++;
+      fields.push('backup_frequency');
+      values.push(settings.backup_frequency);
+    }
+    // Optional columns
+    if (settings.show_stock !== undefined && availableColumns.has('show_stock')) {
+      paramCount++;
+      fields.push('show_stock');
+      values.push(settings.show_stock);
+    }
+    if (settings.auto_add_qty !== undefined && availableColumns.has('auto_add_qty')) {
+      paramCount++;
+      fields.push('auto_add_qty');
+      values.push(settings.auto_add_qty);
+    }
+    if (settings.allow_negative !== undefined && availableColumns.has('allow_negative')) {
+      paramCount++;
+      fields.push('allow_negative');
+      values.push(settings.allow_negative);
+    }
+    if (settings.paper_size !== undefined && availableColumns.has('paper_size')) {
+      paramCount++;
+      fields.push('paper_size');
+      values.push(settings.paper_size);
+    }
+    if (settings.auto_print !== undefined && availableColumns.has('auto_print')) {
+      paramCount++;
+      fields.push('auto_print');
+      values.push(settings.auto_print);
+    }
+    if (settings.receipt_header !== undefined && availableColumns.has('receipt_header')) {
+      paramCount++;
+      fields.push('receipt_header');
+      values.push(settings.receipt_header);
+    }
+    if (settings.pos_module_type !== undefined && availableColumns.has('pos_module_type')) {
+      paramCount++;
+      fields.push('pos_module_type');
+      values.push(settings.pos_module_type);
+    }
+    if (settings.restaurant_table_count !== undefined && availableColumns.has('restaurant_table_count')) {
+      paramCount++;
+      fields.push('restaurant_table_count');
+      values.push(settings.restaurant_table_count);
+    }
+    if (settings.restaurant_track_guests_per_table !== undefined && availableColumns.has('restaurant_track_guests_per_table')) {
+      paramCount++;
+      fields.push('restaurant_track_guests_per_table');
+      values.push(settings.restaurant_track_guests_per_table);
+    }
+    if (settings.lbp_exchange_rate !== undefined && availableColumns.has('lbp_exchange_rate')) {
+      paramCount++;
+      fields.push('lbp_exchange_rate');
+      values.push(settings.lbp_exchange_rate);
+    }
+    if (settings.label_show_lbp !== undefined && availableColumns.has('label_show_lbp')) {
+      paramCount++;
+      fields.push('label_show_lbp');
+      values.push(settings.label_show_lbp);
+    }
+    if (settings.label_store_name_size !== undefined && availableColumns.has('label_store_name_size')) {
+      paramCount++;
+      fields.push('label_store_name_size');
+      values.push(settings.label_store_name_size);
+    }
+    if (settings.label_product_name_size !== undefined && availableColumns.has('label_product_name_size')) {
+      paramCount++;
+      fields.push('label_product_name_size');
+      values.push(settings.label_product_name_size);
+    }
+    if (settings.label_lbp_size !== undefined && availableColumns.has('label_lbp_size')) {
+      paramCount++;
+      fields.push('label_lbp_size');
+      values.push(settings.label_lbp_size);
+    }
+    if (settings.label_price_size !== undefined && availableColumns.has('label_price_size')) {
+      paramCount++;
+      fields.push('label_price_size');
+      values.push(settings.label_price_size);
+    }
+    if (settings.label_header_align !== undefined && availableColumns.has('label_header_align')) {
+      paramCount++;
+      fields.push('label_header_align');
+      values.push(settings.label_header_align);
+    }
+    if (settings.label_header_font_weight !== undefined && availableColumns.has('label_header_font_weight')) {
+      paramCount++;
+      fields.push('label_header_font_weight');
+      values.push(settings.label_header_font_weight);
+    }
+    if (settings.label_title_align !== undefined && availableColumns.has('label_title_align')) {
+      paramCount++;
+      fields.push('label_title_align');
+      values.push(settings.label_title_align);
+    }
+    if (settings.label_title_font_weight !== undefined && availableColumns.has('label_title_font_weight')) {
+      paramCount++;
+      fields.push('label_title_font_weight');
+      values.push(settings.label_title_font_weight);
+    }
+    if (settings.label_lbp_row_align !== undefined && availableColumns.has('label_lbp_row_align')) {
+      paramCount++;
+      fields.push('label_lbp_row_align');
+      values.push(settings.label_lbp_row_align);
+    }
+    if (settings.label_lbp_prefix_size !== undefined && availableColumns.has('label_lbp_prefix_size')) {
+      paramCount++;
+      fields.push('label_lbp_prefix_size');
+      values.push(settings.label_lbp_prefix_size);
+    }
+    if (settings.label_lbp_prefix_weight !== undefined && availableColumns.has('label_lbp_prefix_weight')) {
+      paramCount++;
+      fields.push('label_lbp_prefix_weight');
+      values.push(settings.label_lbp_prefix_weight);
+    }
+    if (settings.label_lbp_amount_weight !== undefined && availableColumns.has('label_lbp_amount_weight')) {
+      paramCount++;
+      fields.push('label_lbp_amount_weight');
+      values.push(settings.label_lbp_amount_weight);
+    }
+    if (settings.label_price_row_align !== undefined && availableColumns.has('label_price_row_align')) {
+      paramCount++;
+      fields.push('label_price_row_align');
+      values.push(settings.label_price_row_align);
+    }
+    if (settings.label_currency_size !== undefined && availableColumns.has('label_currency_size')) {
+      paramCount++;
+      fields.push('label_currency_size');
+      values.push(settings.label_currency_size);
+    }
+    if (settings.label_currency_weight !== undefined && availableColumns.has('label_currency_weight')) {
+      paramCount++;
+      fields.push('label_currency_weight');
+      values.push(settings.label_currency_weight);
+    }
+    if (settings.label_price_amount_weight !== undefined && availableColumns.has('label_price_amount_weight')) {
+      paramCount++;
+      fields.push('label_price_amount_weight');
+      values.push(settings.label_price_amount_weight);
+    }
+    if (settings.label_section_order !== undefined && availableColumns.has('label_section_order')) {
+      paramCount++;
+      fields.push('label_section_order');
+      values.push(toJsonbParam(settings.label_section_order));
+    }
+    if (settings.show_lbp_price !== undefined && availableColumns.has('show_lbp_price')) {
+      paramCount++;
+      fields.push('show_lbp_price');
+      values.push(settings.show_lbp_price);
+    }
+    if (settings.round_lbp_to_1000 !== undefined && availableColumns.has('round_lbp_to_1000')) {
+      paramCount++;
+      fields.push('round_lbp_to_1000');
+      values.push(settings.round_lbp_to_1000);
+    }
+    if (settings.lbp_primary_price !== undefined && availableColumns.has('lbp_primary_price')) {
+      paramCount++;
+      fields.push('lbp_primary_price');
+      values.push(settings.lbp_primary_price);
+    }
+    if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
+      paramCount++;
+      fields.push('ui_resolution');
+      values.push(settings.ui_resolution);
+    }
+    if (settings.receipt_printer !== undefined && availableColumns.has('receipt_printer')) {
+      paramCount++;
+      fields.push('receipt_printer');
+      values.push(settings.receipt_printer);
+    }
+    if (settings.heading_size !== undefined && availableColumns.has('heading_size')) {
+      paramCount++;
+      fields.push('heading_size');
+      values.push(settings.heading_size);
+    }
+    if (settings.body_size !== undefined && availableColumns.has('body_size')) {
+      paramCount++;
+      fields.push('body_size');
+      values.push(settings.body_size);
+    }
+    if (settings.label_height_mm !== undefined && availableColumns.has('label_height_mm')) {
+      paramCount++;
+      fields.push('label_height_mm');
+      values.push(settings.label_height_mm);
+    }
+    if (settings.label_canvas_elements !== undefined && availableColumns.has('label_canvas_elements')) {
+      paramCount++;
+      fields.push('label_canvas_elements');
+      values.push(toJsonbParam(settings.label_canvas_elements));
+    }
+    if (settings.include_delivery_in_drawer !== undefined && availableColumns.has('include_delivery_in_drawer')) {
+      paramCount++;
+      fields.push('include_delivery_in_drawer');
+      values.push(settings.include_delivery_in_drawer);
+    }
+    if (settings.pm_cash !== undefined && availableColumns.has('pm_cash')) {
+      paramCount++;
+      fields.push('pm_cash');
+      values.push(settings.pm_cash);
+    }
+    if (settings.pm_card !== undefined && availableColumns.has('pm_card')) {
+      paramCount++;
+      fields.push('pm_card');
+      values.push(settings.pm_card);
+    }
+    if (settings.pm_voucher !== undefined && availableColumns.has('pm_voucher')) {
+      paramCount++;
+      fields.push('pm_voucher');
+      values.push(settings.pm_voucher);
+    }
+    if (settings.pm_other !== undefined && availableColumns.has('pm_other')) {
+      paramCount++;
+      fields.push('pm_other');
+      values.push(settings.pm_other);
+    }
+    if (settings.show_analytics_tab !== undefined && availableColumns.has('show_analytics_tab')) {
+      paramCount++;
+      fields.push('show_analytics_tab');
+      values.push(settings.show_analytics_tab);
+    }
+    if (settings.show_list_price_to_users !== undefined && availableColumns.has('show_list_price_to_users')) {
+      paramCount++;
+      fields.push('show_list_price_to_users');
+      values.push(settings.show_list_price_to_users);
+    }
+    if (settings.receipt_template !== undefined && availableColumns.has('receipt_template')) {
+      paramCount++;
+      fields.push('receipt_template');
+      values.push(settings.receipt_template);
+    }
+    if (settings.receipt_qr_payment_link !== undefined && availableColumns.has('receipt_qr_payment_link')) {
+      paramCount++;
+      fields.push('receipt_qr_payment_link');
+      values.push(settings.receipt_qr_payment_link);
+    }
+    if (settings.receipt_logo_url !== undefined && availableColumns.has('receipt_logo_url')) {
+      paramCount++;
+      fields.push('receipt_logo_url');
+      values.push(settings.receipt_logo_url);
+    }
+    const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
+    const query = `
+      INSERT INTO store_settings (${fields.join(', ')})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
+    const result = await this.query<StoreSettings>(query, values);
+    return result.rows[0];
+  }
+
+  static async update(storeId: string, settings: StoreSettingsInput): Promise<StoreSettings> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 0;
+
+    const availableColumns = await this.getAvailableColumns();
+    await this.ensureRestaurantSchemaCompatible(settings);
+
+    // Only add fields that exist in the database
+    if (settings.currency_code !== undefined && availableColumns.has('currency_code')) {
+      paramCount++;
+      fields.push(`currency_code = $${paramCount}`);
+      values.push(settings.currency_code);
+    }
+    if (settings.tax_inclusive !== undefined && availableColumns.has('tax_inclusive')) {
+      paramCount++;
+      fields.push(`tax_inclusive = $${paramCount}`);
+      values.push(settings.tax_inclusive);
+    }
+    if (settings.low_stock_threshold !== undefined && availableColumns.has('low_stock_threshold')) {
+      paramCount++;
+      fields.push(`low_stock_threshold = $${paramCount}`);
+      values.push(settings.low_stock_threshold);
+    }
+    if (settings.theme !== undefined && availableColumns.has('theme')) {
+      paramCount++;
+      fields.push(`theme = $${paramCount}`);
+      values.push(settings.theme);
+    }
+    // timezone belongs in stores table, not store_settings - removed
+    if (settings.tax_rate !== undefined && availableColumns.has('tax_rate')) {
+      paramCount++;
+      fields.push(`tax_rate = $${paramCount}`);
+      values.push(settings.tax_rate);
+    }
+    if (settings.receipt_footer !== undefined && availableColumns.has('receipt_footer')) {
+      paramCount++;
+      fields.push(`receipt_footer = $${paramCount}`);
+      values.push(settings.receipt_footer);
+    }
+    if (settings.auto_backup !== undefined && availableColumns.has('auto_backup')) {
+      paramCount++;
+      fields.push(`auto_backup = $${paramCount}`);
+      values.push(settings.auto_backup);
+    }
+    if (settings.backup_frequency !== undefined && availableColumns.has('backup_frequency')) {
+      paramCount++;
+      fields.push(`backup_frequency = $${paramCount}`);
+      values.push(settings.backup_frequency);
+    }
+    // Optional columns
+    if (settings.show_stock !== undefined && availableColumns.has('show_stock')) {
+      paramCount++;
+      fields.push(`show_stock = $${paramCount}`);
+      values.push(settings.show_stock);
+    }
+    if (settings.auto_add_qty !== undefined && availableColumns.has('auto_add_qty')) {
+      paramCount++;
+      fields.push(`auto_add_qty = $${paramCount}`);
+      values.push(settings.auto_add_qty);
+    }
+    if (settings.allow_negative !== undefined && availableColumns.has('allow_negative')) {
+      paramCount++;
+      fields.push(`allow_negative = $${paramCount}`);
+      values.push(settings.allow_negative);
+    }
+    if (settings.paper_size !== undefined && availableColumns.has('paper_size')) {
+      paramCount++;
+      fields.push(`paper_size = $${paramCount}`);
+      values.push(settings.paper_size);
+    }
+    if (settings.auto_print !== undefined && availableColumns.has('auto_print')) {
+      paramCount++;
+      fields.push(`auto_print = $${paramCount}`);
+      values.push(settings.auto_print);
+    }
+    if (settings.receipt_header !== undefined && availableColumns.has('receipt_header')) {
+      paramCount++;
+      fields.push(`receipt_header = $${paramCount}`);
+      values.push(settings.receipt_header);
+    }
+    if (settings.pos_module_type !== undefined && availableColumns.has('pos_module_type')) {
+      paramCount++;
+      fields.push(`pos_module_type = $${paramCount}`);
+      values.push(settings.pos_module_type);
+    }
+    if (settings.restaurant_table_count !== undefined && availableColumns.has('restaurant_table_count')) {
+      paramCount++;
+      fields.push(`restaurant_table_count = $${paramCount}`);
+      values.push(settings.restaurant_table_count);
+    }
+    if (settings.restaurant_track_guests_per_table !== undefined && availableColumns.has('restaurant_track_guests_per_table')) {
+      paramCount++;
+      fields.push(`restaurant_track_guests_per_table = $${paramCount}`);
+      values.push(settings.restaurant_track_guests_per_table);
+    }
+    if (settings.lbp_exchange_rate !== undefined && availableColumns.has('lbp_exchange_rate')) {
+      paramCount++;
+      fields.push(`lbp_exchange_rate = $${paramCount}`);
+      values.push(settings.lbp_exchange_rate);
+    }
+    if (settings.label_show_lbp !== undefined && availableColumns.has('label_show_lbp')) {
+      paramCount++;
+      fields.push(`label_show_lbp = $${paramCount}`);
+      values.push(settings.label_show_lbp);
+    }
+    if (settings.label_store_name_size !== undefined && availableColumns.has('label_store_name_size')) {
+      paramCount++;
+      fields.push(`label_store_name_size = $${paramCount}`);
+      values.push(settings.label_store_name_size);
+    }
+    if (settings.label_product_name_size !== undefined && availableColumns.has('label_product_name_size')) {
+      paramCount++;
+      fields.push(`label_product_name_size = $${paramCount}`);
+      values.push(settings.label_product_name_size);
+    }
+    if (settings.label_lbp_size !== undefined && availableColumns.has('label_lbp_size')) {
+      paramCount++;
+      fields.push(`label_lbp_size = $${paramCount}`);
+      values.push(settings.label_lbp_size);
+    }
+    if (settings.label_price_size !== undefined && availableColumns.has('label_price_size')) {
+      paramCount++;
+      fields.push(`label_price_size = $${paramCount}`);
+      values.push(settings.label_price_size);
+    }
+    if (settings.label_header_align !== undefined && availableColumns.has('label_header_align')) {
+      paramCount++;
+      fields.push(`label_header_align = $${paramCount}`);
+      values.push(settings.label_header_align);
+    }
+    if (settings.label_header_font_weight !== undefined && availableColumns.has('label_header_font_weight')) {
+      paramCount++;
+      fields.push(`label_header_font_weight = $${paramCount}`);
+      values.push(settings.label_header_font_weight);
+    }
+    if (settings.label_title_align !== undefined && availableColumns.has('label_title_align')) {
+      paramCount++;
+      fields.push(`label_title_align = $${paramCount}`);
+      values.push(settings.label_title_align);
+    }
+    if (settings.label_title_font_weight !== undefined && availableColumns.has('label_title_font_weight')) {
+      paramCount++;
+      fields.push(`label_title_font_weight = $${paramCount}`);
+      values.push(settings.label_title_font_weight);
+    }
+    if (settings.label_lbp_row_align !== undefined && availableColumns.has('label_lbp_row_align')) {
+      paramCount++;
+      fields.push(`label_lbp_row_align = $${paramCount}`);
+      values.push(settings.label_lbp_row_align);
+    }
+    if (settings.label_lbp_prefix_size !== undefined && availableColumns.has('label_lbp_prefix_size')) {
+      paramCount++;
+      fields.push(`label_lbp_prefix_size = $${paramCount}`);
+      values.push(settings.label_lbp_prefix_size);
+    }
+    if (settings.label_lbp_prefix_weight !== undefined && availableColumns.has('label_lbp_prefix_weight')) {
+      paramCount++;
+      fields.push(`label_lbp_prefix_weight = $${paramCount}`);
+      values.push(settings.label_lbp_prefix_weight);
+    }
+    if (settings.label_lbp_amount_weight !== undefined && availableColumns.has('label_lbp_amount_weight')) {
+      paramCount++;
+      fields.push(`label_lbp_amount_weight = $${paramCount}`);
+      values.push(settings.label_lbp_amount_weight);
+    }
+    if (settings.label_price_row_align !== undefined && availableColumns.has('label_price_row_align')) {
+      paramCount++;
+      fields.push(`label_price_row_align = $${paramCount}`);
+      values.push(settings.label_price_row_align);
+    }
+    if (settings.label_currency_size !== undefined && availableColumns.has('label_currency_size')) {
+      paramCount++;
+      fields.push(`label_currency_size = $${paramCount}`);
+      values.push(settings.label_currency_size);
+    }
+    if (settings.label_currency_weight !== undefined && availableColumns.has('label_currency_weight')) {
+      paramCount++;
+      fields.push(`label_currency_weight = $${paramCount}`);
+      values.push(settings.label_currency_weight);
+    }
+    if (settings.label_price_amount_weight !== undefined && availableColumns.has('label_price_amount_weight')) {
+      paramCount++;
+      fields.push(`label_price_amount_weight = $${paramCount}`);
+      values.push(settings.label_price_amount_weight);
+    }
+    if (settings.label_section_order !== undefined && availableColumns.has('label_section_order')) {
+      paramCount++;
+      fields.push(`label_section_order = $${paramCount}::jsonb`);
+      values.push(toJsonbParam(settings.label_section_order));
+    }
+    if (settings.show_lbp_price !== undefined && availableColumns.has('show_lbp_price')) {
+      paramCount++;
+      fields.push(`show_lbp_price = $${paramCount}`);
+      values.push(settings.show_lbp_price);
+    }
+    if (settings.round_lbp_to_1000 !== undefined && availableColumns.has('round_lbp_to_1000')) {
+      paramCount++;
+      fields.push(`round_lbp_to_1000 = $${paramCount}`);
+      values.push(settings.round_lbp_to_1000);
+    }
+    if (settings.lbp_primary_price !== undefined && availableColumns.has('lbp_primary_price')) {
+      paramCount++;
+      fields.push(`lbp_primary_price = $${paramCount}`);
+      values.push(settings.lbp_primary_price);
+    }
+    if (settings.ui_resolution !== undefined && availableColumns.has('ui_resolution')) {
+      paramCount++;
+      fields.push(`ui_resolution = $${paramCount}`);
+      values.push(settings.ui_resolution);
+    }
+    if (settings.receipt_printer !== undefined && availableColumns.has('receipt_printer')) {
+      paramCount++;
+      fields.push(`receipt_printer = $${paramCount}`);
+      values.push(settings.receipt_printer);
+    }
+    if (settings.heading_size !== undefined && availableColumns.has('heading_size')) {
+      paramCount++;
+      fields.push(`heading_size = $${paramCount}`);
+      values.push(settings.heading_size);
+    }
+    if (settings.body_size !== undefined && availableColumns.has('body_size')) {
+      paramCount++;
+      fields.push(`body_size = $${paramCount}`);
+      values.push(settings.body_size);
+    }
+    if (settings.label_height_mm !== undefined && availableColumns.has('label_height_mm')) {
+      paramCount++;
+      fields.push(`label_height_mm = $${paramCount}`);
+      values.push(settings.label_height_mm);
+    }
+    if (settings.label_canvas_elements !== undefined && availableColumns.has('label_canvas_elements')) {
+      paramCount++;
+      fields.push(`label_canvas_elements = $${paramCount}::jsonb`);
+      values.push(toJsonbParam(settings.label_canvas_elements));
+    }
+    if (settings.include_delivery_in_drawer !== undefined && availableColumns.has('include_delivery_in_drawer')) {
+      paramCount++;
+      fields.push(`include_delivery_in_drawer = $${paramCount}`);
+      values.push(settings.include_delivery_in_drawer);
+    }
+    if (settings.pm_cash !== undefined && availableColumns.has('pm_cash')) {
+      paramCount++;
+      fields.push(`pm_cash = $${paramCount}`);
+      values.push(settings.pm_cash);
+    }
+    if (settings.pm_card !== undefined && availableColumns.has('pm_card')) {
+      paramCount++;
+      fields.push(`pm_card = $${paramCount}`);
+      values.push(settings.pm_card);
+    }
+    if (settings.pm_voucher !== undefined && availableColumns.has('pm_voucher')) {
+      paramCount++;
+      fields.push(`pm_voucher = $${paramCount}`);
+      values.push(settings.pm_voucher);
+    }
+    if (settings.pm_other !== undefined && availableColumns.has('pm_other')) {
+      paramCount++;
+      fields.push(`pm_other = $${paramCount}`);
+      values.push(settings.pm_other);
+    }
+    if (settings.show_analytics_tab !== undefined && availableColumns.has('show_analytics_tab')) {
+      paramCount++;
+      fields.push(`show_analytics_tab = $${paramCount}`);
+      values.push(settings.show_analytics_tab);
+    }
+    if (settings.show_list_price_to_users !== undefined && availableColumns.has('show_list_price_to_users')) {
+      paramCount++;
+      fields.push(`show_list_price_to_users = $${paramCount}`);
+      values.push(settings.show_list_price_to_users);
+    }
+    if (settings.receipt_template !== undefined && availableColumns.has('receipt_template')) {
+      paramCount++;
+      fields.push(`receipt_template = $${paramCount}`);
+      values.push(settings.receipt_template);
+    }
+    if (settings.receipt_qr_payment_link !== undefined && availableColumns.has('receipt_qr_payment_link')) {
+      paramCount++;
+      fields.push(`receipt_qr_payment_link = $${paramCount}`);
+      values.push(settings.receipt_qr_payment_link);
+    }
+    if (settings.receipt_logo_url !== undefined && availableColumns.has('receipt_logo_url')) {
+      paramCount++;
+      fields.push(`receipt_logo_url = $${paramCount}`);
+      values.push(settings.receipt_logo_url);
+    }
+
+    if (fields.length === 0) {
+      // No fields to update, just return existing
+      const existing = await this.findByStoreId(storeId);
+      if (!existing) {
+        throw new Error('Store settings not found');
+      }
+      return existing;
+    }
+
+    // Add updated_at
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    
+    paramCount++;
+    values.push(storeId);
+
+    const query = `
+      UPDATE store_settings
+      SET ${fields.join(', ')}
+      WHERE store_id = $${paramCount}
+      RETURNING *
+    `;
+    const result = await this.query<StoreSettings>(query, values);
+    
+    if (result.rows.length === 0) {
+      throw new Error('Store settings not found');
+    }
+
+    return result.rows[0];
+  }
+
+  static invalidateColumnCache(): void {
+    this.availableColumns = null;
+    this.availableColumnTypes = null;
+    this.columnsCheckPromise = null;
+  }
+
+  static async createOrUpdate(storeId: string, settings: StoreSettingsInput): Promise<StoreSettings> {
+    // Always refresh the column cache so newly-added DB columns are visible
+    this.invalidateColumnCache();
+    const existing = await this.findByStoreId(storeId);
+
+    if (existing) {
+      try {
+        return await this.update(storeId, settings);
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Store settings not found') {
+          return this.create(storeId, settings);
+        }
+        throw err;
+      }
+    }
+
+    return this.create(storeId, settings);
+  }
+
+  static async delete(storeId: string): Promise<boolean> {
+    const query = 'DELETE FROM store_settings WHERE store_id = $1';
+    const result = await this.query(query, [storeId]);
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+}
+

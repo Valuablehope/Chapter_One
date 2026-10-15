@@ -1,0 +1,22 @@
+{
+  "name": "chapter-one-mobile-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "On-device database layer for the Chapter One mobile app (PGlite = Postgres in WebAssembly). Lets the existing backend models run unchanged on the device.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/gen-migrations.mjs && node scripts/build.mjs && node scripts/build.mjs node",
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "spike:sale": "tsx scripts/spike-sale.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "@noble/hashes": "^2.4.0",
+    "esbuild": "^0.28.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "table_name": "stock_balances",
+    "column_name": "qty_on_hand",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "stock_movements",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "sale_items",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "purchase_order_items",
+    "column_name": "qty_ordered",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "purchase_order_items",
+    "column_name": "qty_received",
+    "data_type": "integer"
+  }
+]

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chapter One</string>
+    <string name="title_activity_main">Chapter One</string>
+    <string name="package_name">com.chapterone.mobile</string>
+    <string name="custom_url_scheme">com.chapterone.mobile</string>
+</resources>

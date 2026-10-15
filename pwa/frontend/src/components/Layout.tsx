@@ -1,0 +1,576 @@
+import { ReactNode, useState, useEffect, useRef, useCallback } from 'react';
+import { fonts, shadows } from '../styles/tokens';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  HomeIcon,
+  BookOpenIcon,
+  CreditCardIcon,
+  ClipboardDocumentListIcon,
+  TruckIcon,
+  TagIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
+  PresentationChartBarIcon,
+  ShieldCheckIcon,
+  ArrowRightOnRectangleIcon,
+  Bars3Icon,
+  XMarkIcon,
+  TableCellsIcon,
+  ClipboardDocumentCheckIcon,
+  ArchiveBoxArrowDownIcon,
+  ArchiveBoxXMarkIcon,
+  BanknotesIcon,
+  ChartPieIcon,
+  PresentationChartLineIcon,
+} from '@heroicons/react/24/outline';
+import {
+  HomeIcon as HomeIconSolid,
+  BookOpenIcon as BookOpenIconSolid,
+  CreditCardIcon as CreditCardIconSolid,
+  ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
+  TruckIcon as TruckIconSolid,
+  TagIcon as TagIconSolid,
+  UserGroupIcon as UserGroupIconSolid,
+  BuildingOfficeIcon as BuildingOfficeIconSolid,
+  PresentationChartBarIcon as PresentationChartBarIconSolid,
+  ShieldCheckIcon as ShieldCheckIconSolid,
+  TableCellsIcon as TableCellsIconSolid,
+  ClipboardDocumentCheckIcon as ClipboardDocumentCheckIconSolid,
+  ArchiveBoxArrowDownIcon as ArchiveBoxArrowDownIconSolid,
+  ArchiveBoxXMarkIcon as ArchiveBoxXMarkIconSolid,
+  BanknotesIcon as BanknotesIconSolid,
+  PresentationChartLineIcon as PresentationChartLineIconSolid,
+} from '@heroicons/react/24/solid';
+import { useAuthStore } from '../store/authStore';
+import { useLicenseStore } from '../store/licenseStore';
+import { authService } from '../services/authService';
+import TrialBanner from './TrialBanner';
+import LicenseBanner from './LicenseBanner';
+import PageErrorBoundary from './PageErrorBoundary';
+import { useTokenRefresh } from '../hooks/useTokenRefresh';
+import { useOfflineSync } from '../hooks/useOfflineSync';
+import { CloudArrowUpIcon, WifiIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { APP_BRAND_POS_LINE } from '../constants/branding';
+import { storeService } from '../services/storeService';
+import type { PosModuleType } from '../services/adminService';
+import { useTranslation } from '../i18n/I18nContext';
+import { useTheme } from '../hooks/useTheme';
+import { useFontSize, type FontSizeScale } from '../hooks/useFontSize';
+
+/** Thumbtack pin — outline (sidebar not pinned) */
+const PinIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    {/* Cap */}
+    <rect x="9" y="2.5" width="6" height="4" rx="1" />
+    {/* Wings */}
+    <path d="M9 6.5L7 11h10l-2-4.5" />
+    {/* Shaft */}
+    <line x1="12" y1="11" x2="12" y2="15.5" />
+    {/* Needle */}
+    <line x1="12" y1="15.5" x2="12" y2="21.5" />
+  </svg>
+);
+
+/** Thumbtack pin — filled (sidebar pinned) */
+const PinIconSolid = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    {/* Cap */}
+    <rect x="9" y="2.5" width="6" height="4" rx="1" />
+    {/* Wings filled */}
+    <path d="M9 6.5L7 11h10l-2-4.5z" />
+    {/* Shaft + needle */}
+    <rect x="11.25" y="11" width="1.5" height="10.5" rx="0.75" />
+  </svg>
+);
+
+interface LayoutProps {
+  children: ReactNode;
+}
+
+interface NavItemProps {
+  item: any;
+  active: boolean;
+  sidebarExpanded: boolean;
+  isCompact: boolean;
+  onClick?: () => void;
+}
+
+const NavItem = ({ item, active, sidebarExpanded, isCompact, onClick }: NavItemProps) => {
+  const Icon = item.icon;
+  // Use a stronger brand color for the active background in compact mode for better visibility
+  const activeBgClass = isCompact ? 'bg-secondary-600' : 'bg-sidebar-active';
+  
+  return (
+    <Link
+      to={item.path}
+      onClick={onClick}
+      title={!sidebarExpanded ? item.label : undefined}
+      className={`
+        relative flex
+        ${isCompact ? 'flex-col items-center justify-center min-h-[64px] py-2 px-1' : 'items-center px-3 py-2.5'}
+        rounded-lg text-sm font-medium
+        transition-all duration-200 group
+        ${active
+          ? `text-white ${activeBgClass} shadow-md`
+          : 'text-sidebar-text hover:text-white hover:bg-sidebar-hover'}
+      `}
+    >
+      {/* Active Indicator Bar (only for desktop expanded mode) */}
+      {active && !isCompact && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-secondary-400 rounded-r-full" />
+      )}
+      
+      <Icon className={`
+        ${isCompact ? 'w-6 h-6 mb-1' : 'w-[18px] h-[18px] mr-3'} 
+        flex-shrink-0 transition-colors
+        ${active ? 'text-white !opacity-100' : 'group-hover:text-white'}
+      `} />
+      
+      {sidebarExpanded && (
+        <span className={`
+          transition-all duration-200
+          ${isCompact
+            ? 'text-[9px] uppercase font-bold text-center leading-tight w-full break-words'
+            : 'truncate text-sm'}
+          ${active ? 'text-white' : ''}
+        `}>
+          {item.label}
+        </span>
+      )}
+    </Link>
+  );
+};
+
+export default function Layout({ children }: LayoutProps) {
+  const { user, logout } = useAuthStore();
+  const { licenseStatus, lastChecked, isLoading: licenseLoading } = useLicenseStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // View-only when data is loaded and license is invalid; admin page is exempt so admins can activate
+  const hasLicenseData = lastChecked !== null;
+  const isViewOnly = hasLicenseData && !licenseLoading &&
+    (!licenseStatus || !licenseStatus.isValid) &&
+    !location.pathname.startsWith('/admin');
+
+  const [posModuleType, setPosModuleType] = useState<PosModuleType>(
+    (localStorage.getItem('pos-module-type') as PosModuleType) || 'store'
+  );
+  const [uiResolution, setUiResolution] = useState<string>(
+    localStorage.getItem('ui-resolution') || 'auto'
+  );
+  const [showAnalyticsTab, setShowAnalyticsTab] = useState<boolean>(true);
+  const { t } = useTranslation();
+  const { setTheme } = useTheme();
+  const { setFontSizes } = useFontSize();
+
+  useTokenRefresh();
+  const { pendingCount, isOnline, isSyncing, lowDiskSpace, syncPendingSales } = useOfflineSync();
+
+  const refreshPosModuleType = useCallback(async () => {
+    try {
+      const s = await storeService.getDefaultStore();
+      if (s.pos_module_type) {
+        setPosModuleType(s.pos_module_type);
+        localStorage.setItem('pos-module-type', s.pos_module_type);
+      }
+      if (s.ui_resolution) {
+        setUiResolution(s.ui_resolution);
+        localStorage.setItem('ui-resolution', s.ui_resolution);
+      }
+      if (s.show_analytics_tab !== undefined) {
+        setShowAnalyticsTab(s.show_analytics_tab);
+      }
+      if (s.theme) {
+        setTheme(s.theme);
+      }
+      if (s.heading_size || s.body_size) {
+        setFontSizes(
+          (s.heading_size ?? 'md') as FontSizeScale,
+          (s.body_size    ?? 'md') as FontSizeScale,
+        );
+      }
+    } catch {
+      // Keep current value on fetch failure.
+    }
+  }, [setTheme, setFontSizes]);
+
+  useEffect(() => {
+    void refreshPosModuleType();
+  }, [refreshPosModuleType]);
+
+  useEffect(() => {
+    const unsubscribe = storeService.subscribeStoreModuleChanged(() => {
+      void refreshPosModuleType();
+    });
+    return unsubscribe;
+  }, [refreshPosModuleType]);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen]   = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSidebarHovered, setIsSidebarHovered]   = useState(false);
+  const [isPinned, setIsPinned] = useState(() => localStorage.getItem('sidebar-pinned') === 'true');
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const sidebarRef  = useRef<HTMLDivElement>(null);
+
+  const handleLogout = async () => {
+    try { await authService.logout(); } catch { /* fallthrough */ }
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const handleTogglePin = () => setIsPinned(p => !p);
+
+  useEffect(() => { if (isPinned) setIsSidebarCollapsed(false); }, []);
+  useEffect(() => {
+    localStorage.setItem('sidebar-pinned', String(isPinned));
+    if (isPinned) setIsSidebarCollapsed(false);
+  }, [isPinned]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) { /* no dropdown */ }
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node) && window.innerWidth < 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    if (isMobileMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMobileMenuOpen]);
+
+  const isActive = (path: string) => location.pathname === path;
+
+  const isRestaurant = posModuleType === 'restaurant';
+
+  useEffect(() => {
+    if (isRestaurant && location.pathname === '/sales') {
+      navigate('/restaurant', { replace: true });
+      return;
+    }
+    if (!isRestaurant && location.pathname === '/restaurant') {
+      navigate('/sales', { replace: true });
+    }
+  }, [isRestaurant, location.pathname, navigate]);
+
+  const navItems = [
+    { path: '/dashboard',        label: t('nav.dashboard'),        icon: HomeIcon,                    iconSolid: HomeIconSolid,                    blockedRoles: ['cashier'] as string[] },
+    { path: '/products',         label: t('nav.products'),         icon: BookOpenIcon,                iconSolid: BookOpenIconSolid },
+    ...(isRestaurant
+      ? [{ path: '/restaurant', label: t('nav.restaurant'),  icon: TableCellsIcon, iconSolid: TableCellsIconSolid }]
+      : [{ path: '/sales',      label: t('nav.pos_sales'),   icon: CreditCardIcon, iconSolid: CreditCardIconSolid }]),
+    { path: '/sales-management', label: t('nav.sales'),            icon: ClipboardDocumentListIcon,   iconSolid: ClipboardDocumentListIconSolid },
+    { path: '/day-closure',      label: t('nav.day_closure'),      icon: ClipboardDocumentCheckIcon,    iconSolid: ClipboardDocumentCheckIconSolid },
+    { path: '/purchases',        label: t('nav.purchases'),        icon: TruckIcon,                   iconSolid: TruckIconSolid },
+    { path: '/opening-stock',   label: t('nav.opening_stock'),   icon: ArchiveBoxArrowDownIcon,     iconSolid: ArchiveBoxArrowDownIconSolid },
+    { path: '/expenses',        label: t('nav.expenses'),        icon: BanknotesIcon,               iconSolid: BanknotesIconSolid },
+    { path: '/dispose',         label: t('nav.dispose'),         icon: ArchiveBoxXMarkIcon,         iconSolid: ArchiveBoxXMarkIconSolid,         blockedRoles: ['cashier', 'self_checkout'] as string[] },
+    { path: '/labels',           label: 'Labels',                  icon: TagIcon,                     iconSolid: TagIconSolid },
+    { path: '/customers',        label: t('nav.customers'),        icon: UserGroupIcon,               iconSolid: UserGroupIconSolid },
+    { path: '/suppliers',        label: t('nav.suppliers'),        icon: BuildingOfficeIcon,          iconSolid: BuildingOfficeIconSolid },
+    { path: '/reports',          label: t('nav.reports'),          icon: PresentationChartBarIcon,    iconSolid: PresentationChartBarIconSolid },
+    ...(showAnalyticsTab ? [{ path: '/profile/analytics', label: t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Analytics' : t('nav.profile_analytics'), icon: PresentationChartLineIcon, iconSolid: PresentationChartLineIconSolid }] : []),
+    { path: '/admin',            label: t('nav.admin'),            icon: ShieldCheckIcon,             iconSolid: ShieldCheckIconSolid,             role: 'admin' as const },
+  ];
+
+  const filteredNavItems = navItems.filter(item => {
+    if (user?.role === 'self_checkout') {
+      return item.path === '/sales' || item.path === '/restaurant';
+    }
+    if (item.role && user?.role !== 'admin') return false;
+    if (item.blockedRoles && user && item.blockedRoles.includes(user.role)) return false;
+    return true;
+  });
+
+  const isCompact = uiResolution === '1024x768';
+  const sidebarExpanded = isCompact || (!isSidebarCollapsed || isSidebarHovered);
+
+  const userInitial = user?.fullName?.charAt(0)?.toUpperCase() || 'U';
+  const roleLabel   = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User';
+
+  return (
+    <div className={`min-h-screen flex res-${uiResolution}`} style={{ backgroundColor: 'var(--color-bg, #f0f4fa)' }}>
+
+      {/* ══════════════════════════════════
+          Desktop Sidebar
+      ══════════════════════════════════ */}
+      <aside
+        ref={sidebarRef}
+        onMouseEnter={() => { setIsSidebarHovered(true); if (!isPinned) setIsSidebarCollapsed(false); }}
+        onMouseLeave={() => { setIsSidebarHovered(false); if (!isPinned) setIsSidebarCollapsed(true); }}
+        className={`
+          sidebar-shell hidden md:flex flex-col
+          bg-sidebar-bg border-r border-sidebar-border
+          transition-all duration-300 ease-in-out
+          ${sidebarExpanded ? 'w-60' : 'w-[68px]'}
+          fixed left-0 top-0 bottom-0 z-40
+        `}
+        style={{ boxShadow: shadows.sidebar }}
+      >
+        {/* Logo */}
+        <div className={`flex items-center border-b border-sidebar-border flex-shrink-0 ${
+          isCompact 
+            ? 'h-24 flex-col justify-center px-2' 
+            : (sidebarExpanded ? 'h-16 px-4 justify-between' : 'h-16 justify-center px-2')
+        }`}>
+          {isCompact ? (
+            <Link to="/dashboard" className="flex flex-col items-center space-y-1.5">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-white/15 shadow-sm">
+                <img src="icon.png" alt="Logo" className="w-9 h-9 object-contain" onError={e => (e.currentTarget.style.display='none')} />
+              </div>
+              <div className="text-center px-1">
+                <p className="text-white text-[11px] font-bold leading-tight truncate max-w-[140px]" style={{ fontFamily: fonts.display }}>
+                  {APP_BRAND_POS_LINE}
+                </p>
+                <p className="text-sidebar-muted text-[8px] uppercase tracking-tighter">Point of Sale</p>
+              </div>
+            </Link>
+          ) : sidebarExpanded ? (
+            <>
+              <Link to="/dashboard" className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden bg-white/10">
+                  <img src="icon.png" alt="Logo" className="w-6 h-6 object-contain" onError={e => (e.currentTarget.style.display='none')} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white text-sm font-semibold leading-tight truncate" style={{ fontFamily: fonts.display }}>
+                    {APP_BRAND_POS_LINE}
+                  </p>
+                  <p className="text-sidebar-muted text-[10px] leading-tight">Point of Sale</p>
+                </div>
+              </Link>
+              {/* Pin button */}
+              <button
+                onClick={handleTogglePin}
+                aria-pressed={isPinned}
+                title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+                className={`ml-2 w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${isPinned ? 'text-accent-400 bg-white/10' : 'text-sidebar-muted hover:text-white hover:bg-white/10'}`}
+              >
+                {isPinned ? <PinIconSolid className="w-4 h-4" /> : <PinIcon className="w-4 h-4" />}
+              </button>
+            </>
+          ) : (
+            <Link to="/dashboard">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden bg-white/10">
+                <img src="icon.png" alt="Logo" className="w-6 h-6 object-contain" onError={e => (e.currentTarget.style.display='none')} />
+              </div>
+            </Link>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 sidebar-dark">
+          {filteredNavItems.map(item => (
+            <NavItem 
+              key={item.path} 
+              item={item} 
+              active={isActive(item.path)} 
+              sidebarExpanded={sidebarExpanded}
+              isCompact={isCompact}
+            />
+          ))}
+        </nav>
+
+        {/* User section */}
+        <div className="border-t border-sidebar-border p-3 flex-shrink-0">
+          {sidebarExpanded ? (
+            <div className="space-y-3">
+              {/* User info */}
+              <div className="flex items-center space-x-3">
+                <div className="relative flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-accent-500 flex items-center justify-center text-white font-bold text-sm">
+                    {userInitial}
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-success-400 border-2 border-sidebar-bg rounded-full" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">{user?.fullName || 'User'}</p>
+                  <p className="text-sidebar-muted text-xs truncate">{roleLabel}</p>
+                </div>
+              </div>
+              {/* Profile Analytics Link */}
+              {showAnalyticsTab && (
+                <Link
+                  to="/profile/analytics"
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-secondary-300 hover:text-white hover:bg-secondary-900/30 rounded-lg transition-colors border border-secondary-900/20 hover:border-secondary-700/40"
+                >
+                  <ChartPieIcon className="w-4 h-4" />
+                  <span>{t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Profile Analytics' : t('nav.profile_analytics')}</span>
+                </Link>
+              )}
+              {/* Logout */}
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-red-300 hover:text-white hover:bg-red-900/30 rounded-lg transition-colors border border-red-900/20 hover:border-red-700/40"
+              >
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                <span>{t('nav.sign_out')}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center space-y-2">
+              <div className="w-8 h-8 rounded-full bg-accent-500 flex items-center justify-center text-white font-bold text-xs">
+                {userInitial}
+              </div>
+              {showAnalyticsTab && (
+                <Link to="/profile/analytics" title="Profile Analytics" className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary-400 hover:text-white hover:bg-secondary-900/30 transition-colors">
+                  <ChartPieIcon className="w-4 h-4" />
+                </Link>
+              )}
+              <button onClick={handleLogout} title="Sign out" className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:text-white hover:bg-red-900/30 transition-colors">
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* ══════════════════════════════════
+          Main Content
+      ══════════════════════════════════ */}
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarExpanded ? 'md:ml-60' : 'md:ml-[68px]'}`}>
+
+        {/* Mobile top bar: the menu button lives in the page flow so it never covers page headers */}
+        <div
+          className="sidebar-shell md:hidden sticky top-0 z-40 flex items-center gap-2 min-h-[48px] px-2 bg-sidebar-bg text-white shadow-md"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-lg text-white"
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
+          </button>
+          <span className="text-sm font-semibold tracking-wide truncate">Chapter One</span>
+        </div>
+
+        <LicenseBanner />
+        <TrialBanner />
+
+        {/* Low disk space warning — surfaced early, before it can block a checkout */}
+        {lowDiskSpace && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center space-x-2">
+            <ExclamationTriangleIcon className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-red-800">
+              Low disk space on this device — the offline sales queue may stop working. Please free up space or contact IT.
+            </span>
+          </div>
+        )}
+
+        {/* Offline sync indicator */}
+        {pendingCount > 0 && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {isOnline ? (
+                <>
+                  <CloudArrowUpIcon className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">
+                    {isSyncing ? `Syncing ${pendingCount} pending sale${pendingCount > 1 ? 's' : ''}…` : `${pendingCount} sale${pendingCount > 1 ? 's' : ''} pending sync`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <WifiIcon className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">Offline — {pendingCount} sale{pendingCount > 1 ? 's' : ''} queued</span>
+                </>
+              )}
+            </div>
+            {isOnline && !isSyncing && (
+              <button onClick={syncPendingSales} className="text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2">
+                Sync Now
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Page content */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 overflow-auto">
+          <PageErrorBoundary>
+            <div style={{ pointerEvents: isViewOnly ? 'none' : undefined }}
+                 className={isViewOnly ? 'select-none opacity-60' : ''}>
+              {children}
+            </div>
+          </PageErrorBoundary>
+        </main>
+      </div>
+
+      {/* ══════════════════════════════════
+          Mobile Sidebar Overlay
+      ══════════════════════════════════ */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
+          <div
+            ref={sidebarRef}
+            className="sidebar-shell fixed top-0 left-0 bottom-0 w-64 flex flex-col overflow-y-auto"
+            style={{ background: 'var(--sidebar-bg, #0f1c2e)', boxShadow: shadows.sidebarMobile, animation: 'slideInLeft 0.25s ease-out' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border flex-shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
+                  <img src="icon.png" alt="Logo" className="w-6 h-6 object-contain" onError={e => (e.currentTarget.style.display='none')} />
+                </div>
+                <p className="text-white text-sm font-semibold" style={{ fontFamily: fonts.display }}>{APP_BRAND_POS_LINE}</p>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="w-7 h-7 rounded-md flex items-center justify-center text-sidebar-muted hover:text-white hover:bg-white/10 transition-colors">
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Nav */}
+            <nav className="flex-1 px-2 py-3 space-y-0.5 sidebar-dark overflow-y-auto">
+              {filteredNavItems.map(item => (
+                <NavItem 
+                  key={item.path} 
+                  item={item} 
+                  active={isActive(item.path)} 
+                  sidebarExpanded={true}
+                  isCompact={false}
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                />
+              ))}
+            </nav>
+
+            {/* Footer */}
+            <div className="border-t border-sidebar-border p-3 flex-shrink-0 space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-full bg-accent-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {userInitial}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">{user?.fullName || 'User'}</p>
+                  <p className="text-sidebar-muted text-xs truncate">{roleLabel}</p>
+                </div>
+              </div>
+              {showAnalyticsTab && (
+                <Link
+                  to="/profile/analytics"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-secondary-300 hover:text-white hover:bg-secondary-900/30 rounded-lg transition-colors border border-secondary-900/20"
+                >
+                  <ChartPieIcon className="w-4 h-4" />
+                  <span>{t('nav.profile_analytics') === 'nav.profile_analytics' ? 'Profile Analytics' : t('nav.profile_analytics')}</span>
+                </Link>
+              )}
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-xs font-medium text-red-300 hover:text-white hover:bg-red-900/30 rounded-lg transition-colors border border-red-900/20"
+              >
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                <span>{t('nav.sign_out')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to   { transform: translateX(0);     opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}

@@ -1,0 +1,300 @@
+import api from './api';
+import { Product } from './productService';
+import { offlineQueue } from './offlineQueue';
+import { logger } from '../utils/logger';
+
+/**
+ * Custom error for offline operations
+ */
+export class OfflineError extends Error {
+  constructor(
+    message: string,
+    public queueId: string
+  ) {
+    super(message);
+    this.name = 'OfflineError';
+  }
+}
+
+/**
+ * Check if an error is a network error (offline)
+ */
+function isNetworkError(error: any): boolean {
+  if (!error) return false;
+
+  // Network errors
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return true;
+  if (error.message?.includes('Network Error')) return true;
+  if (error.message?.includes('Failed to fetch')) return true;
+
+  // No response from server (offline)
+  if (!error.response && error.request) return true;
+
+  return false;
+}
+
+export type PaymentMethod = 'cash' | 'card' | 'voucher' | 'other';
+
+export interface CartItem {
+  product: Product;
+  qty: number;
+  unit_price: number;
+  tax_rate?: number;
+  line_total: number;
+  is_return?: boolean;
+}
+
+export interface SalePayment {
+  sale_payment_id: string;
+  sale_id: string;
+  method: PaymentMethod;
+  amount: number;
+}
+
+export interface CreateSalePayment {
+  method: PaymentMethod;
+  amount: number;
+}
+
+export type RestaurantOrderType = 'dine_in' | 'takeaway' | 'delivery';
+
+export interface RestaurantContextInput {
+  order_type?: RestaurantOrderType;
+  table_number?: number;
+  guest_count?: number;
+  waiter_name?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  delivery_address?: string;
+  seated_at: string;
+  checkout_at: string;
+  service_fee_enabled: boolean;
+  service_fee_rate: number;
+  service_fee_amount: number;
+  subtotal_before_service: number;
+  notes?: string;
+}
+
+export interface CreateSaleData {
+  customer_id?: string;
+  client_sale_id?: string; // Unique client-side sale ID for conflict resolution
+  discount_rate?: number; // Discount percentage (0-100)
+  delivery_charge?: number;
+  /** Exact LBP grand total shown to the cashier at checkout (see items[].lbp_price) */
+  grand_total_lbp?: number | null;
+  items: {
+    product_id: string;
+    qty: number;
+    unit_price: number;
+    tax_rate?: number;
+    is_return?: boolean;
+    /** Exact LBP unit price snapshotted from the product at time of sale */
+    lbp_price?: number | null;
+  }[];
+  payments: CreateSalePayment[];
+  restaurant_context?: RestaurantContextInput;
+}
+
+export interface UpdateSaleData {
+  customer_id?: string;
+  discount_rate?: number;
+  items?: {
+    product_id: string;
+    qty: number;
+    unit_price: number;
+    tax_rate?: number;
+    is_return?: boolean;
+  }[];
+  payments?: {
+    method: PaymentMethod;
+    amount: number;
+  }[];
+}
+
+export interface Sale {
+  sale_id: string;
+  store_id: string;
+  terminal_id: string;
+  cashier_id: string;
+  customer_id?: string;
+  receipt_no: string;
+  subtotal: number;
+  tax_total: number;
+  discount_total: number;
+  discount_rate?: number;
+  delivery_charge?: number;
+  grand_total: number;
+  grand_total_lbp?: number | null;
+  paid_total: number;
+  status: string;
+  created_at: string;
+  items: SaleItem[];
+  payments: SalePayment[];
+  customer?: {
+    customer_id: string;
+    full_name?: string;
+    phone?: string;
+  };
+  store_name?: string;
+  terminal_name?: string;
+  cashier_name?: string;
+  // Present only for restaurant checkouts
+  restaurant_service_fee_enabled?: boolean;
+  restaurant_service_fee_rate?: number;
+  restaurant_service_fee_amount?: number;
+  restaurant_subtotal_before_service?: number;
+  restaurant_notes?: string | null;
+  restaurant_order_type?: RestaurantOrderType;
+  restaurant_table_number?: number | null;
+  restaurant_guest_count?: number | null;
+  restaurant_waiter_name?: string | null;
+  restaurant_customer_name?: string | null;
+  restaurant_customer_phone?: string | null;
+  restaurant_delivery_address?: string | null;
+  restaurant_seated_at?: string;
+  restaurant_closed_at?: string;
+}
+
+export interface SaleFilters {
+  search?: string;
+  status?: 'open' | 'paid' | 'void' | 'cancelled';
+  customer_id?: string;
+  store_id?: string;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface SaleItem {
+  sale_item_id: string;
+  sale_id: string;
+  product_id: string;
+  product_name?: string;
+  qty: number;
+  unit_price: number;
+  lbp_price?: number | null;
+  tax_rate: number;
+  line_total: number;
+  is_return?: boolean;
+}
+
+export const saleService = {
+  // Get all sales with filters
+  async getSales(filters: SaleFilters = {}, signal?: AbortSignal): Promise<{ data: Sale[]; pagination: any }> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+
+    const response = await api.get<{ success: boolean; data: Sale[]; pagination: any }>(
+      `/sales?${params.toString()}`,
+      { signal }
+    );
+    return {
+      data: response.data.data,
+      pagination: response.data.pagination,
+    };
+  },
+
+  /**
+   * Generate a unique client-side sale ID (UUID v4)
+   */
+  generateClientSaleId(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  },
+
+  // Create sale with offline queue support
+  async createSale(data: CreateSaleData, clientSaleId?: string): Promise<Sale> {
+    // Generate client sale ID if not provided
+    const saleId = clientSaleId || data.client_sale_id || this.generateClientSaleId();
+
+    // Include client sale ID in request
+    const saleDataWithId = {
+      ...data,
+      client_sale_id: saleId,
+    };
+
+    try {
+      const response = await api.post<{ success: boolean; data: Sale }>(
+        '/sales',
+        saleDataWithId
+      );
+      return response.data.data;
+    } catch (error: any) {
+      // If network error, queue for offline sync with client sale ID
+      if (isNetworkError(error)) {
+        logger.warn('Network error detected, queueing sale for offline sync', error);
+        try {
+          const queueId = await offlineQueue.enqueueSale(data, saleId);
+          throw new OfflineError('Sale queued for offline sync. It will be synced when connection is restored.', queueId);
+        } catch (queueError: any) {
+          if (queueError instanceof OfflineError) {
+            throw queueError;
+          }
+          // The offline queue itself is unavailable (corrupted store, full
+          // disk, etc.) — this sale is neither sent nor safely queued. Never
+          // let the raw IndexedDB/browser exception reach the cashier; log
+          // the real cause for diagnosis and surface one clear, actionable
+          // message instead.
+          logger.error('Offline queue unavailable — sale could not be saved locally', {
+            error: queueError?.message || String(queueError),
+            saleId,
+          });
+          throw new Error(
+            'No connection, and this sale could not be saved locally either. Note the amount and items, then retry once your connection or device storage is restored.'
+          );
+        }
+      }
+      // Re-throw other errors
+      throw error;
+    }
+  },
+
+  // Get sale by ID
+  async getSaleById(id: string): Promise<Sale> {
+    const response = await api.get<{ success: boolean; data: Sale }>(
+      `/sales/${id}`
+    );
+    return response.data.data;
+  },
+
+  // Update sale
+  async updateSale(id: string, data: UpdateSaleData): Promise<Sale> {
+    const response = await api.put<{ success: boolean; data: Sale }>(
+      `/sales/${id}`,
+      data
+    );
+    return response.data.data;
+  },
+
+  // Cancel sale
+  async cancelSale(id: string): Promise<Sale> {
+    const response = await api.put<{ success: boolean; data: Sale }>(
+      `/sales/${id}/cancel`
+    );
+    return response.data.data;
+  },
+
+  // Delete sale (admin only)
+  async deleteSale(id: string): Promise<void> {
+    await api.delete(`/sales/${id}`);
+  },
+};
+
+
+
+
+
+
+
+
+
+
+

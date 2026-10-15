@@ -1,0 +1,647 @@
+import { BaseModel, PaginatedResult } from './BaseModel';
+
+export interface SalesSummary {
+  date: string;
+  total_sales: number;
+  total_revenue: number;
+  total_tax: number;
+  transaction_count: number;
+}
+
+export interface ProductSalesReport {
+  product_id: string;
+  product_name: string;
+  total_quantity: number;
+  total_revenue: number;
+  sale_count: number;
+}
+
+export interface CustomerSalesReport {
+  customer_id: string;
+  customer_name: string;
+  total_orders: number;
+  total_spent: number;
+  last_order_date: string;
+}
+
+export interface PaymentMethodReport {
+  method: string;
+  transaction_count: number;
+  total_amount: number;
+}
+
+export interface PurchaseSummary {
+  date: string;
+  total_purchases: number;
+  total_cost: number;
+  po_count: number;
+}
+
+export interface SupplierPurchaseReport {
+  supplier_id: string;
+  supplier_name: string;
+  total_orders: number;
+  total_cost: number;
+  last_order_date: string;
+}
+
+export interface StockReport {
+  product_id: string;
+  product_name: string;
+  qty_on_hand: number;
+  track_inventory: boolean;
+}
+
+export interface LowStockReport {
+  product_id: string;
+  product_name: string;
+  qty_on_hand: number;
+  min_threshold?: number;
+}
+
+export interface RecentSale {
+  sale_id: string;
+  receipt_no: string;
+  customer_name: string;
+  grand_total: number;
+  status: 'open' | 'paid' | 'void' | 'refunded';
+  created_at: string;
+  item_count: number;
+  payment_method: string;
+}
+
+/** Aggregated profit for a period: sales revenue minus COGS (qty × current product list_price). */
+export interface ProfitReport {
+  total_sales: number;
+  total_cogs: number;
+  total_profit: number;
+}
+
+export interface ReportFilters {
+  start_date?: string;
+  end_date?: string;
+  store_id?: string;
+  limit?: number;
+}
+
+// Reporting safeguards constants
+const MAX_REPORT_LIMIT = 10000;
+const MAX_DATE_RANGE_DAYS = 365;
+const DEFAULT_REPORT_LIMIT = 1000;
+
+export class ReportModel extends BaseModel {
+  /**
+   * Validate and sanitize report filters
+   * Enforces maximum limits and date ranges to prevent memory exhaustion
+   */
+  private static validateReportFilters(filters: ReportFilters): ReportFilters {
+    const validated = { ...filters };
+
+    // Enforce maximum limit
+    if (validated.limit && validated.limit > MAX_REPORT_LIMIT) {
+      throw new Error(`Limit cannot exceed ${MAX_REPORT_LIMIT} records. Please use pagination for larger datasets.`);
+    }
+
+    // Set default limit if not specified
+    if (!validated.limit) {
+      validated.limit = DEFAULT_REPORT_LIMIT;
+    }
+
+    // Validate date range
+    if (validated.start_date && validated.end_date) {
+      const startDate = new Date(validated.start_date);
+      const endDate = new Date(validated.end_date);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Invalid date format. Use YYYY-MM-DD format.');
+      }
+
+      if (startDate > endDate) {
+        throw new Error('Start date cannot be after end date.');
+      }
+
+      const daysDiff = Math.ceil(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (daysDiff > MAX_DATE_RANGE_DAYS) {
+        throw new Error(
+          `Date range cannot exceed ${MAX_DATE_RANGE_DAYS} days (${Math.ceil(MAX_DATE_RANGE_DAYS / 30)} months). ` +
+          `Please use a smaller date range or use pagination.`
+        );
+      }
+    }
+
+    return validated;
+  }
+
+  private static roundMoney(n: number): number {
+    return Math.round(n * 100) / 100;
+  }
+
+  /**
+   * Profit report: sum of paid sales grand totals vs sum of (qty × list_price) on lines.
+   * Two separate queries so grand_total is not duplicated per line item.
+   */
+  static async getProfitReport(filters: ReportFilters = {}): Promise<ProfitReport> {
+    const validatedFilters = this.validateReportFilters(filters);
+
+    let qSales = `
+      SELECT COALESCE(SUM(grand_total), 0)::numeric AS total_sales
+      FROM sales
+      WHERE status = 'paid'
+    `;
+    const paramsSales: unknown[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      qSales += ` AND created_date >= $${paramCount}`;
+      paramsSales.push(validatedFilters.start_date);
+    }
+    if (validatedFilters.end_date) {
+      paramCount++;
+      qSales += ` AND created_date <= $${paramCount}`;
+      paramsSales.push(validatedFilters.end_date);
+    }
+    if (validatedFilters.store_id) {
+      paramCount++;
+      qSales += ` AND store_id = $${paramCount}`;
+      paramsSales.push(validatedFilters.store_id);
+    }
+
+    let qCogs = `
+      SELECT COALESCE(SUM(si.qty * COALESCE(p.list_price, 0)), 0)::numeric AS total_cogs
+      FROM sale_items si
+      INNER JOIN sales s ON s.sale_id = si.sale_id
+      INNER JOIN products p ON p.product_id = si.product_id
+      WHERE s.status = 'paid'
+    `;
+    const paramsCogs: unknown[] = [];
+    paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      qCogs += ` AND s.created_date >= $${paramCount}`;
+      paramsCogs.push(validatedFilters.start_date);
+    }
+    if (validatedFilters.end_date) {
+      paramCount++;
+      qCogs += ` AND s.created_date <= $${paramCount}`;
+      paramsCogs.push(validatedFilters.end_date);
+    }
+    if (validatedFilters.store_id) {
+      paramCount++;
+      qCogs += ` AND s.store_id = $${paramCount}`;
+      paramsCogs.push(validatedFilters.store_id);
+    }
+
+    const [salesRes, cogsRes] = await Promise.all([
+      this.query<{ total_sales: string }>(qSales, paramsSales, 60000),
+      this.query<{ total_cogs: string }>(qCogs, paramsCogs, 60000),
+    ]);
+
+    const total_sales = this.roundMoney(Number(salesRes.rows[0]?.total_sales ?? 0));
+    const total_cogs = this.roundMoney(Number(cogsRes.rows[0]?.total_cogs ?? 0));
+    const total_profit = this.roundMoney(total_sales - total_cogs);
+
+    return { total_sales, total_cogs, total_profit };
+  }
+
+  // Sales Summary Report
+  static async getSalesSummary(filters: ReportFilters = {}): Promise<SalesSummary[]> {
+    const validatedFilters = this.validateReportFilters(filters);
+    let query = `
+      SELECT 
+        created_date as date,
+        COUNT(*) as transaction_count,
+        SUM(grand_total) as total_revenue,
+        SUM(tax_total) as total_tax,
+        COUNT(DISTINCT sale_id) as total_sales
+      FROM sales
+      WHERE status = 'paid'
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      query += ` AND created_date >= $${paramCount}`;
+      params.push(validatedFilters.start_date);
+    }
+
+    if (validatedFilters.end_date) {
+      paramCount++;
+      query += ` AND created_date <= $${paramCount}`;
+      params.push(validatedFilters.end_date);
+    }
+
+    if (validatedFilters.store_id) {
+      paramCount++;
+      query += ` AND store_id = $${paramCount}`;
+      params.push(validatedFilters.store_id);
+    }
+
+    query += ` GROUP BY created_date ORDER BY date DESC`;
+
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<SalesSummary>(query, params, 60000);
+    return result.rows;
+  }
+
+  // Product Sales Report
+  static async getProductSales(filters: ReportFilters = {}): Promise<ProductSalesReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
+    let query = `
+      SELECT 
+        p.product_id,
+        p.name as product_name,
+        SUM(si.qty) as total_quantity,
+        SUM(si.line_total) as total_revenue,
+        COUNT(DISTINCT si.sale_id) as sale_count
+      FROM sale_items si
+      INNER JOIN products p ON p.product_id = si.product_id
+      INNER JOIN sales s ON s.sale_id = si.sale_id
+      WHERE s.status = 'paid'
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      query += ` AND s.created_date >= $${paramCount}`;
+      params.push(validatedFilters.start_date);
+    }
+
+    if (validatedFilters.end_date) {
+      paramCount++;
+      query += ` AND s.created_date <= $${paramCount}`;
+      params.push(validatedFilters.end_date);
+    }
+
+    if (validatedFilters.store_id) {
+      paramCount++;
+      query += ` AND s.store_id = $${paramCount}`;
+      params.push(validatedFilters.store_id);
+    }
+
+    query += ` 
+      GROUP BY p.product_id, p.name
+      ORDER BY total_revenue DESC
+    `;
+
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<ProductSalesReport>(query, params, 60000);
+    return result.rows;
+  }
+
+  // Customer Sales Report
+  static async getCustomerSales(filters: ReportFilters = {}): Promise<CustomerSalesReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
+    let query = `
+      SELECT 
+        c.customer_id,
+        c.full_name as customer_name,
+        COUNT(DISTINCT s.sale_id) as total_orders,
+        SUM(s.grand_total) as total_spent,
+        MAX(s.created_at) as last_order_date
+      FROM sales s
+      INNER JOIN customers c ON c.customer_id = s.customer_id
+      WHERE s.status = 'paid'
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      query += ` AND s.created_date >= $${paramCount}`;
+      params.push(validatedFilters.start_date);
+    }
+
+    if (validatedFilters.end_date) {
+      paramCount++;
+      query += ` AND s.created_date <= $${paramCount}`;
+      params.push(validatedFilters.end_date);
+    }
+
+    if (validatedFilters.store_id) {
+      paramCount++;
+      query += ` AND s.store_id = $${paramCount}`;
+      params.push(validatedFilters.store_id);
+    }
+
+    query += ` 
+      GROUP BY c.customer_id, c.full_name
+      ORDER BY total_spent DESC
+    `;
+
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<CustomerSalesReport>(query, params, 60000);
+    return result.rows;
+  }
+
+  // Payment Method Report
+  static async getPaymentMethodReport(filters: ReportFilters = {}): Promise<PaymentMethodReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
+    let query = `
+      SELECT 
+        sp.method,
+        COUNT(DISTINCT sp.sale_id) as transaction_count,
+        SUM(sp.amount) as total_amount
+      FROM sale_payments sp
+      INNER JOIN sales s ON s.sale_id = sp.sale_id
+      WHERE s.status = 'paid'
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      query += ` AND s.created_date >= $${paramCount}`;
+      params.push(validatedFilters.start_date);
+    }
+
+    if (validatedFilters.end_date) {
+      paramCount++;
+      query += ` AND s.created_date <= $${paramCount}`;
+      params.push(validatedFilters.end_date);
+    }
+
+    if (validatedFilters.store_id) {
+      paramCount++;
+      query += ` AND s.store_id = $${paramCount}`;
+      params.push(validatedFilters.store_id);
+    }
+
+    query += ` 
+      GROUP BY sp.method
+      ORDER BY total_amount DESC
+    `;
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<PaymentMethodReport>(query, params, 60000);
+    return result.rows;
+  }
+
+  // Purchase Summary Report
+  static async getPurchaseSummary(filters: ReportFilters = {}): Promise<PurchaseSummary[]> {
+    const validatedFilters = this.validateReportFilters(filters);
+    let query = `
+      SELECT 
+        po.ordered_at::date as date,
+        COUNT(DISTINCT po.po_id) as po_count,
+        COALESCE(SUM(poi.qty_ordered * poi.unit_cost), 0) as total_cost,
+        COUNT(DISTINCT po.po_id) as total_purchases
+      FROM purchase_orders po
+      LEFT JOIN purchase_order_items poi ON poi.po_id = po.po_id
+      WHERE po.status = 'RECEIVED'
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      query += ` AND po.ordered_at::date >= $${paramCount}`;
+      params.push(validatedFilters.start_date);
+    }
+
+    if (validatedFilters.end_date) {
+      paramCount++;
+      query += ` AND po.ordered_at::date <= $${paramCount}`;
+      params.push(validatedFilters.end_date);
+    }
+
+    if (validatedFilters.store_id) {
+      paramCount++;
+      query += ` AND po.store_id = $${paramCount}`;
+      params.push(validatedFilters.store_id);
+    }
+
+    query += ` GROUP BY po.ordered_at::date ORDER BY date DESC`;
+
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<PurchaseSummary>(query, params, 60000);
+    return result.rows;
+  }
+
+  // Supplier Purchase Report
+  static async getSupplierPurchases(filters: ReportFilters = {}): Promise<SupplierPurchaseReport[]> {
+    const validatedFilters = this.validateReportFilters(filters);
+    let query = `
+      SELECT 
+        s.supplier_id,
+        s.name as supplier_name,
+        COUNT(DISTINCT po.po_id) as total_orders,
+        SUM(poi.qty_ordered * poi.unit_cost) as total_cost,
+        MAX(po.ordered_at) as last_order_date
+      FROM purchase_orders po
+      INNER JOIN suppliers s ON s.supplier_id = po.supplier_id
+      INNER JOIN purchase_order_items poi ON poi.po_id = po.po_id
+      WHERE po.status = 'RECEIVED'
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (validatedFilters.start_date) {
+      paramCount++;
+      query += ` AND po.ordered_at::date >= $${paramCount}`;
+      params.push(validatedFilters.start_date);
+    }
+
+    if (validatedFilters.end_date) {
+      paramCount++;
+      query += ` AND po.ordered_at::date <= $${paramCount}`;
+      params.push(validatedFilters.end_date);
+    }
+
+    if (validatedFilters.store_id) {
+      paramCount++;
+      query += ` AND po.store_id = $${paramCount}`;
+      params.push(validatedFilters.store_id);
+    }
+
+    query += ` 
+      GROUP BY s.supplier_id, s.name
+      ORDER BY total_cost DESC
+    `;
+
+    // Always apply limit (default or specified)
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(validatedFilters.limit);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<SupplierPurchaseReport>(query, params, 60000);
+    return result.rows;
+  }
+
+  // Stock Report with pagination
+  static async getStockReport(
+    storeId?: string,
+    search?: string,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResult<StockReport>> {
+    const { page: pageNum, limit: limitNum, offset } = this.getPaginationParams(page, limit || 1000);
+    
+    // Enforce max limit
+    const maxLimit = 1000;
+    const actualLimit = Math.min(limitNum, maxLimit);
+    
+    let query = `
+      SELECT 
+        p.product_id,
+        p.name as product_name,
+        COALESCE(sb.qty_on_hand, 0) as qty_on_hand,
+        p.track_inventory
+      FROM products p
+      LEFT JOIN stock_balances sb ON sb.product_id = p.product_id
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (storeId) {
+      paramCount++;
+      query += ` WHERE (sb.store_id = $${paramCount} OR sb.store_id IS NULL)`;
+      params.push(storeId);
+    }
+
+    if (search) {
+      paramCount++;
+      query += storeId ? ` AND` : ` WHERE`;
+      query += ` p.name ILIKE $${paramCount}`;
+      params.push(`%${search}%`);
+    }
+
+    // Get total count
+    const countQuery = this.buildCountQuery(query);
+    const countResult = await this.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Add pagination
+    query += ` ORDER BY p.name`;
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(actualLimit);
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
+    params.push(offset);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<StockReport>(query, params, 60000);
+    return this.buildPaginatedResult(result.rows, total, pageNum, actualLimit);
+  }
+
+  // Low Stock Report with pagination
+  static async getLowStockReport(
+    storeId?: string,
+    threshold: number = 10,
+    search?: string,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResult<LowStockReport>> {
+    const { page: pageNum, limit: limitNum, offset } = this.getPaginationParams(page, limit || 1000);
+    
+    // Enforce max limit
+    const maxLimit = 1000;
+    const actualLimit = Math.min(limitNum, maxLimit);
+    
+    let query = `
+      SELECT 
+        p.product_id,
+        p.name as product_name,
+        COALESCE(sb.qty_on_hand, 0) as qty_on_hand,
+        ${threshold} as min_threshold
+      FROM products p
+      LEFT JOIN stock_balances sb ON sb.product_id = p.product_id
+      WHERE p.track_inventory = true
+    `;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (storeId) {
+      paramCount++;
+      query += ` AND (sb.store_id = $${paramCount} OR sb.store_id IS NULL)`;
+      params.push(storeId);
+    }
+
+    if (search) {
+      paramCount++;
+      query += ` AND p.name ILIKE $${paramCount}`;
+      params.push(`%${search}%`);
+    }
+
+    paramCount++;
+    query += ` AND COALESCE(sb.qty_on_hand, 0) <= $${paramCount}`;
+    params.push(threshold);
+
+    // Get total count
+    const countQuery = this.buildCountQuery(query);
+    const countResult = await this.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Add pagination
+    query += ` ORDER BY qty_on_hand ASC`;
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(actualLimit);
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
+    params.push(offset);
+
+    // Apply 60-second timeout for report queries
+    const result = await this.query<LowStockReport>(query, params, 60000);
+    return this.buildPaginatedResult(result.rows, total, pageNum, actualLimit);
+  }
+
+  // Lightweight recent-sales list for the mobile companion dashboard --
+  // deliberately not the heavier SaleModel.findAll (no item/payment line
+  // detail, just enough for a summary row per sale).
+  static async getRecentSales(storeId: string, limit: number = 20): Promise<RecentSale[]> {
+    const query = `
+      SELECT
+        s.sale_id,
+        s.receipt_no,
+        COALESCE(c.full_name, 'Walk-in Customer') as customer_name,
+        s.grand_total,
+        s.status,
+        s.created_at,
+        COALESCE(item_counts.item_count, 0) as item_count,
+        COALESCE(payment_methods.methods, '—') as payment_method
+      FROM sales s
+      LEFT JOIN customers c ON c.customer_id = s.customer_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) as item_count FROM sale_items si WHERE si.sale_id = s.sale_id
+      ) item_counts ON true
+      LEFT JOIN LATERAL (
+        SELECT STRING_AGG(DISTINCT INITCAP(method::text), ', ') as methods FROM sale_payments sp WHERE sp.sale_id = s.sale_id
+      ) payment_methods ON true
+      WHERE s.store_id = $1
+      ORDER BY s.created_at DESC
+      LIMIT $2
+    `;
+    const result = await this.query<RecentSale>(query, [storeId, limit], 60000);
+    return result.rows;
+  }
+}
+

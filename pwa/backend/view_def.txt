@@ -1,0 +1,9 @@
+ SELECT p.product_id,
+    p.name,
+    p.sku,
+    p.barcode,
+    p.product_type,
+    sb.store_id,
+    COALESCE(sb.qty_on_hand::bigint, 0::bigint) AS qty_on_hand
+   FROM products p
+     LEFT JOIN stock_balances sb ON sb.product_id = p.product_id;

@@ -1,0 +1,1452 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import { createPortal } from 'react-dom';
+import Receipt from '../components/Receipt';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import { saleService, Sale, SaleFilters } from '../services/saleService';
+import { customerService, Customer } from '../services/customerService';
+import { logger } from '../utils/logger';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Modal from '../components/ui/Modal';
+import Input from '../components/ui/Input';
+import Badge from '../components/ui/Badge';
+import EmptyState from '../components/ui/EmptyState';
+import PageBanner from '../components/ui/PageBanner';
+import {
+  DocumentTextIcon,
+  ClipboardDocumentListIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  EyeIcon,
+  UserGroupIcon,
+  XMarkIcon,
+  PencilIcon,
+  PlusIcon,
+  MinusIcon,
+  PrinterIcon,
+  XCircleIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+import { productService, Product } from '../services/productService';
+import { storeService, StoreSettings } from '../services/storeService';
+import { useAuthStore } from '../store/authStore';
+import { useTranslation } from '../i18n/I18nContext';
+
+export default function SalesManagement() {
+  const { user } = useAuthStore();
+  const { t, language } = useTranslation();
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<SaleFilters>({
+    page: 1,
+    limit: 20,
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [editPayments, setEditPayments] = useState<any[]>([]);
+  const [editDiscountRate, setEditDiscountRate] = useState(0);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [productResults, setProductResults] = useState<Product[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showEditPrintPreview, setShowEditPrintPreview] = useState(false);
+  const [saleToCancel, setSaleToCancel] = useState<Sale | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const salesAbortController = useRef<AbortController | null>(null);
+  const customerSearchAbortController = useRef<AbortController | null>(null);
+  const productSearchAbortController = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (salesAbortController.current) {
+        salesAbortController.current.abort();
+      }
+      if (customerSearchAbortController.current) {
+        customerSearchAbortController.current.abort();
+      }
+      if (productSearchAbortController.current) {
+        productSearchAbortController.current.abort();
+      }
+      debouncedCustomerSearch.cancel();
+      debouncedProductSearch.cancel();
+    };
+  }, []);
+
+  const loadSales = useCallback(async () => {
+    // Cancel previous request
+    if (salesAbortController.current) {
+      salesAbortController.current.abort();
+    }
+
+    // Create new controller
+    salesAbortController.current = new AbortController();
+    const signal = salesAbortController.current.signal;
+
+    try {
+      setLoading(true);
+      const response = await saleService.getSales(filters, signal);
+
+      // Check if request was cancelled
+      if (signal.aborted) return;
+
+      setSales(response.data);
+      setPagination(response.pagination);
+    } catch (err: any) {
+      // Don't show error if request was cancelled
+      if (err.name === 'AbortError' || err.name === 'CanceledError' || signal.aborted) {
+        return;
+      }
+      toast.error(err.response?.data?.error?.message || t('sales_management.errors.load_sales'));
+      logger.error('Error loading sales:', err);
+    } finally {
+      if (!signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [filters, t]);
+
+  // Load sales when filters change
+  useEffect(() => {
+    loadSales();
+  }, [loadSales]);
+
+  // Debounced search to reduce API calls
+  const debouncedSearch = useDebouncedCallback((search: string) => {
+    setFilters(prev => ({ ...prev, search, page: 1 }));
+  }, 300);
+
+  const handleSearch = (search: string) => {
+    setSearchQuery(search);
+    debouncedSearch(search);
+  };
+
+  const handleFilterChange = (key: keyof SaleFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Search customers
+  const performCustomerSearch = async (query: string) => {
+    if (!query.trim()) {
+      setCustomerResults([]);
+      return;
+    }
+
+    // Cancel previous request
+    if (customerSearchAbortController.current) {
+      customerSearchAbortController.current.abort();
+    }
+
+    customerSearchAbortController.current = new AbortController();
+    const signal = customerSearchAbortController.current.signal;
+
+    try {
+      const response = await customerService.getCustomers({ search: query, limit: 10 }, signal);
+      if (!signal.aborted) {
+        setCustomerResults(response.data);
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
+      logger.error('Error searching customers:', err);
+    }
+  };
+
+  const debouncedCustomerSearch = useDebouncedCallback((query: string) => {
+    performCustomerSearch(query);
+  }, 300);
+
+  const handleCustomerSearch = (query: string) => {
+    setCustomerSearch(query);
+    if (!query.trim()) {
+      setCustomerResults([]);
+      debouncedCustomerSearch.cancel();
+      if (customerSearchAbortController.current) {
+        customerSearchAbortController.current.abort();
+      }
+      return;
+    }
+    debouncedCustomerSearch(query);
+  };
+
+  const selectCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    handleFilterChange('customer_id', customer.customer_id);
+    setCustomerSearch('');
+    setCustomerResults([]);
+  };
+
+  const clearCustomerFilter = () => {
+    setSelectedCustomer(null);
+    handleFilterChange('customer_id', undefined);
+  };
+
+  const viewSaleDetails = async (sale: Sale) => {
+    try {
+      const fullSale = await saleService.getSaleById(sale.sale_id);
+      setSelectedSale(fullSale);
+      setShowDetailsModal(true);
+
+      // Load store settings for printing
+      if (fullSale.store_id) {
+        try {
+          const settings = await storeService.getStoreSettings(fullSale.store_id);
+          logger.info('Store settings loaded for view:', { name: settings.name, code: settings.code, settings });
+          setStoreSettings(settings);
+        } catch (err) {
+          logger.error('Error loading store settings:', err);
+        }
+      }
+    } catch (err: any) {
+      toast.error(t('sales_management.errors.load_sale_details'));
+      logger.error('Error loading sale details:', err);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return <Badge variant="success" size="sm">{t('sales_management.status.paid')}</Badge>;
+      case 'cancelled':
+        return <Badge variant="error" size="sm">{t('sales_management.status.cancelled')}</Badge>;
+      case 'void':
+        return <Badge variant="error" size="sm">{t('sales_management.status.void')}</Badge>;
+      case 'open':
+        return <Badge variant="warning" size="sm">{t('sales_management.status.open')}</Badge>;
+      default:
+        return <Badge variant="primary" size="sm">{status === 'cancelled' ? t('sales_management.status.cancelled') : status}</Badge>;
+    }
+  };
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'cash':
+        return t('sales_management.payment.cash');
+      case 'card':
+        return t('sales_management.payment.card');
+      case 'voucher':
+        return t('sales_management.payment.voucher');
+      case 'other':
+        return t('sales_management.payment.other');
+      default:
+        return method;
+    }
+  };
+
+  // Print receipt
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const openEditModal = async (sale: Sale) => {
+    try {
+      const fullSale = await saleService.getSaleById(sale.sale_id);
+      setEditingSale(fullSale);
+      setEditItems(fullSale.items.map(item => ({
+        ...item,
+        product: null,
+      })));
+      setEditPayments(fullSale.payments);
+      setEditDiscountRate(fullSale.discount_rate || 0);
+      // Convert sale customer to full Customer object
+      setEditCustomer(fullSale.customer ? {
+        ...fullSale.customer,
+        email: undefined,
+        created_at: '',
+        updated_at: '',
+      } as Customer : null);
+      setShowEditModal(true);
+
+      // Load store settings for printing
+      if (fullSale.store_id) {
+        try {
+          const settings = await storeService.getStoreSettings(fullSale.store_id);
+          logger.info('Store settings loaded for edit:', { name: settings.name, code: settings.code, settings });
+          setStoreSettings(settings);
+        } catch (err) {
+          logger.error('Error loading store settings:', err);
+        }
+      }
+    } catch (err: any) {
+      toast.error(t('sales_management.errors.load_sale_edit'));
+      logger.error('Error loading sale:', err);
+    }
+  };
+
+  const performProductSearch = async (query: string) => {
+    if (!query.trim()) {
+      setProductResults([]);
+      return;
+    }
+
+    // Cancel previous request
+    if (productSearchAbortController.current) {
+      productSearchAbortController.current.abort();
+    }
+
+    productSearchAbortController.current = new AbortController();
+    const signal = productSearchAbortController.current.signal;
+
+    try {
+      const response = await productService.getProducts({ search: query, limit: 10 }, signal);
+      if (!signal.aborted) {
+        setProductResults(response.data);
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
+      logger.error('Error searching products:', err);
+    }
+  };
+
+  const debouncedProductSearch = useDebouncedCallback((query: string) => {
+    performProductSearch(query);
+  }, 300);
+
+  const handleProductSearch = (query: string) => {
+    // Note: State update for input value is handled by caller or state binding
+    if (!query.trim()) {
+      setProductResults([]);
+      debouncedProductSearch.cancel();
+      if (productSearchAbortController.current) {
+        productSearchAbortController.current.abort();
+      }
+      return;
+    }
+    debouncedProductSearch(query);
+  };
+
+  const addProductToEdit = (product: Product) => {
+    const price = Number(product.sale_price || product.list_price || 0);
+    const taxRate = Number(product.tax_rate || 0);
+    setEditItems([...editItems, {
+      product_id: product.product_id,
+      product_name: product.name,
+      qty: 1,
+      unit_price: price,
+      tax_rate: taxRate,
+      line_total: price * (1 + taxRate / 100),
+      product: product,
+    }]);
+    setProductSearch('');
+    setProductResults([]);
+  };
+
+  const removeItemFromEdit = (index: number) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  const updateItemQuantity = (index: number, qty: number) => {
+    if (qty <= 0) {
+      removeItemFromEdit(index);
+      return;
+    }
+    const newItems = [...editItems];
+    const item = newItems[index];
+    item.qty = qty;
+    const gross = item.qty * item.unit_price * (1 + (item.tax_rate || 0) / 100);
+    item.line_total = item.is_return ? -gross : gross;
+    setEditItems(newItems);
+  };
+
+  const addPayment = () => {
+    setEditPayments([...editPayments, { method: 'cash', amount: 0 }]);
+  };
+
+  const removePayment = (index: number) => {
+    setEditPayments(editPayments.filter((_, i) => i !== index));
+  };
+
+  const calculateEditTotals = () => {
+    // Use stored line_total directly — it is already negative for return items.
+    // Fall back to computing qty*price if line_total is missing (e.g. newly-added rows).
+    const subtotal = editItems.reduce((sum, item) => {
+      if (item.line_total != null) return sum + Number(item.line_total);
+      const sign = item.is_return ? -1 : 1;
+      return sum + sign * (item.qty * item.unit_price);
+    }, 0);
+    const taxTotal = editItems.reduce((sum, item) => {
+      const sign = item.is_return ? -1 : 1;
+      const lineNet = item.qty * item.unit_price;
+      return sum + sign * (lineNet * ((item.tax_rate || 0) / 100));
+    }, 0);
+    const discountAmount = editDiscountRate > 0
+      ? (subtotal + taxTotal) * (editDiscountRate / 100)
+      : 0;
+    // Restaurant service fee follows the merchandise total at the rate stored at checkout
+    // (mirrors the backend recalculation on save).
+    const serviceFeeAmount = editingSale?.restaurant_service_fee_enabled
+      ? (subtotal + taxTotal - discountAmount) * (Number(editingSale.restaurant_service_fee_rate || 0) / 100)
+      : 0;
+    const grandTotal = subtotal + taxTotal - discountAmount + serviceFeeAmount;
+    const paidTotal = editPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    return { subtotal, taxTotal, discountAmount, serviceFeeAmount, grandTotal, paidTotal };
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSale) return;
+
+    const { grandTotal, paidTotal } = calculateEditTotals();
+    if (grandTotal > 0 && paidTotal < grandTotal - 0.01) {
+      toast.error(t('sales_management.errors.payment_insufficient'));
+      return;
+    }
+
+    if (editItems.length === 0) {
+      toast.error(t('sales_management.errors.sale_needs_item'));
+      return;
+    }
+
+    if (editPayments.length === 0) {
+      toast.error(t('sales_management.errors.sale_needs_payment'));
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await saleService.updateSale(editingSale.sale_id, {
+        customer_id: editCustomer?.customer_id,
+        discount_rate: editDiscountRate,
+        items: editItems.map(item => ({
+          product_id: item.product_id,
+          qty: item.qty,
+          unit_price: item.unit_price,
+          tax_rate: item.tax_rate || 0,
+          is_return: item.is_return || false,
+        })),
+        payments: editPayments.map(p => ({
+          method: p.method,
+          amount: p.amount,
+        })),
+      });
+      toast.success(t('sales_management.success.sale_updated'));
+      setShowEditModal(false);
+      setEditingSale(null);
+      setEditItems([]);
+      setEditPayments([]);
+      setEditCustomer(null);
+      loadSales();
+    } catch (err: any) {
+      if (err.isTimeout || err.message?.includes('timeout')) {
+        toast.error(t('sales_management.errors.timeout'));
+      } else {
+        toast.error(err.response?.data?.error?.message || t('sales_management.errors.update_sale'));
+      }
+      logger.error('Error updating sale:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelSale = async () => {
+    if (!saleToCancel) return;
+    
+    try {
+      setCancelling(true);
+      await saleService.cancelSale(saleToCancel.sale_id);
+      toast.success(t('sales_management.success.sale_cancelled'));
+      setSaleToCancel(null);
+      loadSales();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || t('sales_management.errors.cancel_sale'));
+      logger.error('Error cancelling sale:', err);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleDeleteSale = async () => {
+    if (!saleToDelete) return;
+    try {
+      setDeleting(true);
+      await saleService.deleteSale(saleToDelete.sale_id);
+      toast.success(t('sales_management.success.sale_deleted'));
+      setSaleToDelete(null);
+      loadSales();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || t('sales_management.errors.delete_sale'));
+      logger.error('Error deleting sale:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <PageBanner
+        title={t('sales_management.title')}
+        subtitle={t('sales_management.subtitle')}
+        icon={<ClipboardDocumentListIcon className="w-5 h-5 text-white" />}
+        action={
+          <Button
+            onClick={() => setShowFilters(!showFilters)}
+            size="sm"
+            className="bg-white/20 hover:bg-white/30 text-white border border-white/30 font-semibold"
+            leftIcon={<FunnelIcon className="w-4 h-4" />}
+          >
+            {t('sales_management.filters.title')}
+          </Button>
+        }
+      />
+
+      {/* Filters */}
+      {showFilters && (
+        <Card className="mb-4 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                {t('sales_management.filters.search_label')}
+              </label>
+              <Input
+                type="text"
+                placeholder={t('sales_management.filters.search_placeholder')}
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                {t('sales_management.filters.status_label')}
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-500 focus:border-secondary-500"
+                value={filters.status || ''}
+                onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
+              >
+                <option value="">{t('sales_management.filters.all_status')}</option>
+                <option value="paid">{t('sales_management.status.paid')}</option>
+                <option value="open">{t('sales_management.status.open')}</option>
+                <option value="void">{t('sales_management.status.void')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                {t('sales_management.filters.start_date')}
+              </label>
+              <Input
+                type="date"
+                value={filters.start_date || ''}
+                onChange={(e) => handleFilterChange('start_date', e.target.value || undefined)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                {t('sales_management.filters.end_date')}
+              </label>
+              <Input
+                type="date"
+                value={filters.end_date || ''}
+                onChange={(e) => handleFilterChange('end_date', e.target.value || undefined)}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                {t('sales_management.filters.customer')}
+              </label>
+              <div className="relative">
+                {selectedCustomer ? (
+                  <div className="flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                    <span className="text-sm">{selectedCustomer.full_name || t('sales_management.common.not_available')}</span>
+                    <button
+                      onClick={clearCustomerFilter}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      type="text"
+                      placeholder={t('sales_management.filters.search_customer_placeholder')}
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        handleCustomerSearch(e.target.value);
+                      }}
+                      leftIcon={<UserGroupIcon className="w-4 h-4" />}
+                    />
+                    {customerResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {customerResults.map((customer) => (
+                          <button
+                            key={customer.customer_id}
+                            onClick={() => selectCustomer(customer)}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+                          >
+                             {customer.full_name || t('sales_management.common.not_available')}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Sales Table */}
+      <Card>
+        {loading ? (
+          <TableSkeleton rows={5} columns={7} />
+        ) : sales.length === 0 ? (
+            <EmptyState
+              icon={<DocumentTextIcon className="w-12 h-12" />}
+              title={t('sales_management.empty.title')}
+              description={t('sales_management.empty.description')}
+            />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.receipt_no')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.date')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.customer')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.items')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.total')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.payment')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.status')}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t('sales_management.table.actions')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {sales.map((sale) => (
+                    <tr key={sale.sale_id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                        {sale.receipt_no}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {formatDate(sale.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {sale.customer?.full_name || t('sales_management.common.walk_in')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {t('sales_management.table.items_count', { count: sale.items.length })}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                        {formatCurrency(sale.grand_total)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {sale.payments.map(p => getPaymentMethodLabel(p.method)).join(', ')}
+                      </td>
+                      <td className="px-4 py-3">
+                        {getStatusBadge(sale.status)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            title={t('sales_management.actions.view')}
+                            aria-label={t('sales_management.actions.view')}
+                            onClick={() => viewSaleDetails(sale)}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                          >
+                            <EyeIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            title={t('sales_management.actions.edit')}
+                            aria-label={t('sales_management.actions.edit')}
+                            onClick={() => openEditModal(sale)}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          {sale.status !== 'cancelled' && sale.status !== 'void' && (
+                            <button
+                              title={t('sales_management.actions.cancel')}
+                              aria-label={t('sales_management.actions.cancel')}
+                              onClick={() => setSaleToCancel(sale)}
+                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                            >
+                              <XCircleIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                          {user?.role === 'admin' && (
+                            <button
+                              title={t('sales_management.actions.delete')}
+                              aria-label={t('sales_management.actions.delete')}
+                              onClick={() => setSaleToDelete(sale)}
+                              className="p-1.5 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {t('sales_management.pagination.showing')} {((pagination.page - 1) * pagination.limit) + 1} {t('sales_management.pagination.to')}{' '}
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} {t('sales_management.pagination.of')}{' '}
+                  {pagination.total} {t('sales_management.pagination.sales')}
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                  >
+                    {t('sales_management.pagination.previous')}
+                  </Button>
+                  <span className="px-3 py-1 text-sm text-gray-600">
+                    {t('sales_management.pagination.page')} {pagination.page} {t('sales_management.pagination.of')} {pagination.totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === pagination.totalPages}
+                  >
+                    {t('sales_management.pagination.next')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* Sale Details Modal */}
+      {showDetailsModal && selectedSale && (
+        <Modal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedSale(null);
+            setShowPrintPreview(false);
+          }}
+          title={showPrintPreview ? t('sales_management.print.preview_title', { receiptNo: selectedSale.receipt_no }) : t('sales_management.details.title', { receiptNo: selectedSale.receipt_no })}
+          size="lg"
+          footer={
+            <div className="flex gap-3 print:hidden">
+              {!showPrintPreview ? (
+                <>
+                  <Button
+                    onClick={() => setShowPrintPreview(true)}
+                    className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    {t('sales_management.actions.print_preview')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setSelectedSale(null);
+                      setShowPrintPreview(false);
+                    }}
+                  >
+                    {t('sales_management.actions.close')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handlePrint}
+                    className="flex-1 bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    {t('sales_management.actions.print')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPrintPreview(false)}
+                  >
+                    {t('sales_management.actions.back')}
+                  </Button>
+                </>
+              )}
+            </div>
+          }
+        >
+          {!showPrintPreview ? (
+            // Original View Content
+            <div className="space-y-6">
+              {/* Sale Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.table.date')}</label>
+                  <p className="text-sm font-medium text-gray-900">{formatDate(selectedSale.created_at)}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.table.status')}</label>
+                  <div className="mt-1">{getStatusBadge(selectedSale.status)}</div>
+                </div>
+                {selectedSale.customer && (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.table.customer')}</label>
+                      <p className="text-sm font-medium text-gray-900">{selectedSale.customer.full_name || t('sales_management.common.not_available')}</p>
+                    </div>
+                    {selectedSale.customer.phone && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.details.phone')}</label>
+                        <p className="text-sm font-medium text-gray-900">{selectedSale.customer.phone}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+                {selectedSale.cashier_name && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase">{t('sales_management.details.cashier')}</label>
+                    <p className="text-sm font-medium text-gray-900">{selectedSale.cashier_name}</p>
+                  </div>
+                )}
+                {(selectedSale.restaurant_order_type === 'takeaway' || selectedSale.restaurant_order_type === 'delivery') ? (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.order_type')}</label>
+                      <p className="text-sm font-medium text-gray-900">
+                        {t(selectedSale.restaurant_order_type === 'delivery' ? 'restaurant_pos.delivery' : 'restaurant_pos.walk_in')}
+                        {selectedSale.restaurant_customer_name ? ` · ${selectedSale.restaurant_customer_name}` : ''}
+                        {selectedSale.restaurant_customer_phone ? ` · ${selectedSale.restaurant_customer_phone}` : ''}
+                      </p>
+                    </div>
+                    {selectedSale.restaurant_order_type === 'delivery' && selectedSale.restaurant_delivery_address && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.address')}</label>
+                        <p className="text-sm font-medium text-gray-900">{selectedSale.restaurant_delivery_address}</p>
+                      </div>
+                    )}
+                  </>
+                ) : selectedSale.restaurant_table_number != null && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase">{t('receipt.table')}</label>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedSale.restaurant_table_number}
+                      {storeSettings?.restaurant_track_guests_per_table && selectedSale.restaurant_guest_count != null
+                        ? ` · ${selectedSale.restaurant_guest_count} ${t('receipt.guests')}`
+                        : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Items */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">{t('sales_management.table.items')}</label>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{t('sales_management.edit.product')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">{t('sales_management.edit.qty')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">{t('sales_management.edit.price')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">{t('sales_management.edit.total')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {selectedSale.items.map((item) => (
+                        <tr key={item.sale_item_id}>
+                          <td className="px-3 py-2 text-sm text-gray-900">
+                            {item.product_name || t('sales_management.details.product_id_fallback', { id: item.product_id.substring(0, 8) })}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-right text-gray-600">{item.qty}</td>
+                          <td className="px-3 py-2 text-sm text-right text-gray-600">{formatCurrency(item.unit_price)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(item.line_total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{t('sales_management.totals.subtotal')}</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(selectedSale.subtotal)}</span>
+                  </div>
+                  {selectedSale.tax_total > 0 && (
+                    <div className="flex justify-between text-sm">
+                       <span className="text-gray-600">{t('sales_management.totals.tax')}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(selectedSale.tax_total)}</span>
+                    </div>
+                  )}
+                  {selectedSale.discount_total > 0 && (
+                    <div className="flex justify-between text-sm">
+                       <span className="text-gray-600">{t('sales_management.totals.discount')}</span>
+                      <span className="font-medium text-gray-900">-{formatCurrency(selectedSale.discount_total)}</span>
+                    </div>
+                  )}
+                  {Number(selectedSale.delivery_charge || 0) > 0 && (() => {
+                    const inDrawer = storeSettings?.include_delivery_in_drawer !== false;
+                    return (
+                      <div className="flex justify-between text-sm items-center">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          Delivery
+                          {!inDrawer && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 leading-none">
+                              Not in drawer
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-medium text-gray-900">{formatCurrency(Number(selectedSale.delivery_charge))}</span>
+                      </div>
+                    );
+                  })()}
+                  {Number(selectedSale.restaurant_service_fee_amount || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t('receipt.service_fee', { rate: Number(selectedSale.restaurant_service_fee_rate || 0) })}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(Number(selectedSale.restaurant_service_fee_amount))}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
+                     <span>{t('sales_management.totals.grand_total')}</span>
+                    <span>{formatCurrency(selectedSale.grand_total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payments */}
+              {selectedSale.payments.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">{t('sales_management.edit.payments')}</label>
+                  <div className="space-y-2">
+                    {selectedSale.payments.map((payment) => (
+                      <div key={payment.sale_payment_id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                        <span className="text-gray-600">{getPaymentMethodLabel(payment.method)}</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(payment.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Print Preview
+            <div className="h-[600px] overflow-y-auto bg-gray-100 p-4 rounded-lg">
+              <Receipt
+                settings={storeSettings}
+                sale={selectedSale}
+                customer={selectedSale.customer as any}
+                items={selectedSale.items as any}
+              />
+              {showPrintPreview && createPortal(
+                <div className="hidden print:block fixed inset-0 z-[9999] bg-white print-portal-container">
+                  <style>{`
+                       @media print {
+                         @page { size: auto; margin: 0; }
+                         body { margin: 0; padding: 0; }
+                         body > * { display: none !important; }
+                         body > .print-portal-container { display: block !important; }
+                         .print-portal-container { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+                       }
+                     `}</style>
+                  <Receipt
+                    settings={storeSettings}
+                    sale={selectedSale}
+                    customer={selectedSale.customer as any}
+                    items={selectedSale.items as any}
+                  />
+                </div>,
+                document.body
+              )}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Edit Sale Modal */}
+      {showEditModal && editingSale && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingSale(null);
+            setEditItems([]);
+            setEditPayments([]);
+            setEditCustomer(null);
+            setShowEditPrintPreview(false);
+          }}
+          title={showEditPrintPreview ? t('sales_management.print.preview_title', { receiptNo: editingSale.receipt_no }) : t('sales_management.edit.title', { receiptNo: editingSale.receipt_no })}
+          size="xl"
+          footer={
+            <div className="flex justify-end gap-3 print:hidden">
+              {!showEditPrintPreview ? (
+                <>
+                  <Button
+                    onClick={() => setShowEditPrintPreview(true)}
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    {t('sales_management.actions.print_preview')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingSale(null);
+                      setEditItems([]);
+                      setEditPayments([]);
+                      setEditCustomer(null);
+                      setShowEditPrintPreview(false);
+                    }}
+                    disabled={submitting}
+                  >
+                    {t('sales_management.actions.cancel')}
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    isLoading={submitting}
+                  >
+                    {t('sales_management.actions.save_changes')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handlePrint}
+                    className="bg-secondary-500 hover:bg-secondary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                    leftIcon={<PrinterIcon className="w-5 h-5" />}
+                  >
+                    {t('sales_management.actions.print')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEditPrintPreview(false)}
+                  >
+                    {t('sales_management.actions.back')}
+                  </Button>
+                </>
+              )}
+            </div>
+          }
+        >
+          {!showEditPrintPreview ? (
+            // Editable Form
+            <div className="space-y-4">
+              {/* Customer Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('sales_management.table.customer')}</label>
+                {editCustomer ? (
+                  <div className="flex items-center justify-between p-2 border border-gray-300 rounded-lg bg-gray-50">
+                    <span>{editCustomer.full_name}</span>
+                    <button onClick={() => setEditCustomer(null)}>
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <Input
+                    type="text"
+                    placeholder={t('sales_management.filters.search_customer_placeholder')}
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      handleCustomerSearch(e.target.value);
+                    }}
+                    leftIcon={<UserGroupIcon className="w-4 h-4" />}
+                  />
+                )}
+                {customerResults.length > 0 && !editCustomer && (
+                  <div className="mt-1 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                    {customerResults.map((customer) => (
+                      <button
+                        key={customer.customer_id}
+                        onClick={() => {
+                          setEditCustomer(customer);
+                          setCustomerSearch('');
+                          setCustomerResults([]);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                      >
+                        {customer.full_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Items */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('sales_management.table.items')}</label>
+
+                {/* Product Search */}
+                <div className="mb-3">
+                  <Input
+                    type="text"
+                    placeholder={t('sales_management.edit.search_products_placeholder')}
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      handleProductSearch(e.target.value);
+                    }}
+                    leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
+                  />
+                  {productResults.length > 0 && (
+                    <div className="mt-1 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                      {productResults.map((product) => (
+                        <button
+                          key={product.product_id}
+                          onClick={() => addProductToEdit(product)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                        >
+                          {product.name} - {formatCurrency(product.sale_price || product.list_price || 0)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Items List */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">{t('sales_management.edit.product')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.edit.qty')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.edit.price')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.edit.total')}</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold">{t('sales_management.table.actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {editItems.map((item, index) => (
+                        <tr key={index}>
+                          <td className="px-3 py-2 text-sm">{item.product_name || t('sales_management.edit.product')}</td>
+                          <td className="px-3 py-2 text-sm text-right">
+                            <div className="inline-flex items-center justify-end gap-0 border border-gray-300 rounded overflow-hidden">
+                              <button
+                                onClick={() => updateItemQuantity(index, item.qty - 1)}
+                                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 border-r border-gray-300"
+                              >
+                                <MinusIcon className="w-3 h-3" />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.qty}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value);
+                                  if (!isNaN(val) && val > 0) {
+                                    updateItemQuantity(index, val);
+                                  }
+                                }}
+                                className="w-12 text-center text-sm py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <button
+                                onClick={() => updateItemQuantity(index, item.qty + 1)}
+                                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 border-l border-gray-300"
+                              >
+                                <PlusIcon className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-sm text-right">{formatCurrency(item.unit_price)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-semibold">
+                            {formatCurrency(item.line_total)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => removeItemFromEdit(index)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <XMarkIcon className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Payments */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('sales_management.edit.payments')}</label>
+                <Button
+                  size="sm"
+                  onClick={addPayment}
+                  leftIcon={<PlusIcon className="w-4 h-4" />}
+                  className="mb-2"
+                >
+                  {t('sales_management.actions.add_payment')}
+                </Button>
+                <div className="space-y-2">
+                  {editPayments.map((payment, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border border-gray-200 rounded-lg">
+                      <select
+                        value={payment.method}
+                        onChange={(e) => {
+                          const newPayments = [...editPayments];
+                          newPayments[index].method = e.target.value;
+                          setEditPayments(newPayments);
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg"
+                      >
+                        <option value="cash">{t('sales_management.payment.cash')}</option>
+                        <option value="card">{t('sales_management.payment.card')}</option>
+                        <option value="voucher">{t('sales_management.payment.voucher')}</option>
+                        <option value="other">{t('sales_management.payment.other')}</option>
+                      </select>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={payment.amount || ''}
+                        onChange={(e) => {
+                          const newPayments = [...editPayments];
+                          newPayments[index].amount = parseFloat(e.target.value) || 0;
+                          setEditPayments(newPayments);
+                        }}
+                        placeholder={t('sales_management.edit.amount_placeholder')}
+                        className="flex-1"
+                      />
+                      <button
+                        onClick={() => removePayment(index)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t pt-4">
+                {(() => {
+                  const { subtotal, taxTotal, discountAmount, serviceFeeAmount, grandTotal, paidTotal } = calculateEditTotals();
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{t('sales_management.totals.subtotal')}</span>
+                        <span>{formatCurrency(subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>{t('sales_management.totals.tax')}</span>
+                        <span>{formatCurrency(taxTotal)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm py-1">
+                        <span>{t('sales_management.totals.discount_pct')}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={editDiscountRate}
+                          onChange={(e) => setEditDiscountRate(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                          className="w-20 px-2 py-1 text-right border border-gray-300 rounded"
+                        />
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-sm text-secondary-600">
+                          <span>{t('sales_management.totals.discount_with_rate', { rate: editDiscountRate })}</span>
+                          <span>-{formatCurrency(discountAmount)}</span>
+                        </div>
+                      )}
+                      {serviceFeeAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>{t('receipt.service_fee', { rate: Number(editingSale.restaurant_service_fee_rate || 0) })}</span>
+                          <span>{formatCurrency(serviceFeeAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-lg font-bold border-t pt-2">
+                        <span>{t('sales_management.totals.grand_total')}</span>
+                        <span>{formatCurrency(grandTotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>{t('sales_management.totals.paid')}</span>
+                        <span>{formatCurrency(paidTotal)}</span>
+                      </div>
+                      {grandTotal > 0 && paidTotal < grandTotal - 0.01 && (
+                        <p className="text-xs text-red-600">{t('sales_management.errors.payment_less_than_total')}</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : (
+            // Print Preview
+            (() => {
+              const { subtotal, taxTotal, discountAmount, serviceFeeAmount, grandTotal } = calculateEditTotals();
+              const previewSale = {
+                ...editingSale,
+                subtotal,
+                tax_total: taxTotal,
+                grand_total: grandTotal,
+                discount_total: discountAmount,
+                discount_rate: editDiscountRate,
+                restaurant_service_fee_amount: serviceFeeAmount,
+                payments: editPayments
+              };
+              return (
+                <div className="h-[600px] overflow-y-auto bg-gray-100 p-4 rounded-lg">
+                  <Receipt
+                    settings={storeSettings}
+                    sale={previewSale}
+                    customer={editCustomer}
+                    items={editItems as any}
+                  />
+                  {showEditPrintPreview && createPortal(
+                    <div className="hidden print:block fixed inset-0 z-[9999] bg-white print-portal-container">
+                      <style>{`
+                                 @media print {
+                                   @page { size: auto; margin: 0; }
+                                   body { margin: 0; padding: 0; }
+                                   body > * { display: none !important; }
+                                   body > .print-portal-container { display: block !important; }
+                                   .print-portal-container { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+                                 }
+                               `}</style>
+                      <Receipt
+                        settings={storeSettings}
+                        sale={previewSale}
+                        customer={editCustomer}
+                        items={editItems as any}
+                      />
+                    </div>,
+                    document.body
+                  )}
+                </div>
+              );
+            })()
+          )}
+        </Modal>
+      )}
+      {/* Cancel Confirmation Modal */}
+      {saleToCancel && (
+        <Modal
+          isOpen={!!saleToCancel}
+          onClose={() => setSaleToCancel(null)}
+          title={t('sales_management.modals.cancel_invoice_title')}
+          size="sm"
+          footer={
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setSaleToCancel(null)}
+                disabled={cancelling}
+              >
+                {t('sales_management.modals.no_keep')}
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
+                onClick={handleCancelSale}
+                isLoading={cancelling}
+              >
+                {t('sales_management.modals.yes_cancel_invoice')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="p-4 text-center">
+            <XCircleIcon className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('sales_management.modals.cancel_invoice_question', { receiptNo: saleToCancel.receipt_no })}</h3>
+            <p className="text-sm text-gray-600">
+              {t('sales_management.modals.cancel_invoice_description')}
+            </p>
+          </div>
+        </Modal>
+      )}
+      {/* Delete Confirmation Modal */}
+      {saleToDelete && (
+        <Modal
+          isOpen={!!saleToDelete}
+          onClose={() => setSaleToDelete(null)}
+          title={t('sales_management.modals.delete_invoice_title')}
+          size="sm"
+          footer={
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setSaleToDelete(null)}
+                disabled={deleting}
+              >
+                {t('sales_management.modals.no_keep')}
+              </Button>
+              <Button
+                className="flex-1 bg-red-700 hover:bg-red-800 text-white font-semibold"
+                onClick={handleDeleteSale}
+                isLoading={deleting}
+              >
+                {t('sales_management.modals.yes_delete_permanently')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="p-4 text-center">
+            <TrashIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('sales_management.modals.delete_invoice_question', { receiptNo: saleToDelete.receipt_no })}</h3>
+            <p className="text-sm text-gray-600">
+              {t('sales_management.modals.delete_invoice_description')}
+            </p>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}

@@ -1,0 +1,597 @@
+import { BaseModel, PaginatedResult } from './BaseModel';
+import { QueryResult } from 'pg';
+import { SaleModel } from './SaleModel';
+
+export interface Product {
+  product_id: string;
+  sku?: string;
+  barcode?: string;
+  plu_code?: number | null;
+  name: string;
+  product_type: string;
+  unit_of_measure: string;
+  list_price?: number;
+  sale_price?: number;
+  margin_pct?: number;
+  lbp_price?: number | null;
+  lbp_list_price?: number | null;
+  tax_rate?: number;
+  track_inventory: boolean;
+  image_url?: string;
+  menu_id?: string | null;
+  menu_category?: string | null;
+  menu_display_order?: number;
+  menu_note?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductWithDetails extends Product {
+  book_id?: string;
+  isbn13?: string;
+  subtitle?: string;
+  publisher_id?: string;
+  publish_year?: number;
+  edition?: string;
+  language?: string;
+  qty_in?: number;      // Sum of qty where reason = 'purchase'
+  qty_out?: number;     // Sum of ABS(qty) where reason = 'sale' (qty is negative)
+  balance?: number;     // qty_in - qty_out
+}
+
+export interface ProductFilters {
+  search?: string;
+  product_type?: string;
+  track_inventory?: boolean;
+  pos_category_only?: boolean;
+  is_active?: boolean;
+  include_inactive?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export class ProductModel extends BaseModel {
+  static async findAll(filters: ProductFilters = {}): Promise<PaginatedResult<ProductWithDetails>> {
+    const { page, limit, offset } = this.getPaginationParams(filters.page, filters.limit);
+
+    // Get default store_id for stock movement aggregation
+    const defaultStore = await SaleModel.getDefaultStore();
+    const storeId = defaultStore?.store_id || null;
+
+    // Use stock_balances (maintained via UPSERT on every sale/purchase) instead of
+    // aggregating stock_movements. This replaces an O(movements) GROUP BY with a single
+    // indexed lookup per product, eliminating the main cause of Products page freeze.
+    let query = `
+      SELECT
+        p.*,
+        pb.book_id,
+        pb.isbn13,
+        pb.subtitle,
+        pb.publisher_id,
+        pb.publish_year,
+        pb.edition,
+        pb.language,
+        p.image_url`;
+
+    if (storeId) {
+      query += `,
+      COALESCE(sb.qty_in,      0)::float as qty_in,
+      COALESCE(sb.qty_out,     0)::float as qty_out,
+      COALESCE(sb.qty_on_hand, 0)::float as balance`;
+    } else {
+      query += `,
+      0::float as qty_in,
+      0::float as qty_out,
+      0::float as balance`;
+    }
+
+    query += `
+      FROM products p
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id`;
+
+    if (storeId) {
+      query += `
+      LEFT JOIN stock_balances sb ON sb.product_id = p.product_id AND sb.store_id = $1`;
+    }
+
+    query += `
+      WHERE 1=1`;
+
+    const params: any[] = [];
+    let paramCount = storeId ? 1 : 0;
+
+    if (storeId) {
+      params.push(storeId);
+    }
+
+    if (filters.search) {
+      const searchTerms = filters.search.trim().split(/\s+/).filter(term => term.length > 0);
+
+      if (searchTerms.length > 0) {
+        query += ` AND (`;
+        const termConditions: string[] = [];
+
+        for (const term of searchTerms) {
+          paramCount++;
+          // For each term, it must match at least one of the fields
+          termConditions.push(`(
+            p.name ILIKE $${paramCount} OR
+            p.sku ILIKE $${paramCount} OR
+            p.barcode ILIKE $${paramCount} OR
+            pb.isbn13 ILIKE $${paramCount}
+          )`);
+          params.push(`%${term}%`);
+        }
+
+        // Combine term conditions with AND (all terms must be present)
+        query += termConditions.join(' AND ');
+        query += `)`;
+      }
+    }
+
+    if (filters.product_type) {
+      paramCount++;
+      query += ` AND p.product_type = $${paramCount}`;
+      params.push(filters.product_type);
+    }
+
+    if (filters.track_inventory !== undefined) {
+      paramCount++;
+      query += ` AND p.track_inventory = $${paramCount}`;
+      params.push(filters.track_inventory);
+    }
+
+    if (filters.pos_category_only) {
+      query += ` AND p.product_type IN (SELECT name FROM product_types WHERE display_on_pos = true)`;
+    }
+
+    if (filters.is_active !== undefined) {
+      paramCount++;
+      query += ` AND p.is_active = $${paramCount}`;
+      params.push(filters.is_active);
+    } else if (!filters.include_inactive) {
+      paramCount++;
+      query += ` AND p.is_active = $${paramCount}`;
+      params.push(true);
+    }
+
+    // No GROUP BY needed — stock_balances is a single row per product+store
+    const countQuery = this.buildCountQuery(query);
+    const countResult = await this.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Add sorting and pagination
+    if (filters.search && filters.search.trim().length > 0) {
+      const searchTerm = filters.search.trim();
+
+      paramCount++;
+      const exactParamIdx = paramCount;
+      params.push(searchTerm);
+
+      paramCount++;
+      const startsWithParamIdx = paramCount;
+      params.push(`${searchTerm}%`);
+
+      // Prioritize: 
+      // 1. Exact Name Match
+      // 2. Exact SKU Match
+      // 3. Exact Barcode Match
+      // 4. Name Starts With
+      query += ` ORDER BY 
+        CASE 
+          WHEN p.name ILIKE $${exactParamIdx} THEN 1
+          WHEN p.sku ILIKE $${exactParamIdx} THEN 2
+          WHEN p.barcode ILIKE $${exactParamIdx} THEN 3
+          WHEN p.name ILIKE $${startsWithParamIdx} THEN 4
+          ELSE 5
+        END ASC, p.created_at DESC`;
+    } else {
+      query += ` ORDER BY p.created_at DESC`;
+    }
+
+    paramCount++;
+    query += ` LIMIT $${paramCount}`;
+    params.push(limit);
+
+    paramCount++;
+    query += ` OFFSET $${paramCount}`;
+    params.push(offset);
+
+    const result = await this.query<ProductWithDetails>(query, params);
+    return this.buildPaginatedResult(result.rows, total, page, limit);
+  }
+
+  static async findById(productId: string): Promise<ProductWithDetails | null> {
+    const query = `
+      SELECT 
+        p.*,
+        pb.book_id,
+        pb.isbn13,
+        pb.subtitle,
+        pb.publisher_id,
+        pb.publish_year,
+        pb.edition,
+        pb.language
+      FROM products p
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id
+      WHERE p.product_id = $1
+    `;
+    const result = await this.query<ProductWithDetails>(query, [productId]);
+    return result.rows[0] || null;
+  }
+
+  static async findByBarcode(barcode: string): Promise<ProductWithDetails | null> {
+    const query = `
+      SELECT 
+        p.*,
+        pb.book_id,
+        pb.isbn13,
+        pb.subtitle,
+        pb.publisher_id,
+        pb.publish_year,
+        pb.edition,
+        pb.language
+      FROM products p
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id
+      WHERE p.barcode = $1
+    `;
+    const result = await this.query<ProductWithDetails>(query, [barcode]);
+    return result.rows[0] || null;
+  }
+
+  static async findByPluCode(pluCode: number): Promise<ProductWithDetails | null> {
+    const query = `
+      SELECT
+        p.*,
+        pb.book_id,
+        pb.isbn13,
+        pb.subtitle,
+        pb.publisher_id,
+        pb.publish_year,
+        pb.edition,
+        pb.language
+      FROM products p
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id
+      WHERE p.plu_code = $1
+    `;
+    const result = await this.query<ProductWithDetails>(query, [pluCode]);
+    return result.rows[0] || null;
+  }
+
+  static async findBySku(sku: string): Promise<ProductWithDetails | null> {
+    const query = `
+      SELECT 
+        p.*,
+        pb.book_id,
+        pb.isbn13,
+        pb.subtitle,
+        pb.publisher_id,
+        pb.publish_year,
+        pb.edition,
+        pb.language
+      FROM products p
+      LEFT JOIN product_books pb ON pb.product_id = p.product_id
+      WHERE p.sku = $1
+    `;
+    const result = await this.query<ProductWithDetails>(query, [sku]);
+    return result.rows[0] || null;
+  }
+
+  static async create(product: Partial<Product>): Promise<Product> {
+    const query = `
+      INSERT INTO products (
+        sku, barcode, plu_code, name, product_type, unit_of_measure, list_price, sale_price, margin_pct,
+        tax_rate, track_inventory, image_url, menu_id, menu_category, menu_display_order, menu_note, lbp_price, lbp_list_price
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      RETURNING *
+    `;
+    const values = [
+      product.sku || null,
+      product.barcode || null,
+      product.plu_code ?? null,
+      product.name,
+      product.product_type || 'OTHER',
+      product.unit_of_measure || 'each',
+      product.list_price || 0,
+      product.sale_price || null,
+      product.margin_pct || null,
+      product.tax_rate || null,
+      product.track_inventory !== undefined ? product.track_inventory : true,
+      product.image_url || null,
+      product.menu_id || null,
+      product.menu_category || null,
+      product.menu_display_order ?? 0,
+      product.menu_note || null,
+      product.lbp_price ?? null,
+      product.lbp_list_price ?? null,
+    ];
+    const result = await this.query<Product>(query, values);
+    return result.rows[0];
+  }
+
+  static async update(productId: string, updates: Partial<Product>): Promise<Product> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 0;
+
+    if (updates.sku !== undefined) {
+      paramCount++;
+      fields.push(`sku = $${paramCount}`);
+      values.push(updates.sku);
+    }
+    if (updates.barcode !== undefined) {
+      paramCount++;
+      fields.push(`barcode = $${paramCount}`);
+      values.push(updates.barcode);
+    }
+    if (updates.plu_code !== undefined) {
+      paramCount++;
+      fields.push(`plu_code = $${paramCount}`);
+      values.push(updates.plu_code);
+    }
+    if (updates.name !== undefined) {
+      paramCount++;
+      fields.push(`name = $${paramCount}`);
+      values.push(updates.name);
+    }
+    if (updates.product_type !== undefined) {
+      paramCount++;
+      fields.push(`product_type = $${paramCount}`);
+      values.push(updates.product_type);
+    }
+    if (updates.list_price !== undefined) {
+      paramCount++;
+      fields.push(`list_price = $${paramCount}`);
+      values.push(updates.list_price);
+    }
+    if (updates.sale_price !== undefined) {
+      paramCount++;
+      fields.push(`sale_price = $${paramCount}`);
+      values.push(updates.sale_price);
+    }
+    if (updates.margin_pct !== undefined) {
+      paramCount++;
+      fields.push(`margin_pct = $${paramCount}`);
+      values.push(updates.margin_pct);
+    }
+    if (updates.tax_rate !== undefined) {
+      paramCount++;
+      fields.push(`tax_rate = $${paramCount}`);
+      values.push(updates.tax_rate);
+    }
+    if (updates.unit_of_measure !== undefined) {
+      paramCount++;
+      fields.push(`unit_of_measure = $${paramCount}`);
+      values.push(updates.unit_of_measure);
+    }
+    if (updates.track_inventory !== undefined) {
+      paramCount++;
+      fields.push(`track_inventory = $${paramCount}`);
+      values.push(updates.track_inventory);
+    }
+    if (updates.image_url !== undefined) {
+      paramCount++;
+      fields.push(`image_url = $${paramCount}`);
+      values.push(updates.image_url);
+    }
+    if (updates.menu_id !== undefined) {
+      paramCount++;
+      fields.push(`menu_id = $${paramCount}`);
+      values.push(updates.menu_id);
+    }
+    if (updates.menu_category !== undefined) {
+      paramCount++;
+      fields.push(`menu_category = $${paramCount}`);
+      values.push(updates.menu_category);
+    }
+    if (updates.menu_display_order !== undefined) {
+      paramCount++;
+      fields.push(`menu_display_order = $${paramCount}`);
+      values.push(updates.menu_display_order);
+    }
+    if (updates.menu_note !== undefined) {
+      paramCount++;
+      fields.push(`menu_note = $${paramCount}`);
+      values.push(updates.menu_note);
+    }
+    if (updates.lbp_price !== undefined) {
+      paramCount++;
+      fields.push(`lbp_price = $${paramCount}`);
+      values.push(updates.lbp_price);
+    }
+    if (updates.lbp_list_price !== undefined) {
+      paramCount++;
+      fields.push(`lbp_list_price = $${paramCount}`);
+      values.push(updates.lbp_list_price);
+    }
+    if (updates.is_active !== undefined) {
+      paramCount++;
+      fields.push(`is_active = $${paramCount}`);
+      values.push(updates.is_active);
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    // Add updated_at without incrementing paramCount since NOW() doesn't use a parameter
+    fields.push(`updated_at = NOW()`);
+
+    paramCount++;
+    values.push(productId);
+
+    const query = `
+      UPDATE products
+      SET ${fields.join(', ')}
+      WHERE product_id = $${paramCount}
+      RETURNING *
+    `;
+    const result = await this.query<Product>(query, values);
+    return result.rows[0];
+  }
+
+  // Check if product has any transactions (sales or purchase orders)
+  static async hasTransactions(productId: string): Promise<boolean> {
+    // Check for sales
+    const salesQuery = `
+      SELECT COUNT(*) FROM sale_items 
+      WHERE product_id = $1
+    `;
+    const salesResult = await this.query(salesQuery, [productId]);
+    const salesCount = parseInt(salesResult.rows[0].count, 10);
+
+    // Check for purchase orders
+    const poQuery = `
+      SELECT COUNT(*) FROM purchase_order_items 
+      WHERE product_id = $1
+    `;
+    const poResult = await this.query(poQuery, [productId]);
+    const poCount = parseInt(poResult.rows[0].count, 10);
+
+    return salesCount > 0 || poCount > 0;
+  }
+
+  static async delete(productId: string): Promise<boolean> {
+    // Check if product has transactions
+    const hasTrans = await this.hasTransactions(productId);
+    if (hasTrans) {
+      throw new Error('Cannot delete product that has existing transactions (sales or purchase orders)');
+    }
+
+    const query = 'DELETE FROM products WHERE product_id = $1';
+    const result = await this.query(query, [productId]);
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  static async bulkCreate(
+    rows: Array<{
+      name: string;
+      sku?: string;
+      barcode?: string;
+      product_type?: string;
+      unit_of_measure?: string;
+      list_price?: number;
+      sale_price?: number;
+      margin_pct?: number;
+      tax_rate?: number;
+      track_inventory?: boolean;
+      image_url?: string;
+    }>
+  ): Promise<{ created: number; skipped: number; errors: string[] }> {
+    const client = await this.getClient();
+
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2; // 1-indexed, +1 for header
+
+        try {
+          if (!row.name || !row.name.trim()) {
+            errors.push(`Row ${rowNum}: name is required`);
+            skipped++;
+            continue;
+          }
+
+          // Auto-create product type if provided and not existing
+          if (row.product_type && row.product_type.trim()) {
+            const typeName = row.product_type.trim().toUpperCase();
+            const typeExists = await client.query(
+              'SELECT id FROM product_types WHERE UPPER(name) = $1',
+              [typeName]
+            );
+            if (typeExists.rows.length === 0) {
+              await client.query(
+                'INSERT INTO product_types (name, display_on_pos) VALUES ($1, false)',
+                [typeName]
+              );
+            }
+            row.product_type = typeName;
+          }
+
+          // Check SKU uniqueness
+          if (row.sku && row.sku.trim()) {
+            const skuCheck = await client.query(
+              'SELECT product_id FROM products WHERE sku = $1',
+              [row.sku.trim()]
+            );
+            if (skuCheck.rows.length > 0) {
+              errors.push(`Row ${rowNum}: SKU "${row.sku}" already exists — skipped`);
+              skipped++;
+              continue;
+            }
+          }
+
+          // Check barcode uniqueness
+          if (row.barcode && row.barcode.trim()) {
+            const bcCheck = await client.query(
+              'SELECT product_id FROM products WHERE barcode = $1',
+              [row.barcode.trim()]
+            );
+            if (bcCheck.rows.length > 0) {
+              errors.push(`Row ${rowNum}: Barcode "${row.barcode}" already exists — skipped`);
+              skipped++;
+              continue;
+            }
+          }
+
+          await client.query(
+            `INSERT INTO products
+               (sku, barcode, name, product_type, unit_of_measure, list_price, sale_price, margin_pct, tax_rate, track_inventory, image_url)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            [
+              row.sku?.trim() || null,
+              row.barcode?.trim() || null,
+              row.name.trim(),
+              row.product_type || 'OTHER',
+              row.unit_of_measure?.trim() || 'each',
+              row.list_price ?? 0,
+              row.sale_price ?? null,
+              row.margin_pct ?? null,
+              row.tax_rate ?? null,
+              row.track_inventory !== undefined ? row.track_inventory : true,
+              row.image_url || null,
+            ]
+          );
+          created++;
+        } catch (rowErr: any) {
+          errors.push(`Row ${rowNum}: ${rowErr.message}`);
+          skipped++;
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return { created, skipped, errors };
+  }
+
+  static async checkBarcodeUnique(barcode: string, excludeProductId?: string): Promise<boolean> {
+    let query = 'SELECT COUNT(*) FROM products WHERE barcode = $1';
+    const params: any[] = [barcode];
+
+    if (excludeProductId) {
+      query += ' AND product_id != $2';
+      params.push(excludeProductId);
+    }
+
+    const result = await this.query(query, params);
+    return parseInt(result.rows[0].count, 10) === 0;
+  }
+}
+
+
+
+
