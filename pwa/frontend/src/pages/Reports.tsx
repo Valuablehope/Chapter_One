@@ -292,11 +292,11 @@ export default function Reports() {
 
         {/* Enhanced Tabs */}
         <div className="border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-          <nav className="flex -mb-px px-3">
+          <nav className="flex -mb-px px-3 overflow-x-auto scrollbar-hide">
             {!isCashier && (
               <button
                 onClick={() => setActiveTab('sales')}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'sales'
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap ${activeTab === 'sales'
                   ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
@@ -308,7 +308,7 @@ export default function Reports() {
             {!isCashier && (
               <button
                 onClick={() => setActiveTab('purchases')}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'purchases'
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap ${activeTab === 'purchases'
                   ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
@@ -320,7 +320,7 @@ export default function Reports() {
             {!isCashier && (
               <button
                 onClick={() => setActiveTab('profit')}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'profit'
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap ${activeTab === 'profit'
                   ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
@@ -331,7 +331,7 @@ export default function Reports() {
             )}
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${activeTab === 'inventory'
+              className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap ${activeTab === 'inventory'
                 ? 'border-secondary-500 text-secondary-600 bg-secondary-50'
                 : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                 }`}

@@ -501,7 +501,7 @@ export default function Admin() {
               <button
                 key={key}
                 onClick={() => handleTabChange(key as AdminTab)}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 ${
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all duration-200 flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap ${
                   activeTab === key
                     ? `border-secondary-500 text-secondary-600 bg-secondary-50`
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'

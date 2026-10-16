@@ -25,7 +25,7 @@ export default function LicenseBanner() {
 
   return (
     <div className="bg-gradient-to-r from-red-900 to-red-800 border-b border-red-700 px-4 py-3 shadow-md">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <LockClosedIcon className="h-5 w-5 text-red-200 flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -45,7 +45,7 @@ export default function LicenseBanner() {
         {isAdmin && (
           <button
             onClick={() => navigate('/admin?tab=license')}
-            className="px-4 py-1.5 text-sm font-medium text-red-900 bg-white hover:bg-red-50 rounded-md transition-colors whitespace-nowrap flex-shrink-0"
+            className="px-4 py-1.5 text-sm font-medium text-red-900 bg-white hover:bg-red-50 rounded-md transition-colors whitespace-nowrap flex-shrink-0 self-start sm:self-auto"
           >
             {isExpired ? 'Renew License' : 'Activate License'}
           </button>

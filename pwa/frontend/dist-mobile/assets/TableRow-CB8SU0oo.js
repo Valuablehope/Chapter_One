@@ -1,0 +1,1 @@
+import{r as t,j as e}from"./mobile-B6vPvnCq.js";import{y as m}from"./main-C4bKrFFK.js";const i=t.memo(({children:r,index:a,className:o,hoverClassName:s="hover:bg-gray-50/50"})=>e.jsx("tr",{className:m("transition-all duration-150 group",a%2===0?"bg-white":"bg-gray-50/50",s,o),children:r}));i.displayName="TableRow";export{i as T};
